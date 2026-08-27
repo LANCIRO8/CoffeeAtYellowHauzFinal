@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { User } from '../../types';
 import { AppStore } from '../../services/store';
-import { Shield, Coffee, KeyRound, Delete, ArrowRight, Sparkles, UserCheck, Users } from 'lucide-react';
+import { Shield, Coffee, KeyRound, Delete, ArrowRight, Sparkles, UserCheck, Users, ChefHat } from 'lucide-react';
 
 interface StaffLoginProps {
   onLoginSuccess: (user: User) => void;
@@ -9,7 +9,7 @@ interface StaffLoginProps {
 
 export const StaffLogin: React.FC<StaffLoginProps> = ({ onLoginSuccess }) => {
   const [pin, setPin] = useState('');
-  const [role, setRole] = useState<'cashier' | 'admin'>('cashier');
+  const [role, setRole] = useState<'cashier' | 'cook' | 'admin'>('cashier');
   const [error, setError] = useState('');
   const [selectedStaffUser, setSelectedStaffUser] = useState<User | null>(null);
 
@@ -17,16 +17,8 @@ export const StaffLogin: React.FC<StaffLoginProps> = ({ onLoginSuccess }) => {
     return AppStore.getUsers();
   }, []);
 
-  const activeCashiers = useMemo(() => {
-    return allUsers.filter((u) => u.role === 'cashier' && u.status === 'active');
-  }, [allUsers]);
-
-  const activeAdmins = useMemo(() => {
-    return allUsers.filter((u) => u.role === 'admin' && u.status === 'active');
-  }, [allUsers]);
-
   const submitWithPin = useCallback(
-    (enteredPin: string, selectedRole: 'cashier' | 'admin', specificUser?: User | null) => {
+    (enteredPin: string, selectedRole: 'cashier' | 'cook' | 'admin', specificUser?: User | null) => {
       const usersList = AppStore.getUsers();
 
       // If a specific staff was clicked/chosen
@@ -36,10 +28,17 @@ export const StaffLogin: React.FC<StaffLoginProps> = ({ onLoginSuccess }) => {
           setError(`Account for ${currentData.fullName} is inactive. Contact the administrator.`);
           return;
         }
-        const userPin = currentData.pin || (currentData.role === 'admin' ? '12345678' : '00000000');
+        const userPin =
+          currentData.pin ||
+          (currentData.role === 'admin'
+            ? '12345678'
+            : currentData.role === 'cook'
+            ? '55667788'
+            : '00000000');
         if (
           enteredPin === userPin ||
           (enteredPin === '00000000' && currentData.role === 'cashier') ||
+          (enteredPin === '55667788' && currentData.role === 'cook') ||
           (enteredPin === '12345678' && currentData.role === 'admin')
         ) {
           AppStore.setActiveStaff(currentData);
@@ -54,7 +53,13 @@ export const StaffLogin: React.FC<StaffLoginProps> = ({ onLoginSuccess }) => {
       // Check matching user by entered PIN and role
       const matchingActiveUser = usersList.find((u) => {
         if (u.status === 'inactive') return false;
-        const userPin = u.pin || (u.role === 'admin' ? '12345678' : '00000000');
+        const userPin =
+          u.pin ||
+          (u.role === 'admin'
+            ? '12345678'
+            : u.role === 'cook'
+            ? '55667788'
+            : '00000000');
         return userPin === enteredPin && u.role === selectedRole;
       });
 
@@ -67,7 +72,13 @@ export const StaffLogin: React.FC<StaffLoginProps> = ({ onLoginSuccess }) => {
       // Fallback check across all active users regardless of tab
       const fallbackUser = usersList.find((u) => {
         if (u.status === 'inactive') return false;
-        const userPin = u.pin || (u.role === 'admin' ? '12345678' : '00000000');
+        const userPin =
+          u.pin ||
+          (u.role === 'admin'
+            ? '12345678'
+            : u.role === 'cook'
+            ? '55667788'
+            : '00000000');
         return userPin === enteredPin;
       });
 
@@ -79,7 +90,13 @@ export const StaffLogin: React.FC<StaffLoginProps> = ({ onLoginSuccess }) => {
 
       // Check if pin matches an inactive user
       const inactiveMatch = usersList.find((u) => {
-        const userPin = u.pin || (u.role === 'admin' ? '12345678' : '00000000');
+        const userPin =
+          u.pin ||
+          (u.role === 'admin'
+            ? '12345678'
+            : u.role === 'cook'
+            ? '55667788'
+            : '00000000');
         return userPin === enteredPin;
       });
 
@@ -143,8 +160,14 @@ export const StaffLogin: React.FC<StaffLoginProps> = ({ onLoginSuccess }) => {
 
   const handleQuickLogin = (targetUser: User) => {
     setSelectedStaffUser(targetUser);
-    setRole(targetUser.role);
-    const targetPin = targetUser.pin || (targetUser.role === 'admin' ? '12345678' : '00000000');
+    setRole(targetUser.role === 'cook' ? 'cook' : targetUser.role === 'admin' ? 'admin' : 'cashier');
+    const targetPin =
+      targetUser.pin ||
+      (targetUser.role === 'admin'
+        ? '12345678'
+        : targetUser.role === 'cook'
+        ? '55667788'
+        : '00000000');
     setPin(targetPin);
     AppStore.setActiveStaff(targetUser);
     onLoginSuccess(targetUser);
@@ -162,12 +185,12 @@ export const StaffLogin: React.FC<StaffLoginProps> = ({ onLoginSuccess }) => {
             Yellow Hauz POS
           </h2>
           <p className="text-xs text-stone-400 mt-0.5">
-            Staff &amp; Admin Terminal Authentication
+            Staff, Kitchen &amp; Admin Terminal Authentication
           </p>
         </div>
 
         {/* Role Switcher */}
-        <div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl bg-stone-800/80 p-1.5 border border-stone-700/60">
+        <div className="mt-5 grid grid-cols-3 gap-1.5 rounded-2xl bg-stone-800/80 p-1.5 border border-stone-700/60">
           <button
             type="button"
             onClick={() => {
@@ -176,15 +199,34 @@ export const StaffLogin: React.FC<StaffLoginProps> = ({ onLoginSuccess }) => {
               setPin('');
               setError('');
             }}
-            className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition cursor-pointer ${
+            className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition cursor-pointer ${
               role === 'cashier'
                 ? 'bg-amber-500 text-stone-950 shadow-md'
                 : 'text-stone-300 hover:text-white'
             }`}
           >
-            <KeyRound className="h-4 w-4" />
-            <span>Cashier Mode</span>
+            <KeyRound className="h-3.5 w-3.5" />
+            <span>Cashier</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setRole('cook');
+              setSelectedStaffUser(null);
+              setPin('');
+              setError('');
+            }}
+            className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition cursor-pointer ${
+              role === 'cook'
+                ? 'bg-amber-500 text-stone-950 shadow-md'
+                : 'text-stone-300 hover:text-white'
+            }`}
+          >
+            <ChefHat className="h-3.5 w-3.5" />
+            <span>Cook</span>
+          </button>
+
           <button
             type="button"
             onClick={() => {
@@ -193,27 +235,31 @@ export const StaffLogin: React.FC<StaffLoginProps> = ({ onLoginSuccess }) => {
               setPin('');
               setError('');
             }}
-            className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition cursor-pointer ${
+            className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition cursor-pointer ${
               role === 'admin'
                 ? 'bg-amber-500 text-stone-950 shadow-md'
                 : 'text-stone-300 hover:text-white'
             }`}
           >
-            <Shield className="h-4 w-4" />
-            <span>Admin Mode</span>
+            <Shield className="h-3.5 w-3.5" />
+            <span>Admin</span>
           </button>
         </div>
 
         {/* Role Scope Description */}
-        <div className="mt-2 text-center">
+        <div className="mt-2 text-center min-h-[36px] flex items-center justify-center">
           <p className="text-[11px] font-medium text-stone-400">
             {role === 'cashier' ? (
               <span className="text-amber-300/90 font-semibold">
-                Cashier Access: POS Register, Floor Plan &amp; Kitchen Tickets
+                Cashier Mode: Register, Floor Plan &amp; Order Queue
+              </span>
+            ) : role === 'cook' ? (
+              <span className="text-orange-300/90 font-semibold">
+                Kitchen Cook Display: Dedicated Tickets with exclusive Start Prep &amp; Complete control
               </span>
             ) : (
               <span className="text-stone-300">
-                Admin Full Access: Dashboard, Reports, Analytics, Inventory &amp; Settings
+                Admin Full Access: Dashboard, Reports, Analytics, Inventory, Staff &amp; Settings
               </span>
             )}
           </p>
@@ -298,41 +344,61 @@ export const StaffLogin: React.FC<StaffLoginProps> = ({ onLoginSuccess }) => {
             <Sparkles className="h-3.5 w-3.5 text-amber-400" />
             <span>Select Staff Profile &amp; Instant Login:</span>
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-32 overflow-y-auto no-scrollbar pr-0.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-36 overflow-y-auto no-scrollbar pr-0.5">
             {allUsers
               .filter((u) => u.status === 'active')
-              .map((u) => (
-                <button
-                  key={u.id}
-                  onClick={() => handleQuickLogin(u)}
-                  className="flex items-center gap-2 rounded-xl bg-stone-800 hover:bg-stone-700/90 p-2 text-left text-xs font-bold text-stone-200 border border-stone-700 hover:border-amber-500/50 transition cursor-pointer"
-                >
-                  <div
-                    className={`grid h-6 w-6 place-items-center rounded-lg text-[10px] font-bold ${
-                      u.role === 'admin'
-                        ? 'bg-purple-900/60 text-purple-300'
-                        : 'bg-amber-500/20 text-amber-300'
-                    }`}
+              .map((u) => {
+                const isCook = u.role === 'cook';
+                const isAdmin = u.role === 'admin';
+                return (
+                  <button
+                    key={`staff-login-${u.id}-${u.username}`}
+                    onClick={() => handleQuickLogin(u)}
+                    className="flex items-center gap-2 rounded-xl bg-stone-800 hover:bg-stone-700/90 p-2 text-left text-xs font-bold text-stone-200 border border-stone-700 hover:border-amber-500/50 transition cursor-pointer"
                   >
-                    {u.role === 'admin' ? (
-                      <Shield className="h-3.5 w-3.5" />
-                    ) : (
-                      <UserCheck className="h-3.5 w-3.5" />
-                    )}
-                  </div>
-                  <div className="truncate flex-1">
-                    <div className="truncate text-stone-100 text-[11px] leading-tight">
-                      {u.fullName}
+                    <div
+                      className={`grid h-6 w-6 place-items-center rounded-lg text-[10px] font-bold ${
+                        isAdmin
+                          ? 'bg-purple-900/60 text-purple-300'
+                          : isCook
+                          ? 'bg-orange-500/20 text-orange-300'
+                          : 'bg-amber-500/20 text-amber-300'
+                      }`}
+                    >
+                      {isAdmin ? (
+                        <Shield className="h-3.5 w-3.5" />
+                      ) : isCook ? (
+                        <ChefHat className="h-3.5 w-3.5" />
+                      ) : (
+                        <UserCheck className="h-3.5 w-3.5" />
+                      )}
                     </div>
-                    <div className="text-[9px] text-stone-400 font-mono">
-                      {u.employeeId} • PIN: {u.pin || (u.role === 'admin' ? '12345678' : '00000000')}
+                    <div className="truncate flex-1">
+                      <div className="truncate text-stone-100 text-[11px] leading-tight flex items-center gap-1">
+                        <span>{u.fullName}</span>
+                        {isCook && (
+                          <span className="text-[9px] text-orange-400 font-normal uppercase">
+                            (Cook)
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[9px] text-stone-400 font-mono">
+                        {u.employeeId} • PIN:{' '}
+                        {u.pin ||
+                          (isAdmin
+                            ? '12345678'
+                            : isCook
+                            ? '55667788'
+                            : '00000000')}
+                      </div>
                     </div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
           </div>
         </div>
       </div>
     </div>
   );
 };
+

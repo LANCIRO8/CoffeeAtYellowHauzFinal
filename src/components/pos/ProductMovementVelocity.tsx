@@ -70,7 +70,7 @@ interface ProductMovementVelocityProps {
   orders: Order[];
   menuItems: MenuItem[];
   categories: Category[];
-  timeRange: 'today' | '7days' | '30days' | 'all';
+  timeRange: 'today' | '7days' | '30days' | 'custom' | 'all';
 }
 
 export const ProductMovementVelocity: React.FC<ProductMovementVelocityProps> = ({

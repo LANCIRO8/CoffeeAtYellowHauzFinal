@@ -24,6 +24,7 @@ import {
   Lock,
   RefreshCw,
   Award,
+  ChefHat,
 } from 'lucide-react';
 
 interface CashierAccountManagerProps {
@@ -41,7 +42,7 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
 
   // Search and Filter State
   const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'all' | 'cashier' | 'admin'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'cashier' | 'cook' | 'admin'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
   // Reveal PIN states
@@ -61,7 +62,7 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
     fullName: '',
     username: '',
     employeeId: '',
-    role: 'cashier' as 'cashier' | 'admin',
+    role: 'cashier' as 'cashier' | 'cook' | 'admin',
     status: 'active' as 'active' | 'inactive',
     pin: '00000000',
     phone: '',
@@ -120,9 +121,10 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
   const stats = useMemo(() => {
     const total = users.length;
     const activeCashiers = users.filter((u) => u.role === 'cashier' && u.status === 'active').length;
+    const activeCooks = users.filter((u) => u.role === 'cook' && u.status === 'active').length;
     const activeAdmins = users.filter((u) => u.role === 'admin' && u.status === 'active').length;
     const inactive = users.filter((u) => u.status === 'inactive').length;
-    return { total, activeCashiers, activeAdmins, inactive };
+    return { total, activeCashiers, activeCooks, activeAdmins, inactive };
   }, [users]);
 
   // Toggle reveal PIN
@@ -415,7 +417,7 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
         <div className="flex flex-wrap items-center gap-2">
           {/* Role Filter */}
           <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-stone-200">
-            {(['all', 'cashier', 'admin'] as const).map((r) => (
+            {(['all', 'cashier', 'cook', 'admin'] as const).map((r) => (
               <button
                 key={r}
                 onClick={() => setRoleFilter(r)}
@@ -425,7 +427,7 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
                     : 'text-stone-600 hover:bg-stone-50'
                 }`}
               >
-                {r === 'all' ? 'All Roles' : r === 'cashier' ? 'Cashiers' : 'Admins'}
+                {r === 'all' ? 'All Roles' : r === 'cashier' ? 'Cashiers' : r === 'cook' ? 'Cooks' : 'Admins'}
               </button>
             ))}
           </div>
@@ -493,7 +495,7 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
 
                   return (
                     <tr
-                      key={user.id}
+                      key={`user-row-${user.id}-${user.username}`}
                       className={`hover:bg-stone-50/70 transition ${
                         isCurrent ? 'bg-amber-50/30' : ''
                       }`}
@@ -533,6 +535,10 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
                         {user.role === 'admin' ? (
                           <span className="inline-flex items-center gap-1 rounded-lg bg-purple-50 border border-purple-200 px-2.5 py-1 text-[11px] font-extrabold text-purple-800">
                             <Shield className="h-3 w-3 text-purple-600" /> Admin
+                          </span>
+                        ) : user.role === 'cook' ? (
+                          <span className="inline-flex items-center gap-1 rounded-lg bg-orange-50 border border-orange-200 px-2.5 py-1 text-[11px] font-extrabold text-orange-800">
+                            <ChefHat className="h-3 w-3 text-orange-600" /> Kitchen Cook
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-1 text-[11px] font-extrabold text-amber-800">
@@ -760,11 +766,15 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
                   <select
                     value={formData.role}
                     onChange={(e) =>
-                      setFormData({ ...formData, role: e.target.value as 'cashier' | 'admin' })
+                      setFormData({
+                        ...formData,
+                        role: e.target.value as 'cashier' | 'cook' | 'admin',
+                      })
                     }
                     className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3.5 py-2 text-xs sm:text-sm font-bold text-stone-900 focus:border-amber-500 focus:outline-none"
                   >
-                    <option value="cashier">Cashier (POS &amp; Orders)</option>
+                    <option value="cashier">Cashier (POS Register &amp; Floor Plan)</option>
+                    <option value="cook">Kitchen Cook (Kitchen Tickets &amp; Food Prep)</option>
                     <option value="admin">Admin (Full System Access)</option>
                   </select>
                 </div>

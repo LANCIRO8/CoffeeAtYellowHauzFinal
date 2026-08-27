@@ -38,7 +38,7 @@ import {
   Area,
 } from 'recharts';
 
-type TimeRange = 'today' | '7days' | '30days' | 'all';
+type TimeRange = 'today' | '7days' | '30days' | 'custom' | 'all';
 
 // Coffee & Warm Yellow Hauz Palette for Charts
 const CATEGORY_COLORS = [
@@ -81,6 +81,9 @@ export const SalesAnalytics: React.FC = () => {
   const [menuItems, setMenuItems] = useState<MenuItem[]>(() => AppStore.getMenuItems());
   const [categories, setCategories] = useState<Category[]>(() => AppStore.getCategories());
   const [timeRange, setTimeRange] = useState<TimeRange>('all');
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const [customStartDate, setCustomStartDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [customEndDate, setCustomEndDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [analyticsSection, setAnalyticsSection] = useState<AnalyticsSection>('all');
   const [activePieTab, setActivePieTab] = useState<'category' | 'payment' | 'orderType' | 'channel'>('category');
 
@@ -119,9 +122,15 @@ export const SalesAnalytics: React.FC = () => {
         const diffDays = (now.getTime() - orderDate.getTime()) / (1000 * 3600 * 24);
         return diffDays <= 30;
       }
+      if (timeRange === 'custom') {
+        const orderTime = orderDate.getTime();
+        const start = new Date(`${customStartDate}T00:00:00`).getTime();
+        const end = new Date(`${customEndDate}T23:59:59.999`).getTime();
+        return orderTime >= start && orderTime <= end;
+      }
       return true;
     });
-  }, [orders, timeRange]);
+  }, [orders, timeRange, customStartDate, customEndDate]);
 
   // Aggregate item sales
   const itemSales = useMemo(() => {
@@ -369,40 +378,64 @@ export const SalesAnalytics: React.FC = () => {
       {/* Header with Time Range Filter */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-stone-200 pb-5">
         <div>
-          <span className="text-xs font-bold uppercase tracking-widest text-amber-700">
-            Executive Insights &amp; Visual Intelligence
-          </span>
           <h2 className="font-display text-2xl font-extrabold text-stone-900">
             Sales &amp; Channel Analytics
           </h2>
-          <p className="text-xs text-stone-500 mt-0.5">
-            Visual breakdown of revenue, category shares, payment methods, and sales trends.
-          </p>
         </div>
 
         {/* Time Range Filter Pills */}
-        <div className="flex items-center gap-1 rounded-2xl bg-white p-1 border border-stone-200 shadow-2xs">
-          {(
-            [
-              { id: 'today', label: 'Today' },
-              { id: '7days', label: '7 Days' },
-              { id: '30days', label: '30 Days' },
-              { id: 'all', label: 'All Time' },
-            ] as { id: TimeRange; label: string }[]
-          ).map((range) => (
-            <button
-              key={range.id}
-              type="button"
-              onClick={() => setTimeRange(range.id)}
-              className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all ${
-                timeRange === range.id
-                  ? 'bg-amber-500 text-stone-950 shadow-xs'
-                  : 'text-stone-500 hover:text-stone-900 hover:bg-stone-50'
-              }`}
-            >
-              {range.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 rounded-2xl bg-white p-1 border border-stone-200 shadow-2xs">
+            {(
+              [
+                { id: 'today', label: 'Today' },
+                { id: '7days', label: '7 Days' },
+                { id: '30days', label: '30 Days' },
+                { id: 'custom', label: 'Custom' },
+                { id: 'all', label: 'All Time' },
+              ] as { id: TimeRange; label: string }[]
+            ).map((range) => (
+              <button
+                key={range.id}
+                type="button"
+                onClick={() => setTimeRange(range.id)}
+                className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all ${
+                  timeRange === range.id
+                    ? 'bg-amber-500 text-stone-950 shadow-xs'
+                    : 'text-stone-500 hover:text-stone-900 hover:bg-stone-50'
+                }`}
+              >
+                {range.label}
+              </button>
+            ))}
+          </div>
+
+          {timeRange === 'custom' && (
+            <div className="flex items-center gap-2 rounded-2xl bg-white px-3 py-1.5 border border-amber-300 shadow-2xs text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="text-stone-400 font-medium">From:</span>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  max={customEndDate || todayStr}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="rounded-lg border border-stone-200 bg-stone-50 px-2 py-1 text-xs font-semibold text-stone-800 focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+              <span className="text-stone-400 font-bold">→</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-stone-400 font-medium">To:</span>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  min={customStartDate}
+                  max={todayStr}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="rounded-lg border border-stone-200 bg-stone-50 px-2 py-1 text-xs font-semibold text-stone-800 focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

@@ -28,7 +28,6 @@ import {
   ClipboardList,
   BarChart3,
   Settings,
-  ShieldCheck,
   Coffee,
   Sparkles,
   ChevronRight,
@@ -286,11 +285,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const cashierMetrics = useMemo(() => {
     const staffMap: Record<
       string,
-      { name: string; role: string; ordersCount: number; salesTotal: number }
+      { id: number; name: string; role: string; ordersCount: number; salesTotal: number }
     > = {};
 
     users.forEach((u) => {
       staffMap[u.id] = {
+        id: u.id,
         name: u.fullName || u.username,
         role: u.role,
         ordersCount: 0,
@@ -349,17 +349,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       >
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-1.5">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 border border-amber-500/40 px-3 py-1 text-xs font-black text-amber-300">
-                <ShieldCheck className="h-3.5 w-3.5 text-amber-400" />
-                Executive Admin Console
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 px-3 py-1 text-xs font-bold text-emerald-300">
-                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                Live Cloud Sync Active
-              </span>
-            </div>
-
             <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center gap-2">
               <span>Welcome back, {activeStaff.fullName || 'Admin'}</span>
             </h1>
@@ -1019,7 +1008,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="divide-y divide-stone-100 border border-stone-100 rounded-2xl overflow-hidden">
             {cashierMetrics.map((staff, idx) => (
               <div
-                key={staff.name}
+                key={`staff-${staff.id || idx}-${staff.name}`}
                 className="p-3.5 flex items-center justify-between hover:bg-stone-50/60 transition"
               >
                 <div className="flex items-center gap-3">

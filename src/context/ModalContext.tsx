@@ -31,6 +31,7 @@ export interface ConfirmOptions {
 export interface PromptOptions {
   title: string;
   message?: string;
+  type?: ModalType;
   defaultValue?: string;
   placeholder?: string;
   inputType?: 'text' | 'password' | 'number';
@@ -73,6 +74,7 @@ type ActiveModal =
       kind: 'prompt';
       title: string;
       message?: string;
+      type?: ModalType;
       defaultValue: string;
       placeholder: string;
       inputType: 'text' | 'password' | 'number';
@@ -129,6 +131,7 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         kind: 'prompt',
         title: options.title,
         message: options.message,
+        type: options.type || 'info',
         defaultValue: options.defaultValue || '',
         placeholder: options.placeholder || '',
         inputType: options.inputType || 'text',
@@ -284,7 +287,7 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               </button>
 
               <div className="flex flex-col items-center text-center">
-                {renderIcon(modal.type, modal.kind)}
+                {renderIcon(modal.type || 'info', modal.kind)}
 
                 <h3 className="mt-4 text-xl font-bold font-display text-stone-900 tracking-tight">
                   {modal.title}

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { User, CustomerAccount } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { User, CustomerAccount, TableBinding, Table } from '../types';
 import { AppStore } from '../services/store';
+import { TableRequestModal } from './customer/TableRequestModal';
 import {
   Coffee,
   ShoppingBag,
@@ -28,18 +29,29 @@ import {
   Home,
   Utensils,
   LayoutDashboard,
+  ChefHat,
+  Shield,
+  Globe,
+  Users,
+  X,
+  CheckCircle2,
 } from 'lucide-react';
 
 interface NavigationProps {
   appMode: 'customer' | 'staff';
   onSetAppMode: (mode: 'customer' | 'staff') => void;
-  customerTab: 'home' | 'menu' | 'reservation' | 'venue' | 'account';
-  onSetCustomerTab: (tab: 'home' | 'menu' | 'reservation' | 'venue' | 'account') => void;
+  customerTab: 'home' | 'menu' | 'orders' | 'reservation' | 'venue' | 'account';
+  onSetCustomerTab: (tab: 'home' | 'menu' | 'orders' | 'reservation' | 'venue' | 'account') => void;
   staffTab: 'dashboard' | 'pos' | 'tables' | 'tickets' | 'reports' | 'analytics' | 'inventory' | 'settings';
   onSetStaffTab: (tab: 'dashboard' | 'pos' | 'tables' | 'tickets' | 'reports' | 'analytics' | 'inventory' | 'settings') => void;
   activeStaff: User | null;
   activeCustomer: CustomerAccount | null;
+  activeTableBinding?: TableBinding | null;
+  onClearTableBinding?: () => void;
+  onOpenTableBindingModal?: () => void;
+  onBindTable?: (tableNumber: number) => void;
   onStaffLogout: () => void;
+  onCustomerLogout?: () => void;
   onCustomerLoginClick: () => void;
   onOpenChatbot: () => void;
   cartCount: number;
@@ -48,6 +60,7 @@ interface NavigationProps {
   isNavVisible: boolean;
   onSetNavVisible: (visible: boolean) => void;
   onOpenLowStockModal?: () => void;
+  onToggleCart?: () => void;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
@@ -59,7 +72,12 @@ export const Navigation: React.FC<NavigationProps> = ({
   onSetStaffTab,
   activeStaff,
   activeCustomer,
+  activeTableBinding,
+  onClearTableBinding,
+  onOpenTableBindingModal,
+  onBindTable,
   onStaffLogout,
+  onCustomerLogout,
   onCustomerLoginClick,
   onOpenChatbot,
   cartCount,
@@ -68,18 +86,79 @@ export const Navigation: React.FC<NavigationProps> = ({
   isNavVisible,
   onSetNavVisible,
   onOpenLowStockModal,
+  onToggleCart,
 }) => {
   const [isHoverPeek, setIsHoverPeek] = useState(false);
+  const [isTableModalOpen, setIsTableModalOpen] = useState(false);
+  const [pendingTableRequestsCount, setPendingTableRequestsCount] = useState<number>(() => {
+    return AppStore.getPendingTableRequests().length;
+  });
   const [lowStockCount, setLowStockCount] = useState<number>(() => {
     return AppStore.getLowStockItems(5).length;
   });
+  const [activeCustomerOrdersCount, setActiveCustomerOrdersCount] = useState<number>(() => {
+    const orders = AppStore.getOrders();
+    const isActiveStatus = (st: string) =>
+      st === 'to_confirm' || st === 'pending' || st === 'to_prep' || st === 'processing' || st === 'to_serve';
+    if (activeCustomer) {
+      return orders.filter(
+        (o) =>
+          (o.customerId === activeCustomer.id ||
+            (o.customerName && o.customerName.toLowerCase() === activeCustomer.fullName.toLowerCase())) &&
+          isActiveStatus(o.status)
+      ).length;
+    }
+    return orders.filter((o) => isActiveStatus(o.status)).length;
+  });
+
+  const tables: Table[] = useMemo(() => AppStore.getTables(), []);
 
   useEffect(() => {
     const unsub = AppStore.subscribe(() => {
       setLowStockCount(AppStore.getLowStockItems(5).length);
+      setPendingTableRequestsCount(AppStore.getPendingTableRequests().length);
+      const orders = AppStore.getOrders();
+      const isActiveStatus = (st: string) =>
+        st === 'to_confirm' || st === 'pending' || st === 'to_prep' || st === 'processing' || st === 'to_serve';
+      if (activeCustomer) {
+        setActiveCustomerOrdersCount(
+          orders.filter(
+            (o) =>
+              (o.customerId === activeCustomer.id ||
+                (o.customerName && o.customerName.toLowerCase() === activeCustomer.fullName.toLowerCase())) &&
+              isActiveStatus(o.status)
+          ).length
+        );
+      } else {
+        setActiveCustomerOrdersCount(
+          orders.filter((o) => isActiveStatus(o.status)).length
+        );
+      }
     });
     return () => unsub();
-  }, []);
+  }, [activeCustomer]);
+
+  const handleTableConfirmedByCashier = (binding: TableBinding) => {
+    if (onBindTable) {
+      onBindTable(binding.tableNumber);
+    }
+  };
+
+  const handleDineInClick = () => {
+    if (onOpenTableBindingModal) {
+      onOpenTableBindingModal();
+    } else {
+      setIsTableModalOpen(true);
+    }
+  };
+
+  const handleOnlineClick = () => {
+    if (onClearTableBinding) {
+      onClearTableBinding();
+    } else {
+      AppStore.setActiveTableBinding(null);
+    }
+  };
 
   const shouldShowFullNav = isPinned || isNavVisible || isHoverPeek;
 
@@ -90,6 +169,8 @@ export const Navigation: React.FC<NavigationProps> = ({
         ? 'Home'
         : customerTab === 'menu'
         ? 'Menu & Ordering'
+        : customerTab === 'orders'
+        ? 'My Orders'
         : customerTab === 'reservation'
         ? 'Reserve Table'
         : customerTab === 'venue'
@@ -207,25 +288,68 @@ export const Navigation: React.FC<NavigationProps> = ({
             </div>
 
             {/* Global Controls & Mode Switcher */}
-            <div className="flex items-center gap-1.5 sm:gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-2.5">
+              {/* Customer Dine-In vs Online Mode Toggle */}
+              {appMode === 'customer' && (
+                <div className="flex items-center rounded-full bg-stone-800 p-0.5 border border-stone-700 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={handleDineInClick}
+                    title={
+                      activeTableBinding
+                        ? `Dine-In Active (Table #${activeTableBinding.tableNumber}). Click to change table.`
+                        : 'Switch to In-House Dine-In Table Ordering'
+                    }
+                    className={`flex items-center gap-1 sm:gap-1.5 rounded-full px-2 sm:px-3 py-1 text-[11px] font-bold transition cursor-pointer ${
+                      activeTableBinding
+                        ? 'bg-amber-500 text-stone-950 font-extrabold shadow-xs'
+                        : 'text-stone-300 hover:text-white hover:bg-stone-700/60'
+                    }`}
+                  >
+                    <Utensils className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                    <span>Dine-In</span>
+                    {activeTableBinding ? (
+                      <span className="flex items-center gap-1 rounded-full bg-stone-950/20 px-1.5 py-0.2 text-[10px] font-black">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>#{activeTableBinding.tableNumber}</span>
+                      </span>
+                    ) : null}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleOnlineClick}
+                    title="Switch to Online Ordering (Advance Booking)"
+                    className={`flex items-center gap-1 sm:gap-1.5 rounded-full px-2 sm:px-3 py-1 text-[11px] font-bold transition cursor-pointer ${
+                      !activeTableBinding
+                        ? 'bg-amber-500 text-stone-950 font-extrabold shadow-xs'
+                        : 'text-stone-300 hover:text-white hover:bg-stone-700/60'
+                    }`}
+                  >
+                    <Globe className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                    <span>Online</span>
+                  </button>
+                </div>
+              )}
+
               {/* Mode Switcher Pill */}
               <div className="flex items-center rounded-full bg-stone-800 p-0.5 border border-stone-700">
                 <button
                   onClick={() => onSetAppMode('customer')}
                   title="Customer Store"
-                  className={`flex items-center gap-1 rounded-full p-1.5 sm:px-3 sm:py-1 text-[11px] font-bold transition ${
+                  className={`flex items-center gap-1 rounded-full p-1.5 sm:px-3 sm:py-1 text-[11px] font-bold transition cursor-pointer ${
                     appMode === 'customer'
                       ? 'bg-amber-500 text-stone-950 shadow-xs'
                       : 'text-stone-300 hover:text-white'
                   }`}
                 >
                   <ShoppingBag className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Customer Store</span>
+                  <span className="hidden sm:inline">Store</span>
                 </button>
                 <button
                   onClick={() => onSetAppMode('staff')}
                   title="Staff POS Terminal"
-                  className={`flex items-center gap-1 rounded-full p-1.5 sm:px-3 sm:py-1 text-[11px] font-bold transition ${
+                  className={`flex items-center gap-1 rounded-full p-1.5 sm:px-3 sm:py-1 text-[11px] font-bold transition cursor-pointer ${
                     appMode === 'staff'
                       ? 'bg-amber-500 text-stone-950 shadow-xs'
                       : 'text-stone-300 hover:text-white'
@@ -256,6 +380,18 @@ export const Navigation: React.FC<NavigationProps> = ({
                   <Bell className="h-3 w-3 text-rose-300 animate-bounce" />
                   <span className="text-[10px] font-bold">{lowStockCount}</span>
                   <span className="hidden sm:inline">Low Stock</span>
+                </button>
+              )}
+
+              {/* Pending Table Requests Alert for Cashier */}
+              {(activeStaff || appMode === 'staff') && pendingTableRequestsCount > 0 && (
+                <button
+                  onClick={() => onSetStaffTab('tables')}
+                  className="flex items-center gap-1 rounded-full bg-amber-500 text-stone-950 px-2.5 py-1 text-[11px] font-black animate-pulse shadow-xs hover:bg-amber-400 transition cursor-pointer"
+                  title={`${pendingTableRequestsCount} customer table requests waiting for cashier confirmation`}
+                >
+                  <Bell className="h-3.5 w-3.5 fill-stone-950" />
+                  <span>{pendingTableRequestsCount} Table Req</span>
                 </button>
               )}
 
@@ -320,7 +456,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                       : 'text-stone-700 hover:bg-stone-100'
                   }`}
                 >
-                  <Home className="h-4 w-4 text-amber-600" />
+                  <Home className="h-4 w-4 text-stone-950" />
                   <span className="hidden sm:inline">Home</span>
                 </button>
                 <button
@@ -332,11 +468,29 @@ export const Navigation: React.FC<NavigationProps> = ({
                       : 'text-stone-700 hover:bg-stone-100'
                   }`}
                 >
-                  <Utensils className="h-4 w-4 text-amber-600" />
+                  <Utensils className="h-4 w-4 text-stone-950" />
                   <span className="hidden sm:inline">Menu &amp; Ordering</span>
                   {cartCount > 0 && (
                     <span className="rounded-full bg-amber-500 px-1.5 py-0.2 text-[10px] font-bold text-stone-950">
                       {cartCount}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => onSetCustomerTab('orders')}
+                  title="My Orders & Live Tracking"
+                  className={`relative flex items-center gap-1.5 rounded-xl p-2 sm:px-4 sm:py-2 text-xs sm:text-sm font-bold transition cursor-pointer ${
+                    customerTab === 'orders'
+                      ? 'bg-amber-100 text-amber-900 font-extrabold shadow-2xs'
+                      : 'text-stone-700 hover:bg-stone-100'
+                  }`}
+                >
+                  <ShoppingBag className="h-4 w-4 text-stone-950" />
+                  <span className="hidden sm:inline">My Orders</span>
+                  {activeCustomerOrdersCount > 0 && (
+                    <span className="flex items-center gap-0.5 rounded-full bg-amber-500 px-1.5 py-0.2 text-[10px] font-black text-stone-950 animate-pulse">
+                      <span>{activeCustomerOrdersCount}</span>
+                      <span className="hidden md:inline text-[9px] font-bold">live</span>
                     </span>
                   )}
                 </button>
@@ -349,7 +503,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                       : 'text-stone-700 hover:bg-stone-100'
                   }`}
                 >
-                  <Calendar className="h-4 w-4 text-amber-600" />
+                  <Calendar className="h-4 w-4 text-stone-950" />
                   <span className="hidden sm:inline">Reserve Table</span>
                 </button>
                 <button
@@ -361,7 +515,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                       : 'text-stone-700 hover:bg-stone-100'
                   }`}
                 >
-                  <Building className="h-4 w-4 text-amber-600" />
+                  <Building className="h-4 w-4 text-stone-950" />
                   <span className="hidden sm:inline">Venue Rental</span>
                 </button>
               </nav>
@@ -369,128 +523,146 @@ export const Navigation: React.FC<NavigationProps> = ({
               <nav className="flex items-center gap-1 overflow-x-auto no-scrollbar">
                 {activeStaff && (
                   <>
-                    {/* Admin Only: Executive Dashboard */}
-                    {activeStaff.role === 'admin' && (
+                    {/* Cook: ONLY Kitchen Order Tickets is accessible */}
+                    {activeStaff.role === 'cook' ? (
                       <button
-                        id="nav-staff-dashboard"
-                        onClick={() => onSetStaffTab('dashboard')}
-                        title="Admin Dashboard"
-                        className={`flex items-center gap-1.5 rounded-xl p-2 sm:px-3 sm:py-1.5 text-xs font-bold transition ${
-                          staffTab === 'dashboard'
-                            ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
-                            : 'text-stone-700 hover:bg-stone-100'
-                        }`}
+                        id="nav-staff-tickets"
+                        onClick={() => onSetStaffTab('tickets')}
+                        title="Kitchen Order Tickets"
+                        className="flex items-center gap-1.5 rounded-xl bg-orange-500 text-stone-950 font-extrabold shadow-sm px-3.5 py-1.5 text-xs transition"
                       >
-                        <LayoutDashboard className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                        <span className="hidden sm:inline">Dashboard</span>
+                        <ChefHat className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                        <span>Kitchen Tickets</span>
+                        <span className="rounded-full bg-stone-950 text-orange-400 text-[10px] px-1.5 py-0.2 font-mono">
+                          Cook Mode
+                        </span>
                       </button>
-                    )}
-
-                    {/* Shared: Register (POS) */}
-                    <button
-                      id="nav-staff-pos"
-                      onClick={() => onSetStaffTab('pos')}
-                      title="Register (POS)"
-                      className={`flex items-center gap-1.5 rounded-xl p-2 sm:px-3 sm:py-1.5 text-xs font-bold transition ${
-                        staffTab === 'pos'
-                          ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
-                          : 'text-stone-700 hover:bg-stone-100'
-                      }`}
-                    >
-                      <Monitor className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                      <span className="hidden sm:inline">Register</span>
-                    </button>
-
-                    {/* Shared: Floor Plan / Tables */}
-                    <button
-                      id="nav-staff-tables"
-                      onClick={() => onSetStaffTab('tables')}
-                      title="Floor Plan / Tables"
-                      className={`flex items-center gap-1.5 rounded-xl p-2 sm:px-3 sm:py-1.5 text-xs font-bold transition ${
-                        staffTab === 'tables'
-                          ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
-                          : 'text-stone-700 hover:bg-stone-100'
-                      }`}
-                    >
-                      <LayoutGrid className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                      <span className="hidden sm:inline">Floor Plan</span>
-                    </button>
-
-                    {/* Shared: Active Order Tickets */}
-                    <button
-                      id="nav-staff-tickets"
-                      onClick={() => onSetStaffTab('tickets')}
-                      title="Active Order Tickets"
-                      className={`flex items-center gap-1.5 rounded-xl p-2 sm:px-3 sm:py-1.5 text-xs font-bold transition ${
-                        staffTab === 'tickets'
-                          ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
-                          : 'text-stone-700 hover:bg-stone-100'
-                      }`}
-                    >
-                      <ClipboardList className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                      <span className="hidden sm:inline">Tickets</span>
-                    </button>
-
-                    {/* Admin Only: Reports, Analytics, Inventory, Settings */}
-                    {activeStaff.role === 'admin' && (
+                    ) : (
                       <>
+                        {/* Admin Only: Executive Dashboard */}
+                        {activeStaff.role === 'admin' && (
+                          <button
+                            id="nav-staff-dashboard"
+                            onClick={() => onSetStaffTab('dashboard')}
+                            title="Admin Dashboard"
+                            className={`flex items-center gap-1.5 rounded-xl p-2 sm:px-3 sm:py-1.5 text-xs font-bold transition ${
+                              staffTab === 'dashboard'
+                                ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
+                                : 'text-stone-700 hover:bg-stone-100'
+                            }`}
+                          >
+                            <LayoutDashboard className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                            <span className="hidden sm:inline">Dashboard</span>
+                          </button>
+                        )}
+
+                        {/* Shared: Register (POS) */}
                         <button
-                          id="nav-staff-reports"
-                          onClick={() => onSetStaffTab('reports')}
-                          title="Sales Reports"
+                          id="nav-staff-pos"
+                          onClick={() => onSetStaffTab('pos')}
+                          title="Register (POS)"
                           className={`flex items-center gap-1.5 rounded-xl p-2 sm:px-3 sm:py-1.5 text-xs font-bold transition ${
-                            staffTab === 'reports'
+                            staffTab === 'pos'
                               ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
                               : 'text-stone-700 hover:bg-stone-100'
                           }`}
                         >
-                          <BarChart3 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                          <span className="hidden sm:inline">Sales</span>
+                          <Monitor className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                          <span className="hidden sm:inline">Register</span>
                         </button>
+
+                        {/* Shared: Floor Plan / Tables */}
                         <button
-                          id="nav-staff-analytics"
-                          onClick={() => onSetStaffTab('analytics')}
-                          title="Sales Analytics"
+                          id="nav-staff-tables"
+                          onClick={() => onSetStaffTab('tables')}
+                          title="Floor Plan / Tables"
                           className={`flex items-center gap-1.5 rounded-xl p-2 sm:px-3 sm:py-1.5 text-xs font-bold transition ${
-                            staffTab === 'analytics'
+                            staffTab === 'tables'
                               ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
                               : 'text-stone-700 hover:bg-stone-100'
                           }`}
                         >
-                          <TrendingUp className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                          <span className="hidden sm:inline">Analytics</span>
+                          <LayoutGrid className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                          <span className="hidden sm:inline">Floor Plan</span>
                         </button>
+
+                        {/* Shared: Active Order Tickets */}
                         <button
-                          id="nav-staff-inventory"
-                          onClick={() => onSetStaffTab('inventory')}
-                          title="Inventory Stock"
-                          className={`relative flex items-center gap-1.5 rounded-xl p-2 sm:px-3 sm:py-1.5 text-xs font-bold transition cursor-pointer ${
-                            staffTab === 'inventory'
+                          id="nav-staff-tickets"
+                          onClick={() => onSetStaffTab('tickets')}
+                          title="Active Order Tickets"
+                          className={`flex items-center gap-1.5 rounded-xl p-2 sm:px-3 sm:py-1.5 text-xs font-bold transition ${
+                            staffTab === 'tickets'
                               ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
                               : 'text-stone-700 hover:bg-stone-100'
                           }`}
                         >
-                          <Package className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                          <span className="hidden sm:inline">Inventory</span>
-                          {lowStockCount > 0 && (
-                            <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[9px] font-black text-white">
-                              {lowStockCount}
-                            </span>
-                          )}
+                          <ClipboardList className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                          <span className="hidden sm:inline">Tickets</span>
                         </button>
-                        <button
-                          id="nav-staff-settings"
-                          onClick={() => onSetStaffTab('settings')}
-                          title="System Settings"
-                          className={`flex items-center gap-1.5 rounded-xl p-2 sm:px-3 sm:py-1.5 text-xs font-bold transition cursor-pointer ${
-                            staffTab === 'settings'
-                              ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
-                              : 'text-stone-700 hover:bg-stone-100'
-                          }`}
-                        >
-                          <Settings className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                          <span className="hidden sm:inline">Settings</span>
-                        </button>
+
+                        {/* Admin Only: Reports, Analytics, Inventory, Settings */}
+                        {activeStaff.role === 'admin' && (
+                          <>
+                            <button
+                              id="nav-staff-reports"
+                              onClick={() => onSetStaffTab('reports')}
+                              title="Sales Reports"
+                              className={`flex items-center gap-1.5 rounded-xl p-2 sm:px-3 sm:py-1.5 text-xs font-bold transition ${
+                                staffTab === 'reports'
+                                  ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
+                                : 'text-stone-700 hover:bg-stone-100'
+                              }`}
+                            >
+                              <BarChart3 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                              <span className="hidden sm:inline">Sales</span>
+                            </button>
+                            <button
+                              id="nav-staff-analytics"
+                              onClick={() => onSetStaffTab('analytics')}
+                              title="Sales Analytics"
+                              className={`flex items-center gap-1.5 rounded-xl p-2 sm:px-3 sm:py-1.5 text-xs font-bold transition ${
+                                staffTab === 'analytics'
+                                  ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
+                                  : 'text-stone-700 hover:bg-stone-100'
+                              }`}
+                            >
+                              <TrendingUp className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                              <span className="hidden sm:inline">Analytics</span>
+                            </button>
+                            <button
+                              id="nav-staff-inventory"
+                              onClick={() => onSetStaffTab('inventory')}
+                              title="Inventory Stock"
+                              className={`relative flex items-center gap-1.5 rounded-xl p-2 sm:px-3 sm:py-1.5 text-xs font-bold transition cursor-pointer ${
+                                staffTab === 'inventory'
+                                  ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
+                                  : 'text-stone-700 hover:bg-stone-100'
+                              }`}
+                            >
+                              <Package className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                              <span className="hidden sm:inline">Inventory</span>
+                              {lowStockCount > 0 && (
+                                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[9px] font-black text-white">
+                                  {lowStockCount}
+                                </span>
+                              )}
+                            </button>
+                            <button
+                              id="nav-staff-settings"
+                              onClick={() => onSetStaffTab('settings')}
+                              title="System Settings"
+                              className={`flex items-center gap-1.5 rounded-xl p-2 sm:px-3 sm:py-1.5 text-xs font-bold transition cursor-pointer ${
+                                staffTab === 'settings'
+                                  ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
+                                  : 'text-stone-700 hover:bg-stone-100'
+                              }`}
+                            >
+                              <Settings className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                              <span className="hidden sm:inline">Settings</span>
+                            </button>
+                          </>
+                        )}
                       </>
                     )}
                   </>
@@ -502,17 +674,78 @@ export const Navigation: React.FC<NavigationProps> = ({
             <div className="flex items-center gap-1.5 sm:gap-2">
               {appMode === 'customer' ? (
                 <div className="flex items-center gap-1.5 sm:gap-2">
-                  {activeCustomer ? (
+                  {/* Table Session / Mode Pill */}
+                  {activeTableBinding ? (
+                    <div className="flex items-center gap-1 rounded-xl bg-amber-500/15 border border-amber-500/40 pl-2 sm:pl-2.5 pr-1 sm:pr-1.5 py-1 text-xs font-bold text-amber-950 shadow-2xs">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                      <span className="text-[11px] sm:text-xs">
+                        Table #{activeTableBinding.tableNumber}
+                      </span>
+                      <span className="hidden md:inline text-[10px] text-amber-800/80 font-normal">
+                        ({activeTableBinding.area === 'airconditioned' ? 'AC Room' : 'Main Area'})
+                      </span>
+                      {onClearTableBinding && (
+                        <button
+                          onClick={onClearTableBinding}
+                          title="Switch to Online External Mode"
+                          className="ml-1 rounded-md p-1 text-amber-800 hover:bg-amber-500/30 hover:text-stone-950 transition cursor-pointer"
+                        >
+                          <LogOut className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    onOpenTableBindingModal && (
+                      <button
+                        onClick={onOpenTableBindingModal}
+                        title="Sitting in store? Bind session to your table"
+                        className="hidden sm:flex items-center gap-1.5 rounded-xl border border-dashed border-stone-300 bg-stone-50 px-2.5 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-100 hover:border-stone-400 transition cursor-pointer"
+                      >
+                        <Utensils className="h-3.5 w-3.5 text-stone-950" />
+                        <span>I'm at a Table</span>
+                      </button>
+                    )
+                  )}
+
+                  {onToggleCart && (
                     <button
-                      onClick={() => onSetCustomerTab('account')}
-                      title={`Account: ${activeCustomer.fullName || 'Customer'}`}
-                      className="flex items-center gap-1.5 rounded-xl border border-stone-200 bg-stone-50 p-1.5 sm:px-3 sm:py-1.5 text-xs font-bold text-stone-800 hover:bg-stone-100"
+                      onClick={onToggleCart}
+                      title="Open Order Bag"
+                      className="relative flex items-center gap-1.5 rounded-xl border border-stone-200 bg-stone-50 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-stone-800 hover:bg-stone-100 transition cursor-pointer"
                     >
-                      <div className="grid h-5 w-5 place-items-center rounded-full bg-amber-500 text-[10px] font-extrabold text-stone-950">
-                        {(activeCustomer.fullName || 'Customer').charAt(0)}
-                      </div>
-                      <span className="hidden sm:inline">{activeCustomer.fullName ? activeCustomer.fullName.split(' ')[0] : 'Account'}</span>
+                      <ShoppingBag className="h-4 w-4 text-stone-950" />
+                      <span className="hidden sm:inline">Bag</span>
+                      {cartCount > 0 && (
+                        <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-black text-stone-950">
+                          {cartCount}
+                        </span>
+                      )}
                     </button>
+                  )}
+
+                  {activeCustomer ? (
+                    <div className="flex items-center gap-1 sm:gap-1.5">
+                      <button
+                        onClick={() => onSetCustomerTab('account')}
+                        title={`Account: ${activeCustomer.fullName || 'Customer'}`}
+                        className="flex items-center gap-1.5 rounded-xl border border-stone-200 bg-stone-50 p-1.5 sm:px-3 sm:py-1.5 text-xs font-bold text-stone-800 hover:bg-stone-100 transition cursor-pointer"
+                      >
+                        <div className="grid h-5 w-5 place-items-center rounded-full bg-amber-500 text-[10px] font-extrabold text-stone-950">
+                          {(activeCustomer.fullName || 'Customer').charAt(0)}
+                        </div>
+                        <span className="hidden sm:inline">{activeCustomer.fullName ? activeCustomer.fullName.split(' ')[0] : 'Account'}</span>
+                      </button>
+                      {onCustomerLogout && (
+                        <button
+                          onClick={onCustomerLogout}
+                          title="Sign Out of Customer Account"
+                          className="flex items-center gap-1 rounded-xl border border-stone-200 p-2 sm:px-2.5 sm:py-1.5 text-xs font-bold text-stone-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition cursor-pointer"
+                        >
+                          <LogOut className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                          <span className="hidden sm:inline">Sign Out</span>
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     <button
                       onClick={onCustomerLoginClick}
@@ -526,22 +759,48 @@ export const Navigation: React.FC<NavigationProps> = ({
                 </div>
               ) : activeStaff ? (
                 <div className="flex items-center gap-1.5 sm:gap-2">
-                  <span className="hidden sm:inline-block rounded-md bg-stone-100 px-2 py-0.5 text-[10px] font-extrabold uppercase text-stone-600">
-                    {activeStaff.role || 'Staff'} • {(activeStaff.fullName || activeStaff.name || 'Staff').split(' ')[0]}
+                  <span
+                    className={`hidden sm:inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-extrabold uppercase ${
+                      activeStaff.role === 'admin'
+                        ? 'bg-purple-100 text-purple-900 border border-purple-200'
+                        : activeStaff.role === 'cook'
+                        ? 'bg-orange-100 text-orange-950 border border-orange-200 font-black'
+                        : 'bg-stone-100 text-stone-700 border border-stone-200'
+                    }`}
+                  >
+                    {activeStaff.role === 'admin' ? (
+                      <Shield className="h-3 w-3 text-purple-700" />
+                    ) : activeStaff.role === 'cook' ? (
+                      <ChefHat className="h-3 w-3 text-orange-700" />
+                    ) : null}
+                    <span>
+                      {activeStaff.role || 'Staff'} • {(activeStaff.fullName || activeStaff.name || 'Staff').split(' ')[0]}
+                    </span>
                   </span>
                   <button
                     onClick={onStaffLogout}
-                    title="Lock Terminal"
+                    title="Logout Staff"
                     className="flex items-center gap-1 rounded-xl border border-stone-200 p-2 sm:px-2.5 sm:py-1.5 text-xs font-bold text-stone-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition cursor-pointer"
                   >
                     <LogOut className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                    <span className="hidden sm:inline">Lock</span>
+                    <span className="hidden sm:inline">Logout</span>
                   </button>
                 </div>
               ) : null}
             </div>
           </div>
         </header>
+      )}
+
+      {/* Live Table Request & Cashier Confirmation Modal for Customer Dine-In Ordering (fallback if not controlled by App) */}
+      {!onOpenTableBindingModal && (
+        <TableRequestModal
+          isOpen={isTableModalOpen}
+          onClose={() => setIsTableModalOpen(false)}
+          onConfirmed={handleTableConfirmedByCashier}
+          activeCustomer={activeCustomer}
+          currentTableBinding={activeTableBinding}
+        />
       )}
     </>
   );

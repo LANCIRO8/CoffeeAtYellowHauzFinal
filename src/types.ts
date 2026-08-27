@@ -4,7 +4,7 @@ export interface User {
   username: string;
   fullName: string;
   name?: string;
-  role: 'cashier' | 'admin';
+  role: 'cashier' | 'admin' | 'cook';
   status: 'active' | 'inactive';
   pin?: string;
   phone?: string;
@@ -35,6 +35,12 @@ export interface MenuItem {
   isAvailable: boolean;
   quantity: number;
   sortOrder: number;
+  stock?: number;
+  available?: boolean;
+  lowStockThreshold?: number;
+  availableTemperatures?: TemperatureType[];
+  isHot?: boolean;
+  isIced?: boolean;
 }
 
 export interface Table {
@@ -73,7 +79,7 @@ export interface Reservation {
   venueAddons?: VenueAddon[];
   totalAmount?: number;
   eventType?: string; // e.g. Meeting, Workshop, Birthday, Party, Co-working
-  seatingLayout?: 'boardroom' | 'classroom' | 'banquet' | 'lounge';
+  seatingLayout?: 'boardroom' | 'classroom' | 'banquet' | 'lounge' | 'workshop';
   paymentStatus?: 'unpaid' | 'paid' | 'downpayment_paid';
   paymentMethod?: 'gcash' | 'cash' | 'card';
   customerId?: number | null;
@@ -95,16 +101,74 @@ export interface OrderItem {
   totalPrice: number;
   specialInstructions?: string;
   imageUrl?: string;
+  selectedVariant?: { name: string; price?: number } | string;
 }
+
+export interface AdvanceBookingDetails {
+  bookingDate: string; // YYYY-MM-DD
+  arrivalTime: string; // HH:mm or e.g. 2:30 PM
+  partySize: number;
+  seatingPreference?: 'indoor_main' | 'airconditioned' | 'outdoor_patio' | 'any';
+  specialRequests?: string;
+}
+
+export interface TableBinding {
+  tableId: number;
+  tableNumber: number;
+  area: 'normal' | 'airconditioned';
+  capacity?: number;
+  autoBound?: boolean;
+  assignedByCashier?: string;
+  assignedAt?: string;
+}
+
+export type TableRequestType = 'new_table' | 'change_table';
+export type TableRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+
+export interface TableRequest {
+  id: string; // Unique Request ID (e.g. TR-172464...)
+  sessionId: string; // Customer client browser session ID
+  customerId?: number | null;
+  customerName: string;
+  customerPhone?: string;
+  type: TableRequestType;
+  currentTableNumber?: number | null; // Previous table if changing table
+  requestedTableNumber: number;
+  requestedTableId: number;
+  area: 'normal' | 'airconditioned';
+  capacity?: number;
+  notes?: string;
+  status: TableRequestStatus;
+  cashierId?: number | null;
+  cashierName?: string | null;
+  rejectionReason?: string | null;
+  createdAt: string;
+  respondedAt?: string | null;
+}
+
+export type OrderStatus =
+  | 'to_confirm'
+  | 'pending'
+  | 'to_prep'
+  | 'processing'
+  | 'to_serve'
+  | 'completed'
+  | 'cancelled';
 
 export interface Order {
   id: number;
   orderNumber: string;
   channel?: 'in_store' | 'online';
+  orderClassification?: 'live_in_house' | 'advance_booking';
   tableId?: number | null;
   tableNumber?: number | null;
   customerId?: number | null;
   customerName?: string;
+  customerPhone?: string;
+  deliveryAddress?: string;
+  advanceBooking?: AdvanceBookingDetails;
+  scheduledFor?: string; // Future timestamp for advance bookings
+  guestCount?: number;
   orderType: 'dine_in' | 'take_away' | 'delivery';
   paymentMethod: 'cash' | 'card' | 'gcash';
   subtotal: number;
@@ -112,17 +176,25 @@ export interface Order {
   taxAmount: number;
   totalAmount: number;
   discountAmount: number;
-  discountType?: 'none' | 'senior_pwd' | 'custom';
+  discountType?: 'none' | 'senior_pwd' | 'custom' | string;
   discountPercent?: number;
   amountPaid?: number;
   changeAmount?: number;
-  status: 'pending' | 'processing' | 'completed' | 'cancelled';
+  status: OrderStatus;
   cashierId: number;
   cashierName: string;
   items: OrderItem[];
   createdAt: string;
+  confirmedAt?: string;
   processingStartedAt?: string;
+  readyToServeAt?: string;
   completedAt?: string;
+  cancelledAt?: string;
+  cancelledBy?: string;
+  cancelReason?: string;
+  cancelNotes?: string;
+  returnedToCashierAt?: string;
+  returnReason?: string;
 }
 
 export interface TimeBasedMenu {
@@ -138,6 +210,7 @@ export interface StoreSettings {
   tax_rate: number;
   currency: string;
   shop_name: string;
+  storeName?: string;
   shop_address: string;
   shop_phone: string;
   receipt_footer: string;

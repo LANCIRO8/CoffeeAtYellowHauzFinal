@@ -4,9 +4,6 @@ import { AppStore } from '../../services/store';
 import {
   DollarSign,
   TrendingUp,
-  CreditCard,
-  Banknote,
-  QrCode,
   Printer,
   Calendar,
   Download,
@@ -19,10 +16,8 @@ import {
   ArrowRight,
   Check,
   UserCheck,
-  Users,
   User,
   ShieldCheck,
-  Award,
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
@@ -251,76 +246,6 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
     [onlineCompleted]
   );
 
-  // Payment Methods Breakdown
-  const cashTotal = useMemo(
-    () =>
-      filteredOrders
-        .filter((o) => o.paymentMethod === 'cash')
-        .reduce((sum, o) => sum + o.totalAmount, 0),
-    [filteredOrders]
-  );
-  const gcashTotal = useMemo(
-    () =>
-      filteredOrders
-        .filter((o) => o.paymentMethod === 'gcash')
-        .reduce((sum, o) => sum + o.totalAmount, 0),
-    [filteredOrders]
-  );
-  const cardTotal = useMemo(
-    () =>
-      filteredOrders
-        .filter((o) => o.paymentMethod === 'card')
-        .reduce((sum, o) => sum + o.totalAmount, 0),
-    [filteredOrders]
-  );
-
-  // Cashier Performance Breakdown
-  const cashierBreakdown = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        cashierName: string;
-        orderCount: number;
-        subtotal: number;
-        taxAmount: number;
-        discountAmount: number;
-        totalRevenue: number;
-        cashTotal: number;
-        gcashTotal: number;
-        cardTotal: number;
-      }
-    >();
-
-    for (const o of filteredOrders) {
-      const name = o.cashierName || 'Staff Member';
-      const curr = map.get(name) || {
-        cashierName: name,
-        orderCount: 0,
-        subtotal: 0,
-        taxAmount: 0,
-        discountAmount: 0,
-        totalRevenue: 0,
-        cashTotal: 0,
-        gcashTotal: 0,
-        cardTotal: 0,
-      };
-
-      curr.orderCount += 1;
-      curr.subtotal += o.subtotal;
-      curr.taxAmount += o.taxAmount;
-      curr.discountAmount += o.discountAmount;
-      curr.totalRevenue += o.totalAmount;
-
-      if (o.paymentMethod === 'cash') curr.cashTotal += o.totalAmount;
-      else if (o.paymentMethod === 'gcash') curr.gcashTotal += o.totalAmount;
-      else if (o.paymentMethod === 'card') curr.cardTotal += o.totalAmount;
-
-      map.set(name, curr);
-    }
-
-    return Array.from(map.values()).sort((a, b) => b.totalRevenue - a.totalRevenue);
-  }, [filteredOrders]);
-
   // Formatted date period label
   const periodLabel = useMemo(() => {
     if (datePreset === 'today') return `Today (${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})`;
@@ -471,7 +396,14 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
         : '';
 
       const itemsSummary = (o.items || [])
-        .map((it) => `${it.quantity}x ${it.name}${it.selectedVariant ? ` (${it.selectedVariant.name})` : ''}`)
+        .map((it) => {
+          const varName = it.selectedVariant
+            ? typeof it.selectedVariant === 'string'
+              ? it.selectedVariant
+              : it.selectedVariant.name
+            : '';
+          return `${it.quantity}x ${it.name}${varName ? ` (${varName})` : ''}`;
+        })
         .join('; ');
       const totalQty = (o.items || []).reduce((sum, it) => sum + (it.quantity || 0), 0);
       const ch = AppStore.getOrderChannel(o);
@@ -524,18 +456,9 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 pb-5">
         <div>
-          <span className="text-xs font-bold uppercase tracking-widest text-amber-700">
-            Financial Ledger &amp; Audits
-          </span>
           <h2 className="font-display text-2xl font-extrabold text-stone-900">
             Sales Reports
           </h2>
-          <div className="flex items-center gap-2 mt-0.5 text-xs text-stone-500">
-            <Calendar className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-            <span className="font-semibold text-stone-800">{periodLabel}</span>
-            <span>•</span>
-            <span>{filteredOrders.length} settled transactions</span>
-          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -787,156 +710,6 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
             ₱{totalDiscounts.toFixed(2)}
           </div>
           <p className="mt-1 text-[11px] text-stone-500">Senior, PWD &amp; Promotional</p>
-        </div>
-      </div>
-
-      {/* Cashier Performance & Shift Audit Section */}
-      <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-100 pb-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-widest text-amber-700">
-                Staff Audit
-              </span>
-            </div>
-            <h3 className="font-display text-base font-bold text-stone-900 flex items-center gap-2">
-              <Users className="h-4 w-4 text-amber-600" />
-              Cashier Performance &amp; Orders Taken
-            </h3>
-            <p className="text-xs text-stone-500 mt-0.5">
-              Breakdown of settled transactions, collected revenue, and tender handled per staff member.
-            </p>
-          </div>
-          <div className="text-xs text-stone-500">
-            <span className="font-bold text-stone-900">{cashierBreakdown.length}</span> cashier account(s) active in period
-          </div>
-        </div>
-
-        {cashierBreakdown.length === 0 ? (
-          <div className="py-6 text-center text-xs text-stone-400">
-            No cashier activity recorded for this period.
-          </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {cashierBreakdown.map((cb, idx) => {
-              const isSelected = cashierFilter.toLowerCase() === cb.cashierName.toLowerCase();
-              const isOnline = cb.cashierName.includes('Online');
-              const pctOfNet = netRevenue > 0 ? Math.round((cb.totalRevenue / netRevenue) * 100) : 0;
-
-              return (
-                <div
-                  key={cb.cashierName}
-                  onClick={() => {
-                    setCashierFilter((prev) => (prev.toLowerCase() === cb.cashierName.toLowerCase() ? 'all' : cb.cashierName));
-                  }}
-                  className={`cursor-pointer rounded-2xl border p-4 transition-all ${
-                    isSelected
-                      ? 'border-amber-500 bg-amber-50/70 shadow-sm ring-1 ring-amber-400'
-                      : 'border-stone-200 bg-stone-50/50 hover:bg-stone-100/70 hover:border-stone-300'
-                  }`}
-                  title="Click to filter transactions by this cashier"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
-                      <div
-                        className={`grid h-9 w-9 place-items-center rounded-xl font-bold text-xs ${
-                          isOnline
-                            ? 'bg-indigo-100 text-indigo-800'
-                            : 'bg-amber-100 text-amber-900'
-                        }`}
-                      >
-                        {isOnline ? <Globe className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-stone-900 text-xs flex items-center gap-1.5">
-                          <span>{cb.cashierName}</span>
-                          {idx === 0 && (
-                            <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.2 text-[9px] font-extrabold text-amber-900">
-                              <Award className="h-2.5 w-2.5" /> Top
-                            </span>
-                          )}
-                        </h4>
-                        <span className="text-[10px] text-stone-400 uppercase font-semibold">
-                          {isOnline ? 'Digital Channel' : 'POS Register'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      <span className="font-mono text-sm font-extrabold text-stone-900">
-                        ₱{cb.totalRevenue.toFixed(2)}
-                      </span>
-                      <div className="text-[10px] text-stone-500 font-medium">
-                        {pctOfNet}% of sales
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Cashier Metrics Summary */}
-                  <div className="mt-3 pt-3 border-t border-stone-200/70 grid grid-cols-3 gap-2 text-center">
-                    <div className="rounded-lg bg-white p-1.5 border border-stone-200/60">
-                      <span className="text-[10px] text-stone-400 uppercase font-bold block">Orders</span>
-                      <span className="text-xs font-mono font-bold text-stone-800">{cb.orderCount}</span>
-                    </div>
-                    <div className="rounded-lg bg-white p-1.5 border border-stone-200/60">
-                      <span className="text-[10px] text-stone-400 uppercase font-bold block">Cash</span>
-                      <span className="text-xs font-mono font-bold text-stone-800">₱{cb.cashTotal.toFixed(0)}</span>
-                    </div>
-                    <div className="rounded-lg bg-white p-1.5 border border-stone-200/60">
-                      <span className="text-[10px] text-stone-400 uppercase font-bold block">Digital</span>
-                      <span className="text-xs font-mono font-bold text-stone-800">
-                        ₱{(cb.gcashTotal + cb.cardTotal).toFixed(0)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {isSelected && (
-                    <div className="mt-2 text-center text-[10px] font-bold text-amber-800">
-                      ✓ Filtering table by this cashier (click to clear)
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Payment Methods Split */}
-      <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-xs">
-        <h3 className="font-display text-base font-bold text-stone-900 mb-4">
-          Settlement by Payment Tender ({periodLabel})
-        </h3>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="flex items-center gap-4 rounded-2xl bg-amber-50/60 border border-amber-200/80 p-4">
-            <div className="grid h-12 w-12 place-items-center rounded-xl bg-amber-500 text-stone-950">
-              <Banknote className="h-6 w-6" />
-            </div>
-            <div>
-              <span className="text-xs font-bold text-stone-600 uppercase">Cash Tender</span>
-              <div className="font-mono text-lg font-bold text-stone-900">₱{cashTotal.toFixed(2)}</div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4 rounded-2xl bg-sky-50/60 border border-sky-200/80 p-4">
-            <div className="grid h-12 w-12 place-items-center rounded-xl bg-sky-500 text-white">
-              <QrCode className="h-6 w-6" />
-            </div>
-            <div>
-              <span className="text-xs font-bold text-stone-600 uppercase">GCash E-Wallet</span>
-              <div className="font-mono text-lg font-bold text-stone-900">₱{gcashTotal.toFixed(2)}</div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4 rounded-2xl bg-stone-100 border border-stone-200 p-4">
-            <div className="grid h-12 w-12 place-items-center rounded-xl bg-stone-900 text-white">
-              <CreditCard className="h-6 w-6" />
-            </div>
-            <div>
-              <span className="text-xs font-bold text-stone-600 uppercase">Debit / Credit Card</span>
-              <div className="font-mono text-lg font-bold text-stone-900">₱{cardTotal.toFixed(2)}</div>
-            </div>
-          </div>
         </div>
       </div>
 

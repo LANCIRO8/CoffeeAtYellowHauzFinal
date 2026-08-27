@@ -37,6 +37,18 @@ export const SEED_USERS: User[] = [
     email: 'mark@yellowhauz.com',
     createdAt: '2026-03-10T10:00:00.000Z',
   },
+  {
+    id: 4,
+    employeeId: 'COOK001',
+    username: 'marco',
+    fullName: 'Marco Kitchen Cook',
+    role: 'cook',
+    status: 'active',
+    pin: '55667788',
+    phone: '+63 918 333 4444',
+    email: 'cook@yellowhauz.com',
+    createdAt: '2026-03-05T08:00:00.000Z',
+  },
 ];
 
 export const SEED_CATEGORIES: Category[] = [

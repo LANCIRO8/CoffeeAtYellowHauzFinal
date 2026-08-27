@@ -1,24 +1,24 @@
 @import "tailwindcss";
 
 @theme {
-  --color-amber-50: #FAF8F5;
-  --color-amber-100: #F4EFEA;
-  --color-amber-200: #E7DDCE;
-  --color-amber-300: #D9C8B5;
-  --color-amber-400: #C7B098;
-  --color-amber-500: #B59A7E;
-  --color-amber-600: #9C8065;
-  --color-amber-700: #81674F;
-  --color-amber-800: #66503D;
-  --color-amber-900: #4A3A2C;
-  --color-amber-950: #2E231A;
+  --color-amber-50: #FCFAF6;
+  --color-amber-100: #F8F5EC;
+  --color-amber-200: #F3EFE0;
+  --color-amber-300: #EBE4CB;
+  --color-amber-400: #F4EFE0;
+  --color-amber-500: #EDE8D0;
+  --color-amber-600: #DFD8BE;
+  --color-amber-700: #C2B895;
+  --color-amber-800: #8C825F;
+  --color-amber-900: #574F34;
+  --color-amber-950: #332D1B;
 
   --color-yellow-50: #FDFBF8;
   --color-yellow-100: #F7F3EE;
   --color-yellow-200: #EAE2D8;
   --color-yellow-300: #DDD0C1;
   --color-yellow-400: #CBB9A7;
-  --color-yellow-500: #BCA38E;
+  --color-yellow-500: #EDE8D0;
   --color-yellow-600: #A28974;
   --color-yellow-700: #856E5C;
   --color-yellow-800: #675446;
@@ -37,32 +37,32 @@
   --color-orange-900: #453626;
   --color-orange-950: #2B2117;
 
-  --color-beige-50: #FAF8F5;
-  --color-beige-100: #F4EFEA;
-  --color-beige-200: #E8DFD5;
-  --color-beige-300: #DBCBBF;
-  --color-beige-400: #CAB4A3;
-  --color-beige-500: #B89C87;
-  --color-beige-600: #9E826D;
-  --color-beige-700: #806754;
-  --color-beige-800: #634E3E;
-  --color-beige-900: #48372B;
-  --color-beige-950: #2F231B;
+  --color-beige-50: #FCFAF6;
+  --color-beige-100: #F8F5EC;
+  --color-beige-200: #EFE8DD;
+  --color-beige-300: #E3D7C6;
+  --color-beige-400: #D2C1AC;
+  --color-beige-500: #EDE8D0;
+  --color-beige-600: #A69078;
+  --color-beige-700: #88725B;
+  --color-beige-800: #6B5744;
+  --color-beige-900: #4D3D2F;
+  --color-beige-950: #31261D;
 
-  --color-roast: #805B2F;
-  --color-roast-50: #FAF6F0;
-  --color-roast-100: #F3ECE1;
-  --color-roast-200: #E6D8C4;
-  --color-roast-300: #D4BFA4;
-  --color-roast-400: #BA9D78;
-  --color-roast-500: #9E7D53;
-  --color-roast-600: #805B2F;
+  --color-roast: #F8F5EC;
+  --color-roast-50: #FCFAF6;
+  --color-roast-100: #F8F5EC;
+  --color-roast-200: #EFE8DD;
+  --color-roast-300: #E3D7C6;
+  --color-roast-400: #D2C1AC;
+  --color-roast-500: #BFAB94;
+  --color-roast-600: #F8F5EC;
   --color-roast-700: #684824;
   --color-roast-800: #52381B;
   --color-roast-900: #3D2912;
   --color-roast-950: #26190A;
 
-  --color-yellowhauz: #805B2F;
+  --color-yellowhauz: #EDE8D0;
 
   --font-baskerville: "Libre Baskerville", "Baskervville", Baskerville, "Baskerville Old Face", "Hoefler Text", Garamond, "Times New Roman", serif;
 }

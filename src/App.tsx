@@ -7,11 +7,14 @@ import {
   CustomerAccount,
   StoreSettings,
   Reservation,
+  CartItem,
+  TableBinding,
 } from './types';
 import { AppStore } from './services/store';
 import { Navigation } from './components/Navigation';
 import { CustomerHome } from './components/customer/CustomerHome';
 import { CustomerMenu } from './components/customer/CustomerMenu';
+import { CustomerOrders } from './components/customer/CustomerOrders';
 import { CustomerReservation } from './components/customer/CustomerReservation';
 import { CustomerAccountView } from './components/customer/CustomerAccount';
 import { CustomerLoginModal } from './components/customer/CustomerLoginModal';
@@ -25,10 +28,13 @@ import { SalesAnalytics } from './components/pos/SalesAnalytics';
 import { InventoryManager } from './components/pos/InventoryManager';
 import { SettingsManager } from './components/pos/SettingsManager';
 import { ReceiptModal } from './components/ReceiptModal';
+import { CustomerOrderSubmittedModal } from './components/customer/CustomerOrderSubmittedModal';
 import { ChatbotModal } from './components/ChatbotModal';
 import { LowStockNotificationModal } from './components/pos/LowStockNotificationModal';
+import { TableRequestModal } from './components/customer/TableRequestModal';
+import { ScannedTableModal } from './components/customer/ScannedTableModal';
 import { Bot, Coffee } from 'lucide-react';
-import { ModalProvider } from './context/ModalContext';
+import { ModalProvider, useModal } from './context/ModalContext';
 
 export default function App() {
   return (
@@ -39,10 +45,12 @@ export default function App() {
 }
 
 function MainApp() {
+  const { showConfirm } = useModal();
+
   // App navigation state
   const [appMode, setAppMode] = useState<'customer' | 'staff'>('staff');
   const [customerTab, setCustomerTab] = useState<
-    'home' | 'menu' | 'reservation' | 'venue' | 'account'
+    'home' | 'menu' | 'orders' | 'reservation' | 'venue' | 'account'
   >('home');
   const [staffTab, setStaffTab] = useState<
     'dashboard' | 'pos' | 'tables' | 'tickets' | 'reports' | 'analytics' | 'inventory' | 'settings'
@@ -56,9 +64,71 @@ function MainApp() {
   const [activeCustomer, setActiveCustomer] = useState<CustomerAccount | null>(() =>
     AppStore.getActiveCustomer()
   );
+  const [activeTableBinding, setActiveTableBinding] = useState<TableBinding | null>(() =>
+    AppStore.getActiveTableBinding()
+  );
+
+  // Scanned QR Table Modal (for customers scanning in-store table URL ?table=6)
+  const [scannedTableModalOpen, setScannedTableModalOpen] = useState(false);
+  const [scannedTableNumber, setScannedTableNumber] = useState<number | null>(null);
+
+  // Manual Online Table Picker Modal (for customers choosing tables from website floor map)
+  const [manualTableModalOpen, setManualTableModalOpen] = useState(false);
+  const lastHandledUrlTableRef = React.useRef<number | null>(null);
+
+  // Customer Cart state
+  const [customerCart, setCustomerCart] = useState<CartItem[]>([]);
+  const [isCustomerCartOpen, setIsCustomerCartOpen] = useState(false);
+
+  const customerCartCount = useMemo(
+    () => customerCart.reduce((sum, ci) => sum + ci.quantity, 0),
+    [customerCart]
+  );
+
+  const handleCustomerAddToCart = (item: MenuItem) => {
+    setCustomerCart((prev) => {
+      const existing = prev.find((ci) => ci.item.id === item.id);
+      if (existing) {
+        return prev.map((ci) =>
+          ci.item.id === item.id ? { ...ci, quantity: ci.quantity + 1 } : ci
+        );
+      }
+      return [...prev, { item, quantity: 1 }];
+    });
+    setIsCustomerCartOpen(true);
+  };
+
+  const handleCustomerUpdateQuantity = (itemId: number, delta: number) => {
+    setCustomerCart((prev) =>
+      prev
+        .map((ci) => {
+          if (ci.item.id === itemId) {
+            const newQty = ci.quantity + delta;
+            return newQty > 0 ? { ...ci, quantity: newQty } : null;
+          }
+          return ci;
+        })
+        .filter(Boolean) as CartItem[]
+    );
+  };
+
+  const handleCustomerRemoveItem = (itemId: number) => {
+    setCustomerCart((prev) => prev.filter((ci) => ci.item.id !== itemId));
+  };
+
+  const handleCustomerClearCart = () => {
+    setCustomerCart([]);
+  };
+
+  const handleCustomerUpdateItemInstructions = (itemId: number, text: string) => {
+    setCustomerCart((prev) =>
+      prev.map((ci) => (ci.item.id === itemId ? { ...ci, specialInstructions: text } : ci))
+    );
+  };
 
   // Modals
   const [selectedReceiptOrder, setSelectedReceiptOrder] = useState<Order | null>(null);
+  const [customerSubmittedOrder, setCustomerSubmittedOrder] = useState<Order | null>(null);
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
   const [isCustomerLoginOpen, setIsCustomerLoginOpen] = useState(false);
   const [isLowStockModalOpen, setIsLowStockModalOpen] = useState(false);
@@ -96,22 +166,88 @@ function MainApp() {
     setSettings(AppStore.getSettings());
     setActiveStaff(AppStore.getActiveStaff());
     setActiveCustomer(AppStore.getActiveCustomer());
+    setActiveTableBinding(AppStore.getActiveTableBinding());
+  };
+
+  const handleBindTable = (tableNumber: number) => {
+    const binding = AppStore.bindTableByNumber(tableNumber, false);
+    setActiveTableBinding(binding);
+  };
+
+  const handleClearTableBinding = () => {
+    AppStore.setActiveTableBinding(null);
+    setActiveTableBinding(null);
   };
 
   useEffect(() => {
     AppStore.initFirebaseSync();
+
+    // Clean wipe database to 0 data upon user's request
+    if (localStorage.getItem('yh_zero_reset_done') !== 'true') {
+      AppStore.resetDatabaseToZero().then(() => {
+        try {
+          localStorage.setItem('yh_zero_reset_done', 'true');
+        } catch {}
+      });
+    }
+
     const unsubscribe = AppStore.subscribe(() => {
       refreshAppData();
     });
     return () => unsubscribe();
   }, []);
 
-  // Enforce role-based access control: Cashiers strictly access Register, Floor Plan, and Tickets
+  // Monitor URL table parameter changes (e.g. ?table=6 to ?table=5) and trigger scanned table modal
   useEffect(() => {
-    if (activeStaff && activeStaff.role !== 'admin') {
-      const allowedCashierTabs = ['pos', 'tables', 'tickets'];
-      if (!allowedCashierTabs.includes(staffTab)) {
-        setStaffTab('pos');
+    const checkUrlTable = () => {
+      const tableFromUrl = AppStore.parseTableParamFromUrl();
+      if (tableFromUrl) {
+        if (tableFromUrl !== lastHandledUrlTableRef.current) {
+          lastHandledUrlTableRef.current = tableFromUrl;
+          const currentBinding = AppStore.getActiveTableBinding();
+          // If not already bound to this table, trigger the dedicated QR Scanned Table modal
+          if (!currentBinding || currentBinding.tableNumber !== tableFromUrl) {
+            setScannedTableNumber(tableFromUrl);
+            setScannedTableModalOpen(true);
+            setAppMode('customer');
+          }
+        }
+      } else {
+        lastHandledUrlTableRef.current = null;
+      }
+    };
+
+    // Check immediately on mount
+    checkUrlTable();
+
+    // Listen for browser history and hash navigation
+    window.addEventListener('popstate', checkUrlTable);
+    window.addEventListener('hashchange', checkUrlTable);
+
+    // Continuous check to detect query param changes without full page reload
+    const intervalId = setInterval(checkUrlTable, 300);
+
+    return () => {
+      window.removeEventListener('popstate', checkUrlTable);
+      window.removeEventListener('hashchange', checkUrlTable);
+      clearInterval(intervalId);
+    };
+  }, []);
+
+  // Enforce role-based access control:
+  // - Cook strictly accesses Tickets ONLY
+  // - Cashiers strictly access Register, Floor Plan, and Tickets
+  useEffect(() => {
+    if (activeStaff) {
+      if (activeStaff.role === 'cook') {
+        if (staffTab !== 'tickets') {
+          setStaffTab('tickets');
+        }
+      } else if (activeStaff.role !== 'admin') {
+        const allowedCashierTabs = ['pos', 'tables', 'tickets'];
+        if (!allowedCashierTabs.includes(staffTab)) {
+          setStaffTab('pos');
+        }
       }
     }
   }, [activeStaff, staffTab]);
@@ -120,20 +256,53 @@ function MainApp() {
     return menuItems.filter((i) => i.isBestSeller && i.isAvailable).slice(0, 6);
   }, [menuItems]);
 
-  const handleStaffLogout = () => {
-    AppStore.setActiveStaff(null);
-    setActiveStaff(null);
+  const handleStaffLogout = async () => {
+    const staffName = activeStaff?.fullName || activeStaff?.name || 'Staff';
+    const roleTitle =
+      activeStaff?.role === 'admin'
+        ? 'Administrator'
+        : activeStaff?.role === 'cook'
+        ? 'Cook'
+        : 'Cashier';
+    const confirmed = await showConfirm({
+      title: 'Logout Staff?',
+      message: `Are you sure you want to sign out ${staffName} (${roleTitle})? Any open tickets and inventory data remain safely saved.`,
+      type: 'warning',
+      confirmText: 'Yes, Logout',
+      cancelText: 'Cancel',
+    });
+
+    if (confirmed) {
+      AppStore.setActiveStaff(null);
+      setActiveStaff(null);
+    }
   };
 
-  const handleCustomerLogout = () => {
-    AppStore.setActiveCustomer(null);
-    setActiveCustomer(null);
-    setCustomerTab('home');
+  const handleCustomerLogout = async () => {
+    const customerName = activeCustomer?.fullName || 'Customer';
+    const confirmed = await showConfirm({
+      title: 'Sign Out?',
+      message: `Are you sure you want to sign out of ${customerName}'s account?`,
+      type: 'info',
+      confirmText: 'Yes, Sign Out',
+      cancelText: 'Stay Signed In',
+    });
+
+    if (confirmed) {
+      AppStore.setActiveCustomer(null);
+      setActiveCustomer(null);
+      setCustomerTab('home');
+    }
   };
 
   const handleOrderSuccess = (order: Order) => {
     refreshAppData();
     setSelectedReceiptOrder(order);
+  };
+
+  const handleCustomerOrderSuccess = (order: Order) => {
+    refreshAppData();
+    setCustomerSubmittedOrder(order);
   };
 
   return (
@@ -152,15 +321,23 @@ function MainApp() {
         onSetStaffTab={setStaffTab}
         activeStaff={activeStaff}
         activeCustomer={activeCustomer}
+        activeTableBinding={activeTableBinding}
+        onClearTableBinding={handleClearTableBinding}
+        onBindTable={handleBindTable}
         onStaffLogout={handleStaffLogout}
+        onCustomerLogout={handleCustomerLogout}
         onCustomerLoginClick={() => setIsCustomerLoginOpen(true)}
         onOpenChatbot={() => setIsChatbotOpen(true)}
-        cartCount={0}
+        cartCount={customerCartCount}
+        onToggleCart={() => setIsCustomerCartOpen((prev) => !prev)}
         isPinned={isNavPinned}
         onTogglePin={handleToggleNavPin}
         isNavVisible={isNavVisible}
         onSetNavVisible={setIsNavVisible}
         onOpenLowStockModal={() => setIsLowStockModalOpen(true)}
+        onOpenTableBindingModal={() => {
+          setManualTableModalOpen(true);
+        }}
       />
 
       {/* Main Content Area */}
@@ -175,7 +352,9 @@ function MainApp() {
                 onNavigateMenu={() => setCustomerTab('menu')}
                 onNavigateReservation={() => setCustomerTab('reservation')}
                 onNavigateVenue={() => setCustomerTab('venue')}
+                onNavigateOrders={() => setCustomerTab('orders')}
                 onAddToCart={(item) => {
+                  handleCustomerAddToCart(item);
                   setCustomerTab('menu');
                 }}
               />
@@ -187,8 +366,42 @@ function MainApp() {
                 menuItems={menuItems}
                 settings={settings}
                 activeCustomer={activeCustomer}
-                onOrderSuccess={handleOrderSuccess}
+                activeTableBinding={activeTableBinding}
+                onClearTable={handleClearTableBinding}
+                onBindTable={handleBindTable}
+                onOrderSuccess={handleCustomerOrderSuccess}
                 onRequireLogin={() => setIsCustomerLoginOpen(true)}
+                cart={customerCart}
+                isCartOpen={isCustomerCartOpen}
+                onToggleCart={() => setIsCustomerCartOpen((prev) => !prev)}
+                onOpenCart={() => setIsCustomerCartOpen(true)}
+                onCloseCart={() => setIsCustomerCartOpen(false)}
+                onAddToCart={handleCustomerAddToCart}
+                onUpdateQuantity={handleCustomerUpdateQuantity}
+                onRemoveItem={handleCustomerRemoveItem}
+                onClearCart={handleCustomerClearCart}
+                onUpdateItemInstructions={handleCustomerUpdateItemInstructions}
+              />
+            )}
+
+            {customerTab === 'orders' && (
+              <CustomerOrders
+                customer={activeCustomer}
+                settings={settings}
+                onNavigateMenu={() => setCustomerTab('menu')}
+                onRequireLogin={() => setIsCustomerLoginOpen(true)}
+                onViewReceipt={(order) => {
+                  if (order.status === 'to_confirm' || order.status === 'pending') {
+                    setCustomerSubmittedOrder(order);
+                  } else {
+                    setSelectedReceiptOrder(order);
+                  }
+                }}
+                onViewReviewStatus={(order) => setCustomerSubmittedOrder(order)}
+                onAddToCart={(item) => {
+                  handleCustomerAddToCart(item);
+                  setCustomerTab('menu');
+                }}
               />
             )}
 
@@ -221,7 +434,14 @@ function MainApp() {
                 customer={activeCustomer}
                 settings={settings}
                 onLogout={handleCustomerLogout}
-                onViewReceipt={(order) => setSelectedReceiptOrder(order)}
+                onNavigateOrders={() => setCustomerTab('orders')}
+                onViewReceipt={(order) => {
+                  if (order.status === 'to_confirm' || order.status === 'pending') {
+                    setCustomerSubmittedOrder(order);
+                  } else {
+                    setSelectedReceiptOrder(order);
+                  }
+                }}
               />
             )}
           </>
@@ -234,6 +454,8 @@ function MainApp() {
                   setActiveStaff(u);
                   if (u.role === 'admin') {
                     setStaffTab('dashboard');
+                  } else if (u.role === 'cook') {
+                    setStaffTab('tickets');
                   } else {
                     setStaffTab('pos');
                   }
@@ -266,6 +488,7 @@ function MainApp() {
 
                 {staffTab === 'tables' && (
                   <TableManagement
+                    activeStaff={activeStaff}
                     onViewOrderReceipt={(order) => setSelectedReceiptOrder(order)}
                   />
                 )}
@@ -306,6 +529,18 @@ function MainApp() {
       </main>
 
       {/* Modals */}
+      {customerSubmittedOrder && (
+        <CustomerOrderSubmittedModal
+          order={customerSubmittedOrder}
+          settings={settings}
+          onClose={() => setCustomerSubmittedOrder(null)}
+          onTrackOrder={() => {
+            setCustomerSubmittedOrder(null);
+            setCustomerTab('orders');
+          }}
+        />
+      )}
+
       {selectedReceiptOrder && (
         <ReceiptModal
           order={selectedReceiptOrder}
@@ -321,7 +556,10 @@ function MainApp() {
           onClose={() => setIsCustomerLoginOpen(false)}
           onSuccess={(c) => {
             setActiveCustomer(c);
-            setCustomerTab('account');
+            setIsCustomerLoginOpen(false);
+            if (customerTab !== 'menu' && customerTab !== 'reservation' && customerTab !== 'venue') {
+              setCustomerTab('account');
+            }
           }}
         />
       )}
@@ -344,6 +582,46 @@ function MainApp() {
           }
         />
       )}
+
+      {/* In-Store Scanned QR Table Modal (Triggered via ?table=6 or QR scan) */}
+      <ScannedTableModal
+        isOpen={scannedTableModalOpen && scannedTableNumber !== null}
+        onClose={() => setScannedTableModalOpen(false)}
+        scannedTableNumber={scannedTableNumber || 0}
+        activeCustomer={activeCustomer}
+        currentTableBinding={activeTableBinding}
+        onConfirmed={(binding) => {
+          handleBindTable(binding.tableNumber);
+          setScannedTableModalOpen(false);
+          setAppMode('customer');
+          setCustomerTab('menu');
+        }}
+        onOpenManualTablePicker={() => {
+          setScannedTableModalOpen(false);
+          setManualTableModalOpen(true);
+        }}
+        onSwitchToOnline={() => {
+          handleClearTableBinding();
+          setScannedTableModalOpen(false);
+        }}
+      />
+
+      {/* Online Manual Table Selector Modal (Triggered when user chooses/changes table online) */}
+      <TableRequestModal
+        isOpen={manualTableModalOpen}
+        onClose={() => setManualTableModalOpen(false)}
+        initialSelectedTable={activeTableBinding?.tableNumber || null}
+        onConfirmed={(binding) => {
+          handleBindTable(binding.tableNumber);
+          setManualTableModalOpen(false);
+        }}
+        activeCustomer={activeCustomer}
+        currentTableBinding={activeTableBinding}
+        onSwitchToOnline={() => {
+          handleClearTableBinding();
+          setManualTableModalOpen(false);
+        }}
+      />
     </div>
   );
 }

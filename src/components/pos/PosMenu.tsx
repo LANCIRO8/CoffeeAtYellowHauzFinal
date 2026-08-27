@@ -454,7 +454,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
       discountPercent,
       amountPaid: paymentMethod === 'cash' ? tenderedNumber : totalAmount,
       changeAmount: paymentMethod === 'cash' ? changeAmount : 0,
-      status: 'completed',
+      status: 'to_prep',
       cashierId: activeStaff?.id ?? 2,
       cashierName: activeStaff?.fullName || activeStaff?.name || 'Staff Member',
       items: orderItems,

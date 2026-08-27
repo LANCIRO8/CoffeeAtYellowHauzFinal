@@ -9,6 +9,10 @@ import {
   StoreSettings,
   ChatIntent,
   Discount,
+  TableBinding,
+  TableRequest,
+  TableRequestType,
+  TableRequestStatus,
 } from '../types';
 import {
   SEED_CATEGORIES,
@@ -29,143 +33,9 @@ import {
   onSnapshot,
 } from 'firebase/firestore';
 
-// Initial sample completed orders for realistic analytics if collection is empty
-const INITIAL_ORDERS: Order[] = [
-  {
-    id: 1001,
-    orderNumber: 'YH-20260817-001',
-    channel: 'in_store',
-    tableId: 1,
-    tableNumber: 1,
-    customerName: 'Juan Dela Cruz',
-    orderType: 'dine_in',
-    paymentMethod: 'cash',
-    subtotal: 400.0,
-    taxRate: 12,
-    taxAmount: 48.0,
-    totalAmount: 448.0,
-    discountAmount: 0,
-    discountType: 'none',
-    discountPercent: 0,
-    amountPaid: 500.0,
-    changeAmount: 52.0,
-    status: 'completed',
-    cashierId: 2,
-    cashierName: 'Sheila Mae Aledro',
-    items: [
-      { menuItemId: 3, name: 'Longganisa', quantity: 1, unitPrice: 230.0, totalPrice: 230.0 },
-      { menuItemId: 38, name: 'Latte', quantity: 1, unitPrice: 170.0, totalPrice: 170.0 },
-    ],
-    createdAt: new Date(Date.now() - 4 * 3600000).toISOString(),
-  },
-  {
-    id: 1002,
-    orderNumber: 'YH-20260817-002',
-    channel: 'online',
-    tableId: null,
-    customerName: 'Maria Santos',
-    orderType: 'take_away',
-    paymentMethod: 'gcash',
-    subtotal: 510.0,
-    taxRate: 12,
-    taxAmount: 61.2,
-    totalAmount: 571.2,
-    discountAmount: 0,
-    discountType: 'none',
-    discountPercent: 0,
-    amountPaid: 571.2,
-    changeAmount: 0,
-    status: 'completed',
-    cashierId: 1,
-    cashierName: 'Online Storefront',
-    items: [
-      { menuItemId: 17, name: 'Pork Adobo Flakes', quantity: 1, unitPrice: 310.0, totalPrice: 310.0 },
-      { menuItemId: 39, name: 'Spanish Latte', quantity: 1, unitPrice: 200.0, totalPrice: 200.0 },
-    ],
-    createdAt: new Date(Date.now() - 3 * 3600000).toISOString(),
-  },
-  {
-    id: 1003,
-    orderNumber: 'YH-20260817-003',
-    channel: 'in_store',
-    tableId: 5,
-    tableNumber: 5,
-    customerName: 'Carlo Mendoza',
-    orderType: 'dine_in',
-    paymentMethod: 'card',
-    subtotal: 620.0,
-    taxRate: 12,
-    taxAmount: 74.4,
-    totalAmount: 694.4,
-    discountAmount: 0,
-    discountType: 'none',
-    discountPercent: 0,
-    amountPaid: 694.4,
-    changeAmount: 0,
-    status: 'completed',
-    cashierId: 2,
-    cashierName: 'Sheila Mae Aledro',
-    items: [
-      { menuItemId: 29, name: 'Grilled Garlic cheese', quantity: 2, unitPrice: 180.0, totalPrice: 360.0 },
-      { menuItemId: 41, name: 'Iced Latte', quantity: 1, unitPrice: 180.0, totalPrice: 180.0 },
-      { menuItemId: 33, name: 'Tiramisu', quantity: 1, unitPrice: 150.0, totalPrice: 150.0 },
-    ],
-    createdAt: new Date(Date.now() - 1 * 3600000).toISOString(),
-  },
-];
-
-const INITIAL_RESERVATIONS: Reservation[] = [
-  {
-    id: 1,
-    reservationCode: 'YH-RES-1049',
-    bookingType: 'table',
-    tableId: 6,
-    tableNumber: 6,
-    customerName: 'Atty. Roberto Tan',
-    contactNumber: '+63 917 123 4567',
-    guestCount: 6,
-    reservationAt: new Date(Date.now() + 2 * 3600000).toISOString(),
-    notes: 'Family dinner celebration - request quiet corner in Garden section.',
-    status: 'confirmed',
-    createdAt: new Date(Date.now() - 5 * 3600000).toISOString(),
-  },
-  {
-    id: 2,
-    reservationCode: 'YH-RES-1050',
-    bookingType: 'table',
-    tableId: 3,
-    tableNumber: 3,
-    customerName: 'Claire Villanueva',
-    contactNumber: '+63 920 987 6543',
-    guestCount: 4,
-    reservationAt: new Date(Date.now() + 5 * 3600000).toISOString(),
-    notes: 'Afternoon meeting & coffee tasting.',
-    status: 'pending',
-    createdAt: new Date(Date.now() - 2 * 3600000).toISOString(),
-  },
-  {
-    id: 3,
-    reservationCode: 'YH-VEN-2041',
-    bookingType: 'venue',
-    venueName: 'The Yellow Hauz Private Studio & Event Nook',
-    tableId: 99,
-    tableNumber: 99,
-    venueDurationHours: 3,
-    venueRate: 300,
-    totalAmount: 300,
-    eventType: 'Creative Workshop & Art Class',
-    seatingLayout: 'workshop',
-    paymentStatus: 'paid',
-    paymentMethod: 'gcash',
-    customerName: 'Samantha Nicole Cruz',
-    contactNumber: '+63 918 555 7890',
-    guestCount: 12,
-    reservationAt: new Date(Date.now() + 24 * 3600000).toISOString(),
-    notes: 'Please setup HD Projector, high-speed WiFi, and 12 seats in workshop U-shape format.',
-    status: 'confirmed',
-    createdAt: new Date(Date.now() - 6 * 3600000).toISOString(),
-  },
-];
+// Empty initial collections for fresh 0-data zeroed state
+const INITIAL_ORDERS: Order[] = [];
+const INITIAL_RESERVATIONS: Reservation[] = [];
 
 export const DEFAULT_DISCOUNTS: Discount[] = [
   {
@@ -229,7 +99,10 @@ const STORAGE_KEYS = {
   USERS: 'yh_users',
   ACTIVE_STAFF: 'yh_active_staff',
   ACTIVE_CUSTOMER: 'yh_active_customer',
+  ACTIVE_TABLE_BINDING: 'yh_active_table_binding',
   DISCOUNTS: 'yh_discounts',
+  TABLE_REQUESTS: 'yh_table_requests',
+  CLIENT_SESSION_ID: 'yh_client_session_id',
 };
 
 // Defensive helper to strip undefined values so Firestore never throws 'Unsupported field value: undefined'
@@ -276,6 +149,8 @@ type StoreListener = () => void;
 export class AppStore {
   private static listeners: Set<StoreListener> = new Set();
   private static isInitialized = false;
+  private static isNotifying = false;
+  private static notifyQueued = false;
 
   static subscribe(listener: StoreListener): () => void {
     this.listeners.add(listener);
@@ -285,13 +160,30 @@ export class AppStore {
   }
 
   static notify(): void {
-    this.listeners.forEach((fn) => {
-      try {
-        fn();
-      } catch (e) {
-        console.error('Listener notify error:', e);
+    if (this.isNotifying) {
+      this.notifyQueued = true;
+      return;
+    }
+
+    this.isNotifying = true;
+    try {
+      this.listeners.forEach((fn) => {
+        try {
+          fn();
+        } catch (e) {
+          console.error('Listener notify error:', e);
+        }
+      });
+    } finally {
+      this.isNotifying = false;
+      if (this.notifyQueued) {
+        this.notifyQueued = false;
+        // Schedule deferred notify on next microtask so stack is completely unwound
+        queueMicrotask(() => {
+          this.notify();
+        });
       }
-    });
+    }
   }
 
   // Initialize real-time Firebase Firestore synchronization
@@ -360,13 +252,10 @@ export class AppStore {
           const orders = snapshot.docs.map((doc) => doc.data() as Order);
           orders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           setStored(STORAGE_KEYS.ORDERS, orders);
-          this.notify();
         } else {
-          // Seed initial orders
-          INITIAL_ORDERS.forEach((o) => {
-            setDoc(doc(db, 'orders', String(o.id)), cleanForFirestore(o)).catch(() => {});
-          });
+          setStored(STORAGE_KEYS.ORDERS, []);
         }
+        this.notify();
       });
 
       // 5. Listen to Reservations
@@ -375,13 +264,10 @@ export class AppStore {
           const resList = snapshot.docs.map((doc) => doc.data() as Reservation);
           resList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           setStored(STORAGE_KEYS.RESERVATIONS, resList);
-          this.notify();
         } else {
-          // Seed initial reservations
-          INITIAL_RESERVATIONS.forEach((r) => {
-            setDoc(doc(db, 'reservations', String(r.id)), cleanForFirestore(r)).catch(() => {});
-          });
+          setStored(STORAGE_KEYS.RESERVATIONS, []);
         }
+        this.notify();
       });
 
       // 6. Listen to Store Settings
@@ -401,10 +287,13 @@ export class AppStore {
       // 7. Listen to Users
       onSnapshot(collection(db, 'users'), (snapshot) => {
         if (!snapshot.empty) {
-          const users = snapshot.docs.map((doc) => {
+          const rawUsers = snapshot.docs.map((doc) => {
             const u = doc.data() as User;
             if (u.fullName === 'System Administrator') {
               u.fullName = 'Admin';
+            }
+            if ((u as any).role === 'chef') {
+              u.role = 'cook';
             }
             // Auto-pad or convert legacy 4-digit PINs to 8 digits if present
             if (u.pin && u.pin.length === 4) {
@@ -416,10 +305,30 @@ export class AppStore {
                 u.pin = u.pin.repeat(2);
               }
             } else if (!u.pin) {
-              u.pin = u.role === 'admin' ? '12345678' : '00000000';
+              u.pin = u.role === 'admin' ? '12345678' : u.role === 'cook' ? '55667788' : '00000000';
             }
             return u;
           });
+
+          // Deduplicate by id and username
+          const userMap = new Map<string, User>();
+          rawUsers.forEach((u) => {
+            const uKey = (u.username || u.fullName || String(u.id)).toLowerCase().trim();
+            if (!userMap.has(uKey)) {
+              userMap.set(uKey, u);
+            }
+          });
+
+          // Ensure any default seed users (e.g. cook) are present
+          SEED_USERS.forEach((seedU) => {
+            const uKey = seedU.username.toLowerCase().trim();
+            if (!userMap.has(uKey)) {
+              userMap.set(uKey, seedU);
+              setDoc(doc(db, 'users', String(seedU.id)), cleanForFirestore(seedU)).catch(() => {});
+            }
+          });
+
+          const users = Array.from(userMap.values());
           setStored(STORAGE_KEYS.USERS, users);
           this.notify();
         } else {
@@ -446,6 +355,18 @@ export class AppStore {
             setDoc(doc(db, 'discounts', d.id), cleanForFirestore(d)).catch(() => {});
           });
         }
+      });
+
+      // 9. Listen to Live Table Requests (Customer selection & Cashier confirmation)
+      onSnapshot(collection(db, 'table_requests'), (snapshot) => {
+        if (!snapshot.empty) {
+          const list = snapshot.docs.map((doc) => doc.data() as TableRequest);
+          list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setStored(STORAGE_KEYS.TABLE_REQUESTS, list);
+        } else {
+          setStored(STORAGE_KEYS.TABLE_REQUESTS, []);
+        }
+        this.notify();
       });
     } catch (err) {
       console.warn('Firebase sync initialization notice:', err);
@@ -748,15 +669,35 @@ export class AppStore {
       orderData.channel ||
       (orderData.cashierName?.toLowerCase().includes('online') ? 'online' : 'in_store');
 
+    // Dual-Mode Order Classification:
+    // If an incoming transaction carries a designated table number, the system processes it as a live in-house order.
+    // If it carries a future timestamp and advance booking reservation details, it handles it as an advance booking.
+    let classification: 'live_in_house' | 'advance_booking' = 'live_in_house';
+    if (orderData.orderClassification) {
+      classification = orderData.orderClassification;
+    } else if (orderData.advanceBooking || orderData.scheduledFor) {
+      classification = 'advance_booking';
+    } else if (orderData.tableNumber || orderData.tableId || orderData.orderType === 'dine_in') {
+      classification = 'live_in_house';
+    } else if (channel === 'online') {
+      classification = 'advance_booking';
+    }
+
     const newOrder: Order = {
       id: newId,
       orderNumber,
       channel,
+      orderClassification: classification,
       createdAt: new Date().toISOString(),
       tableId: orderData.tableId ?? null,
       tableNumber: orderData.tableNumber ?? null,
       customerId: orderData.customerId ?? null,
       customerName: orderData.customerName || (channel === 'online' ? 'Online Customer' : 'Walk-in Guest'),
+      customerPhone: orderData.customerPhone || '',
+      deliveryAddress: orderData.deliveryAddress || '',
+      advanceBooking: orderData.advanceBooking || undefined,
+      scheduledFor: orderData.scheduledFor || (orderData.advanceBooking ? `${orderData.advanceBooking.bookingDate} ${orderData.advanceBooking.arrivalTime}` : undefined),
+      guestCount: orderData.guestCount ?? (orderData.advanceBooking ? orderData.advanceBooking.partySize : undefined),
       orderType: orderData.orderType || 'dine_in',
       paymentMethod: orderData.paymentMethod || 'cash',
       subtotal: Number(orderData.subtotal) || 0,
@@ -768,7 +709,7 @@ export class AppStore {
       discountPercent: Number(orderData.discountPercent) || 0,
       amountPaid: Number(orderData.amountPaid) || 0,
       changeAmount: Number(orderData.changeAmount) || 0,
-      status: orderData.status || 'pending',
+      status: orderData.status || (channel === 'online' ? 'to_confirm' : 'to_prep'),
       cashierId: orderData.cashierId ?? (channel === 'online' ? 1 : 2),
       cashierName: orderData.cashierName || (channel === 'online' ? 'Online Storefront' : 'Staff Member'),
       items: (orderData.items || []).map((oi) => ({
@@ -811,28 +752,84 @@ export class AppStore {
     return newOrder;
   }
 
-  static updateOrderStatus(orderId: number, status: Order['status']): Order | null {
+  static updateOrderStatus(
+    orderId: number,
+    status: Order['status'],
+    details?: {
+      cancelReason?: string;
+      cancelNotes?: string;
+      cancelledBy?: string;
+      returnReason?: string;
+    }
+  ): Order | null {
     const orders = this.getOrders();
     const order = orders.find((o) => o.id === orderId);
     if (!order) return null;
+    const prevStatus = order.status;
     order.status = status;
     const nowIso = new Date().toISOString();
+
+    if (status === 'to_confirm') {
+      order.returnedToCashierAt = nowIso;
+      if (details?.returnReason) {
+        order.returnReason = details.returnReason;
+      }
+    }
+    if (status === 'to_prep' && !order.confirmedAt) {
+      order.confirmedAt = nowIso;
+    }
     if (status === 'processing' && !order.processingStartedAt) {
       order.processingStartedAt = nowIso;
     }
+    if (status === 'to_serve' && !order.readyToServeAt) {
+      order.readyToServeAt = nowIso;
+    }
     if (status === 'completed' && !order.completedAt) {
       order.completedAt = nowIso;
+      if (!order.readyToServeAt) {
+        order.readyToServeAt = nowIso;
+      }
       if (!order.processingStartedAt) {
         order.processingStartedAt = order.createdAt;
       }
     }
+    if (status === 'cancelled') {
+      order.cancelledAt = nowIso;
+      if (details?.cancelReason) order.cancelReason = details.cancelReason;
+      if (details?.cancelNotes) order.cancelNotes = details.cancelNotes;
+      if (details?.cancelledBy) order.cancelledBy = details.cancelledBy;
+
+      // Restore inventory if newly cancelled
+      if (prevStatus !== 'cancelled') {
+        const items = this.getMenuItems();
+        for (const oi of order.items) {
+          const match = items.find((i) => i.id === oi.menuItemId);
+          if (match) {
+            match.quantity = (match.quantity || 0) + oi.quantity;
+            updateDoc(doc(db, 'menu_items', String(match.id)), { quantity: match.quantity }).catch(
+              () => {}
+            );
+          }
+        }
+        this.saveMenuItems(items);
+      }
+    }
+
     this.saveOrders(orders);
 
     // Firestore sync
     const updates: Partial<Order> = {
       status,
+      ...(order.confirmedAt ? { confirmedAt: order.confirmedAt } : {}),
       ...(order.processingStartedAt ? { processingStartedAt: order.processingStartedAt } : {}),
+      ...(order.readyToServeAt ? { readyToServeAt: order.readyToServeAt } : {}),
       ...(order.completedAt ? { completedAt: order.completedAt } : {}),
+      ...(order.cancelledAt ? { cancelledAt: order.cancelledAt } : {}),
+      ...(order.cancelReason ? { cancelReason: order.cancelReason } : {}),
+      ...(order.cancelNotes ? { cancelNotes: order.cancelNotes } : {}),
+      ...(order.cancelledBy ? { cancelledBy: order.cancelledBy } : {}),
+      ...(order.returnedToCashierAt ? { returnedToCashierAt: order.returnedToCashierAt } : {}),
+      ...(order.returnReason ? { returnReason: order.returnReason } : {}),
     };
 
     updateDoc(doc(db, 'orders', String(orderId)), cleanForFirestore(updates)).catch(() => {
@@ -948,14 +945,44 @@ export class AppStore {
   // Users and Auth State
   static getUsers(): User[] {
     const list = getStored<User[]>(STORAGE_KEYS.USERS, SEED_USERS);
-    return list.map((u) => {
+    const userMap = new Map<string, User>();
+
+    list.forEach((u) => {
+      if ((u as any).role === 'chef') {
+        u.role = 'cook';
+      }
+      const uKey = (u.username || u.fullName || String(u.id)).toLowerCase().trim();
+      if (!userMap.has(uKey)) {
+        userMap.set(uKey, u);
+      }
+    });
+
+    SEED_USERS.forEach((seedU) => {
+      const uKey = seedU.username.toLowerCase().trim();
+      if (!userMap.has(uKey)) {
+        userMap.set(uKey, seedU);
+      }
+    });
+
+    return Array.from(userMap.values()).map((u) => {
       let updated = u;
       if (u.fullName === 'System Administrator') {
         updated = { ...updated, fullName: 'Admin' };
       }
+      if ((updated as any).role === 'chef') {
+        updated = { ...updated, role: 'cook' };
+      }
       // Ensure fallback PINs if missing
       if (!updated.pin) {
-        updated = { ...updated, pin: updated.role === 'admin' ? '1234' : '0000' };
+        updated = {
+          ...updated,
+          pin:
+            updated.role === 'admin'
+              ? '12345678'
+              : updated.role === 'cook'
+              ? '55667788'
+              : '00000000',
+        };
       }
       return updated;
     });
@@ -1072,6 +1099,308 @@ export class AppStore {
     this.notify();
   }
 
+  // Dual-Mode Table Binding Engine (for Dine-in Patrons vs External Online)
+  static getActiveTableBinding(): TableBinding | null {
+    return getStored<TableBinding | null>(STORAGE_KEYS.ACTIVE_TABLE_BINDING, null);
+  }
+
+  static setActiveTableBinding(binding: TableBinding | null): void {
+    setStored(STORAGE_KEYS.ACTIVE_TABLE_BINDING, binding);
+    try {
+      if (typeof window !== 'undefined' && window.history && window.location) {
+        const url = new URL(window.location.href);
+        if (binding) {
+          url.searchParams.set('table', String(binding.tableNumber));
+        } else {
+          url.searchParams.delete('table');
+          url.searchParams.delete('t');
+          url.searchParams.delete('tableNumber');
+          url.searchParams.delete('tableId');
+          url.searchParams.delete('table_id');
+        }
+        window.history.replaceState(null, '', url.toString());
+      }
+    } catch {
+      // ignore
+    }
+    this.notify();
+  }
+
+  static bindTableByNumber(
+    tableNumber: number,
+    autoBound: boolean = false,
+    assignedByCashier?: string
+  ): TableBinding | null {
+    const tables = this.getTables();
+    const match = tables.find((t) => t.tableNumber === tableNumber);
+    if (!match) return null;
+    const binding: TableBinding = {
+      tableId: match.id,
+      tableNumber: match.tableNumber,
+      area: match.area,
+      capacity: match.capacity,
+      autoBound,
+      assignedByCashier: assignedByCashier || 'Cashier on Duty',
+      assignedAt: new Date().toISOString(),
+    };
+    this.setActiveTableBinding(binding);
+    return binding;
+  }
+
+  // Client session identification
+  static getClientSessionId(): string {
+    let sid = getStored<string | null>(STORAGE_KEYS.CLIENT_SESSION_ID, null);
+    if (!sid) {
+      sid = `client_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      setStored(STORAGE_KEYS.CLIENT_SESSION_ID, sid);
+    }
+    return sid;
+  }
+
+  // Cashier Online Presence
+  static isCashierOnline(): boolean {
+    const active = this.getActiveStaff();
+    if (
+      active &&
+      (active.role === 'cashier' || active.role === 'admin') &&
+      active.status === 'active'
+    ) {
+      return true;
+    }
+    const users = this.getUsers();
+    return users.some(
+      (u) =>
+        (u.role === 'cashier' || u.role === 'admin') &&
+        u.status === 'active' &&
+        Boolean(u.lastLogin)
+    );
+  }
+
+  static getOnlineCashiers(): User[] {
+    const active = this.getActiveStaff();
+    if (
+      active &&
+      (active.role === 'cashier' || active.role === 'admin') &&
+      active.status === 'active'
+    ) {
+      return [active];
+    }
+    return this.getUsers().filter(
+      (u) => (u.role === 'cashier' || u.role === 'admin') && u.status === 'active'
+    );
+  }
+
+  // Table Requests (Customer table choices & Cashier verification)
+  static getTableRequests(): TableRequest[] {
+    return getStored<TableRequest[]>(STORAGE_KEYS.TABLE_REQUESTS, []);
+  }
+
+  static saveTableRequests(requests: TableRequest[]): void {
+    setStored(STORAGE_KEYS.TABLE_REQUESTS, requests);
+    this.notify();
+  }
+
+  static getPendingTableRequests(): TableRequest[] {
+    return this.getTableRequests().filter((r) => r.status === 'pending');
+  }
+
+  static getMyActiveTableRequest(sessionId?: string): TableRequest | null {
+    const sid = sessionId || this.getClientSessionId();
+    const requests = this.getTableRequests();
+    // Return pending request first, or a recently resolved one (within 45s)
+    const pending = requests.find((r) => r.sessionId === sid && r.status === 'pending');
+    if (pending) return pending;
+
+    const recent = requests.find(
+      (r) =>
+        r.sessionId === sid &&
+        (r.status === 'approved' || r.status === 'rejected') &&
+        r.respondedAt &&
+        Date.now() - new Date(r.respondedAt).getTime() < 45000
+    );
+    return recent || null;
+  }
+
+  static createTableRequest(params: {
+    tableNumber: number;
+    currentTableNumber?: number | null;
+    customerName?: string;
+    customerPhone?: string;
+    notes?: string;
+    sessionId?: string;
+    customerId?: number | null;
+  }): TableRequest {
+    const tables = this.getTables();
+    const targetTable = tables.find((t) => t.tableNumber === params.tableNumber);
+    const sid = params.sessionId || this.getClientSessionId();
+    const reqId = `TR-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const isChanging = Boolean(
+      params.currentTableNumber && params.currentTableNumber !== params.tableNumber
+    );
+
+    const newRequest: TableRequest = {
+      id: reqId,
+      sessionId: sid,
+      customerId: params.customerId ?? (this.getActiveCustomer()?.id || null),
+      customerName:
+        params.customerName?.trim() ||
+        this.getActiveCustomer()?.fullName ||
+        'Guest Customer',
+      customerPhone:
+        params.customerPhone?.trim() ||
+        this.getActiveCustomer()?.contactNumber ||
+        '',
+      type: isChanging ? 'change_table' : 'new_table',
+      currentTableNumber: params.currentTableNumber || null,
+      requestedTableNumber: params.tableNumber,
+      requestedTableId: targetTable ? targetTable.id : params.tableNumber,
+      area: targetTable ? targetTable.area : 'normal',
+      capacity: targetTable ? targetTable.capacity : 4,
+      notes: params.notes?.trim() || '',
+      status: 'pending',
+      cashierId: null,
+      cashierName: null,
+      rejectionReason: null,
+      createdAt: new Date().toISOString(),
+      respondedAt: null,
+    };
+
+    // Replace any old pending request from this same session
+    const list = this.getTableRequests().filter(
+      (r) => !(r.sessionId === sid && r.status === 'pending')
+    );
+    list.unshift(newRequest);
+    this.saveTableRequests(list);
+
+    // Sync to Firestore
+    setDoc(doc(db, 'table_requests', reqId), cleanForFirestore(newRequest)).catch((e) =>
+      console.error('Firestore create table request error:', e)
+    );
+
+    return newRequest;
+  }
+
+  static cancelTableRequest(requestId: string): void {
+    const list = this.getTableRequests();
+    const req = list.find((r) => r.id === requestId);
+    if (req) {
+      req.status = 'cancelled';
+      req.respondedAt = new Date().toISOString();
+      this.saveTableRequests(list);
+
+      updateDoc(doc(db, 'table_requests', requestId), {
+        status: 'cancelled',
+        respondedAt: req.respondedAt,
+      }).catch(() => {});
+    }
+  }
+
+  static approveTableRequest(requestId: string, cashier: User): TableRequest | null {
+    const list = this.getTableRequests();
+    const req = list.find((r) => r.id === requestId);
+    if (!req) return null;
+
+    req.status = 'approved';
+    req.cashierId = cashier.id;
+    req.cashierName = cashier.fullName;
+    req.respondedAt = new Date().toISOString();
+    this.saveTableRequests(list);
+
+    // Update target table to occupied in floor plan
+    this.updateTableStatus(req.requestedTableId, 'occupied');
+
+    // If changing tables, free the previous table if it has no active order
+    if (req.currentTableNumber && req.currentTableNumber !== req.requestedTableNumber) {
+      const oldTable = this.getTables().find((t) => t.tableNumber === req.currentTableNumber);
+      if (oldTable && oldTable.status === 'occupied' && !oldTable.currentOrderId) {
+        this.updateTableStatus(oldTable.id, 'available', null);
+      }
+    }
+
+    // Firestore sync
+    updateDoc(
+      doc(db, 'table_requests', requestId),
+      cleanForFirestore({
+        status: 'approved',
+        cashierId: cashier.id,
+        cashierName: cashier.fullName,
+        respondedAt: req.respondedAt,
+      })
+    ).catch(() => {
+      setDoc(doc(db, 'table_requests', requestId), cleanForFirestore(req)).catch(() => {});
+    });
+
+    return req;
+  }
+
+  static rejectTableRequest(
+    requestId: string,
+    cashier: User,
+    reason?: string
+  ): TableRequest | null {
+    const list = this.getTableRequests();
+    const req = list.find((r) => r.id === requestId);
+    if (!req) return null;
+
+    req.status = 'rejected';
+    req.cashierId = cashier.id;
+    req.cashierName = cashier.fullName;
+    req.rejectionReason =
+      reason ||
+      'Requested table is currently reserved or unavailable. Please choose another table.';
+    req.respondedAt = new Date().toISOString();
+    this.saveTableRequests(list);
+
+    // Firestore sync
+    updateDoc(
+      doc(db, 'table_requests', requestId),
+      cleanForFirestore({
+        status: 'rejected',
+        cashierId: cashier.id,
+        cashierName: cashier.fullName,
+        rejectionReason: req.rejectionReason,
+        respondedAt: req.respondedAt,
+      })
+    ).catch(() => {
+      setDoc(doc(db, 'table_requests', requestId), cleanForFirestore(req)).catch(() => {});
+    });
+
+    return req;
+  }
+
+  static parseTableParamFromUrl(): number | null {
+    try {
+      if (typeof window === 'undefined') return null;
+      const url = new URL(window.location.href);
+      // Support ?table=3, ?t=3, ?tableNumber=3, ?table_id=3, #table-3
+      const tableParam =
+        url.searchParams.get('table') ||
+        url.searchParams.get('t') ||
+        url.searchParams.get('tableNumber') ||
+        url.searchParams.get('tableId') ||
+        url.searchParams.get('table_id');
+
+      if (tableParam) {
+        const cleaned = tableParam.replace(/[^0-9]/g, '');
+        const num = parseInt(cleaned, 10);
+        if (!isNaN(num) && num > 0) return num;
+      }
+
+      // Check hash like #table-3 or #t3
+      if (window.location.hash) {
+        const hashMatch = window.location.hash.match(/table[-_]?(\d+)/i) || window.location.hash.match(/t(\d+)/i);
+        if (hashMatch && hashMatch[1]) {
+          const num = parseInt(hashMatch[1], 10);
+          if (!isNaN(num) && num > 0) return num;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  }
+
   // Chatbot Logic
   static getChatbotResponse(userMessage: string): string {
     const lower = userMessage.toLowerCase().trim();
@@ -1152,5 +1481,100 @@ export class AppStore {
     deleteDoc(doc(db, 'discounts', id)).catch((e) =>
       console.error('Firestore delete discount error:', e)
     );
+  }
+
+  /**
+   * Reset database to 0 data:
+   * - Deletes all orders from Firestore & Local Storage
+   * - Deletes all reservations & bookings from Firestore & Local Storage
+   * - Resets table statuses to 'available' with no active orders
+   * - Clears customer cart, active customer session, and table bindings
+   */
+  static async resetDatabaseToZero(): Promise<{
+    success: boolean;
+    deletedOrders: number;
+    deletedReservations: number;
+  }> {
+    let deletedOrders = 0;
+    let deletedReservations = 0;
+
+    try {
+      // 1. Delete all Firestore orders
+      try {
+        const ordersSnap = await getDocs(collection(db, 'orders'));
+        deletedOrders = ordersSnap.size;
+        for (const orderDoc of ordersSnap.docs) {
+          await deleteDoc(doc(db, 'orders', orderDoc.id)).catch(() => {});
+        }
+      } catch (err) {
+        console.warn('Orders cleanup notice:', err);
+      }
+
+      // 2. Delete all Firestore reservations
+      try {
+        const resSnap = await getDocs(collection(db, 'reservations'));
+        deletedReservations = resSnap.size;
+        for (const resDoc of resSnap.docs) {
+          await deleteDoc(doc(db, 'reservations', resDoc.id)).catch(() => {});
+        }
+      } catch (err) {
+        console.warn('Reservations cleanup notice:', err);
+      }
+
+      // 3. Delete any customers collection documents if present
+      try {
+        const custSnap = await getDocs(collection(db, 'customers'));
+        for (const custDoc of custSnap.docs) {
+          await deleteDoc(doc(db, 'customers', custDoc.id)).catch(() => {});
+        }
+      } catch {
+        // ignore
+      }
+
+      // Delete all table requests
+      try {
+        const trSnap = await getDocs(collection(db, 'table_requests'));
+        for (const trDoc of trSnap.docs) {
+          await deleteDoc(doc(db, 'table_requests', trDoc.id)).catch(() => {});
+        }
+      } catch {
+        // ignore
+      }
+
+      // 4. Reset all tables to 'available'
+      const tables = this.getTables().map((t) => ({
+        ...t,
+        status: 'available' as const,
+        currentOrderId: null,
+      }));
+      setStored(STORAGE_KEYS.TABLES, tables);
+      for (const table of tables) {
+        await setDoc(doc(db, 'tables', String(table.id)), cleanForFirestore(table)).catch(() => {});
+      }
+
+      // 5. Clear Local Storage records
+      setStored(STORAGE_KEYS.ORDERS, []);
+      setStored(STORAGE_KEYS.RESERVATIONS, []);
+      setStored(STORAGE_KEYS.CUSTOMERS, []);
+      setStored(STORAGE_KEYS.TABLE_REQUESTS, []);
+      setStored(STORAGE_KEYS.ACTIVE_CUSTOMER, null);
+      setStored(STORAGE_KEYS.ACTIVE_TABLE_BINDING, null);
+
+      try {
+        localStorage.removeItem('yh_customer_cart');
+        localStorage.removeItem('customer_cart');
+      } catch {
+        // ignore
+      }
+
+      this.notify();
+      return { success: true, deletedOrders, deletedReservations };
+    } catch (e) {
+      console.error('Error during zero database reset:', e);
+      setStored(STORAGE_KEYS.ORDERS, []);
+      setStored(STORAGE_KEYS.RESERVATIONS, []);
+      this.notify();
+      return { success: false, deletedOrders, deletedReservations };
+    }
   }
 }

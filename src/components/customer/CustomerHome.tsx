@@ -9,6 +9,7 @@ interface CustomerHomeProps {
   onNavigateMenu: () => void;
   onNavigateReservation: () => void;
   onNavigateVenue?: () => void;
+  onNavigateOrders?: () => void;
   onAddToCart: (item: MenuItem) => void;
 }
 
@@ -18,6 +19,7 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
   onNavigateMenu,
   onNavigateReservation,
   onNavigateVenue,
+  onNavigateOrders,
   onAddToCart,
 }) => {
   return (

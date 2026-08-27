@@ -288,6 +288,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ categories: 
         isAvailable,
         isBestSeller,
         imageUrl,
+        sortOrder: items.length + 1,
       });
       showAlert({
         title: 'Item Created',
@@ -532,13 +533,15 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ categories: 
       let tempStr = 'Standard';
       if (isDrink) {
         if (item.availableTemperatures && item.availableTemperatures.length > 0) {
-          tempStr = item.availableTemperatures.map((t) => (t === 'hot' ? 'Hot' : 'Iced')).join(' / ');
+          tempStr = item.availableTemperatures.map((t: string) => (t === 'hot' ? 'Hot' : 'Iced')).join(' / ');
         } else if (item.isHot && item.isIced) {
           tempStr = 'Hot & Iced';
         } else if (item.isHot) {
           tempStr = 'Hot Only';
         } else if (item.isIced) {
           tempStr = 'Iced Only';
+        } else if (item.temperature) {
+          tempStr = item.temperature;
         }
       }
 
@@ -549,9 +552,9 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ categories: 
         escapeCsv(isDrink ? 'Drink / Beverage' : 'Food / Pastry'),
         escapeCsv(tempStr),
         escapeCsv(Number(item.price || 0).toFixed(2)),
-        escapeCsv(item.stock ?? 0),
+        escapeCsv(item.quantity ?? item.stock ?? 0),
         escapeCsv(item.lowStockThreshold ?? 10),
-        escapeCsv(item.available ? 'Available (Active)' : 'Unavailable (Hidden)'),
+        escapeCsv(item.isAvailable ?? item.available ? 'Available (Active)' : 'Unavailable (Hidden)'),
         escapeCsv(item.description || ''),
       ].join(',');
     });
@@ -1904,7 +1907,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ categories: 
           isOpen={isLowStockModalOpen}
           onClose={() => setIsLowStockModalOpen(false)}
           categories={categories}
-          activeStaff={activeStaff}
+          activeStaff={AppStore.getActiveStaff()}
           onNavigateToInventory={() => setIsLowStockModalOpen(false)}
         />
       )}

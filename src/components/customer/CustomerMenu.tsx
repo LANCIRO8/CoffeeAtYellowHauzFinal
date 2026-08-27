@@ -1,7 +1,18 @@
-import React, { useState, useMemo } from 'react';
-import { Category, MenuItem, CartItem, Order, CustomerAccount, StoreSettings } from '../../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import {
+  Category,
+  MenuItem,
+  CartItem,
+  Order,
+  CustomerAccount,
+  StoreSettings,
+  TableBinding,
+  AdvanceBookingDetails,
+} from '../../types';
 import { AppStore } from '../../services/store';
 import { useModal } from '../../context/ModalContext';
+import { CustomerCartDrawer } from './CustomerCartDrawer';
+import { TableRequestModal } from './TableRequestModal';
 import {
   Search,
   ShoppingBag,
@@ -11,8 +22,6 @@ import {
   X,
   Check,
   Flame,
-  Snowflake,
-  Sun,
   Sparkles,
   ArrowRight,
   Coffee,
@@ -29,6 +38,14 @@ import {
   Leaf,
   CookingPot,
   CupSoda,
+  Calendar,
+  Clock,
+  Users,
+  MapPin,
+  Globe,
+  CheckCircle2,
+  QrCode,
+  Info,
 } from 'lucide-react';
 
 interface CustomerMenuProps {
@@ -36,8 +53,21 @@ interface CustomerMenuProps {
   menuItems: MenuItem[];
   settings: StoreSettings;
   activeCustomer: CustomerAccount | null;
+  activeTableBinding?: TableBinding | null;
+  onBindTable?: (tableNumber: number) => void;
+  onClearTable?: () => void;
   onOrderSuccess: (order: Order) => void;
   onRequireLogin: () => void;
+  cart?: CartItem[];
+  isCartOpen?: boolean;
+  onToggleCart?: () => void;
+  onOpenCart?: () => void;
+  onCloseCart?: () => void;
+  onAddToCart?: (item: MenuItem) => void;
+  onUpdateQuantity?: (itemId: number, delta: number) => void;
+  onRemoveItem?: (itemId: number) => void;
+  onClearCart?: () => void;
+  onUpdateItemInstructions?: (itemId: number, text: string) => void;
 }
 
 export const CustomerMenu: React.FC<CustomerMenuProps> = ({
@@ -45,26 +75,71 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
   menuItems,
   settings,
   activeCustomer,
+  activeTableBinding,
+  onBindTable,
+  onClearTable,
   onOrderSuccess,
   onRequireLogin,
+  cart: externalCart,
+  isCartOpen: externalIsCartOpen,
+  onToggleCart: externalOnToggleCart,
+  onOpenCart: externalOnOpenCart,
+  onCloseCart: externalOnCloseCart,
+  onAddToCart: externalOnAddToCart,
+  onUpdateQuantity: externalOnUpdateQuantity,
+  onRemoveItem: externalOnRemoveItem,
+  onClearCart: externalOnClearCart,
+  onUpdateItemInstructions: externalOnUpdateItemInstructions,
 }) => {
   const { showAlert } = useModal();
   const [categoryType, setCategoryType] = useState<'drinks' | 'food'>('drinks');
   const [selectedCategory, setSelectedCategory] = useState<number | 'all'>('all');
-  const [selectedTemp, setSelectedTemp] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
+
+  // Internal fallback state if not provided from parent
+  const [internalCart, setInternalCart] = useState<CartItem[]>([]);
+  const [internalIsCartOpen, setInternalIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isTableSelectorModalOpen, setIsTableSelectorModalOpen] = useState(false);
+
+  const cart = externalCart !== undefined ? externalCart : internalCart;
+  const isCartOpen = externalIsCartOpen !== undefined ? externalIsCartOpen : internalIsCartOpen;
 
   // Checkout Form State
-  const [orderType, setOrderType] = useState<'dine_in' | 'take_away' | 'delivery'>('take_away');
+  const [orderType, setOrderType] = useState<'dine_in' | 'take_away' | 'delivery'>('dine_in');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'gcash' | 'card'>('cash');
   const [customerName, setCustomerName] = useState(activeCustomer?.fullName || '');
   const [customerPhone, setCustomerPhone] = useState(activeCustomer?.contactNumber || '');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
-  const [selectedTable, setSelectedTable] = useState<number | ''>('');
+  const [selectedTable, setSelectedTable] = useState<number | ''>(
+    activeTableBinding ? activeTableBinding.tableNumber : ''
+  );
+
+  // Advance Booking Parameters (for External Online Customers)
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const [bookingDate, setBookingDate] = useState<string>(todayStr);
+  const [arrivalTime, setArrivalTime] = useState<string>('11:00');
+  const [partySize, setPartySize] = useState<number>(2);
+  const [seatingPreference, setSeatingPreference] = useState<
+    'indoor_main' | 'airconditioned' | 'outdoor_patio' | 'any'
+  >('indoor_main');
+  const [specialRequests, setSpecialRequests] = useState('');
+
+  // Synchronize when customer or table binding updates
+  useEffect(() => {
+    if (activeCustomer) {
+      if (!customerName) setCustomerName(activeCustomer.fullName || '');
+      if (!customerPhone) setCustomerPhone(activeCustomer.contactNumber || '');
+    }
+  }, [activeCustomer]);
+
+  useEffect(() => {
+    if (activeTableBinding) {
+      setSelectedTable(activeTableBinding.tableNumber);
+      setOrderType('dine_in');
+    }
+  }, [activeTableBinding]);
 
   const tables = useMemo(() => AppStore.getTables(), []);
 
@@ -180,54 +255,90 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
       }
 
       if (selectedCategory !== 'all' && item.categoryId !== selectedCategory) return false;
-      if (selectedTemp !== 'all') {
-        if (selectedTemp === 'hot' && !['hot', 'both'].includes(item.temperature)) return false;
-        if (selectedTemp === 'cold' && !['cold', 'iced', 'blended', 'both'].includes(item.temperature))
-          return false;
-        if (selectedTemp === 'room' && item.temperature !== 'room temp') return false;
-      }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         return item.name.toLowerCase().includes(q) || item.description.toLowerCase().includes(q);
       }
       return true;
     });
-  }, [menuItems, currentCategoriesList, selectedCategory, selectedTemp, searchQuery]);
+  }, [menuItems, currentCategoriesList, selectedCategory, searchQuery]);
 
   // Cart operations
-  const addToCart = (item: MenuItem) => {
-    setCart((prev) => {
-      const existing = prev.find((ci) => ci.item.id === item.id);
-      if (existing) {
-        return prev.map((ci) =>
-          ci.item.id === item.id ? { ...ci, quantity: ci.quantity + 1 } : ci
-        );
-      }
-      return [...prev, { item, quantity: 1 }];
-    });
-    setIsCartOpen(true);
+  const handleAddToCart = (item: MenuItem) => {
+    if (externalOnAddToCart) {
+      externalOnAddToCart(item);
+    } else {
+      setInternalCart((prev) => {
+        const existing = prev.find((ci) => ci.item.id === item.id);
+        if (existing) {
+          return prev.map((ci) =>
+            ci.item.id === item.id ? { ...ci, quantity: ci.quantity + 1 } : ci
+          );
+        }
+        return [...prev, { item, quantity: 1 }];
+      });
+      setInternalIsCartOpen(true);
+    }
   };
 
-  const updateQuantity = (itemId: number, delta: number) => {
-    setCart((prev) =>
-      prev
-        .map((ci) => {
-          if (ci.item.id === itemId) {
-            const newQty = ci.quantity + delta;
-            return newQty > 0 ? { ...ci, quantity: newQty } : null;
-          }
-          return ci;
-        })
-        .filter(Boolean) as CartItem[]
-    );
+  const handleUpdateQuantity = (itemId: number, delta: number) => {
+    if (externalOnUpdateQuantity) {
+      externalOnUpdateQuantity(itemId, delta);
+    } else {
+      setInternalCart((prev) =>
+        prev
+          .map((ci) => {
+            if (ci.item.id === itemId) {
+              const newQty = ci.quantity + delta;
+              return newQty > 0 ? { ...ci, quantity: newQty } : null;
+            }
+            return ci;
+          })
+          .filter(Boolean) as CartItem[]
+      );
+    }
   };
 
-  const removeItem = (itemId: number) => {
-    setCart((prev) => prev.filter((ci) => ci.item.id !== itemId));
+  const handleRemoveItem = (itemId: number) => {
+    if (externalOnRemoveItem) {
+      externalOnRemoveItem(itemId);
+    } else {
+      setInternalCart((prev) => prev.filter((ci) => ci.item.id !== itemId));
+    }
   };
 
-  const clearCart = () => {
-    setCart([]);
+  const handleClearCart = () => {
+    if (externalOnClearCart) {
+      externalOnClearCart();
+    } else {
+      setInternalCart([]);
+    }
+  };
+
+  const handleToggleCart = () => {
+    if (externalOnToggleCart) {
+      externalOnToggleCart();
+    } else {
+      setInternalIsCartOpen((prev) => !prev);
+    }
+  };
+
+  const handleCloseCart = () => {
+    if (externalOnCloseCart) {
+      externalOnCloseCart();
+    } else {
+      setInternalIsCartOpen(false);
+    }
+  };
+
+  const handleUpdateItemInstructions = (itemId: number, text: string) => {
+    if (externalOnUpdateItemInstructions) {
+      externalOnUpdateItemInstructions(itemId, text);
+    } else {
+      setInternalCart((prev) =>
+        prev.map((ci) => (ci.item.id === itemId ? { ...ci, specialInstructions: text } : ci))
+      );
+    }
   };
 
   // Cart Totals
@@ -240,9 +351,21 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
   const totalAmount = subtotal + taxAmount;
   const totalItemCount = cart.reduce((sum, ci) => sum + ci.quantity, 0);
 
-  // Submit Order
+  // Submit Order with Unified Dual-Mode Engine
   const handlePlaceOrder = (e: React.FormEvent) => {
     e.preventDefault();
+    const isLiveInHouse = Boolean(activeTableBinding || (orderType === 'dine_in' && selectedTable));
+
+    if (!isLiveInHouse && !activeCustomer) {
+      showAlert({
+        title: 'Login Required',
+        message: 'Please sign in or register your customer account to place an online order.',
+        type: 'warning',
+      });
+      onRequireLogin();
+      return;
+    }
+
     if (!customerName.trim()) {
       showAlert({
         title: 'Name Required',
@@ -251,10 +374,11 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
       });
       return;
     }
-    if (orderType === 'dine_in' && !selectedTable) {
+
+    if (orderType === 'dine_in' && !selectedTable && !activeTableBinding) {
       showAlert({
         title: 'Table Required',
-        message: 'Please select a dining table for Dine-In orders.',
+        message: 'Please select a dining table or specify advance reservation parameters.',
         type: 'warning',
       });
       return;
@@ -270,13 +394,41 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
       imageUrl: ci.item.imageUrl,
     }));
 
+    const finalTableNum = activeTableBinding
+      ? activeTableBinding.tableNumber
+      : selectedTable
+      ? Number(selectedTable)
+      : null;
+
+    const finalTableId = activeTableBinding
+      ? activeTableBinding.tableId
+      : selectedTable
+      ? Number(selectedTable)
+      : null;
+
+    const advanceBookingData: AdvanceBookingDetails | undefined = isLiveInHouse
+      ? undefined
+      : {
+          bookingDate,
+          arrivalTime,
+          partySize: Number(partySize) || 2,
+          seatingPreference,
+          specialRequests: specialRequests.trim() || undefined,
+        };
+
     const newOrder = AppStore.createOrder({
       channel: 'online',
-      tableId: orderType === 'dine_in' && selectedTable ? Number(selectedTable) : null,
-      tableNumber: orderType === 'dine_in' && selectedTable ? Number(selectedTable) : null,
+      orderClassification: isLiveInHouse ? 'live_in_house' : 'advance_booking',
+      tableId: isLiveInHouse ? finalTableId : null,
+      tableNumber: isLiveInHouse ? finalTableNum : null,
+      advanceBooking: advanceBookingData,
+      scheduledFor: !isLiveInHouse ? `${bookingDate} ${arrivalTime}` : undefined,
+      guestCount: !isLiveInHouse ? Number(partySize) || 2 : undefined,
       customerId: activeCustomer?.id || null,
       customerName: customerName.trim(),
-      orderType,
+      customerPhone: customerPhone.trim(),
+      deliveryAddress: orderType === 'delivery' ? deliveryAddress.trim() : undefined,
+      orderType: isLiveInHouse ? 'dine_in' : orderType,
       paymentMethod,
       subtotal,
       taxRate,
@@ -287,16 +439,25 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
       discountPercent: 0,
       amountPaid: totalAmount,
       changeAmount: 0,
-      status: 'pending',
+      status: 'to_confirm',
       cashierId: 1,
-      cashierName: 'Online Storefront',
+      cashierName: isLiveInHouse ? 'Table QR Self-Order' : 'Online Advance Booking',
       items: orderItems,
     });
 
-    setCart([]);
+    handleClearCart();
     setIsCheckoutOpen(false);
-    setIsCartOpen(false);
+    handleCloseCart();
     onOrderSuccess(newOrder);
+  };
+
+  const handleSelectTableFromModal = (tableNumber: number) => {
+    if (onBindTable) {
+      onBindTable(tableNumber);
+    }
+    setSelectedTable(tableNumber);
+    setOrderType('dine_in');
+    setIsTableSelectorModalOpen(false);
   };
 
   return (
@@ -310,9 +471,6 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
           <h1 className="text-3xl font-extrabold text-stone-900 font-display">
             Yellow Hauz Menu
           </h1>
-          <p className="text-xs text-stone-500 mt-0.5">
-            Prices are in Philippine Pesos (₱) inclusive of VAT
-          </p>
         </div>
 
         {/* Search & Cart Quick Button */}
@@ -337,8 +495,8 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
           </div>
 
           <button
-            onClick={() => setIsCartOpen(true)}
-            className="relative flex h-10 items-center gap-2 rounded-xl bg-amber-500 px-4 text-xs sm:text-sm font-bold text-stone-950 shadow-md hover:bg-amber-400 transition"
+            onClick={handleToggleCart}
+            className="relative flex h-10 items-center gap-2 rounded-xl bg-amber-500 px-4 text-xs sm:text-sm font-bold text-stone-950 shadow-md hover:bg-amber-400 transition cursor-pointer"
           >
             <ShoppingBag className="h-4 w-4" />
             <span>Bag</span>
@@ -431,58 +589,8 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
           </div>
         </div>
 
-        {/* Right: Temperature Filter & Menu Grid */}
+        {/* Right: Menu Grid */}
         <div className="flex-1 min-w-0 space-y-4">
-          {/* Temperature & Preference Filter Bar */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">
-              Temp:
-            </span>
-            <button
-              onClick={() => setSelectedTemp('all')}
-              className={`rounded-full px-3.5 py-1 text-xs font-bold transition ${
-                selectedTemp === 'all'
-                  ? 'bg-stone-900 text-white'
-                  : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
-              }`}
-            >
-              All Items
-            </button>
-            <button
-              onClick={() => setSelectedTemp('hot')}
-              className={`inline-flex items-center gap-1 rounded-full px-3.5 py-1 text-xs font-bold transition ${
-                selectedTemp === 'hot'
-                  ? 'bg-amber-700 text-white'
-                  : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
-              }`}
-            >
-              <Flame className="h-3.5 w-3.5" />
-              Hot &amp; Warm
-            </button>
-            <button
-              onClick={() => setSelectedTemp('cold')}
-              className={`inline-flex items-center gap-1 rounded-full px-3.5 py-1 text-xs font-bold transition ${
-                selectedTemp === 'cold'
-                  ? 'bg-sky-600 text-white'
-                  : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
-              }`}
-            >
-              <Snowflake className="h-3.5 w-3.5" />
-              Iced &amp; Blended
-            </button>
-            <button
-              onClick={() => setSelectedTemp('room')}
-              className={`inline-flex items-center gap-1 rounded-full px-3.5 py-1 text-xs font-bold transition ${
-                selectedTemp === 'room'
-                  ? 'bg-amber-600 text-white'
-                  : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
-              }`}
-            >
-              <Sun className="h-3.5 w-3.5" />
-              Room Temp / Pastry
-            </button>
-          </div>
-
           {/* Menu Grid */}
           {filteredItems.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-stone-300 bg-white p-12 text-center">
@@ -491,7 +599,6 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
               <button
                 onClick={() => {
                   setSelectedCategory('all');
-                  setSelectedTemp('all');
                   setSearchQuery('');
                 }}
                 className="mt-4 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-stone-950"
@@ -545,8 +652,8 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                         Stock: {item.quantity}
                       </span>
                       <button
-                        onClick={() => addToCart(item)}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-bold text-stone-950 hover:bg-amber-400 transition active:scale-95 shadow-xs"
+                        onClick={() => handleAddToCart(item)}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-bold text-stone-950 hover:bg-amber-400 transition active:scale-95 shadow-xs cursor-pointer"
                       >
                         <Plus className="h-3.5 w-3.5" />
                         Add
@@ -560,120 +667,42 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
         </div>
       </div>
 
-      {/* Cart Drawer / Slide-Over */}
-      {isCartOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs">
-          <div className="flex flex-col w-full max-w-md bg-white h-full shadow-2xl animate-in slide-in-from-right duration-200">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-stone-200 p-5">
-              <div className="flex items-center gap-2">
-                <ShoppingBag className="h-5 w-5 text-amber-600" />
-                <h3 className="font-display text-lg font-bold text-stone-900">
-                  Your Order ({totalItemCount})
-                </h3>
-              </div>
-              <button
-                onClick={() => setIsCartOpen(false)}
-                className="rounded-full p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      {/* Collapsible Right-Side Cart Panel (No blur, no background overlay) */}
+      <CustomerCartDrawer
+        isOpen={isCartOpen}
+        onToggle={handleToggleCart}
+        onClose={handleCloseCart}
+        cart={cart}
+        onUpdateQuantity={handleUpdateQuantity}
+        onRemoveItem={handleRemoveItem}
+        onClearCart={handleClearCart}
+        onUpdateItemInstructions={handleUpdateItemInstructions}
+        settings={settings}
+        activeTableBinding={activeTableBinding}
+        activeCustomer={activeCustomer}
+        onRequireLogin={onRequireLogin}
+        onProceedToCheckout={() => {
+          if (!activeTableBinding && !activeCustomer) {
+            onRequireLogin();
+            return;
+          }
+          setIsCheckoutOpen(true);
+        }}
+      />
 
-            {/* Cart Items List */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-3 divide-y divide-stone-100">
-              {cart.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center p-6 text-stone-400">
-                  <ShoppingBag className="h-12 w-12 text-stone-300 stroke-1 mb-2" />
-                  <p className="font-bold text-stone-700 text-sm">Your order bag is empty</p>
-                  <p className="text-xs text-stone-500 mt-1">
-                    Select mouth-watering items from the menu to start your order.
-                  </p>
-                </div>
-              ) : (
-                cart.map((ci) => (
-                  <div key={ci.item.id} className="pt-3 first:pt-0 flex items-center justify-between gap-3">
-                    <div className="flex-1">
-                      <h4 className="text-xs font-bold text-stone-900">{ci.item.name}</h4>
-                      <p className="text-[11px] text-stone-500 font-mono">
-                        ₱{ci.item.price.toFixed(2)} × {ci.quantity} = ₱{(ci.item.price * ci.quantity).toFixed(2)}
-                      </p>
-                    </div>
+      {/* Live Table Request & Cashier Confirmation Modal */}
+      <TableRequestModal
+        isOpen={isTableSelectorModalOpen}
+        onClose={() => setIsTableSelectorModalOpen(false)}
+        onConfirmed={(binding: TableBinding) => {
+          if (onBindTable) onBindTable(binding.tableNumber);
+          setSelectedTable(binding.tableNumber);
+        }}
+        activeCustomer={activeCustomer}
+        currentTableBinding={activeTableBinding}
+      />
 
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center rounded-lg border border-stone-200 bg-stone-50">
-                        <button
-                          onClick={() => updateQuantity(ci.item.id, -1)}
-                          className="p-1 text-stone-600 hover:text-stone-900"
-                        >
-                          <Minus className="h-3 w-3" />
-                        </button>
-                        <span className="w-6 text-center text-xs font-bold text-stone-900">
-                          {ci.quantity}
-                        </span>
-                        <button
-                          onClick={() => updateQuantity(ci.item.id, 1)}
-                          className="p-1 text-stone-600 hover:text-stone-900"
-                        >
-                          <Plus className="h-3 w-3" />
-                        </button>
-                      </div>
-
-                      <button
-                        onClick={() => removeItem(ci.item.id)}
-                        className="p-1.5 text-stone-400 hover:text-rose-600 transition"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Footer Calculation & Checkout */}
-            {cart.length > 0 && (
-              <div className="border-t border-stone-200 bg-stone-50/70 p-5 space-y-3">
-                <div className="space-y-1 text-xs text-stone-600">
-                  <div className="flex justify-between">
-                    <span>Subtotal:</span>
-                    <span className="font-mono">₱{subtotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>VAT ({taxRate}%):</span>
-                    <span className="font-mono">₱{taxAmount.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm font-bold text-stone-900 pt-1 border-t border-stone-200">
-                    <span>Total:</span>
-                    <span className="font-mono text-amber-700">₱{totalAmount.toFixed(2)}</span>
-                  </div>
-                </div>
-
-                <div className="flex gap-2 pt-2">
-                  <button
-                    onClick={clearCart}
-                    className="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-xs font-bold text-stone-600 hover:bg-stone-100 transition"
-                  >
-                    Clear
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsCartOpen(false);
-                      setIsCheckoutOpen(true);
-                    }}
-                    className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-amber-500 py-2.5 text-sm font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition"
-                  >
-                    <span>Proceed to Checkout</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Checkout Modal */}
+      {/* Checkout Modal (Dual-Mode Dynamic) */}
       {isCheckoutOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
           <div className="w-full max-w-lg rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-stone-200 my-8">
@@ -695,68 +724,183 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
             </div>
 
             <form onSubmit={handlePlaceOrder} className="mt-5 space-y-4">
-              {/* Order Type Tabs */}
-              <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                  Order Type
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setOrderType('dine_in')}
-                    className={`rounded-xl py-2.5 text-xs font-bold border transition ${
-                      orderType === 'dine_in'
-                        ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-xs'
-                        : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
-                    }`}
-                  >
-                    🍽️ Dine In
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setOrderType('take_away')}
-                    className={`rounded-xl py-2.5 text-xs font-bold border transition ${
-                      orderType === 'take_away'
-                        ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-xs'
-                        : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
-                    }`}
-                  >
-                    🛍️ Take Out
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setOrderType('delivery')}
-                    className={`rounded-xl py-2.5 text-xs font-bold border transition ${
-                      orderType === 'delivery'
-                        ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-xs'
-                        : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
-                    }`}
-                  >
-                    🛵 Delivery
-                  </button>
+              {/* Dual-Mode Classification Card */}
+              {activeTableBinding || (orderType === 'dine_in' && selectedTable) ? (
+                <div className="rounded-2xl bg-gradient-to-r from-amber-500/15 via-emerald-500/10 to-amber-500/15 border border-amber-500/40 p-3.5 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 font-extrabold text-amber-950 text-xs">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>LIVE IN-HOUSE ORDER • TABLE #{activeTableBinding?.tableNumber || selectedTable}</span>
+                    </div>
+                    <span className="rounded-full bg-emerald-500/20 text-emerald-800 text-[10px] font-black px-2 py-0.5 uppercase">
+                      Immediate Prep
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-stone-600 leading-relaxed">
+                    Order is bound to Table #{activeTableBinding?.tableNumber || selectedTable} ({activeTableBinding?.area === 'airconditioned' ? 'Airconditioned Lounge' : 'Main Dining Area'}). It will be dispatched immediately to the kitchen queue for live prep and served to your table.
+                  </p>
                 </div>
-              </div>
+              ) : (
+                <div className="rounded-2xl bg-stone-900 text-white p-3.5 space-y-1 border border-stone-800">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 font-bold text-amber-300 text-xs">
+                      <Globe className="h-3.5 w-3.5" />
+                      <span>ONLINE EXTERNAL ORDER • ADVANCE BOOKING</span>
+                    </div>
+                    <span className="rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5">
+                      Scheduled
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-stone-300 leading-relaxed">
+                    Configure your future arrival date, target time, and party size below so our team prepares your table and orders in advance.
+                  </p>
+                </div>
+              )}
 
-              {/* Table Selector for Dine-in */}
-              {orderType === 'dine_in' && (
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                    Select Table
-                  </label>
-                  <select
-                    value={selectedTable}
-                    onChange={(e) => setSelectedTable(Number(e.target.value))}
-                    required
-                    className="w-full rounded-xl border border-stone-300 bg-stone-50 px-4 py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
-                  >
-                    <option value="">-- Choose an Available Table --</option>
-                    {tables.map((tbl) => (
-                      <option key={tbl.id} value={tbl.tableNumber}>
-                        Table #{tbl.tableNumber} ({tbl.area === 'airconditioned' ? 'AC Room' : 'Main Area'}, {tbl.capacity} Seats) - {tbl.status.toUpperCase()}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              {/* If NOT bound to a live table: Show Order Type & Advance Booking Fields */}
+              {!activeTableBinding && (
+                <>
+                  {/* Order Type Tabs for Online Ordering */}
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                      Ordering Method
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setOrderType('dine_in')}
+                        className={`rounded-xl py-2.5 text-xs font-bold border transition cursor-pointer ${
+                          orderType === 'dine_in'
+                            ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-xs'
+                            : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
+                        }`}
+                      >
+                        🍽️ Table Booking
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOrderType('take_away')}
+                        className={`rounded-xl py-2.5 text-xs font-bold border transition cursor-pointer ${
+                          orderType === 'take_away'
+                            ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-xs'
+                            : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
+                        }`}
+                      >
+                        🛍️ Pick-Up
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOrderType('delivery')}
+                        className={`rounded-xl py-2.5 text-xs font-bold border transition cursor-pointer ${
+                          orderType === 'delivery'
+                            ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-xs'
+                            : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
+                        }`}
+                      >
+                        🛵 Delivery
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Advance Booking Parameters */}
+                  <div className="rounded-2xl border border-stone-200 bg-stone-50/80 p-3.5 space-y-3">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-stone-900">
+                      <Calendar className="h-4 w-4 text-amber-600" />
+                      <span>
+                        {orderType === 'dine_in'
+                          ? 'Advance Table Booking Schedule'
+                          : orderType === 'take_away'
+                          ? 'Scheduled Pickup Time'
+                          : 'Target Delivery Schedule'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[10px] font-bold text-stone-600 uppercase mb-1">
+                          Date
+                        </label>
+                        <input
+                          type="date"
+                          min={todayStr}
+                          value={bookingDate}
+                          onChange={(e) => setBookingDate(e.target.value)}
+                          required
+                          className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-stone-600 uppercase mb-1">
+                          Arrival / Target Time
+                        </label>
+                        <input
+                          type="time"
+                          value={arrivalTime}
+                          onChange={(e) => setArrivalTime(e.target.value)}
+                          required
+                          className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {orderType === 'dine_in' && (
+                      <div className="grid grid-cols-2 gap-2.5 pt-1">
+                        <div>
+                          <label className="block text-[10px] font-bold text-stone-600 uppercase mb-1">
+                            Party Size (Guests)
+                          </label>
+                          <div className="flex items-center gap-1">
+                            <Users className="h-3.5 w-3.5 text-stone-400" />
+                            <select
+                              value={partySize}
+                              onChange={(e) => setPartySize(Number(e.target.value))}
+                              className="w-full rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
+                            >
+                              {[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 16, 20].map((n) => (
+                                <option key={n} value={n}>
+                                  {n} {n === 1 ? 'Guest' : 'Guests'}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-stone-600 uppercase mb-1">
+                            Seating Area
+                          </label>
+                          <select
+                            value={seatingPreference}
+                            onChange={(e) =>
+                              setSeatingPreference(
+                                e.target.value as 'indoor_main' | 'airconditioned' | 'outdoor_patio' | 'any'
+                              )
+                            }
+                            className="w-full rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
+                          >
+                            <option value="indoor_main">Indoor Main Area</option>
+                            <option value="airconditioned">AC Lounge Room</option>
+                            <option value="outdoor_patio">Al Fresco Patio</option>
+                            <option value="any">Any Available</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-stone-600 uppercase mb-1">
+                        Special Requests / Notes (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={specialRequests}
+                        onChange={(e) => setSpecialRequests(e.target.value)}
+                        placeholder="e.g. High chair needed, anniversary setup, quiet corner"
+                        className="w-full rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-xs text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </>
               )}
 
               {/* Customer Contact */}
@@ -814,20 +958,20 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('cash')}
-                    className={`rounded-xl py-2 text-xs font-bold border transition ${
+                    className={`rounded-xl py-2 text-xs font-bold border transition cursor-pointer ${
                       paymentMethod === 'cash'
-                        ? 'bg-amber-500 text-stone-950 border-amber-500'
+                        ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-2xs'
                         : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
                     }`}
                   >
-                    💵 Cash
+                    💵 {activeTableBinding ? 'Cash / Counter' : 'Cash'}
                   </button>
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('gcash')}
-                    className={`rounded-xl py-2 text-xs font-bold border transition ${
+                    className={`rounded-xl py-2 text-xs font-bold border transition cursor-pointer ${
                       paymentMethod === 'gcash'
-                        ? 'bg-sky-500 text-white border-sky-500'
+                        ? 'bg-sky-500 text-white border-sky-500 shadow-2xs'
                         : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
                     }`}
                   >
@@ -836,15 +980,32 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('card')}
-                    className={`rounded-xl py-2 text-xs font-bold border transition ${
+                    className={`rounded-xl py-2 text-xs font-bold border transition cursor-pointer ${
                       paymentMethod === 'card'
-                        ? 'bg-stone-900 text-white border-stone-900'
+                        ? 'bg-stone-900 text-white border-stone-900 shadow-2xs'
                         : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
                     }`}
                   >
                     💳 Card
                   </button>
                 </div>
+              </div>
+
+              {/* Notice */}
+              <div className="rounded-2xl bg-amber-50 border border-amber-200/90 p-3 text-xs text-amber-950 space-y-1">
+                <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-amber-700" />
+                  <span>
+                    {activeTableBinding
+                      ? 'Live In-House Kitchen Queue'
+                      : 'Advance Order Confirmation'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-amber-900/80 leading-relaxed">
+                  {activeTableBinding
+                    ? `Your order will be instantly received by the barista and kitchen team for preparation at Table #${activeTableBinding.tableNumber}.`
+                    : `Your reservation and advance order will be logged and verified on our POS system for arrival on ${bookingDate} at ${arrivalTime}.`}
+                </p>
               </div>
 
               {/* Order Summary Box */}
@@ -869,9 +1030,11 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
 
               <button
                 type="submit"
-                className="w-full rounded-xl bg-amber-500 py-3 text-sm font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition active:scale-98"
+                className="w-full rounded-xl bg-amber-500 py-3 text-sm font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition active:scale-98 cursor-pointer"
               >
-                Confirm &amp; Place Order (₱{totalAmount.toFixed(2)})
+                {activeTableBinding
+                  ? `Place Live In-House Order • ₱${totalAmount.toFixed(2)}`
+                  : `Confirm Advance Booking & Order • ₱${totalAmount.toFixed(2)}`}
               </button>
             </form>
           </div>

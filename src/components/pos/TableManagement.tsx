@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Table, Order, Reservation } from '../../types';
+import React, { useState, useEffect } from 'react';
+import { Table, Order, Reservation, TableRequest, User } from '../../types';
 import { AppStore } from '../../services/store';
 import { useModal } from '../../context/ModalContext';
 import {
@@ -29,11 +29,16 @@ import {
   Trash2,
   Coffee,
   Check,
+  Bell,
+  ShieldCheck,
+  ArrowRight,
+  User as UserIcon,
 } from 'lucide-react';
 
 interface TableManagementProps {
   onSelectTableForOrder?: (tableNumber: number) => void;
   onViewOrderReceipt?: (order: Order) => void;
+  activeStaff?: User | null;
 }
 
 type StatusFilter = 'all' | 'available' | 'occupied' | 'reserved' | 'cleaning';
@@ -42,12 +47,24 @@ type AreaFilter = 'all' | 'normal' | 'airconditioned';
 export const TableManagement: React.FC<TableManagementProps> = ({
   onSelectTableForOrder,
   onViewOrderReceipt,
+  activeStaff,
 }) => {
   const { showAlert, showConfirm } = useModal();
   const [tables, setTables] = useState<Table[]>(() => AppStore.getTables());
   const [reservations, setReservations] = useState<Reservation[]>(() =>
     AppStore.getReservations()
   );
+  const [tableRequests, setTableRequests] = useState<TableRequest[]>(() =>
+    AppStore.getTableRequests()
+  );
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+  // Decline Modal state
+  const [declineModalReq, setDeclineModalReq] = useState<TableRequest | null>(null);
+  const [declineReasonOption, setDeclineReasonOption] = useState<string>(
+    'Table is currently reserved for upcoming booking'
+  );
+  const [customDeclineReason, setCustomDeclineReason] = useState<string>('');
 
   // Filters matching image.png
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -55,6 +72,19 @@ export const TableManagement: React.FC<TableManagementProps> = ({
 
   // Selected table for detailed reservation / contact drawer
   const [selectedTableForDetails, setSelectedTableForDetails] = useState<Table | null>(null);
+
+  // Subscribe to real-time updates
+  useEffect(() => {
+    const unsub = AppStore.subscribe(() => {
+      setTables(AppStore.getTables());
+      setReservations(AppStore.getReservations());
+      setTableRequests(AppStore.getTableRequests());
+    });
+    return () => unsub();
+  }, []);
+
+  const pendingRequests = tableRequests.filter((r) => r.status === 'pending');
+  const resolvedRequests = tableRequests.filter((r) => r.status !== 'pending');
 
   // New reservation / new table / edit table modals
   const [isNewResModalOpen, setIsNewResModalOpen] = useState(false);
@@ -128,12 +158,68 @@ export const TableManagement: React.FC<TableManagementProps> = ({
     const freshTables = AppStore.getTables();
     setTables(freshTables);
     setReservations(AppStore.getReservations());
+    setTableRequests(AppStore.getTableRequests());
     if (selectedTableForDetails) {
       const updatedSelected = freshTables.find((t) => t.id === selectedTableForDetails.id);
       if (updatedSelected) {
         setSelectedTableForDetails(updatedSelected);
       }
     }
+  };
+
+  const getEffectiveCashier = (): User => {
+    if (activeStaff) return activeStaff;
+    const current = AppStore.getActiveStaff();
+    if (current) return current;
+    const users = AppStore.getUsers();
+    const cashier = users.find((u) => u.role === 'cashier' || u.role === 'admin');
+    return (
+      cashier || {
+        id: 1,
+        employeeId: 'EMP-001',
+        username: 'cashier',
+        fullName: 'Sheila Mae (Cashier)',
+        role: 'cashier',
+        status: 'active',
+      }
+    );
+  };
+
+  const handleApproveTableRequest = (req: TableRequest) => {
+    const cashier = getEffectiveCashier();
+    const approved = AppStore.approveTableRequest(req.id, cashier);
+    refreshData();
+
+    showAlert({
+      title: 'Table Request Approved',
+      message: `Table #${req.requestedTableNumber} has been officially approved and assigned to ${req.customerName} by Cashier ${cashier.fullName}.`,
+      type: 'success',
+    });
+  };
+
+  const handleOpenDeclineModal = (req: TableRequest) => {
+    setDeclineModalReq(req);
+    setDeclineReasonOption('Table is currently reserved for upcoming booking');
+    setCustomDeclineReason('');
+  };
+
+  const handleConfirmDecline = () => {
+    if (!declineModalReq) return;
+    const cashier = getEffectiveCashier();
+    const finalReason =
+      declineReasonOption === 'Custom reason...'
+        ? customDeclineReason.trim() || 'Table unavailable at this time'
+        : declineReasonOption;
+
+    AppStore.rejectTableRequest(declineModalReq.id, cashier, finalReason);
+    refreshData();
+    setDeclineModalReq(null);
+
+    showAlert({
+      title: 'Table Request Declined',
+      message: `Table #${declineModalReq.requestedTableNumber} request from ${declineModalReq.customerName} was declined. Reason: "${finalReason}"`,
+      type: 'info',
+    });
   };
 
   const handleOpenAddTableModal = () => {
@@ -770,7 +856,7 @@ export const TableManagement: React.FC<TableManagementProps> = ({
           <button
             type="button"
             onClick={handleOpenAddTableModal}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-3.5 py-2 text-xs font-black text-stone-950 hover:bg-amber-400 transition active:scale-95 shadow-xs"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-3.5 py-2 text-xs font-black text-stone-950 hover:bg-amber-400 transition active:scale-95 shadow-xs cursor-pointer"
           >
             <Plus className="h-4 w-4 stroke-[3]" />
             <span>Add Table</span>
@@ -780,13 +866,252 @@ export const TableManagement: React.FC<TableManagementProps> = ({
             type="button"
             onClick={() => setIsNewResModalOpen(true)}
             title="Book New Reservation"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-stone-950 px-3.5 py-2 text-xs font-bold text-amber-400 hover:bg-stone-800 transition active:scale-95 shadow-xs"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-stone-950 px-3.5 py-2 text-xs font-bold text-amber-400 hover:bg-stone-800 transition active:scale-95 shadow-xs cursor-pointer"
           >
             <Calendar className="h-4 w-4" />
             <span className="hidden sm:inline">New Booking</span>
           </button>
         </div>
       </div>
+
+      {/* LIVE CASHIER VERIFICATION: PENDING CUSTOMER TABLE REQUESTS */}
+      {pendingRequests.length > 0 ? (
+        <div className="rounded-3xl border-2 border-amber-400 bg-gradient-to-br from-amber-500/10 via-amber-50/70 to-white p-5 sm:p-6 shadow-md space-y-4 animate-in fade-in duration-200">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200/80 pb-3">
+            <div className="flex items-center gap-3">
+              <div className="relative grid h-10 w-10 place-items-center rounded-2xl bg-amber-500 text-stone-950 font-black shadow-xs">
+                <Bell className="h-5 w-5 animate-bounce" />
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-600 text-[10px] font-black text-white">
+                  {pendingRequests.length}
+                </span>
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base sm:text-lg font-black text-stone-950 font-display">
+                    Pending Customer Table Requests ({pendingRequests.length})
+                  </h2>
+                  <span className="rounded-full bg-amber-200/90 px-2 py-0.5 text-[10px] font-black text-amber-950 animate-pulse">
+                    Cashier Action Required
+                  </span>
+                </div>
+                <p className="text-xs text-stone-600">
+                  Customers are selecting or changing tables. Click Approve to assign their table in real-time.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+              className="rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-xs font-bold text-stone-800 hover:bg-amber-100 transition cursor-pointer"
+            >
+              {isHistoryOpen ? 'Hide History' : `View History (${resolvedRequests.length})`}
+            </button>
+          </div>
+
+          {/* Pending Request Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {pendingRequests.map((req) => {
+              const targetTable = tables.find((t) => t.tableNumber === req.requestedTableNumber);
+              const isTargetAvailable = targetTable?.status === 'available';
+
+              return (
+                <div
+                  key={req.id}
+                  className="relative flex flex-col justify-between rounded-2xl border-2 border-amber-300/90 bg-white p-4.5 shadow-sm space-y-3"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-black tracking-wide uppercase ${
+                          req.type === 'change_table'
+                            ? 'bg-purple-100 text-purple-900 border border-purple-200'
+                            : 'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                        }`}
+                      >
+                        {req.type === 'change_table' ? 'Table Change Request' : 'New Table Seating'}
+                      </span>
+                      <span className="text-[10px] font-mono font-bold text-stone-400">
+                        {new Date(req.createdAt).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                        })}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-500 text-stone-950 font-black font-mono text-xl shadow-xs">
+                        #{req.requestedTableNumber}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5 font-bold text-stone-950 text-sm">
+                          <UserIcon className="h-3.5 w-3.5 text-stone-400" />
+                          <span>{req.customerName}</span>
+                        </div>
+                        {req.customerPhone && (
+                          <div className="flex items-center gap-1 text-[11px] text-stone-500">
+                            <Phone className="h-3 w-3" />
+                            <span>{req.customerPhone}</span>
+                          </div>
+                        )}
+                        <p className="text-[11px] text-stone-600 font-medium">
+                          {req.area === 'airconditioned' ? 'Airconditioned Room' : 'Main Dining Area'} •{' '}
+                          {req.capacity || 4} Seats
+                        </p>
+                      </div>
+                    </div>
+
+                    {req.currentTableNumber && (
+                      <div className="flex items-center gap-1.5 rounded-xl bg-purple-50 border border-purple-200 p-2 text-xs font-bold text-purple-900">
+                        <span>Current Table: #{req.currentTableNumber}</span>
+                        <ArrowRight className="h-3 w-3" />
+                        <span>New Target: #{req.requestedTableNumber}</span>
+                      </div>
+                    )}
+
+                    {req.notes && (
+                      <p className="rounded-xl bg-stone-50 border border-stone-200/80 p-2 text-[11px] text-stone-700 italic">
+                        "{req.notes}"
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-between text-[11px] pt-1 border-t border-stone-100">
+                      <span className="text-stone-500">Table Status:</span>
+                      <span
+                        className={`font-black ${
+                          isTargetAvailable ? 'text-emerald-600' : 'text-amber-700'
+                        }`}
+                      >
+                        {targetTable ? targetTable.status.toUpperCase() : 'UNKNOWN'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Cashier Action Buttons */}
+                  <div className="flex items-center gap-2 pt-2 border-t border-stone-100">
+                    <button
+                      type="button"
+                      onClick={() => handleApproveTableRequest(req)}
+                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white hover:bg-emerald-500 transition shadow-xs cursor-pointer active:scale-95"
+                    >
+                      <Check className="h-4 w-4 stroke-[3]" />
+                      <span>Approve Table</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenDeclineModal(req)}
+                      className="flex items-center justify-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 transition cursor-pointer active:scale-95"
+                    >
+                      <X className="h-4 w-4" />
+                      <span>Decline</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-stone-100/90 border border-stone-200 px-4 py-2.5 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="font-bold text-stone-800">
+              Live Cashier Table Confirmation System Active
+            </span>
+            <span className="text-stone-500 hidden sm:inline">
+              • Cashier on duty: {getEffectiveCashier().fullName}
+            </span>
+          </div>
+          {resolvedRequests.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+              className="text-stone-600 hover:text-stone-900 font-bold underline cursor-pointer"
+            >
+              {isHistoryOpen ? 'Hide History' : `Table Request Logs (${resolvedRequests.length})`}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* REQUEST LOGS / HISTORY ACCORDION */}
+      {isHistoryOpen && resolvedRequests.length > 0 && (
+        <div className="rounded-3xl border border-stone-200 bg-white p-5 space-y-3 shadow-sm animate-in fade-in duration-150">
+          <div className="flex items-center justify-between border-b border-stone-100 pb-2">
+            <h3 className="font-bold text-stone-900 text-sm flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-emerald-600" />
+              <span>Recent Table Assignment &amp; Approval History</span>
+            </h3>
+            <button
+              type="button"
+              onClick={() => setIsHistoryOpen(false)}
+              className="text-xs font-bold text-stone-400 hover:text-stone-700 cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="border-b border-stone-100 bg-stone-50 text-[11px] font-bold text-stone-500">
+                <tr>
+                  <th className="p-2.5">Time</th>
+                  <th className="p-2.5">Guest</th>
+                  <th className="p-2.5">Table</th>
+                  <th className="p-2.5">Type</th>
+                  <th className="p-2.5">Status</th>
+                  <th className="p-2.5">Signed By Cashier</th>
+                  <th className="p-2.5">Remarks / Reason</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-100">
+                {resolvedRequests.slice(0, 10).map((req) => (
+                  <tr key={req.id} className="hover:bg-stone-50/80">
+                    <td className="p-2.5 text-stone-500 font-mono text-[11px]">
+                      {new Date(req.createdAt).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </td>
+                    <td className="p-2.5 font-bold text-stone-900">{req.customerName}</td>
+                    <td className="p-2.5 font-black text-amber-950">
+                      #{req.requestedTableNumber}{' '}
+                      {req.currentTableNumber && (
+                        <span className="text-[10px] text-stone-400 font-normal">
+                          (from #{req.currentTableNumber})
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-2.5 capitalize text-stone-600">
+                      {req.type.replace('_', ' ')}
+                    </td>
+                    <td className="p-2.5">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase ${
+                          req.status === 'approved'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : req.status === 'rejected'
+                            ? 'bg-rose-100 text-rose-800'
+                            : 'bg-stone-100 text-stone-600'
+                        }`}
+                      >
+                        {req.status}
+                      </span>
+                    </td>
+                    <td className="p-2.5 font-medium text-stone-700">
+                      {req.cashierName || 'Staff'}
+                    </td>
+                    <td className="p-2.5 text-stone-500 text-[11px]">
+                      {req.rejectionReason || '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Floor Plan Canvas */}
       <div className="rounded-3xl border border-stone-200/80 bg-[#f7f7f7] p-6 sm:p-10 shadow-inner min-h-[520px]">
@@ -1931,6 +2256,103 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                 </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Decline Table Request Modal */}
+      {declineModalReq && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200 border border-stone-200">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="grid h-9 w-9 place-items-center rounded-xl bg-rose-100 text-rose-600 font-bold">
+                  <XCircle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-stone-900 text-base font-display">
+                    Decline Table #{declineModalReq.requestedTableNumber}
+                  </h3>
+                  <p className="text-xs text-stone-500">
+                    Guest: {declineModalReq.customerName}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeclineModalReq(null)}
+                className="rounded-full p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700 cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <p className="text-stone-600 font-medium">
+                Please select or type a reason for declining this table request. This will be shown to the customer on their screen.
+              </p>
+
+              <div className="space-y-2">
+                {[
+                  'Table is currently reserved for upcoming booking',
+                  'Table is currently occupied / seated with other guests',
+                  'Table is undergoing sanitization / cleaning',
+                  'Area is closed for private event or maintenance',
+                  'Custom reason...',
+                ].map((reason) => (
+                  <label
+                    key={reason}
+                    className={`flex items-center gap-2.5 rounded-xl border p-2.5 cursor-pointer transition ${
+                      declineReasonOption === reason
+                        ? 'border-amber-500 bg-amber-50/60 font-bold text-stone-950 ring-1 ring-amber-500/30'
+                        : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="declineReason"
+                      value={reason}
+                      checked={declineReasonOption === reason}
+                      onChange={(e) => setDeclineReasonOption(e.target.value)}
+                      className="text-amber-500 focus:ring-amber-500"
+                    />
+                    <span>{reason}</span>
+                  </label>
+                ))}
+              </div>
+
+              {declineReasonOption === 'Custom reason...' && (
+                <div>
+                  <label className="block font-bold text-stone-700 mb-1">
+                    Enter Custom Reason
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={customDeclineReason}
+                    onChange={(e) => setCustomDeclineReason(e.target.value)}
+                    placeholder="e.g. Please choose Table #3 or #7 instead."
+                    className="w-full rounded-xl border border-stone-300 bg-white p-2.5 text-xs font-medium text-stone-900 focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={() => setDeclineModalReq(null)}
+                className="rounded-xl border border-stone-200 px-4 py-2 text-xs font-bold text-stone-600 hover:bg-stone-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDecline}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-rose-500 shadow-sm cursor-pointer"
+              >
+                Confirm Decline
+              </button>
+            </div>
           </div>
         </div>
       )}

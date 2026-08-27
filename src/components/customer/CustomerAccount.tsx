@@ -9,6 +9,7 @@ interface CustomerAccountProps {
   settings: StoreSettings;
   onLogout: () => void;
   onViewReceipt: (order: Order) => void;
+  onNavigateOrders?: () => void;
 }
 
 export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
@@ -16,6 +17,7 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
   settings,
   onLogout,
   onViewReceipt,
+  onNavigateOrders,
 }) => {
   const { showConfirm, showAlert } = useModal();
   const allOrders = useMemo(() => AppStore.getOrders(), []);
@@ -208,6 +210,14 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
                 Order History ({customerOrders.length})
               </h2>
             </div>
+            {onNavigateOrders && (
+              <button
+                onClick={onNavigateOrders}
+                className="text-xs font-bold text-amber-700 hover:text-amber-800 hover:underline cursor-pointer"
+              >
+                Open Live Tracker →
+              </button>
+            )}
           </div>
 
           {customerOrders.length === 0 ? (
@@ -235,12 +245,26 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
                       className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
                         ord.status === 'completed'
                           ? 'bg-emerald-100 text-emerald-800'
+                          : ord.status === 'to_serve'
+                          ? 'bg-emerald-100 text-emerald-950 border border-emerald-300'
                           : ord.status === 'processing'
                           ? 'bg-sky-100 text-sky-800'
-                          : 'bg-amber-100 text-amber-800'
+                          : ord.status === 'to_prep'
+                          ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                          : 'bg-rose-100 text-rose-800 border border-rose-300'
                       }`}
                     >
-                      {ord.status}
+                      {ord.status === 'to_confirm' || ord.status === 'pending'
+                        ? '⏳ Under Review'
+                        : ord.status === 'to_prep'
+                        ? '📋 Sent to Kitchen'
+                        : ord.status === 'processing'
+                        ? '👨‍🍳 Kitchen Preparing'
+                        : ord.status === 'to_serve'
+                        ? '🔔 Ready to Serve'
+                        : ord.status === 'completed'
+                        ? '✅ Completed'
+                        : ord.status}
                     </span>
                   </div>
 
@@ -257,7 +281,7 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
 
                   <div className="flex items-center justify-between pt-1">
                     <div>
-                      <span className="text-stone-400">Total Paid: </span>
+                      <span className="text-stone-400">Total: </span>
                       <span className="font-mono font-bold text-amber-800 text-sm">
                         ₱{ord.totalAmount.toFixed(2)}
                       </span>
@@ -265,7 +289,7 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
 
                     <button
                       onClick={() => onViewReceipt(ord)}
-                      className="rounded-lg bg-stone-100 hover:bg-stone-200 px-3 py-1 text-xs font-bold text-stone-800 transition"
+                      className="rounded-lg px-3 py-1 text-xs font-bold transition bg-stone-100 hover:bg-stone-200 text-stone-800"
                     >
                       View Receipt
                     </button>

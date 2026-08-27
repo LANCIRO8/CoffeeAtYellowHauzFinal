@@ -11,6 +11,10 @@ import {
   Users,
   Shield,
   Percent,
+  Trash2,
+  AlertTriangle,
+  Database,
+  RefreshCw,
 } from 'lucide-react';
 import { SEED_SETTINGS } from '../../data/seedData';
 import { CashierAccountManager } from './CashierAccountManager';
@@ -32,6 +36,7 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
   const [activeTab, setActiveTab] = useState<'cashiers' | 'store'>('cashiers');
   const [form, setForm] = useState<StoreSettings>(settings);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isResettingDb, setIsResettingDb] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,6 +44,37 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
     onUpdateSettings(form);
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3000);
+  };
+
+  const handleResetDatabaseToZero = async () => {
+    const ok = await showConfirm({
+      title: 'Reset Database to 0 Data?',
+      message:
+        'This will permanently delete all order tickets, sales transactions, table reservations, and active customer sessions from both the live cloud database and local storage. Menu items and categories will remain preserved. Are you sure?',
+      type: 'danger',
+      confirmText: 'Yes, Reset to 0 Data',
+      cancelText: 'Cancel',
+    });
+
+    if (ok) {
+      setIsResettingDb(true);
+      try {
+        const result = await AppStore.resetDatabaseToZero();
+        showAlert({
+          title: 'Database Reset to 0 Data',
+          message: `Database successfully cleared! Deleted ${result.deletedOrders} orders and ${result.deletedReservations} reservations. All tables are now available.`,
+          type: 'success',
+        });
+      } catch (err) {
+        showAlert({
+          title: 'Reset Completed with Local Cache Cleared',
+          message: 'Local store data has been reset to 0.',
+          type: 'info',
+        });
+      } finally {
+        setIsResettingDb(false);
+      }
+    }
   };
 
   const handleResetDefaults = async () => {
@@ -228,14 +264,54 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
               </div>
             </div>
 
-            <button
-              type="submit"
-              className="flex items-center justify-center gap-2 rounded-2xl bg-amber-500 px-6 py-3 text-sm font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition cursor-pointer"
-            >
-              <Save className="h-4 w-4" />
-              Save Store Configuration
-            </button>
+            <div className="flex items-center justify-between pt-2">
+              <button
+                type="submit"
+                className="flex items-center justify-center gap-2 rounded-2xl bg-amber-500 px-6 py-3 text-sm font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition cursor-pointer"
+              >
+                <Save className="h-4 w-4" />
+                Save Store Configuration
+              </button>
+            </div>
           </form>
+
+          {/* Database Maintenance & Zero Reset Card */}
+          <div className="rounded-3xl border border-rose-200 bg-rose-50/50 p-6 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-rose-100 text-rose-700 border border-rose-200">
+                  <Database className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-extrabold text-rose-950">
+                    Database Clean Slate &amp; Zero Reset
+                  </h4>
+                  <p className="text-xs text-rose-800/80 mt-0.5 max-w-xl">
+                    Permanently wipe all live order tickets, sales transaction logs, advance table/venue reservations, and reset all floor tables to available with 0 data. Menu products and cashier logins remain preserved.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={isResettingDb}
+                onClick={handleResetDatabaseToZero}
+                className="inline-flex items-center justify-center gap-2 shrink-0 rounded-2xl bg-rose-600 px-5 py-2.5 text-xs font-black text-white shadow-sm hover:bg-rose-700 active:scale-95 transition disabled:opacity-50 cursor-pointer"
+              >
+                {isResettingDb ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <span>Resetting to 0...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    <span>Reset Database to 0 Data</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
