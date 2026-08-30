@@ -9,7 +9,6 @@ import {
   Coffee,
   CheckCircle,
   HelpCircle,
-  DoorOpen,
   Eye,
   Info,
   Maximize2,
@@ -233,60 +232,6 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Floor Plan Header & Filter Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
-        <div className="flex items-center gap-2.5">
-          <div className="grid h-9 w-9 place-items-center rounded-xl bg-amber-100 text-amber-800 font-bold">
-            <Maximize2 className="h-4 w-4" />
-          </div>
-          <div>
-            <h3 className="text-sm font-extrabold text-stone-900">
-              Interactive Café Floor Plan
-            </h3>
-            <p className="text-xs text-stone-500">
-              Hover over any table to view options and click to open reservation details.
-            </p>
-          </div>
-        </div>
-
-        {/* Filter Pills */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setAreaFilter('all')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-              areaFilter === 'all'
-                ? 'bg-stone-900 text-amber-400 shadow-xs'
-                : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-            }`}
-          >
-            All Tables ({tables.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setAreaFilter('normal')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
-              areaFilter === 'normal'
-                ? 'bg-amber-500 text-stone-950 shadow-xs'
-                : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-            }`}
-          >
-            <span>🌿 Main Dining &amp; Garden</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setAreaFilter('airconditioned')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
-              areaFilter === 'airconditioned'
-                ? 'bg-sky-600 text-white shadow-xs'
-                : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-            }`}
-          >
-            <span>❄️ AC Studio Room</span>
-          </button>
-        </div>
-      </div>
-
       {/* Main Floor Plan Architectural Stage */}
       <div className="relative rounded-3xl border-2 border-stone-300 bg-[#fbf9f5] p-5 sm:p-8 shadow-inner overflow-x-auto">
         
@@ -302,6 +247,9 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
         {/* Architectural Legend & Landmarks Bar */}
         <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 mb-6 pb-4 border-b border-stone-200/90 text-xs">
           <div className="flex items-center gap-4">
+            <h3 className="text-sm sm:text-base font-extrabold text-stone-900 border-r border-stone-300 pr-4">
+              All Tables
+            </h3>
             <div className="flex items-center gap-1.5">
               <span className="h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-emerald-100" />
               <span className="font-bold text-stone-700">Available</span>
@@ -324,37 +272,6 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
 
         {/* Main Floor Blueprint Container */}
         <div className="relative z-10 min-w-[700px] space-y-6">
-
-          {/* Top Architectural Zone: Entrance & Espresso Bar */}
-          <div className="grid grid-cols-12 gap-4 items-center">
-            {/* Entrance Landmark */}
-            <div className="col-span-4 rounded-2xl border border-dashed border-stone-300 bg-stone-100/80 p-3 text-center">
-              <div className="inline-flex items-center gap-1.5 text-xs font-bold text-stone-600 uppercase tracking-wider">
-                <DoorOpen className="h-4 w-4 text-amber-700" />
-                <span>Main Entrance &amp; Patio Porch</span>
-              </div>
-            </div>
-
-            {/* Espresso Bar & Counter */}
-            <div className="col-span-8 rounded-2xl border-2 border-stone-800 bg-stone-900 text-stone-100 p-3.5 shadow-md flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="grid h-8 w-8 place-items-center rounded-xl bg-amber-500 text-stone-950 font-black">
-                  <Coffee className="h-4 w-4" />
-                </div>
-                <div>
-                  <span className="text-xs font-extrabold text-amber-400 tracking-wide uppercase block">
-                    Barista Counter &amp; Bakery Display
-                  </span>
-                  <span className="text-[11px] text-stone-300">
-                    Handcrafted Espresso, Fresh Pastries &amp; Kitchen Pick-up
-                  </span>
-                </div>
-              </div>
-              <span className="rounded-full bg-stone-800 text-amber-300 text-[10px] font-bold px-2.5 py-1">
-                Order Point
-              </span>
-            </div>
-          </div>
 
           {/* Divided Dining Rooms Layout */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -424,20 +341,6 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Bottom Architectural Landmark: Restrooms & Garden Deck */}
-          <div className="grid grid-cols-12 gap-4 items-center pt-2">
-            <div className="col-span-8 rounded-2xl border border-dashed border-emerald-300 bg-emerald-50/50 p-2.5 text-center">
-              <span className="text-[11px] font-bold text-emerald-800">
-                🌿 Outdoor Garden Terrace &amp; Greenery Wall
-              </span>
-            </div>
-            <div className="col-span-4 rounded-2xl border border-stone-200 bg-stone-100/90 p-2.5 text-center">
-              <span className="text-[11px] font-bold text-stone-600">
-                🚻 Restrooms &amp; Wash Area
-              </span>
-            </div>
           </div>
 
         </div>

@@ -74,11 +74,12 @@ export const PosMenu: React.FC<PosMenuProps> = ({
   activeStaff,
   onOrderComplete,
 }) => {
-  const { showAlert } = useModal();
+  const { showAlert, showConfirm } = useModal();
   const [categoryType, setCategoryType] = useState<'drinks' | 'food'>('drinks');
   const [selectedCategory, setSelectedCategory] = useState<number | 'all'>(9);
-  const [selectedTemp, setSelectedTemp] = useState<string>('all');
+  const [filterMode, setFilterMode] = useState<'all' | 'bestsellers'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
 
   // Collapsible States
@@ -247,11 +248,8 @@ export const PosMenu: React.FC<PosMenuProps> = ({
         }
       }
 
-      if (selectedTemp !== 'all') {
-        if (selectedTemp === 'hot' && !['hot', 'both'].includes(item.temperature)) return false;
-        if (selectedTemp === 'cold' && !['cold', 'iced', 'blended', 'both'].includes(item.temperature))
-          return false;
-        if (selectedTemp === 'room' && item.temperature !== 'room temp') return false;
+      if (filterMode === 'bestsellers' && !item.isBestSeller) {
+        return false;
       }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -259,7 +257,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
       }
       return true;
     });
-  }, [menuItems, categories, selectedCategory, categoryType, selectedTemp, searchQuery]);
+  }, [menuItems, categories, selectedCategory, categoryType, filterMode, searchQuery]);
 
   // Cart operations
   const addToCart = (item: MenuItem) => {
@@ -415,13 +413,35 @@ export const PosMenu: React.FC<PosMenuProps> = ({
     setIsTenderModalOpen(true);
   };
 
-  const handleProcessOrder = () => {
+  const handleProcessOrder = async () => {
     if (paymentMethod === 'cash' && tenderedNumber < totalAmount) {
       showAlert({
         title: 'Insufficient Payment',
         message: `Tendered cash (₱${tenderedNumber.toFixed(2)}) is less than total amount due (₱${totalAmount.toFixed(2)}).`,
         type: 'error',
       });
+      return;
+    }
+
+    const totalItemCount = cart.reduce((sum, ci) => sum + ci.quantity, 0);
+    const paymentLabel = paymentMethod === 'cash' ? 'Cash' : paymentMethod === 'gcash' ? 'GCash' : 'Card';
+    const diningLabel = orderType === 'dine_in' && selectedTable
+      ? `Dine-In (Table #${selectedTable})`
+      : orderType === 'take_away'
+      ? 'Takeaway / Pick-up'
+      : 'Delivery';
+
+    const tenderConfirmMsg = `Please review and confirm this sale before completing tender:\n\n• Order Total: ₱${totalAmount.toFixed(2)}\n• Method: ${paymentLabel}\n• Amount Tendered: ₱${(paymentMethod === 'cash' ? tenderedNumber : totalAmount).toFixed(2)}\n${paymentMethod === 'cash' ? `• Change Due: ₱${changeAmount.toFixed(2)}\n` : ''}• Dining Option: ${diningLabel}\n• Total Items: ${totalItemCount} item(s)\n\nFinalize transaction and print kitchen ticket?`;
+
+    const isConfirmed = await showConfirm({
+      title: 'Confirm Order',
+      message: tenderConfirmMsg,
+      type: 'info',
+      confirmText: 'Confirm',
+      cancelText: 'Back',
+    });
+
+    if (!isConfirmed) {
       return;
     }
 
@@ -639,7 +659,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
           <button
             type="button"
             onClick={() => setIsTicketSidebarOpen(!isTicketSidebarOpen)}
-            className={`fixed sm:absolute bottom-6 right-6 sm:bottom-6 sm:right-6 z-30 flex items-center gap-2 rounded-full border px-4 py-3 text-xs sm:text-sm font-extrabold transition-all shadow-xl backdrop-blur-md cursor-pointer active:scale-95 hover:scale-105 ${
+            className={`fixed sm:absolute bottom-20 right-4 sm:bottom-6 sm:right-6 z-45 flex items-center gap-2 rounded-full border px-4 py-3 text-xs sm:text-sm font-extrabold transition-all shadow-xl backdrop-blur-md cursor-pointer active:scale-95 hover:scale-105 ${
               isTicketSidebarOpen
                 ? 'border-stone-300 bg-white/95 text-stone-800 hover:bg-stone-100 shadow-stone-900/10'
                 : 'border-amber-400 bg-amber-500 text-stone-950 hover:bg-amber-400 shadow-amber-500/40 ring-4 ring-amber-500/20'
@@ -664,58 +684,91 @@ export const PosMenu: React.FC<PosMenuProps> = ({
             )}
           </button>
 
-          {/* Search & Temperature Filters */}
-          <div className="pb-3 border-b border-stone-100">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="relative flex-1 min-w-0">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-stone-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search menu items..."
-                  className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-9 pr-8 py-2 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-2.5 text-stone-400 hover:text-stone-600"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
+          {/* Search & Best Sellers Filters */}
+          <div className="pb-2.5 sm:pb-3 border-b border-stone-100">
+            <div className="flex items-center gap-1.5 sm:gap-3">
+              {/* Mobile Search Icon Toggle / Full Input on Desktop */}
+              {!isMobileSearchOpen && !searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => setIsMobileSearchOpen(true)}
+                  className="sm:hidden flex items-center justify-center h-8 w-8 rounded-xl border border-stone-200 bg-stone-50 text-stone-600 hover:text-stone-900 shadow-2xs active:scale-95 cursor-pointer shrink-0"
+                  title="Search menu items"
+                >
+                  <Search className="h-4 w-4" />
+                </button>
+              ) : (
+                <div className="relative flex-1 min-w-0">
+                  <Search className="absolute left-2.5 sm:left-3 top-2 sm:top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search menu items..."
+                    autoFocus={isMobileSearchOpen}
+                    className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-8 sm:pl-9 pr-7 sm:pr-8 py-1.5 sm:py-2 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none"
+                  />
+                  {(searchQuery || isMobileSearchOpen) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setIsMobileSearchOpen(false);
+                      }}
+                      className="absolute right-2 top-2 sm:top-2.5 text-stone-400 hover:text-stone-600"
+                    >
+                      <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Desktop Always-Visible Search Bar (when mobile toggle is inactive) */}
+              <div className={`hidden sm:block sm:flex-1 min-w-0 ${isMobileSearchOpen || searchQuery ? '!hidden sm:!block' : ''}`}>
+                <div className="relative w-full">
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-stone-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search menu items..."
+                    className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-9 pr-8 py-2 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2.5 top-2.5 text-stone-400 hover:text-stone-600"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl shrink-0">
                 <button
-                  onClick={() => setSelectedTemp('all')}
-                  className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition ${
-                    selectedTemp === 'all'
+                  type="button"
+                  onClick={() => setFilterMode('all')}
+                  className={`px-2.5 sm:px-3 py-1 text-[11px] font-bold rounded-lg transition cursor-pointer ${
+                    filterMode === 'all'
                       ? 'bg-white text-stone-900 shadow-xs'
-                      : 'text-stone-600'
+                      : 'text-stone-600 hover:text-stone-900'
                   }`}
                 >
                   All
                 </button>
                 <button
-                  onClick={() => setSelectedTemp('hot')}
-                  className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition ${
-                    selectedTemp === 'hot'
-                      ? 'bg-amber-700 text-white shadow-xs'
-                      : 'text-stone-600'
+                  type="button"
+                  onClick={() => setFilterMode('bestsellers')}
+                  className={`px-2.5 sm:px-3 py-1 text-[11px] font-bold rounded-lg transition flex items-center gap-1 sm:gap-1.5 cursor-pointer ${
+                    filterMode === 'bestsellers'
+                      ? 'bg-amber-500 text-stone-950 font-extrabold shadow-xs'
+                      : 'text-stone-600 hover:text-stone-900'
                   }`}
                 >
-                  Hot
-                </button>
-                <button
-                  onClick={() => setSelectedTemp('cold')}
-                  className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition ${
-                    selectedTemp === 'cold'
-                      ? 'bg-sky-500 text-white shadow-xs'
-                      : 'text-stone-600'
-                  }`}
-                >
-                  Cold
+                  <Sparkles className={`h-3 w-3 ${filterMode === 'bestsellers' ? 'text-stone-950' : 'text-amber-500'}`} />
+                  <span>Best Sellers</span>
                 </button>
               </div>
             </div>
@@ -1110,7 +1163,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
               disabled={cart.length === 0}
               className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-amber-500 py-2.5 text-xs sm:text-sm font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition disabled:opacity-40 active:scale-98"
             >
-              <span>Tender Payment (₱{totalAmount.toFixed(2)})</span>
+              <span>Confirm (₱{totalAmount.toFixed(2)})</span>
             </button>
           </div>
         </div>
@@ -1118,7 +1171,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
 
       {/* Sticky Floating Bottom Bar on Mobile when ticket is collapsed & cart has items */}
       {!isTicketSidebarOpen && cart.length > 0 && (
-        <div className="fixed bottom-3 inset-x-3 sm:inset-x-6 z-30 lg:hidden bg-stone-950 text-white rounded-2xl p-3 shadow-2xl flex items-center justify-between border border-stone-800 animate-in slide-in-from-bottom-3 duration-200">
+        <div className="fixed bottom-20 sm:bottom-4 inset-x-3 sm:inset-x-6 z-45 lg:hidden bg-stone-950 text-white rounded-2xl p-3 shadow-2xl flex items-center justify-between border border-stone-800 animate-in slide-in-from-bottom-3 duration-200">
           <div className="flex items-center gap-2.5">
             <div className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500 text-stone-950 font-black text-xs shadow-xs">
               <ShoppingCart className="h-4 w-4" />
@@ -1153,96 +1206,82 @@ export const PosMenu: React.FC<PosMenuProps> = ({
 
       {/* Tender Modal */}
       {isTenderModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="w-full max-w-2xl rounded-3xl bg-white p-5 md:p-6 shadow-2xl border border-stone-200 animate-in zoom-in-95 duration-150 my-auto">
-            <div className="flex items-center justify-between border-b border-stone-200 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-lg md:max-w-xl rounded-2xl sm:rounded-3xl bg-white p-3.5 sm:p-5 md:p-6 shadow-2xl border border-stone-200 animate-in zoom-in-95 duration-150 my-auto">
+            <div className="flex items-center justify-between border-b border-stone-200 pb-2 sm:pb-3">
               <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700">
-                  Yellow Hauz Register
-                </span>
-                <h3 className="font-display text-xl font-bold text-stone-900">
-                  Payment Tender &amp; Change
+                <h3 className="font-display text-sm sm:text-base md:text-lg font-bold text-stone-900">
+                  Tender &amp; Receipt
                 </h3>
               </div>
               <button
                 onClick={() => setIsTenderModalOpen(false)}
-                className="rounded-full p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
+                className="rounded-full p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
             {/* Total Display */}
-            <div className="my-3.5 rounded-2xl bg-stone-950 px-4 py-3 text-center text-white flex items-center justify-between shadow-xs">
+            <div className="my-2.5 sm:my-3 rounded-xl sm:rounded-2xl bg-stone-950 px-3.5 py-2 sm:py-2.5 text-center text-white flex items-center justify-between shadow-xs">
               <div className="text-left">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 block">
-                  Total Amount Due
-                </span>
-                <span className="text-xs text-stone-400">
-                  {cart.reduce((s, i) => s + i.quantity, 0)} items ({orderType.replace('_', ' ')})
+                <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-amber-400 block">
+                  Total
                 </span>
               </div>
-              <div className="font-mono text-3xl font-extrabold text-white">
+              <div className="font-mono text-xl sm:text-2xl md:text-3xl font-extrabold text-white">
                 ₱{totalAmount.toFixed(2)}
               </div>
             </div>
 
             {/* Payment Method Selector */}
-            <div className="grid grid-cols-3 gap-2 mb-3.5">
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mb-2.5 sm:mb-3">
               <button
                 type="button"
                 onClick={() => setPaymentMethod('cash')}
-                className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold border transition ${
+                className={`flex items-center justify-center gap-1 rounded-lg sm:rounded-xl py-1.5 sm:py-2 text-[11px] sm:text-xs font-bold border transition ${
                   paymentMethod === 'cash'
                     ? 'bg-amber-500 text-stone-950 border-amber-500 font-extrabold shadow-xs'
                     : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
                 }`}
               >
-                <Banknote className="h-4 w-4" />
+                <Banknote className="h-3.5 w-3.5" />
                 <span>Cash</span>
               </button>
               <button
                 type="button"
                 onClick={() => setPaymentMethod('gcash')}
-                className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold border transition ${
+                className={`flex items-center justify-center gap-1 rounded-lg sm:rounded-xl py-1.5 sm:py-2 text-[11px] sm:text-xs font-bold border transition ${
                   paymentMethod === 'gcash'
                     ? 'bg-sky-500 text-white border-sky-500 font-extrabold shadow-xs'
                     : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
                 }`}
               >
-                <QrCode className="h-4 w-4" />
+                <QrCode className="h-3.5 w-3.5" />
                 <span>GCash QR</span>
               </button>
               <button
                 type="button"
                 onClick={() => setPaymentMethod('card')}
-                className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold border transition ${
+                className={`flex items-center justify-center gap-1 rounded-lg sm:rounded-xl py-1.5 sm:py-2 text-[11px] sm:text-xs font-bold border transition ${
                   paymentMethod === 'card'
                     ? 'bg-stone-900 text-white border-stone-900 font-extrabold shadow-xs'
                     : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
                 }`}
               >
-                <CreditCard className="h-4 w-4" />
+                <CreditCard className="h-3.5 w-3.5" />
                 <span>Card</span>
               </button>
             </div>
 
             {/* Main Content: Left Details & Right Numpad */}
             {paymentMethod === 'cash' ? (
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 sm:gap-3">
                 {/* Left Side: Input, Quick Denominations, & Change */}
-                <div className="md:col-span-7 space-y-3">
+                <div className="md:col-span-6 space-y-2 sm:space-y-2.5">
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
-                        Amount Tendered (₱)
-                      </label>
-                      <span className="text-[10px] text-stone-500 font-medium">
-                        Bills add up automatically
-                      </span>
-                    </div>
                     <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-mono font-bold text-stone-500 text-lg">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono font-bold text-stone-500 text-base sm:text-lg">
                         ₱
                       </span>
                       <input
@@ -1250,27 +1289,22 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                         value={amountPaidInput}
                         onChange={(e) => setAmountPaidInput(e.target.value)}
                         placeholder="0.00"
-                        className="w-full rounded-2xl border border-stone-300 bg-stone-50 pl-8 pr-4 py-2 text-xl font-mono font-bold text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none text-right shadow-inner"
+                        className="w-full rounded-xl sm:rounded-2xl border border-stone-300 bg-stone-50 pl-7 pr-3 py-1.5 sm:py-2 text-base sm:text-lg font-mono font-bold text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none text-right shadow-inner"
                       />
                     </div>
                   </div>
 
                   {/* Quick Bills & Denominations Grid */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-[11px] font-bold text-stone-600">
-                      <span>Quick Denominations</span>
-                      <span className="text-[10px] text-amber-700 font-normal">Tap repeatedly to add</span>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-1.5">
+                  <div className="space-y-1">
+                    <div className="grid grid-cols-3 gap-1 sm:gap-1.5">
                       {[20, 50, 100, 200, 500, 1000].map((bill) => (
                         <button
                           key={bill}
                           type="button"
                           onClick={() => handleAddPredeterminedAmount(bill)}
-                          className="rounded-xl border border-stone-200 bg-stone-50 hover:bg-amber-50 hover:border-amber-400 py-2 text-xs font-extrabold text-stone-800 hover:text-amber-950 transition active:scale-95 shadow-2xs font-mono flex items-center justify-center gap-1"
+                          className="rounded-lg sm:rounded-xl border border-stone-200 bg-stone-50 hover:bg-amber-50 hover:border-amber-400 py-1 sm:py-1.5 text-[11px] sm:text-xs font-extrabold text-stone-800 hover:text-amber-950 transition active:scale-95 shadow-2xs font-mono flex items-center justify-center gap-0.5"
                         >
-                          <span className="text-[10px] font-sans text-amber-600 font-bold">+</span>
+                          <span className="text-[9px] font-sans text-amber-600 font-bold">+</span>
                           <span>₱{bill}</span>
                         </button>
                       ))}
@@ -1278,27 +1312,21 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                   </div>
 
                   {/* Live Change Box */}
-                  <div className="flex items-center justify-between rounded-2xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-emerald-950">
+                  <div className="flex items-center justify-between rounded-xl sm:rounded-2xl bg-emerald-50 border border-emerald-200 px-3 py-2 text-emerald-950">
                     <div>
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 block">
+                      <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-800 block">
                         Change Due
                       </span>
-                      <span className="text-[11px] text-emerald-700">
-                        {tenderedNumber < totalAmount ? 'Waiting for full tender' : 'Ready to dispense'}
-                      </span>
                     </div>
-                    <span className={`font-mono text-2xl font-black ${tenderedNumber < totalAmount ? 'text-stone-400' : 'text-emerald-700'}`}>
+                    <span className={`font-mono text-lg sm:text-xl font-black ${tenderedNumber < totalAmount ? 'text-stone-400' : 'text-emerald-700'}`}>
                       ₱{changeAmount.toFixed(2)}
                     </span>
                   </div>
                 </div>
 
                 {/* Right Side: Tactile POS Numpad */}
-                <div className="md:col-span-5 bg-stone-50 border border-stone-200/80 rounded-2xl p-2.5 flex flex-col justify-between">
-                  <div className="flex items-center justify-between px-1 mb-1.5">
-                    <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider">
-                      Keypad
-                    </span>
+                <div className="md:col-span-6 bg-stone-50 border border-stone-200/80 rounded-xl sm:rounded-2xl p-2 sm:p-2.5 flex flex-col justify-between">
+                  <div className="flex items-center justify-end px-1 mb-1">
                     <button
                       type="button"
                       onClick={() => handleNumpadInput('CLEAR')}
@@ -1308,14 +1336,14 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-1.5">
+                  <div className="grid grid-cols-3 gap-1 sm:gap-1.5">
                     {/* Row 1 */}
                     {['7', '8', '9'].map((n) => (
                       <button
                         key={n}
                         type="button"
                         onClick={() => handleNumpadInput(n)}
-                        className="rounded-xl bg-white border border-stone-200/90 py-2.5 text-base font-mono font-bold text-stone-900 shadow-2xs hover:bg-stone-100 active:bg-amber-100 active:border-amber-400 active:scale-95 transition"
+                        className="rounded-lg sm:rounded-xl bg-white border border-stone-200/90 py-1.5 sm:py-2 text-sm sm:text-base font-mono font-bold text-stone-900 shadow-2xs hover:bg-stone-100 active:bg-amber-100 active:border-amber-400 active:scale-95 transition"
                       >
                         {n}
                       </button>
@@ -1327,7 +1355,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                         key={n}
                         type="button"
                         onClick={() => handleNumpadInput(n)}
-                        className="rounded-xl bg-white border border-stone-200/90 py-2.5 text-base font-mono font-bold text-stone-900 shadow-2xs hover:bg-stone-100 active:bg-amber-100 active:border-amber-400 active:scale-95 transition"
+                        className="rounded-lg sm:rounded-xl bg-white border border-stone-200/90 py-1.5 sm:py-2 text-sm sm:text-base font-mono font-bold text-stone-900 shadow-2xs hover:bg-stone-100 active:bg-amber-100 active:border-amber-400 active:scale-95 transition"
                       >
                         {n}
                       </button>
@@ -1339,7 +1367,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                         key={n}
                         type="button"
                         onClick={() => handleNumpadInput(n)}
-                        className="rounded-xl bg-white border border-stone-200/90 py-2.5 text-base font-mono font-bold text-stone-900 shadow-2xs hover:bg-stone-100 active:bg-amber-100 active:border-amber-400 active:scale-95 transition"
+                        className="rounded-lg sm:rounded-xl bg-white border border-stone-200/90 py-1.5 sm:py-2 text-sm sm:text-base font-mono font-bold text-stone-900 shadow-2xs hover:bg-stone-100 active:bg-amber-100 active:border-amber-400 active:scale-95 transition"
                       >
                         {n}
                       </button>
@@ -1349,37 +1377,37 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                     <button
                       type="button"
                       onClick={() => handleNumpadInput('.')}
-                      className="rounded-xl bg-white border border-stone-200/90 py-2.5 text-base font-mono font-bold text-stone-900 shadow-2xs hover:bg-stone-100 active:bg-amber-100 active:scale-95 transition"
+                      className="rounded-lg sm:rounded-xl bg-white border border-stone-200/90 py-1.5 sm:py-2 text-sm sm:text-base font-mono font-bold text-stone-900 shadow-2xs hover:bg-stone-100 active:bg-amber-100 active:scale-95 transition"
                     >
                       .
                     </button>
                     <button
                       type="button"
                       onClick={() => handleNumpadInput('0')}
-                      className="rounded-xl bg-white border border-stone-200/90 py-2.5 text-base font-mono font-bold text-stone-900 shadow-2xs hover:bg-stone-100 active:bg-amber-100 active:scale-95 transition"
+                      className="rounded-lg sm:rounded-xl bg-white border border-stone-200/90 py-1.5 sm:py-2 text-sm sm:text-base font-mono font-bold text-stone-900 shadow-2xs hover:bg-stone-100 active:bg-amber-100 active:scale-95 transition"
                     >
                       0
                     </button>
                     <button
                       type="button"
                       onClick={() => handleNumpadInput('BACKSPACE')}
-                      className="rounded-xl bg-stone-100 border border-stone-200 py-2.5 flex items-center justify-center text-stone-700 shadow-2xs hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 active:scale-95 transition"
+                      className="rounded-lg sm:rounded-xl bg-stone-100 border border-stone-200 py-1.5 sm:py-2 flex items-center justify-center text-stone-700 shadow-2xs hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 active:scale-95 transition"
                     >
-                      <Delete className="h-4 w-4" />
+                      <Delete className="h-3.5 w-3.5" />
                     </button>
 
                     {/* Row 5 */}
                     <button
                       type="button"
                       onClick={() => handleNumpadInput('00')}
-                      className="rounded-xl bg-white border border-stone-200/90 py-2 text-xs font-mono font-bold text-stone-700 shadow-2xs hover:bg-stone-100 active:bg-amber-100 active:scale-95 transition"
+                      className="rounded-lg sm:rounded-xl bg-white border border-stone-200/90 py-1 sm:py-1.5 text-[11px] sm:text-xs font-mono font-bold text-stone-700 shadow-2xs hover:bg-stone-100 active:bg-amber-100 active:scale-95 transition"
                     >
                       00
                     </button>
                     <button
                       type="button"
                       onClick={() => handleNumpadInput('EXACT')}
-                      className="col-span-2 rounded-xl bg-amber-500 border border-amber-600/50 py-2 text-xs font-bold text-stone-950 shadow-xs hover:bg-amber-400 active:scale-95 transition flex items-center justify-center"
+                      className="col-span-2 rounded-lg sm:rounded-xl bg-amber-500 border border-amber-600/50 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold text-stone-950 shadow-xs hover:bg-amber-400 active:scale-95 transition flex items-center justify-center"
                     >
                       Exact (₱{totalAmount.toFixed(2)})
                     </button>
@@ -1387,37 +1415,37 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                 </div>
               </div>
             ) : paymentMethod === 'gcash' ? (
-              <div className="rounded-2xl border border-sky-200 bg-sky-50/50 p-6 text-center space-y-3">
-                <QrCode className="h-16 w-16 mx-auto text-sky-600" />
-                <h4 className="text-sm font-bold text-sky-950">Scan Yellow Hauz Merchant GCash QR</h4>
-                <p className="text-xs text-stone-600 max-w-sm mx-auto">
-                  Customer will transfer exact <strong className="text-sky-900 font-mono">₱{totalAmount.toFixed(2)}</strong>. Verify the GCash reference number on customer screen before completing.
+              <div className="rounded-xl sm:rounded-2xl border border-sky-200 bg-sky-50/50 p-4 sm:p-6 text-center space-y-2 sm:space-y-3">
+                <QrCode className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-sky-600" />
+                <h4 className="text-xs sm:text-sm font-bold text-sky-950">Scan Yellow Hauz Merchant GCash QR</h4>
+                <p className="text-[11px] sm:text-xs text-stone-600 max-w-sm mx-auto">
+                  Customer will transfer exact <strong className="text-sky-900 font-mono">₱{totalAmount.toFixed(2)}</strong>. Verify reference number before completing.
                 </p>
               </div>
             ) : (
-              <div className="rounded-2xl border border-stone-200 bg-stone-50 p-6 text-center space-y-3">
-                <CreditCard className="h-16 w-16 mx-auto text-stone-700" />
-                <h4 className="text-sm font-bold text-stone-900">Swipe / Tap on POS Card Terminal</h4>
-                <p className="text-xs text-stone-600 max-w-sm mx-auto">
-                  Insert or tap customer card for <strong className="text-stone-900 font-mono">₱{totalAmount.toFixed(2)}</strong> on the payment terminal.
+              <div className="rounded-xl sm:rounded-2xl border border-stone-200 bg-stone-50 p-4 sm:p-6 text-center space-y-2 sm:space-y-3">
+                <CreditCard className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-stone-700" />
+                <h4 className="text-xs sm:text-sm font-bold text-stone-900">Swipe / Tap on POS Card Terminal</h4>
+                <p className="text-[11px] sm:text-xs text-stone-600 max-w-sm mx-auto">
+                  Insert or tap customer card for <strong className="text-stone-900 font-mono">₱{totalAmount.toFixed(2)}</strong> on the terminal.
                 </p>
               </div>
             )}
 
-            <div className="mt-4 flex gap-3 pt-2 border-t border-stone-100">
+            <div className="mt-3 sm:mt-4 flex gap-2.5 sm:gap-3 pt-2 border-t border-stone-100">
               <button
                 type="button"
                 onClick={() => setIsTenderModalOpen(false)}
-                className="rounded-xl border border-stone-200 px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50"
+                className="rounded-xl border border-stone-200 px-3.5 py-2 text-xs font-bold text-stone-700 hover:bg-stone-50"
               >
                 Back
               </button>
               <button
                 type="button"
                 onClick={handleProcessOrder}
-                className="flex-1 rounded-xl bg-amber-500 py-3 text-sm font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition active:scale-98"
+                className="flex-1 rounded-xl bg-amber-500 py-2 sm:py-2.5 text-xs sm:text-sm font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition active:scale-98"
               >
-                Complete Sale &amp; Print Ticket
+                Confirm
               </button>
             </div>
           </div>

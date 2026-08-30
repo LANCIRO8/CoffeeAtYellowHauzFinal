@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Table, Order, Reservation, TableRequest, User } from '../../types';
 import { AppStore } from '../../services/store';
 import { useModal } from '../../context/ModalContext';
@@ -33,6 +34,11 @@ import {
   ShieldCheck,
   ArrowRight,
   User as UserIcon,
+  Snowflake,
+  Sun,
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 interface TableManagementProps {
@@ -69,6 +75,8 @@ export const TableManagement: React.FC<TableManagementProps> = ({
   // Filters matching image.png
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [areaFilter, setAreaFilter] = useState<AreaFilter>('all');
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const isAnyFilterActive = statusFilter !== 'all' || areaFilter !== 'all';
 
   // Selected table for detailed reservation / contact drawer
   const [selectedTableForDetails, setSelectedTableForDetails] = useState<Table | null>(null);
@@ -786,89 +794,53 @@ export const TableManagement: React.FC<TableManagementProps> = ({
   return (
     <div className="space-y-6 pb-20">
       {/* Top Header Bar matching image.png */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-stone-200 pb-5">
-        <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+      <div className="flex flex-row items-center justify-between gap-2 sm:gap-4 border-b border-stone-200 pb-3 sm:pb-5">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
           {/* Left Title: TABLES */}
-          <h1 className="font-serif text-2xl sm:text-3xl font-black tracking-wider text-stone-950 uppercase">
+          <h1 className="font-serif text-xl sm:text-3xl font-black tracking-wider text-stone-950 uppercase shrink-0">
             TABLES
           </h1>
 
-          {/* Filter Pill Group 1: Status (All, Available, Occupied, Reserved, Cleaning) */}
-          <div className="inline-flex items-center rounded-full bg-white p-1 border border-stone-200/90 shadow-2xs">
-            {(['all', 'available', 'occupied', 'reserved', 'cleaning'] as StatusFilter[]).map(
-              (st) => (
-                <button
-                  key={st}
-                  type="button"
-                  onClick={() => setStatusFilter(st)}
-                  className={`rounded-full px-3.5 py-1 text-xs font-bold capitalize transition-all duration-150 ${
-                    statusFilter === st
-                      ? 'bg-stone-950 text-white shadow-xs'
-                      : 'text-stone-600 hover:text-stone-950 hover:bg-stone-50'
-                  }`}
-                >
-                  {st === 'all' ? 'All' : st}
-                </button>
-              )
-            )}
-          </div>
-
-          {/* Filter Pill Group 2: Area (All Areas, Normal, Airconditioned) */}
-          <div className="inline-flex items-center rounded-full bg-white p-1 border border-stone-200/90 shadow-2xs">
-            <button
-              type="button"
-              onClick={() => setAreaFilter('all')}
-              className={`rounded-full px-3.5 py-1 text-xs font-bold transition-all duration-150 ${
-                areaFilter === 'all'
-                  ? 'bg-stone-950 text-white shadow-xs'
-                  : 'text-stone-600 hover:text-stone-950 hover:bg-stone-50'
-              }`}
-            >
-              All Areas
-            </button>
-            <button
-              type="button"
-              onClick={() => setAreaFilter('normal')}
-              className={`rounded-full px-3.5 py-1 text-xs font-bold transition-all duration-150 ${
-                areaFilter === 'normal'
-                  ? 'bg-stone-950 text-white shadow-xs'
-                  : 'text-stone-600 hover:text-stone-950 hover:bg-stone-50'
-              }`}
-            >
-              Normal
-            </button>
-            <button
-              type="button"
-              onClick={() => setAreaFilter('airconditioned')}
-              className={`rounded-full px-3.5 py-1 text-xs font-bold transition-all duration-150 ${
-                areaFilter === 'airconditioned'
-                  ? 'bg-stone-950 text-white shadow-xs'
-                  : 'text-stone-600 hover:text-stone-950 hover:bg-stone-50'
-              }`}
-            >
-              Airconditioned
-            </button>
-          </div>
+          {/* Filter Modal Trigger Button */}
+          <button
+            type="button"
+            onClick={() => setIsFilterModalOpen(true)}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all duration-150 cursor-pointer shadow-2xs shrink-0 ${
+              isAnyFilterActive
+                ? 'bg-amber-500 text-stone-950 font-black hover:bg-amber-400'
+                : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
+            }`}
+            title="Filter tables by status and area"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Filters</span>
+            {isAnyFilterActive ? (
+              <span className="rounded-full bg-stone-950 px-1.5 py-0.2 text-[10px] font-black text-amber-400">
+                {(statusFilter !== 'all' ? 1 : 0) + (areaFilter !== 'all' ? 1 : 0)}
+              </span>
+            ) : null}
+          </button>
         </div>
 
         {/* Right Actions: Add Table & New Booking */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           <button
             type="button"
             onClick={handleOpenAddTableModal}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-3.5 py-2 text-xs font-black text-stone-950 hover:bg-amber-400 transition active:scale-95 shadow-xs cursor-pointer"
+            title="Add Table"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 px-2.5 sm:px-3.5 py-2 text-xs font-black text-stone-950 hover:bg-amber-400 transition active:scale-95 shadow-xs cursor-pointer"
           >
-            <Plus className="h-4 w-4 stroke-[3]" />
-            <span>Add Table</span>
+            <Plus className="h-4 w-4 stroke-[3] shrink-0" />
+            <span className="hidden sm:inline">Add Table</span>
           </button>
 
           <button
             type="button"
             onClick={() => setIsNewResModalOpen(true)}
             title="Book New Reservation"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-stone-950 px-3.5 py-2 text-xs font-bold text-amber-400 hover:bg-stone-800 transition active:scale-95 shadow-xs cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-stone-950 px-2.5 sm:px-3.5 py-2 text-xs font-bold text-amber-400 hover:bg-stone-800 transition active:scale-95 shadow-xs cursor-pointer"
           >
-            <Calendar className="h-4 w-4" />
+            <Calendar className="h-4 w-4 shrink-0" />
             <span className="hidden sm:inline">New Booking</span>
           </button>
         </div>
@@ -903,9 +875,14 @@ export const TableManagement: React.FC<TableManagementProps> = ({
             <button
               type="button"
               onClick={() => setIsHistoryOpen(!isHistoryOpen)}
-              className="rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-xs font-bold text-stone-800 hover:bg-amber-100 transition cursor-pointer"
+              title="Table Logs"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-white px-2.5 sm:px-3 py-1.5 text-xs font-bold text-stone-800 hover:bg-amber-100 transition cursor-pointer shadow-2xs"
             >
-              {isHistoryOpen ? 'Hide History' : `View History (${resolvedRequests.length})`}
+              <Clock className="h-3.5 w-3.5 text-amber-700 shrink-0" />
+              <span className="hidden sm:inline">{isHistoryOpen ? 'Hide Logs' : 'Table Logs'}</span>
+              <span className="rounded-full bg-amber-100 px-1.5 py-0.2 text-[10px] font-black text-amber-900">
+                {resolvedRequests.length}
+              </span>
             </button>
           </div>
 
@@ -1017,7 +994,7 @@ export const TableManagement: React.FC<TableManagementProps> = ({
           <div className="flex items-center gap-2">
             <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="font-bold text-stone-800">
-              Live Cashier Table Confirmation System Active
+              Table Confirmation
             </span>
             <span className="text-stone-500 hidden sm:inline">
               • Cashier on duty: {getEffectiveCashier().fullName}
@@ -1027,9 +1004,14 @@ export const TableManagement: React.FC<TableManagementProps> = ({
             <button
               type="button"
               onClick={() => setIsHistoryOpen(!isHistoryOpen)}
-              className="text-stone-600 hover:text-stone-900 font-bold underline cursor-pointer"
+              title="Table Logs"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-2.5 sm:px-3 py-1.5 text-xs font-bold text-stone-700 hover:bg-stone-50 hover:text-stone-900 transition shadow-2xs cursor-pointer active:scale-95"
             >
-              {isHistoryOpen ? 'Hide History' : `Table Request Logs (${resolvedRequests.length})`}
+              <Clock className="h-3.5 w-3.5 text-stone-500 shrink-0" />
+              <span className="hidden sm:inline">{isHistoryOpen ? 'Hide Logs' : 'Table Logs'}</span>
+              <span className="rounded-full bg-stone-100 px-1.5 py-0.2 text-[10px] font-black text-stone-700">
+                {resolvedRequests.length}
+              </span>
             </button>
           )}
         </div>
@@ -2351,6 +2333,190 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                 className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-rose-500 shadow-sm cursor-pointer"
               >
                 Confirm Decline
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Table Filter Modal */}
+      {isFilterModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl border border-stone-200 space-y-5 animate-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="rounded-xl bg-amber-100 p-2 text-amber-900">
+                  <SlidersHorizontal className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-black text-base text-stone-900">
+                    Filter Tables
+                  </h3>
+                  <p className="text-xs text-stone-500 font-medium">
+                    Filter visible tables by status & area
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsFilterModalOpen(false)}
+                className="rounded-full p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700 cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Filter Content */}
+            <div className="space-y-4">
+              {/* Status Section */}
+              <div>
+                <label className="block text-xs font-black uppercase tracking-wider text-stone-500 mb-2">
+                  Status
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {/* Status: All */}
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('all')}
+                    className={`flex items-center gap-2 rounded-xl p-2.5 text-xs font-bold transition cursor-pointer border ${
+                      statusFilter === 'all'
+                        ? 'border-stone-950 bg-stone-950 text-white shadow-xs'
+                        : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100'
+                    }`}
+                  >
+                    <Layers className="h-4 w-4 shrink-0" />
+                    <span>All</span>
+                  </button>
+
+                  {/* Status: Available */}
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('available')}
+                    className={`flex items-center gap-2 rounded-xl p-2.5 text-xs font-bold transition cursor-pointer border ${
+                      statusFilter === 'available'
+                        ? 'border-emerald-600 bg-emerald-600 text-white shadow-xs'
+                        : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100'
+                    }`}
+                  >
+                    <CheckCircle2 className={`h-4 w-4 shrink-0 ${statusFilter === 'available' ? 'text-white' : 'text-emerald-500'}`} />
+                    <span>Available</span>
+                  </button>
+
+                  {/* Status: Occupied */}
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('occupied')}
+                    className={`flex items-center gap-2 rounded-xl p-2.5 text-xs font-bold transition cursor-pointer border ${
+                      statusFilter === 'occupied'
+                        ? 'border-amber-500 bg-amber-500 text-stone-950 shadow-xs'
+                        : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100'
+                    }`}
+                  >
+                    <Users className={`h-4 w-4 shrink-0 ${statusFilter === 'occupied' ? 'text-stone-950' : 'text-amber-600'}`} />
+                    <span>Occupied</span>
+                  </button>
+
+                  {/* Status: Reserved */}
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('reserved')}
+                    className={`flex items-center gap-2 rounded-xl p-2.5 text-xs font-bold transition cursor-pointer border ${
+                      statusFilter === 'reserved'
+                        ? 'border-stone-950 bg-stone-950 text-amber-300 shadow-xs'
+                        : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100'
+                    }`}
+                  >
+                    <Clock className={`h-4 w-4 shrink-0 ${statusFilter === 'reserved' ? 'text-amber-300' : 'text-stone-500'}`} />
+                    <span>Reserved</span>
+                  </button>
+
+                  {/* Status: Cleaning */}
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('cleaning')}
+                    className={`flex items-center gap-2 rounded-xl p-2.5 text-xs font-bold transition cursor-pointer border ${
+                      statusFilter === 'cleaning'
+                        ? 'border-sky-600 bg-sky-600 text-white shadow-xs'
+                        : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100'
+                    }`}
+                  >
+                    <Sparkles className={`h-4 w-4 shrink-0 ${statusFilter === 'cleaning' ? 'text-white' : 'text-sky-500'}`} />
+                    <span>Cleaning</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Area Section */}
+              <div>
+                <label className="block text-xs font-black uppercase tracking-wider text-stone-500 mb-2">
+                  Area / Zone
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {/* Area: All Areas */}
+                  <button
+                    type="button"
+                    onClick={() => setAreaFilter('all')}
+                    className={`flex items-center gap-2 rounded-xl p-2.5 text-xs font-bold transition cursor-pointer border ${
+                      areaFilter === 'all'
+                        ? 'border-stone-950 bg-stone-950 text-white shadow-xs'
+                        : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100'
+                    }`}
+                  >
+                    <Globe className="h-4 w-4 shrink-0" />
+                    <span>All Areas</span>
+                  </button>
+
+                  {/* Area: Normal */}
+                  <button
+                    type="button"
+                    onClick={() => setAreaFilter('normal')}
+                    className={`flex items-center gap-2 rounded-xl p-2.5 text-xs font-bold transition cursor-pointer border ${
+                      areaFilter === 'normal'
+                        ? 'border-stone-950 bg-stone-950 text-amber-300 shadow-xs'
+                        : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100'
+                    }`}
+                  >
+                    <Sun className={`h-4 w-4 shrink-0 ${areaFilter === 'normal' ? 'text-amber-300' : 'text-amber-600'}`} />
+                    <span>Normal Dining</span>
+                  </button>
+
+                  {/* Area: Airconditioned */}
+                  <button
+                    type="button"
+                    onClick={() => setAreaFilter('airconditioned')}
+                    className={`flex items-center gap-2 rounded-xl p-2.5 text-xs font-bold transition cursor-pointer border ${
+                      areaFilter === 'airconditioned'
+                        ? 'border-stone-950 bg-stone-950 text-sky-300 shadow-xs'
+                        : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100'
+                    }`}
+                  >
+                    <Snowflake className={`h-4 w-4 shrink-0 ${areaFilter === 'airconditioned' ? 'text-sky-300' : 'text-sky-600'}`} />
+                    <span>Airconditioned</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between gap-2 pt-3 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusFilter('all');
+                  setAreaFilter('all');
+                }}
+                disabled={!isAnyFilterActive}
+                className="text-xs font-bold text-stone-500 hover:text-stone-900 disabled:opacity-40 disabled:hover:text-stone-500 cursor-pointer"
+              >
+                Reset All Filters
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsFilterModalOpen(false)}
+                className="rounded-xl bg-stone-950 px-5 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition active:scale-95 shadow-xs cursor-pointer"
+              >
+                Apply Filters
               </button>
             </div>
           </div>

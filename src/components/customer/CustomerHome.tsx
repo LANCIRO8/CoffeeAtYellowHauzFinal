@@ -8,7 +8,6 @@ interface CustomerHomeProps {
   settings: StoreSettings;
   onNavigateMenu: () => void;
   onNavigateReservation: () => void;
-  onNavigateVenue?: () => void;
   onNavigateOrders?: () => void;
   onAddToCart: (item: MenuItem) => void;
 }
@@ -18,7 +17,6 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
   settings,
   onNavigateMenu,
   onNavigateReservation,
-  onNavigateVenue,
   onNavigateOrders,
   onAddToCart,
 }) => {
@@ -45,18 +43,10 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
               <button
                 id="hero-order-online-btn"
                 onClick={onNavigateMenu}
-                className="flex-1 sm:flex-initial inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-amber-500 px-3 sm:px-6 text-xs sm:text-sm font-extrabold text-stone-950 shadow-lg shadow-amber-500/20 hover:bg-amber-400 transition transform active:scale-95 whitespace-nowrap"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-amber-500 px-6 text-xs sm:text-sm font-extrabold text-stone-950 shadow-lg shadow-amber-500/20 hover:bg-amber-400 transition transform active:scale-95 whitespace-nowrap"
               >
                 <ShoppingBag className="h-4 w-4 shrink-0" />
                 <span>Order Online</span>
-              </button>
-              <button
-                id="hero-reserve-table-btn"
-                onClick={onNavigateReservation}
-                className="flex-1 sm:flex-initial inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-stone-700 bg-stone-800/80 px-3 sm:px-6 text-xs sm:text-sm font-bold text-stone-100 hover:bg-stone-800 transition whitespace-nowrap"
-              >
-                <Calendar className="h-4 w-4 shrink-0" />
-                <span>Reserve a Table</span>
               </button>
             </div>
 
@@ -222,19 +212,11 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
             <div className="pt-2 flex flex-wrap gap-3">
               <button
                 type="button"
-                onClick={onNavigateVenue || onNavigateReservation}
+                onClick={onNavigateReservation}
                 className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-6 py-3 text-xs sm:text-sm font-extrabold text-stone-950 shadow-lg shadow-amber-500/20 hover:bg-amber-400 transition transform active:scale-95"
               >
                 <Calendar className="h-4 w-4" />
-                Book Private Venue
-              </button>
-              <button
-                type="button"
-                onClick={onNavigateReservation}
-                className="inline-flex items-center gap-2 rounded-xl border border-stone-700 bg-stone-800/80 px-5 py-3 text-xs sm:text-sm font-bold text-stone-200 hover:bg-stone-800 transition"
-              >
-                <Utensils className="h-4 w-4" />
-                Reserve Dining Table
+                Book Studio / Reservation
               </button>
             </div>
           </div>

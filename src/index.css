@@ -65,43 +65,37 @@
   --color-yellowhauz: #EDE8D0;
 
   --font-baskerville: "Libre Baskerville", "Baskervville", Baskerville, "Baskerville Old Face", "Hoefler Text", Garamond, "Times New Roman", serif;
+  --font-serif: "Libre Baskerville", "Baskervville", Baskerville, "Baskerville Old Face", "Hoefler Text", Garamond, "Times New Roman", serif;
+  --font-sans: "Libre Baskerville", "Baskervville", Baskerville, "Baskerville Old Face", "Hoefler Text", Garamond, "Times New Roman", serif;
 }
 
 @layer base {
-  body {
-    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  }
-
-  .font-display {
-    font-family: 'Playfair Display', Georgia, serif;
-  }
-
-  .font-baskerville {
+  *,
+  *::before,
+  *::after {
     font-family: "Libre Baskerville", "Baskervville", Baskerville, "Baskerville Old Face", "Hoefler Text", Garamond, "Times New Roman", serif;
+  }
+
+  html,
+  body {
+    font-family: "Libre Baskerville", "Baskervville", Baskerville, "Baskerville Old Face", "Hoefler Text", Garamond, "Times New Roman", serif !important;
+  }
+
+  .font-display,
+  .font-serif,
+  .font-sans,
+  .font-baskerville {
+    font-family: "Libre Baskerville", "Baskervville", Baskerville, "Baskerville Old Face", "Hoefler Text", Garamond, "Times New Roman", serif !important;
   }
 }
 
-/* Customer Experience Typography - Pure Baskerville */
-.customer-mode,
-.customer-mode h1,
-.customer-mode h2,
-.customer-mode h3,
-.customer-mode h4,
-.customer-mode h5,
-.customer-mode h6,
-.customer-mode p,
-.customer-mode span,
-.customer-mode button,
-.customer-mode input,
-.customer-mode select,
-.customer-mode textarea,
-.customer-mode label,
-.customer-mode div,
-.customer-mode a,
-.customer-mode table,
-.customer-mode td,
-.customer-mode th,
-.customer-mode * {
+/* Universal Baskerville Typography for the whole system */
+html, body, #root,
+button, input, select, textarea, optgroup,
+h1, h2, h3, h4, h5, h6,
+p, span, a, label, div,
+table, th, td,
+.customer-mode, .customer-mode * {
   font-family: "Libre Baskerville", "Baskervville", Baskerville, "Baskerville Old Face", "Hoefler Text", Garamond, "Times New Roman", serif !important;
 }
 

@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import { CartItem, CustomerAccount, StoreSettings, TableBinding } from '../../types';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { CartItem, CustomerAccount, MenuItem, StoreSettings, TableBinding, Category } from '../../types';
+import { AppStore } from '../../services/store';
 import {
   ShoppingBag,
   X,
@@ -19,7 +20,9 @@ import {
   Utensils,
   Globe,
   Lock,
-  User,
+  Search,
+  CupSoda,
+  Egg,
 } from 'lucide-react';
 
 interface CustomerCartDrawerProps {
@@ -31,6 +34,7 @@ interface CustomerCartDrawerProps {
   onRemoveItem: (itemId: number) => void;
   onClearCart: () => void;
   onUpdateItemInstructions?: (itemId: number, text: string) => void;
+  onAddToCart?: (item: MenuItem) => void;
   settings: StoreSettings;
   activeTableBinding?: TableBinding | null;
   activeCustomer?: CustomerAccount | null;
@@ -47,14 +51,153 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
   onRemoveItem,
   onClearCart,
   onUpdateItemInstructions,
+  onAddToCart,
   settings,
   activeTableBinding,
   activeCustomer,
   onProceedToCheckout,
   onRequireLogin,
 }) => {
+  const drawerRef = useRef<HTMLElement>(null);
   const [editingInstructionsId, setEditingInstructionsId] = useState<number | null>(null);
   const [instructionText, setInstructionText] = useState('');
+  
+  // Add-ons modal & filtering state
+  const [isAddonsModalOpen, setIsAddonsModalOpen] = useState(false);
+  const [addonsCategoryFilter, setAddonsCategoryFilter] = useState<'all' | 'drinks' | 'food'>('all');
+  const [addonsSearchQuery, setAddonsSearchQuery] = useState('');
+  const [recentlyAddedAddonId, setRecentlyAddedAddonId] = useState<number | null>(null);
+
+  // Live store menu items & categories for dynamic add-on inventory
+  const [menuItems, setMenuItems] = useState<MenuItem[]>(() => AppStore.getMenuItems());
+  const [categories, setCategories] = useState<Category[]>(() => AppStore.getCategories());
+
+  useEffect(() => {
+    const unsubscribe = AppStore.subscribe(() => {
+      setMenuItems(AppStore.getMenuItems());
+      setCategories(AppStore.getCategories());
+    });
+    return unsubscribe;
+  }, []);
+
+  // Filter all add-on menu items (Category 8 Food Add-ons, Category 17 Drink Add-ons, or categories with "add-on")
+  const allAddonItems = useMemo(() => {
+    const addOnCategoryIds = new Set(
+      categories
+        .filter((c) => {
+          const name = c.name.toLowerCase();
+          return (
+            name.includes('add-on') ||
+            name.includes('addon') ||
+            name.includes('extra') ||
+            c.id === 8 ||
+            c.id === 17
+          );
+        })
+        .map((c) => c.id)
+    );
+
+    return menuItems.filter(
+      (item) =>
+        item.isAvailable &&
+        (addOnCategoryIds.has(item.categoryId) || item.categoryId === 8 || item.categoryId === 17)
+    );
+  }, [menuItems, categories]);
+
+  // Drink add-ons vs Food add-ons
+  const drinkAddonItems = useMemo(
+    () => allAddonItems.filter((i) => i.categoryId === 17 || i.name.toLowerCase().includes('milk') || i.name.toLowerCase().includes('jelly') || i.name.toLowerCase().includes('syrup') || i.name.toLowerCase().includes('water')),
+    [allAddonItems]
+  );
+
+  const foodAddonItems = useMemo(
+    () => allAddonItems.filter((i) => i.categoryId === 8 || i.name.toLowerCase().includes('rice') || i.name.toLowerCase().includes('egg') || i.name.toLowerCase().includes('chips') || i.name.toLowerCase().includes('cheese') || i.name.toLowerCase().includes('bits')),
+    [allAddonItems]
+  );
+
+  // Filtered add-ons for the selector sheet
+  const displayAddonItems = useMemo(() => {
+    let list = allAddonItems;
+    if (addonsCategoryFilter === 'drinks') {
+      list = drinkAddonItems;
+    } else if (addonsCategoryFilter === 'food') {
+      list = foodAddonItems;
+    }
+
+    if (addonsSearchQuery.trim()) {
+      const q = addonsSearchQuery.toLowerCase().trim();
+      list = list.filter(
+        (item) => item.name.toLowerCase().includes(q) || item.description.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [allAddonItems, drinkAddonItems, foodAddonItems, addonsCategoryFilter, addonsSearchQuery]);
+
+  // Quick popular add-ons recommendation list
+  const popularAddons = useMemo(() => {
+    return allAddonItems.slice(0, 6);
+  }, [allAddonItems]);
+
+  const handleAddAddonItem = (item: MenuItem) => {
+    setRecentlyAddedAddonId(item.id);
+    setTimeout(() => setRecentlyAddedAddonId(null), 1200);
+
+    if (onAddToCart) {
+      onAddToCart(item);
+    } else {
+      const existing = cart.find((ci) => ci.item.id === item.id);
+      if (existing) {
+        onUpdateQuantity(item.id, 1);
+      }
+    }
+  };
+
+  const getAddonCartQuantity = (itemId: number) => {
+    const found = cart.find((ci) => ci.item.id === itemId);
+    return found ? found.quantity : 0;
+  };
+
+  // Handle pressing outside the bag drawer or pressing Escape to auto-collapse
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+
+      // If clicked inside the drawer, do nothing
+      if (drawerRef.current && drawerRef.current.contains(target)) {
+        return;
+      }
+
+      // If clicked on the header bag trigger button or similar trigger, ignore to avoid conflict
+      if (target.closest('#header-bag-btn') || target.closest('#toggle-bag-btn')) {
+        return;
+      }
+
+      onClose();
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (isAddonsModalOpen) {
+          setIsAddonsModalOpen(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, isAddonsModalOpen, onClose]);
 
   const totalItemCount = useMemo(
     () => cart.reduce((sum, ci) => sum + ci.quantity, 0),
@@ -109,12 +252,12 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
 
   return (
     <>
-      {/* Floating Collapsible Trigger Tab on Right Edge (Visible when collapsed, or floating hint) */}
+      {/* Floating Collapsible Trigger Tab on Right Edge (Visible on desktop when collapsed, hidden in mobile view) */}
       {!isOpen && (
         <button
           onClick={onToggle}
           title="Open Order Bag"
-          className="fixed right-0 top-1/2 -translate-y-1/2 z-40 flex items-center gap-2 rounded-l-2xl bg-amber-500 hover:bg-amber-400 py-3.5 pl-3 pr-2.5 text-stone-950 font-extrabold shadow-[-4px_4px_16px_rgba(0,0,0,0.18)] transition transform hover:-translate-x-1 active:scale-95 cursor-pointer border-y border-l border-amber-600/30 group"
+          className="hidden sm:flex fixed right-0 top-1/2 -translate-y-1/2 z-40 items-center gap-2 rounded-l-2xl bg-amber-500 hover:bg-amber-400 py-3.5 pl-3 pr-2.5 text-stone-950 font-extrabold shadow-[-4px_4px_16px_rgba(0,0,0,0.18)] transition transform hover:-translate-x-1 active:scale-95 cursor-pointer border-y border-l border-amber-600/30 group"
         >
           <div className="relative">
             <ShoppingBag className="h-5 w-5 stroke-[2.3] transition group-hover:scale-110" />
@@ -136,18 +279,29 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
         </button>
       )}
 
-      {/* Collapsible Right-Side Cart Panel (No blur, no background overlay) */}
+      {/* Backdrop overlay for automatic collapse on outside click */}
+      {isOpen && (
+        <div
+          id="cart-drawer-backdrop"
+          aria-hidden="true"
+          onClick={onClose}
+          className="fixed inset-0 z-40 bg-stone-950/30 backdrop-blur-xs transition-opacity duration-300 animate-in fade-in cursor-pointer"
+        />
+      )}
+
+      {/* Collapsible Right-Side Cart Panel */}
       <aside
+        ref={drawerRef}
         aria-label="Customer Order Cart"
-        className={`fixed top-0 right-0 bottom-0 z-40 w-full sm:w-[390px] md:w-[420px] bg-white border-l border-stone-200/90 shadow-[-12px_0_30px_rgba(0,0,0,0.14)] flex flex-col transition-transform duration-300 ease-in-out font-sans ${
+        className={`fixed top-0 right-0 bottom-0 z-50 w-full sm:w-[390px] md:w-[420px] bg-white border-l border-stone-200/90 shadow-[-12px_0_30px_rgba(0,0,0,0.18)] flex flex-col transition-transform duration-300 ease-in-out font-sans ${
           isOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
         }`}
       >
-        {/* Pull-tab on Left Edge of open drawer to quickly collapse */}
+        {/* Pull-tab on Left Edge of open drawer to quickly collapse (Desktop only) */}
         <button
           onClick={onClose}
           title="Collapse Cart"
-          className="absolute -left-9 top-1/2 -translate-y-1/2 flex items-center justify-center h-20 w-9 rounded-l-xl bg-white border-y border-l border-stone-200 text-stone-600 hover:text-stone-950 hover:bg-stone-50 shadow-[-6px_2px_12px_rgba(0,0,0,0.08)] transition cursor-pointer"
+          className="hidden sm:flex absolute -left-9 top-1/2 -translate-y-1/2 items-center justify-center h-20 w-9 rounded-l-xl bg-white border-y border-l border-stone-200 text-stone-600 hover:text-stone-950 hover:bg-stone-50 shadow-[-6px_2px_12px_rgba(0,0,0,0.08)] transition cursor-pointer"
         >
           <ChevronRight className="h-5 w-5 stroke-[2.5]" />
         </button>
@@ -173,14 +327,29 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            title="Collapse cart"
-            className="flex items-center gap-1 rounded-xl border border-stone-200 bg-white px-2.5 py-1.5 text-xs font-bold text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition cursor-pointer"
-          >
-            <span>Collapse</span>
-            <ChevronRight className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              id="bag-addons-header-btn"
+              onClick={() => {
+                setAddonsCategoryFilter('all');
+                setIsAddonsModalOpen(true);
+              }}
+              title="Browse Add-ons & Extras"
+              className="flex items-center gap-1.5 rounded-xl border border-amber-400/80 bg-amber-100 hover:bg-amber-200/80 px-2.5 py-1.5 text-xs font-extrabold text-amber-950 transition cursor-pointer shadow-2xs"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-amber-800" />
+              <span>+ Add-ons</span>
+            </button>
+
+            <button
+              onClick={onClose}
+              title="Collapse cart"
+              className="flex items-center gap-1 rounded-xl border border-stone-200 bg-white px-2.5 py-1.5 text-xs font-bold text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition cursor-pointer"
+            >
+              <span>Collapse</span>
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Dual Mode Session Indicator Bar */}
@@ -217,137 +386,249 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
               <p className="text-xs text-stone-500 mt-1 max-w-[240px] leading-relaxed">
                 Browse our handcrafted espresso, iced specials, adobo flakes, and desserts to start your order.
               </p>
+              <button
+                onClick={() => {
+                  setAddonsCategoryFilter('all');
+                  setIsAddonsModalOpen(true);
+                }}
+                className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-100/90 px-3.5 py-2 text-xs font-bold text-amber-950 hover:bg-amber-200 transition cursor-pointer shadow-2xs"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-amber-800" />
+                <span>Browse Add-ons & Extras</span>
+              </button>
             </div>
           ) : (
-            cart.map((ci) => {
-              const itemTotal = ci.item.price * ci.quantity;
-              const isEditingNotes = editingInstructionsId === ci.item.id;
+            <>
+              {cart.map((ci) => {
+                const itemTotal = ci.item.price * ci.quantity;
+                const isEditingNotes = editingInstructionsId === ci.item.id;
+                const isDrink = ci.item.categoryId >= 9 && ci.item.categoryId <= 17;
 
-              return (
-                <div key={ci.item.id} className="pt-3.5 first:pt-0 space-y-2">
-                  <div className="flex items-start justify-between gap-3">
-                    {/* Item Image Thumbnail */}
-                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-stone-100 border border-stone-200/80">
-                      <img
-                        src={ci.item.imageUrl || '/images/latte.webp'}
-                        alt={ci.item.name}
-                        className="h-full w-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = '/images/latte.webp';
-                        }}
-                      />
-                    </div>
-
-                    {/* Item Details */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <h4 className="text-xs sm:text-sm font-bold text-stone-900 truncate">
-                          {ci.item.name}
-                        </h4>
-                        {getTemperatureBadge(ci.item.temperature)}
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="font-mono text-xs font-extrabold text-amber-700">
-                          ₱{ci.item.price.toFixed(2)}
-                        </span>
-                        <span className="text-[10px] text-stone-400 font-mono">
-                          × {ci.quantity} = ₱{itemTotal.toFixed(2)}
-                        </span>
+                return (
+                  <div key={ci.item.id} className="pt-3.5 first:pt-0 space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      {/* Item Image Thumbnail */}
+                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-stone-100 border border-stone-200/80">
+                        <img
+                          src={ci.item.imageUrl || '/images/latte.webp'}
+                          alt={ci.item.name}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = '/images/latte.webp';
+                          }}
+                        />
                       </div>
 
-                      {/* Special Instructions display */}
-                      {ci.specialInstructions && !isEditingNotes && (
-                        <div className="mt-1 flex items-center gap-1 text-[11px] text-stone-600 bg-stone-50 rounded-md px-2 py-0.5 border border-stone-200/60">
-                          <span className="font-semibold text-stone-700">Note:</span>
-                          <span className="italic truncate">{ci.specialInstructions}</span>
+                      {/* Item Details */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h4 className="text-xs sm:text-sm font-bold text-stone-900 truncate">
+                            {ci.item.name}
+                          </h4>
+                          {getTemperatureBadge(ci.item.temperature)}
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="font-mono text-xs font-extrabold text-amber-700">
+                            ₱{ci.item.price.toFixed(2)}
+                          </span>
+                          <span className="text-[10px] text-stone-400 font-mono">
+                            × {ci.quantity} = ₱{itemTotal.toFixed(2)}
+                          </span>
+                        </div>
+
+                        {/* Special Instructions display */}
+                        {ci.specialInstructions && !isEditingNotes && (
+                          <div className="mt-1 flex items-center gap-1 text-[11px] text-stone-600 bg-stone-50 rounded-md px-2 py-0.5 border border-stone-200/60">
+                            <span className="font-semibold text-stone-700">Note:</span>
+                            <span className="italic truncate">{ci.specialInstructions}</span>
+                            <button
+                              onClick={() => handleStartEditInstructions(ci)}
+                              className="ml-auto text-amber-700 hover:text-amber-900"
+                              title="Edit Note"
+                            >
+                              <Edit3 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Stepper Controls & Delete */}
+                      <div className="flex flex-col items-end gap-1.5 shrink-0">
+                        <div className="flex items-center rounded-lg border border-stone-200 bg-stone-50 overflow-hidden shadow-2xs">
                           <button
-                            onClick={() => handleStartEditInstructions(ci)}
-                            className="ml-auto text-amber-700 hover:text-amber-900"
-                            title="Edit Note"
+                            onClick={() => onUpdateQuantity(ci.item.id, -1)}
+                            title="Decrease quantity"
+                            className="p-1.5 text-stone-600 hover:bg-stone-200 hover:text-stone-900 transition active:scale-95 cursor-pointer"
                           >
-                            <Edit3 className="h-3 w-3" />
+                            <Minus className="h-3 w-3" />
+                          </button>
+                          <span className="w-6 text-center text-xs font-bold text-stone-900 font-mono">
+                            {ci.quantity}
+                          </span>
+                          <button
+                            onClick={() => onUpdateQuantity(ci.item.id, 1)}
+                            title="Increase quantity"
+                            className="p-1.5 text-stone-600 hover:bg-stone-200 hover:text-stone-900 transition active:scale-95 cursor-pointer"
+                          >
+                            <Plus className="h-3 w-3" />
                           </button>
                         </div>
-                      )}
-                    </div>
 
-                    {/* Stepper Controls & Delete */}
-                    <div className="flex flex-col items-end gap-1.5 shrink-0">
-                      <div className="flex items-center rounded-lg border border-stone-200 bg-stone-50 overflow-hidden shadow-2xs">
-                        <button
-                          onClick={() => onUpdateQuantity(ci.item.id, -1)}
-                          title="Decrease quantity"
-                          className="p-1.5 text-stone-600 hover:bg-stone-200 hover:text-stone-900 transition active:scale-95 cursor-pointer"
-                        >
-                          <Minus className="h-3 w-3" />
-                        </button>
-                        <span className="w-6 text-center text-xs font-bold text-stone-900 font-mono">
-                          {ci.quantity}
-                        </span>
-                        <button
-                          onClick={() => onUpdateQuantity(ci.item.id, 1)}
-                          title="Increase quantity"
-                          className="p-1.5 text-stone-600 hover:bg-stone-200 hover:text-stone-900 transition active:scale-95 cursor-pointer"
-                        >
-                          <Plus className="h-3 w-3" />
-                        </button>
-                      </div>
-
-                      <div className="flex items-center gap-1.5">
-                        {!ci.specialInstructions && !isEditingNotes && (
+                        <div className="flex items-center gap-1.5">
+                          {/* Quick Item Add-on Button */}
                           <button
-                            onClick={() => handleStartEditInstructions(ci)}
-                            title="Add special note"
-                            className="p-1 text-stone-400 hover:text-amber-700 transition"
+                            onClick={() => {
+                              setAddonsCategoryFilter(isDrink ? 'drinks' : 'food');
+                              setIsAddonsModalOpen(true);
+                            }}
+                            title={`Add extra add-on for ${ci.item.name}`}
+                            className="inline-flex items-center gap-1 rounded-md bg-stone-100 hover:bg-amber-100 text-stone-600 hover:text-amber-900 px-1.5 py-0.5 text-[10px] font-semibold transition cursor-pointer border border-stone-200/80"
                           >
-                            <Edit3 className="h-3.5 w-3.5" />
+                            <Plus className="h-2.5 w-2.5 text-amber-700" />
+                            <span>Add-on</span>
                           </button>
-                        )}
-                        <button
-                          onClick={() => onRemoveItem(ci.item.id)}
-                          title="Remove item"
-                          className="p-1 text-stone-400 hover:text-rose-600 transition cursor-pointer"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+
+                          {!ci.specialInstructions && !isEditingNotes && (
+                            <button
+                              onClick={() => handleStartEditInstructions(ci)}
+                              title="Add special note"
+                              className="p-1 text-stone-400 hover:text-amber-700 transition"
+                            >
+                              <Edit3 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => onRemoveItem(ci.item.id)}
+                            title="Remove item"
+                            className="p-1 text-stone-400 hover:text-rose-600 transition cursor-pointer"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
+
+                    {/* Note Editing Form Inline */}
+                    {isEditingNotes && (
+                      <div className="flex items-center gap-1.5 pt-1">
+                        <input
+                          type="text"
+                          value={instructionText}
+                          onChange={(e) => setInstructionText(e.target.value)}
+                          placeholder="e.g. Less ice, extra hot, no onions..."
+                          className="flex-1 rounded-lg border border-stone-300 bg-white px-2.5 py-1 text-xs text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleSaveInstructions(ci.item.id);
+                            }
+                          }}
+                        />
+                        <button
+                          onClick={() => handleSaveInstructions(ci.item.id)}
+                          className="rounded-lg bg-amber-500 px-2 py-1 text-xs font-bold text-stone-950 hover:bg-amber-400 transition"
+                        >
+                          <Check className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => setEditingInstructionsId(null)}
+                          className="rounded-lg border border-stone-200 bg-white px-2 py-1 text-xs font-bold text-stone-600 hover:bg-stone-100"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Quick Add-ons Strip inside the Bag */}
+              {popularAddons.length > 0 && (
+                <div className="pt-4 mt-2 border-t border-stone-200/80">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-stone-800">
+                      <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+                      <span>Popular Add-ons</span>
+                    </div>
+                    <button
+                      id="bag-view-all-addons-btn"
+                      onClick={() => {
+                        setAddonsCategoryFilter('all');
+                        setIsAddonsModalOpen(true);
+                      }}
+                      className="text-[11px] font-bold text-amber-700 hover:text-amber-900 hover:underline transition cursor-pointer"
+                    >
+                      + View All ({allAddonItems.length})
+                    </button>
                   </div>
 
-                  {/* Note Editing Form Inline */}
-                  {isEditingNotes && (
-                    <div className="flex items-center gap-1.5 pt-1">
-                      <input
-                        type="text"
-                        value={instructionText}
-                        onChange={(e) => setInstructionText(e.target.value)}
-                        placeholder="e.g. Less ice, extra hot, no onions..."
-                        className="flex-1 rounded-lg border border-stone-300 bg-white px-2.5 py-1 text-xs text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none"
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleSaveInstructions(ci.item.id);
-                          }
-                        }}
-                      />
-                      <button
-                        onClick={() => handleSaveInstructions(ci.item.id)}
-                        className="rounded-lg bg-amber-500 px-2 py-1 text-xs font-bold text-stone-950 hover:bg-amber-400 transition"
-                      >
-                        <Check className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => setEditingInstructionsId(null)}
-                        className="rounded-lg border border-stone-200 bg-white px-2 py-1 text-xs font-bold text-stone-600 hover:bg-stone-100"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
+                  <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-thin">
+                    {popularAddons.map((addon) => {
+                      const qtyInBag = getAddonCartQuantity(addon.id);
+                      const isRecentlyAdded = recentlyAddedAddonId === addon.id;
+
+                      return (
+                        <div
+                          key={addon.id}
+                          className="shrink-0 flex items-center justify-between gap-2 rounded-xl border border-stone-200/90 bg-stone-50/80 hover:bg-amber-50/50 p-1.5 pr-2 transition min-w-[140px] max-w-[170px]"
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <div className="h-7 w-7 rounded-lg overflow-hidden shrink-0 bg-stone-200">
+                              <img
+                                src={addon.imageUrl || '/images/latte.webp'}
+                                alt={addon.name}
+                                className="h-full w-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = '/images/latte.webp';
+                                }}
+                              />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[11px] font-bold text-stone-900 truncate leading-tight">
+                                {addon.name}
+                              </p>
+                              <p className="text-[10px] font-mono font-extrabold text-amber-700">
+                                +₱{addon.price.toFixed(0)}
+                              </p>
+                            </div>
+                          </div>
+
+                          {qtyInBag > 0 ? (
+                            <div className="flex items-center rounded-lg bg-amber-100 border border-amber-300 text-amber-950 px-1.5 py-0.5 text-[10px] font-mono font-bold">
+                              <span>{qtyInBag}x</span>
+                              <button
+                                onClick={() => handleAddAddonItem(addon)}
+                                title="Add one more"
+                                className="ml-1 text-amber-900 hover:text-black font-extrabold"
+                              >
+                                +
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleAddAddonItem(addon)}
+                              title={`Add ${addon.name} to bag`}
+                              className={`shrink-0 rounded-lg p-1 transition cursor-pointer ${
+                                isRecentlyAdded
+                                  ? 'bg-emerald-500 text-white'
+                                  : 'bg-amber-500 text-stone-950 hover:bg-amber-400 active:scale-95'
+                              }`}
+                            >
+                              {isRecentlyAdded ? (
+                                <Check className="h-3 w-3" />
+                              ) : (
+                                <Plus className="h-3 w-3" />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              );
-            })
+              )}
+            </>
           )}
         </div>
 
@@ -399,6 +680,19 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
 
             <div className="flex items-center gap-2 pt-1">
               <button
+                id="bag-addons-footer-btn"
+                onClick={() => {
+                  setAddonsCategoryFilter('all');
+                  setIsAddonsModalOpen(true);
+                }}
+                title="Add Add-ons"
+                className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-100/90 hover:bg-amber-200 px-3 py-2.5 text-xs font-extrabold text-amber-950 transition cursor-pointer shadow-2xs"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-amber-800" />
+                <span>+ Add-ons</span>
+              </button>
+
+              <button
                 onClick={onClearCart}
                 title="Clear all items in bag"
                 className="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-xs font-bold text-stone-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition cursor-pointer"
@@ -428,6 +722,233 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                     <ArrowRight className="h-4 w-4" />
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Interactive Add-ons Slide-Over Overlay Panel */}
+        {isAddonsModalOpen && (
+          <div
+            id="addons-selector-panel"
+            className="absolute inset-0 z-50 bg-white flex flex-col animate-in slide-in-from-right duration-250 font-sans"
+          >
+            {/* Add-ons Header */}
+            <div className="flex items-center justify-between border-b border-stone-200 px-4 py-3.5 bg-amber-50/90">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsAddonsModalOpen(false)}
+                  title="Back to Bag"
+                  className="grid h-8 w-8 place-items-center rounded-xl bg-white border border-stone-200 text-stone-700 hover:bg-stone-100 transition cursor-pointer shadow-2xs"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4 text-amber-600" />
+                    <h3 className="font-display text-sm font-bold text-stone-900">
+                      Add-ons & Extras
+                    </h3>
+                  </div>
+                  <p className="text-[11px] text-stone-500">
+                    Customize your order with coffee jelly, rice, milk, etc.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsAddonsModalOpen(false)}
+                className="grid h-7 w-7 place-items-center rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Filter Tabs & Search */}
+            <div className="p-3.5 border-b border-stone-200 bg-stone-50 space-y-2.5">
+              {/* Category Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-thin">
+                <button
+                  onClick={() => setAddonsCategoryFilter('all')}
+                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold transition cursor-pointer ${
+                    addonsCategoryFilter === 'all'
+                      ? 'bg-amber-500 text-stone-950 shadow-xs'
+                      : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
+                  }`}
+                >
+                  All Add-ons ({allAddonItems.length})
+                </button>
+                <button
+                  onClick={() => setAddonsCategoryFilter('drinks')}
+                  className={`shrink-0 flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold transition cursor-pointer ${
+                    addonsCategoryFilter === 'drinks'
+                      ? 'bg-amber-500 text-stone-950 shadow-xs'
+                      : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
+                  }`}
+                >
+                  <CupSoda className="h-3 w-3" />
+                  <span>Drink Add-ons ({drinkAddonItems.length})</span>
+                </button>
+                <button
+                  onClick={() => setAddonsCategoryFilter('food')}
+                  className={`shrink-0 flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold transition cursor-pointer ${
+                    addonsCategoryFilter === 'food'
+                      ? 'bg-amber-500 text-stone-950 shadow-xs'
+                      : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
+                  }`}
+                >
+                  <Egg className="h-3 w-3" />
+                  <span>Food Add-ons ({foodAddonItems.length})</span>
+                </button>
+              </div>
+
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400" />
+                <input
+                  type="text"
+                  value={addonsSearchQuery}
+                  onChange={(e) => setAddonsSearchQuery(e.target.value)}
+                  placeholder="Search add-ons (e.g., jelly, egg, almond milk)..."
+                  className="w-full rounded-xl border border-stone-200 bg-white pl-8 pr-3 py-1.5 text-xs text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none shadow-2xs"
+                />
+                {addonsSearchQuery && (
+                  <button
+                    onClick={() => setAddonsSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Add-ons List */}
+            <div className="flex-1 overflow-y-auto p-3.5 space-y-2.5">
+              {displayAddonItems.length === 0 ? (
+                <div className="py-12 text-center text-stone-400 space-y-2">
+                  <div className="grid h-12 w-12 place-items-center rounded-xl bg-stone-100 mx-auto text-stone-400">
+                    <Sparkles className="h-6 w-6" />
+                  </div>
+                  <p className="text-xs font-bold text-stone-600">No add-ons found</p>
+                  <p className="text-[11px] text-stone-400">
+                    Try searching for another keyword or change category filter
+                  </p>
+                </div>
+              ) : (
+                displayAddonItems.map((addon) => {
+                  const qtyInBag = getAddonCartQuantity(addon.id);
+                  const isRecentlyAdded = recentlyAddedAddonId === addon.id;
+                  const isDrinkAddon = addon.categoryId === 17 || addon.name.toLowerCase().includes('milk') || addon.name.toLowerCase().includes('jelly');
+
+                  return (
+                    <div
+                      key={addon.id}
+                      className={`flex items-center justify-between gap-3 rounded-2xl border p-2.5 transition ${
+                        qtyInBag > 0
+                          ? 'border-amber-300 bg-amber-50/40 shadow-xs'
+                          : 'border-stone-200/90 bg-white hover:border-stone-300 hover:bg-stone-50/50'
+                      }`}
+                    >
+                      {/* Thumbnail */}
+                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-stone-100 border border-stone-200/80">
+                        <img
+                          src={addon.imageUrl || '/images/latte.webp'}
+                          alt={addon.name}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = '/images/latte.webp';
+                          }}
+                        />
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="text-xs font-bold text-stone-900 truncate">
+                            {addon.name}
+                          </h4>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${
+                            isDrinkAddon
+                              ? 'bg-sky-100 text-sky-800'
+                              : 'bg-amber-100 text-amber-900'
+                          }`}>
+                            {isDrinkAddon ? 'Drink' : 'Food'}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-stone-500 line-clamp-1 mt-0.5">
+                          {addon.description || 'Extra addition for your meal or beverage'}
+                        </p>
+                        <p className="font-mono text-xs font-extrabold text-amber-700 mt-1">
+                          ₱{addon.price.toFixed(2)}
+                        </p>
+                      </div>
+
+                      {/* Action Controls */}
+                      <div className="shrink-0 flex items-center">
+                        {qtyInBag > 0 ? (
+                          <div className="flex items-center rounded-xl border border-amber-400 bg-amber-100 overflow-hidden shadow-2xs">
+                            <button
+                              onClick={() => onUpdateQuantity(addon.id, -1)}
+                              title="Decrease"
+                              className="p-1.5 text-amber-900 hover:bg-amber-200 transition active:scale-95 cursor-pointer"
+                            >
+                              <Minus className="h-3 w-3" />
+                            </button>
+                            <span className="w-5 text-center text-xs font-mono font-black text-stone-950">
+                              {qtyInBag}
+                            </span>
+                            <button
+                              onClick={() => handleAddAddonItem(addon)}
+                              title="Increase"
+                              className="p-1.5 text-amber-900 hover:bg-amber-200 transition active:scale-95 cursor-pointer"
+                            >
+                              <Plus className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleAddAddonItem(addon)}
+                            className={`flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-extrabold transition cursor-pointer shadow-2xs ${
+                              isRecentlyAdded
+                                ? 'bg-emerald-500 text-white animate-bounce'
+                                : 'bg-amber-500 text-stone-950 hover:bg-amber-400 active:scale-95'
+                            }`}
+                          >
+                            {isRecentlyAdded ? (
+                              <>
+                                <Check className="h-3.5 w-3.5" />
+                                <span>Added</span>
+                              </>
+                            ) : (
+                              <>
+                                <Plus className="h-3.5 w-3.5" />
+                                <span>Add</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Add-ons Done / Back Footer */}
+            <div className="border-t border-stone-200 bg-stone-50 p-3.5 flex items-center justify-between gap-3">
+              <div className="text-xs">
+                <span className="text-stone-500">Items in Bag: </span>
+                <span className="font-bold font-mono text-stone-900">{totalItemCount}</span>
+                <span className="mx-1.5 text-stone-300">•</span>
+                <span className="font-bold font-mono text-amber-700">₱{totalAmount.toFixed(2)}</span>
+              </div>
+              <button
+                onClick={() => setIsAddonsModalOpen(false)}
+                className="flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2 text-xs font-extrabold text-white hover:bg-stone-800 transition cursor-pointer shadow-xs"
+              >
+                <span>Back to Bag</span>
+                <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>

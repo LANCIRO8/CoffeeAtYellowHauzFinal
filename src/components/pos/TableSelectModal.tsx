@@ -38,29 +38,24 @@ export const TableSelectModal: React.FC<TableSelectModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="relative w-full max-w-xl rounded-3xl border border-stone-200 bg-white p-5 sm:p-6 shadow-2xl space-y-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/60 p-3 sm:p-4 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="relative w-full max-w-xl rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-4 sm:p-5 shadow-2xl space-y-3">
         {/* Header */}
-        <div className="flex items-start justify-between border-b border-stone-100 pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="grid h-10 w-10 place-items-center rounded-2xl bg-amber-500 text-stone-950 shadow-xs">
-              <Utensils className="h-5 w-5" />
+        <div className="flex items-center justify-between border-b border-stone-100 pb-2">
+          <div className="flex items-center gap-2">
+            <div className="grid h-7 w-7 place-items-center rounded-lg bg-amber-500 text-stone-950 shadow-xs">
+              <Utensils className="h-3.5 w-3.5" />
             </div>
-            <div>
-              <h3 className="font-display text-base sm:text-lg font-bold text-stone-900">
-                Choose Table or Dining Option
-              </h3>
-              <p className="text-xs text-stone-500">
-                Select a table for dine-in, or choose no table needed to proceed
-              </p>
-            </div>
+            <h3 className="font-display text-sm sm:text-base font-bold text-stone-900">
+              Choose Table
+            </h3>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-stone-200 p-1.5 text-stone-400 hover:bg-stone-50 hover:text-stone-700 transition"
+            className="rounded-lg border border-stone-200 p-1 text-stone-400 hover:bg-stone-50 hover:text-stone-700 transition"
           >
-            <X className="h-4 w-4" />
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
 
@@ -68,45 +63,31 @@ export const TableSelectModal: React.FC<TableSelectModalProps> = ({
         <button
           type="button"
           onClick={onNoTableNeeded}
-          className="w-full group flex items-center justify-between rounded-2xl border-2 border-dashed border-amber-300 bg-gradient-to-r from-amber-50/80 to-amber-100/50 p-3.5 hover:bg-amber-100/80 hover:border-amber-400 transition text-left active:scale-98 shadow-2xs"
+          className="w-full group flex items-center justify-between rounded-xl border border-dashed border-amber-300 bg-gradient-to-r from-amber-50/80 to-amber-100/50 px-3 py-2 hover:bg-amber-100/80 hover:border-amber-400 transition text-left active:scale-98 shadow-2xs"
         >
-          <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-amber-500 text-stone-950 shadow-xs group-hover:scale-105 transition">
-              <ShoppingBag className="h-5 w-5" />
+          <div className="flex items-center gap-2">
+            <div className="grid h-6 w-6 place-items-center rounded-md bg-amber-500 text-stone-950 shadow-xs group-hover:scale-105 transition">
+              <ShoppingBag className="h-3.5 w-3.5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-extrabold text-amber-950">
-                  No Table Needed
-                </span>
-                <span className="rounded-full bg-amber-200/80 px-2 py-0.5 text-[10px] font-bold text-amber-900">
-                  Take-out / Quick Serve
-                </span>
-              </div>
-              <p className="text-xs text-amber-800/80 mt-0.5">
-                Proceed directly to payment without assigning a table
-              </p>
-            </div>
+            <span className="text-xs font-bold text-amber-950">
+              No Table Needed
+            </span>
           </div>
-          <span className="rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-extrabold text-stone-950 group-hover:bg-amber-400 transition shadow-2xs">
-            Select &amp; Pay →
-          </span>
         </button>
 
         {/* Divider / Table Selection Header */}
-        <div className="space-y-2 pt-1">
+        <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-extrabold text-stone-700 uppercase tracking-wide flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 text-stone-700">
               <Layers className="h-3.5 w-3.5 text-amber-600" />
-              <span>Or Choose a Dining Table:</span>
-            </span>
+            </div>
 
             {/* Area Filter Tabs */}
-            <div className="flex gap-1 bg-stone-100 p-0.5 rounded-xl text-[11px] font-bold">
+            <div className="flex gap-1 bg-stone-100 p-0.5 rounded-lg text-[10px] sm:text-[11px] font-bold">
               <button
                 type="button"
                 onClick={() => setAreaFilter('all')}
-                className={`px-2.5 py-1 rounded-lg transition ${
+                className={`px-2 py-0.5 rounded-md transition ${
                   areaFilter === 'all'
                     ? 'bg-white text-stone-900 shadow-2xs'
                     : 'text-stone-500 hover:text-stone-800'
@@ -117,32 +98,32 @@ export const TableSelectModal: React.FC<TableSelectModalProps> = ({
               <button
                 type="button"
                 onClick={() => setAreaFilter('airconditioned')}
-                className={`px-2.5 py-1 rounded-lg transition flex items-center gap-1 ${
+                className={`px-2 py-0.5 rounded-md transition flex items-center gap-1 ${
                   areaFilter === 'airconditioned'
                     ? 'bg-sky-500 text-white shadow-2xs'
                     : 'text-stone-500 hover:text-stone-800'
                 }`}
               >
-                <Wind className="h-3 w-3" />
+                <Wind className="h-2.5 w-2.5" />
                 <span>AC</span>
               </button>
               <button
                 type="button"
                 onClick={() => setAreaFilter('normal')}
-                className={`px-2.5 py-1 rounded-lg transition flex items-center gap-1 ${
+                className={`px-2 py-0.5 rounded-md transition flex items-center gap-1 ${
                   areaFilter === 'normal'
                     ? 'bg-amber-600 text-white shadow-2xs'
                     : 'text-stone-500 hover:text-stone-800'
                 }`}
               >
-                <Sun className="h-3 w-3" />
+                <Sun className="h-2.5 w-2.5" />
                 <span>Main</span>
               </button>
             </div>
           </div>
 
           {/* Tables Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-60 overflow-y-auto pr-1">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[50vh] sm:max-h-80 overflow-y-auto pr-1">
             {filteredTables.map((t) => {
               const isSelected = selectedTable === t.tableNumber;
               const isOccupied = t.status === 'occupied';

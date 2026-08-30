@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { AppStore } from '../../services/store';
 import { Order, MenuItem, Category } from '../../types';
-import { ProductMovementVelocity } from './ProductMovementVelocity';
 import {
   PieChart as LucidePieChart,
   BarChart3,
@@ -18,9 +17,24 @@ import {
   Calendar,
   Layers,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Zap,
+  CircleDot,
+  Disc,
+  DollarSign,
+  Package,
+  Crown,
+  Sparkles,
+  Percent,
   Flame,
   Turtle,
+  SlidersHorizontal,
+  Filter,
+  ArrowDownRight,
+  ArrowUpRight,
+  AlertTriangle,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -40,7 +54,7 @@ import {
 
 type TimeRange = 'today' | '7days' | '30days' | 'custom' | 'all';
 
-// Coffee & Warm Yellow Hauz Palette for Charts
+// Coffee & Warm Yellow Hauz Palette for Category Charts
 const CATEGORY_COLORS = [
   '#f59e0b', // Amber 500
   '#d97706', // Amber 600
@@ -52,29 +66,26 @@ const CATEGORY_COLORS = [
   '#8b5cf6', // Violet 500
   '#14b8a6', // Teal 500
   '#f97316', // Orange 500
+  '#06b6d4', // Cyan 500
+  '#84cc16', // Lime 500
 ];
 
-const PAYMENT_COLORS: Record<string, string> = {
-  Cash: '#10b981', // Emerald
-  GCash: '#0284c7', // Sky blue
-  Maya: '#059669', // Mint
-  Card: '#6366f1', // Indigo
-  'Debit / Credit': '#6366f1',
-  Other: '#78716c',
-};
-
-const ORDER_TYPE_COLORS: Record<string, string> = {
-  'Dine-In': '#f59e0b', // Amber
-  'Take-Out': '#0284c7', // Sky
-  Delivery: '#8b5cf6', // Purple
-};
-
-const CHANNEL_COLORS: Record<string, string> = {
-  'On-the-Place (In-Store)': '#f59e0b',
-  'Online Storefront': '#6366f1',
-};
+// Vibrant high-contrast palette for Best Sellers Chart
+const BEST_SELLER_COLORS = [
+  '#f59e0b', // #1 Gold / Amber
+  '#0284c7', // #2 Sky Blue
+  '#10b981', // #3 Emerald
+  '#8b5cf6', // #4 Purple
+  '#ec4899', // #5 Pink
+  '#f97316', // #6 Orange
+  '#14b8a6', // #7 Teal
+  '#6366f1', // #8 Indigo
+  '#94a3b8', // #9 Slate / Others
+];
 
 type AnalyticsSection = 'all' | 'movement' | 'distribution' | 'trends';
+type ChartType = 'donut' | 'pie';
+type MetricType = 'revenue' | 'quantity';
 
 export const SalesAnalytics: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>(() => AppStore.getOrders());
@@ -85,7 +96,22 @@ export const SalesAnalytics: React.FC = () => {
   const [customStartDate, setCustomStartDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [customEndDate, setCustomEndDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [analyticsSection, setAnalyticsSection] = useState<AnalyticsSection>('all');
-  const [activePieTab, setActivePieTab] = useState<'category' | 'payment' | 'orderType' | 'channel'>('category');
+  const [isSectionNavCollapsed, setIsSectionNavCollapsed] = useState<boolean>(false);
+  
+  // Interactive chart controls
+  const [chartShape, setChartShape] = useState<ChartType>('donut');
+  const [categoryMetric, setCategoryMetric] = useState<MetricType>('revenue');
+  const [bestSellerMetric, setBestSellerMetric] = useState<MetricType>('revenue');
+  const [bestSellerTopCount, setBestSellerTopCount] = useState<number>(6);
+
+  // Fast & Slow Moving Items Controls (Independent per chart)
+  const [fastMetric, setFastMetric] = useState<MetricType>('quantity');
+  const [fastLimit, setFastLimit] = useState<number>(5);
+  const [fastCategoryFilter, setFastCategoryFilter] = useState<string>('all');
+
+  const [slowMetric, setSlowMetric] = useState<MetricType>('quantity');
+  const [slowLimit, setSlowLimit] = useState<number>(5);
+  const [slowCategoryFilter, setSlowCategoryFilter] = useState<string>('all');
 
   useEffect(() => {
     setOrders(AppStore.getOrders());
@@ -134,11 +160,21 @@ export const SalesAnalytics: React.FC = () => {
 
   // Aggregate item sales
   const itemSales = useMemo(() => {
-    const map = new Map<string, { name: string; quantity: number; revenue: number }>();
+    const map = new Map<string, { menuItemId?: number; name: string; quantity: number; revenue: number; categoryName: string }>();
 
     for (const order of filteredCompletedOrders) {
       for (const item of order.items) {
-        const existing = map.get(item.name) || { name: item.name, quantity: 0, revenue: 0 };
+        const menuItem = menuItems.find((m) => m.id === item.menuItemId || m.name === item.name);
+        const cat = categories.find((c) => c.id === menuItem?.categoryId);
+        const catName = cat?.name || 'Beverages';
+
+        const existing = map.get(item.name) || {
+          menuItemId: item.menuItemId,
+          name: item.name,
+          quantity: 0,
+          revenue: 0,
+          categoryName: catName,
+        };
         existing.quantity += item.quantity;
         existing.revenue += item.totalPrice;
         map.set(item.name, existing);
@@ -146,7 +182,7 @@ export const SalesAnalytics: React.FC = () => {
     }
 
     return Array.from(map.values()).sort((a, b) => b.revenue - a.revenue);
-  }, [filteredCompletedOrders]);
+  }, [filteredCompletedOrders, menuItems, categories]);
 
   // Total summary metrics
   const totalRevenue = useMemo(
@@ -162,99 +198,92 @@ export const SalesAnalytics: React.FC = () => {
     [itemSales]
   );
 
-  // 1. Pie Chart Data: Categories
+  // 1. Pie Chart Data: Categories (Revenue & Quantity Share)
   const categoryPieData = useMemo(() => {
-    const catMap = new Map<string, number>();
+    const catMap = new Map<string, { revenue: number; quantity: number; itemCount: number }>();
 
     for (const order of filteredCompletedOrders) {
       for (const item of order.items) {
         const menuItem = menuItems.find((m) => m.id === item.menuItemId || m.name === item.name);
         const cat = categories.find((c) => c.id === menuItem?.categoryId);
         const catName = cat?.name || 'Beverages';
-        catMap.set(catName, (catMap.get(catName) || 0) + item.totalPrice);
+        
+        const curr = catMap.get(catName) || { revenue: 0, quantity: 0, itemCount: 0 };
+        curr.revenue += item.totalPrice;
+        curr.quantity += item.quantity;
+        curr.itemCount += 1;
+        catMap.set(catName, curr);
       }
     }
 
+    const totalMetricValue = categoryMetric === 'revenue' ? totalRevenue : totalItemsSold;
+
     return Array.from(catMap.entries())
-      .map(([name, value]) => ({
-        name,
-        value: Math.round(value * 100) / 100,
-        pct: totalRevenue > 0 ? ((value / totalRevenue) * 100).toFixed(1) : '0',
-      }))
+      .map(([name, data]) => {
+        const val = categoryMetric === 'revenue' ? data.revenue : data.quantity;
+        return {
+          name,
+          value: categoryMetric === 'revenue' ? Math.round(val * 100) / 100 : val,
+          revenue: data.revenue,
+          quantity: data.quantity,
+          pct: totalMetricValue > 0 ? ((val / totalMetricValue) * 100).toFixed(1) : '0',
+        };
+      })
       .sort((a, b) => b.value - a.value);
-  }, [filteredCompletedOrders, menuItems, categories, totalRevenue]);
+  }, [filteredCompletedOrders, menuItems, categories, totalRevenue, totalItemsSold, categoryMetric]);
 
-  // 2. Pie Chart Data: Payment Methods
-  const paymentPieData = useMemo(() => {
-    const pMap = new Map<string, { count: number; total: number }>();
+  // 2. Pie Chart Data: Best Sellers Share
+  const bestSellersPieData = useMemo(() => {
+    if (itemSales.length === 0) return [];
 
-    for (const order of filteredCompletedOrders) {
-      let method = 'Cash';
-      if (order.paymentMethod === 'gcash') method = 'GCash';
-      else if (order.paymentMethod === 'card') method = 'Card';
-      else if (order.paymentMethod === 'cash') method = 'Cash';
-      else method = order.paymentMethod || 'Cash';
+    const sortedByMetric = [...itemSales].sort((a, b) =>
+      bestSellerMetric === 'revenue' ? b.revenue - a.revenue : b.quantity - a.quantity
+    );
 
-      const curr = pMap.get(method) || { count: 0, total: 0 };
-      curr.count += 1;
-      curr.total += order.totalAmount;
-      pMap.set(method, curr);
+    const topItems = sortedByMetric.slice(0, bestSellerTopCount);
+    const otherItems = sortedByMetric.slice(bestSellerTopCount);
+
+    const totalMetricValue = bestSellerMetric === 'revenue' ? totalRevenue : totalItemsSold;
+
+    const dataList = topItems.map((item, idx) => {
+      const val = bestSellerMetric === 'revenue' ? item.revenue : item.quantity;
+      return {
+        name: item.name,
+        fullName: item.name,
+        categoryName: item.categoryName,
+        value: bestSellerMetric === 'revenue' ? Math.round(val * 100) / 100 : val,
+        revenue: item.revenue,
+        quantity: item.quantity,
+        rank: idx + 1,
+        pct: totalMetricValue > 0 ? ((val / totalMetricValue) * 100).toFixed(1) : '0',
+        color: BEST_SELLER_COLORS[idx % BEST_SELLER_COLORS.length],
+        isOther: false,
+      };
+    });
+
+    if (otherItems.length > 0) {
+      const othersRevenue = otherItems.reduce((sum, i) => sum + i.revenue, 0);
+      const othersQuantity = otherItems.reduce((sum, i) => sum + i.quantity, 0);
+      const othersVal = bestSellerMetric === 'revenue' ? othersRevenue : othersQuantity;
+
+      dataList.push({
+        name: `Other (${otherItems.length} items)`,
+        fullName: `All Other ${otherItems.length} Products Combined`,
+        categoryName: 'Various Categories',
+        value: bestSellerMetric === 'revenue' ? Math.round(othersVal * 100) / 100 : othersVal,
+        revenue: othersRevenue,
+        quantity: othersQuantity,
+        rank: 999,
+        pct: totalMetricValue > 0 ? ((othersVal / totalMetricValue) * 100).toFixed(1) : '0',
+        color: '#94a3b8',
+        isOther: true,
+      });
     }
 
-    return Array.from(pMap.entries()).map(([name, data]) => ({
-      name,
-      value: Math.round(data.total * 100) / 100,
-      count: data.count,
-      pct: totalRevenue > 0 ? ((data.total / totalRevenue) * 100).toFixed(1) : '0',
-    }));
-  }, [filteredCompletedOrders, totalRevenue]);
+    return dataList;
+  }, [itemSales, bestSellerMetric, bestSellerTopCount, totalRevenue, totalItemsSold]);
 
-  // 3. Pie Chart Data: Order Type (Dine-in vs Take-out vs Delivery)
-  const orderTypePieData = useMemo(() => {
-    const oMap = new Map<string, { count: number; total: number }>();
-
-    for (const order of filteredCompletedOrders) {
-      let typeLabel = 'Dine-In';
-      if (order.orderType === 'take_away') typeLabel = 'Take-Out';
-      else if (order.orderType === 'delivery') typeLabel = 'Delivery';
-
-      const curr = oMap.get(typeLabel) || { count: 0, total: 0 };
-      curr.count += 1;
-      curr.total += order.totalAmount;
-      oMap.set(typeLabel, curr);
-    }
-
-    return Array.from(oMap.entries()).map(([name, data]) => ({
-      name,
-      value: Math.round(data.total * 100) / 100,
-      count: data.count,
-      pct: totalRevenue > 0 ? ((data.total / totalRevenue) * 100).toFixed(1) : '0',
-    }));
-  }, [filteredCompletedOrders, totalRevenue]);
-
-  // 4. Pie Chart Data: Channel (In-Store vs Online)
-  const channelPieData = useMemo(() => {
-    const cMap = new Map<string, { count: number; total: number }>();
-
-    for (const order of filteredCompletedOrders) {
-      const isOnline = AppStore.getOrderChannel(order) === 'online';
-      const chName = isOnline ? 'Online Storefront' : 'On-the-Place (In-Store)';
-
-      const curr = cMap.get(chName) || { count: 0, total: 0 };
-      curr.count += 1;
-      curr.total += order.totalAmount;
-      cMap.set(chName, curr);
-    }
-
-    return Array.from(cMap.entries()).map(([name, data]) => ({
-      name,
-      value: Math.round(data.total * 100) / 100,
-      count: data.count,
-      pct: totalRevenue > 0 ? ((data.total / totalRevenue) * 100).toFixed(1) : '0',
-    }));
-  }, [filteredCompletedOrders, totalRevenue]);
-
-  // 5. Hourly & Daily Sales Trend Data
+  // 3. Hourly & Daily Sales Trend Data
   const trendData = useMemo(() => {
     // Generate 24-hour slots
     const hourMap = new Map<number, { hourLabel: string; revenue: number; orders: number }>();
@@ -281,7 +310,143 @@ export const SalesAnalytics: React.FC = () => {
     return Array.from(hourMap.values());
   }, [filteredCompletedOrders]);
 
-  // 6. Top 6 Products Bar Data
+  // 4. Movement Timeframe Days
+  const movementTimeframeDays = useMemo(() => {
+    switch (timeRange) {
+      case 'today':
+        return 1;
+      case '7days':
+        return 7;
+      case '30days':
+        return 30;
+      case 'custom': {
+        const start = new Date(`${customStartDate}T00:00:00`).getTime();
+        const end = new Date(`${customEndDate}T23:59:59.999`).getTime();
+        return Math.max(1, Math.round((end - start) / (1000 * 3600 * 24)));
+      }
+      case 'all':
+      default:
+        return 30;
+    }
+  }, [timeRange, customStartDate, customEndDate]);
+
+  // 5. Aggregated Movement for all Menu Items (Fast vs Slow Velocity)
+  const allMovementItems = useMemo(() => {
+    const salesMap = new Map<
+      number | string,
+      { unitsSold: number; revenue: number; orderCount: number; lastSoldDate: string | null }
+    >();
+
+    for (const order of filteredCompletedOrders) {
+      for (const item of order.items) {
+        const key = item.menuItemId || item.name;
+        const curr = salesMap.get(key) || {
+          unitsSold: 0,
+          revenue: 0,
+          orderCount: 0,
+          lastSoldDate: null,
+        };
+        curr.unitsSold += item.quantity;
+        curr.revenue += item.totalPrice;
+        curr.orderCount += 1;
+        if (!curr.lastSoldDate || new Date(order.createdAt) > new Date(curr.lastSoldDate)) {
+          curr.lastSoldDate = order.createdAt;
+        }
+        salesMap.set(key, curr);
+      }
+    }
+
+    return menuItems.map((menuItem) => {
+      const cat = categories.find((c) => c.id === menuItem.categoryId);
+      const categoryName = cat ? cat.name : 'Other';
+      const sale = salesMap.get(menuItem.id) || salesMap.get(menuItem.name) || {
+        unitsSold: 0,
+        revenue: 0,
+        orderCount: 0,
+        lastSoldDate: null,
+      };
+
+      const velocity = Math.round((sale.unitsSold / movementTimeframeDays) * 10) / 10;
+      const stock = menuItem.quantity || 0;
+      const daysOfStockLeft = velocity > 0 ? Math.round(stock / velocity) : null;
+      const pctOfTotalUnits = totalItemsSold > 0 ? (sale.unitsSold / totalItemsSold) * 100 : 0;
+      const pctOfTotalRevenue = totalRevenue > 0 ? (sale.revenue / totalRevenue) * 100 : 0;
+
+      let movementType: 'fast' | 'steady' | 'slow' | 'dormant' = 'steady';
+      if (sale.unitsSold === 0) {
+        movementType = 'dormant';
+      } else if (sale.unitsSold >= (timeRange === 'today' ? 3 : timeRange === '7days' ? 6 : 10)) {
+        movementType = 'fast';
+      } else if (sale.unitsSold <= (timeRange === 'today' ? 1 : timeRange === '7days' ? 2 : 3)) {
+        movementType = 'slow';
+      }
+
+      let stockAlert: 'low_stock' | 'overstock' | 'healthy' = 'healthy';
+      if (movementType === 'fast' && (stock <= 5 || (daysOfStockLeft !== null && daysOfStockLeft <= 3))) {
+        stockAlert = 'low_stock';
+      } else if ((movementType === 'slow' || movementType === 'dormant') && stock >= 15) {
+        stockAlert = 'overstock';
+      }
+
+      return {
+        id: menuItem.id,
+        name: menuItem.name,
+        shortName: menuItem.name.length > 15 ? menuItem.name.slice(0, 14) + '…' : menuItem.name,
+        categoryName,
+        categoryId: menuItem.categoryId,
+        price: menuItem.price,
+        stock,
+        unitsSold: sale.unitsSold,
+        revenue: sale.revenue,
+        orderCount: sale.orderCount,
+        lastSoldDate: sale.lastSoldDate,
+        velocity,
+        daysOfStockLeft,
+        pctOfTotalUnits: Number(pctOfTotalUnits.toFixed(1)),
+        pctOfTotalRevenue: Number(pctOfTotalRevenue.toFixed(1)),
+        movementType,
+        stockAlert,
+      };
+    });
+  }, [menuItems, categories, filteredCompletedOrders, movementTimeframeDays, totalItemsSold, totalRevenue, timeRange]);
+
+  // Fast Moving Items (Filtered and sorted by fast controls)
+  const fastMovingItems = useMemo(() => {
+    let items = allMovementItems;
+    if (fastCategoryFilter !== 'all') {
+      items = items.filter(
+        (i) => i.categoryName === fastCategoryFilter || String(i.categoryId) === fastCategoryFilter
+      );
+    }
+    const sorted = [...items]
+      .filter((i) => i.unitsSold > 0)
+      .sort((a, b) => {
+        if (fastMetric === 'revenue') return b.revenue - a.revenue;
+        return b.unitsSold - a.unitsSold;
+      });
+    return sorted.slice(0, fastLimit);
+  }, [allMovementItems, fastCategoryFilter, fastMetric, fastLimit]);
+
+  // Slow Moving Items (Filtered and sorted by slow controls, including 0 sales)
+  const slowMovingItems = useMemo(() => {
+    let items = allMovementItems;
+    if (slowCategoryFilter !== 'all') {
+      items = items.filter(
+        (i) => i.categoryName === slowCategoryFilter || String(i.categoryId) === slowCategoryFilter
+      );
+    }
+    const sorted = [...items].sort((a, b) => {
+      if (slowMetric === 'revenue') {
+        if (a.revenue !== b.revenue) return a.revenue - b.revenue;
+        return a.unitsSold - b.unitsSold;
+      }
+      if (a.unitsSold !== b.unitsSold) return a.unitsSold - b.unitsSold;
+      return a.revenue - b.revenue;
+    });
+    return sorted.slice(0, slowLimit);
+  }, [allMovementItems, slowCategoryFilter, slowMetric, slowLimit]);
+
+  // 7. Top 6 Products Bar Data
   const topProductsBarData = useMemo(() => {
     return itemSales.slice(0, 6).map((item) => ({
       name: item.name.length > 15 ? item.name.slice(0, 14) + '…' : item.name,
@@ -304,24 +469,94 @@ export const SalesAnalytics: React.FC = () => {
   const onlinePct = totalRevenue > 0 ? Math.round((onlineRevenue / totalRevenue) * 100) : 0;
 
   // Custom Chart Tooltips
+  const CustomCategoryTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="rounded-2xl border border-stone-700 bg-stone-900/95 backdrop-blur-md px-4 py-3 text-white shadow-2xl text-xs space-y-1.5 min-w-[200px]">
+          <div className="flex items-center gap-2 border-b border-stone-800 pb-1.5">
+            <span
+              className="h-3 w-3 rounded-full shrink-0"
+              style={{ backgroundColor: payload[0].color || '#f59e0b' }}
+            />
+            <p className="font-extrabold text-amber-400 text-sm truncate">{data.name}</p>
+          </div>
+          <div className="flex items-center justify-between gap-4 font-mono">
+            <span className="text-stone-400">Total Revenue:</span>
+            <span className="font-extrabold text-amber-300">₱{Number(data.revenue || data.value || 0).toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between gap-4 font-mono text-[11px]">
+            <span className="text-stone-400">Units Sold:</span>
+            <span className="font-bold text-stone-200">{data.quantity || 0} units</span>
+          </div>
+          <div className="flex items-center justify-between gap-4 text-[11px] text-stone-400 pt-1 border-t border-stone-800/80">
+            <span>Sales Share:</span>
+            <span className="font-extrabold text-emerald-400 text-xs">{data.pct}%</span>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const CustomBestSellerTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="rounded-2xl border border-stone-700 bg-stone-900/95 backdrop-blur-md px-4 py-3 text-white shadow-2xl text-xs space-y-1.5 min-w-[220px]">
+          <div className="flex items-center justify-between gap-2 border-b border-stone-800 pb-1.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <span
+                className="h-3 w-3 rounded-full shrink-0"
+                style={{ backgroundColor: data.color || '#f59e0b' }}
+              />
+              <p className="font-extrabold text-amber-400 text-sm truncate">{data.fullName || data.name}</p>
+            </div>
+            {data.rank && data.rank <= 3 && (
+              <span className="rounded-full bg-amber-500/20 text-amber-400 px-2 py-0.5 text-[10px] font-black shrink-0">
+                #{data.rank} Top
+              </span>
+            )}
+          </div>
+          <div className="text-[11px] text-stone-400 font-medium">
+            Category: <span className="text-stone-200">{data.categoryName || 'Beverages'}</span>
+          </div>
+          <div className="flex items-center justify-between gap-4 font-mono">
+            <span className="text-stone-400">Gross Sales:</span>
+            <span className="font-extrabold text-amber-300">₱{Number(data.revenue).toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between gap-4 font-mono text-[11px]">
+            <span className="text-stone-400">Total Volume:</span>
+            <span className="font-bold text-stone-200">{data.quantity} cups/orders</span>
+          </div>
+          <div className="flex items-center justify-between gap-4 text-[11px] text-stone-400 pt-1 border-t border-stone-800/80">
+            <span>Share of Sales:</span>
+            <span className="font-extrabold text-emerald-400 text-xs">{data.pct}%</span>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
   const CustomCurrencyTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0];
       return (
-        <div className="rounded-xl border border-stone-200 bg-stone-900 px-3.5 py-2.5 text-white shadow-xl text-xs">
-          <p className="font-bold text-amber-400 mb-0.5">{data.name || label}</p>
+        <div className="rounded-2xl border border-stone-700 bg-stone-900/95 px-3.5 py-2.5 text-white shadow-xl text-xs space-y-1">
+          <p className="font-bold text-amber-400">{data.name || label}</p>
           <div className="flex items-center justify-between gap-4 font-mono">
-            <span className="text-stone-300">Revenue:</span>
+            <span className="text-stone-400">Revenue:</span>
             <span className="font-extrabold text-amber-300">₱{Number(data.value).toFixed(2)}</span>
           </div>
           {data.payload?.pct && (
-            <div className="flex items-center justify-between gap-4 text-[11px] text-stone-400 mt-0.5">
+            <div className="flex items-center justify-between gap-4 text-[11px] text-stone-400">
               <span>Share:</span>
-              <span className="font-bold">{data.payload.pct}%</span>
+              <span className="font-bold text-emerald-400">{data.payload.pct}%</span>
             </div>
           )}
           {data.payload?.count !== undefined && (
-            <div className="flex items-center justify-between gap-4 text-[11px] text-stone-400 mt-0.5">
+            <div className="flex items-center justify-between gap-4 text-[11px] text-stone-400">
               <span>Orders:</span>
               <span className="font-bold">{data.payload.count}</span>
             </div>
@@ -336,16 +571,57 @@ export const SalesAnalytics: React.FC = () => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="rounded-xl border border-stone-200 bg-stone-900 px-3.5 py-2.5 text-white shadow-xl text-xs">
-          <p className="font-bold text-amber-400 mb-1">{data.fullName || label}</p>
+        <div className="rounded-2xl border border-stone-700 bg-stone-900/95 px-3.5 py-2.5 text-white shadow-xl text-xs space-y-1">
+          <p className="font-bold text-amber-400">{data.fullName || label}</p>
           <div className="flex items-center justify-between gap-4 font-mono text-xs">
-            <span className="text-stone-300">Total Sales:</span>
+            <span className="text-stone-400">Total Sales:</span>
             <span className="font-bold text-amber-300">₱{Number(data.revenue).toFixed(2)}</span>
           </div>
-          <div className="flex items-center justify-between gap-4 text-[11px] text-stone-400 mt-0.5">
+          <div className="flex items-center justify-between gap-4 text-[11px] text-stone-400">
             <span>Units Sold:</span>
-            <span className="font-bold text-stone-200">{data.quantity} cups/plates</span>
+            <span className="font-bold text-stone-200">{data.quantity} units</span>
           </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const CustomMovementTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="rounded-2xl border border-stone-700 bg-stone-900/95 px-4 py-3 text-white shadow-xl text-xs space-y-1.5 min-w-[200px]">
+          <div className="flex items-center justify-between gap-2 border-b border-stone-700 pb-1.5">
+            <span className="font-bold text-amber-400 truncate">{data.name}</span>
+            <span className="rounded-md bg-stone-800 px-1.5 py-0.5 text-[10px] text-stone-300">
+              {data.categoryName}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-4 font-mono">
+            <span className="text-stone-400">Total Revenue:</span>
+            <span className="font-bold text-amber-300">₱{Number(data.revenue).toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between gap-4 font-mono">
+            <span className="text-stone-400">Units Sold:</span>
+            <span className="font-bold text-stone-100">{data.unitsSold} units</span>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-stone-400">Daily Velocity:</span>
+            <span className="font-bold text-emerald-400">{data.velocity} / day</span>
+          </div>
+          <div className="flex items-center justify-between gap-4 pt-1 border-t border-stone-800">
+            <span className="text-stone-400">Current Stock:</span>
+            <span className={`font-bold ${data.stock <= 5 ? 'text-rose-400' : 'text-stone-200'}`}>
+              {data.stock} units
+            </span>
+          </div>
+          {data.daysOfStockLeft !== null && (
+            <div className="flex items-center justify-between gap-4 text-[10px] text-stone-400">
+              <span>Est. Supply:</span>
+              <span className="font-semibold text-stone-300">{data.daysOfStockLeft} days</span>
+            </div>
+          )}
         </div>
       );
     }
@@ -355,15 +631,15 @@ export const SalesAnalytics: React.FC = () => {
   const CustomTrendTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="rounded-xl border border-stone-200 bg-stone-900 px-3.5 py-2.5 text-white shadow-xl text-xs">
-          <p className="font-bold text-amber-400 mb-0.5">{label}</p>
+        <div className="rounded-2xl border border-stone-700 bg-stone-900/95 px-3.5 py-2.5 text-white shadow-xl text-xs space-y-1">
+          <p className="font-bold text-amber-400">{label}</p>
           <div className="flex items-center justify-between gap-4 font-mono text-xs">
-            <span className="text-stone-300">Revenue:</span>
+            <span className="text-stone-400">Revenue:</span>
             <span className="font-extrabold text-amber-300">
               ₱{Number(payload[0].value).toFixed(2)}
             </span>
           </div>
-          <div className="flex items-center justify-between gap-4 text-[11px] text-stone-400 mt-0.5">
+          <div className="flex items-center justify-between gap-4 text-[11px] text-stone-400">
             <span>Orders:</span>
             <span className="font-bold text-stone-200">{payload[0].payload.orders}</span>
           </div>
@@ -378,8 +654,9 @@ export const SalesAnalytics: React.FC = () => {
       {/* Header with Time Range Filter */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-stone-200 pb-5">
         <div>
-          <h2 className="font-display text-2xl font-extrabold text-stone-900">
-            Sales &amp; Channel Analytics
+          <h2 className="font-display text-2xl font-extrabold text-stone-900 flex items-center gap-2.5">
+            <LucidePieChart className="h-6 w-6 text-amber-600" />
+            <span>Sales and Data analytics</span>
           </h2>
         </div>
 
@@ -439,489 +716,962 @@ export const SalesAnalytics: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI Highlights Bar */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-xs">
-          <div className="flex items-center justify-between text-stone-500 text-xs font-bold uppercase">
-            <span>Settled Revenue</span>
-            <TrendingUp className="h-4 w-4 text-emerald-600" />
-          </div>
-          <div className="mt-2 font-display text-2xl font-extrabold text-stone-900 font-mono">
-            ₱{totalRevenue.toFixed(2)}
-          </div>
-          <p className="text-[11px] text-stone-500 mt-1">
-            Across {filteredCompletedOrders.length} completed transactions
-          </p>
-        </div>
 
-        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-xs">
-          <div className="flex items-center justify-between text-stone-500 text-xs font-bold uppercase">
-            <span>Average Order Value (AOV)</span>
-            <SparklesIcon className="h-4 w-4 text-indigo-600" />
-          </div>
-          <div className="mt-2 font-display text-2xl font-extrabold text-stone-900 font-mono">
-            ₱{avgOrderValue.toFixed(2)}
-          </div>
-          <p className="text-[11px] text-stone-500 mt-1">Per completed order</p>
-        </div>
-
-        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-xs">
-          <div className="flex items-center justify-between text-stone-500 text-xs font-bold uppercase">
-            <span>Total Units Sold</span>
-            <ShoppingBag className="h-4 w-4 text-amber-600" />
-          </div>
-          <div className="mt-2 font-display text-2xl font-extrabold text-stone-900 font-mono">
-            {totalItemsSold} Units
-          </div>
-          <p className="text-[11px] text-stone-500 mt-1">Across all categories</p>
-        </div>
-
-        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-xs">
-          <div className="flex items-center justify-between text-stone-500 text-xs font-bold uppercase">
-            <span>Top Seller</span>
-            <Award className="h-4 w-4 text-amber-500" />
-          </div>
-          <div className="mt-2 font-display text-lg font-bold text-amber-900 line-clamp-1">
-            {itemSales[0]?.name || 'N/A'}
-          </div>
-          <p className="text-[11px] text-stone-500 mt-1">
-            ₱{(itemSales[0]?.revenue || 0).toFixed(2)} ({itemSales[0]?.quantity || 0} sold)
-          </p>
-        </div>
-      </div>
-
-      {/* Section Navigation Tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 pb-2">
-        <div className="flex flex-wrap items-center gap-1.5 rounded-2xl bg-stone-100 p-1.5 border border-stone-200">
-          <button
-            type="button"
-            onClick={() => setAnalyticsSection('all')}
-            className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-extrabold transition-all ${
-              analyticsSection === 'all'
-                ? 'bg-amber-500 text-stone-950 shadow-xs'
-                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
-            }`}
-          >
-            <Layers className="h-3.5 w-3.5" />
-            <span>Complete Dashboard</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setAnalyticsSection('movement')}
-            className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-extrabold transition-all ${
-              analyticsSection === 'movement'
-                ? 'bg-amber-500 text-stone-950 shadow-xs'
-                : 'text-amber-900 hover:bg-amber-100/60'
-            }`}
-          >
-            <Flame className="h-3.5 w-3.5 fill-amber-600 text-amber-600" />
-            <span>Fast &amp; Slow Moving Products</span>
-            <span className="rounded-full bg-amber-200/80 px-1.5 py-0.2 text-[10px] font-black text-amber-950">
-              New
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setAnalyticsSection('distribution')}
-            className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-extrabold transition-all ${
-              analyticsSection === 'distribution'
-                ? 'bg-amber-500 text-stone-950 shadow-xs'
-                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
-            }`}
-          >
-            <LucidePieChart className="h-3.5 w-3.5" />
-            <span>Category &amp; Payment Shares</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setAnalyticsSection('trends')}
-            className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-extrabold transition-all ${
-              analyticsSection === 'trends'
-                ? 'bg-amber-500 text-stone-950 shadow-xs'
-                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
-            }`}
-          >
-            <TrendingUp className="h-3.5 w-3.5" />
-            <span>Hourly Trends &amp; Channels</span>
-          </button>
-        </div>
-
-        <div className="text-xs text-stone-500 hidden sm:block">
-          Showing data for: <strong className="text-stone-800 capitalize">{timeRange === 'all' ? 'All Time' : timeRange}</strong>
-        </div>
-      </div>
-
-      {/* FAST & SLOW MOVING PRODUCTS VELOCITY INTELLIGENCE */}
-      {(analyticsSection === 'all' || analyticsSection === 'movement') && (
-        <ProductMovementVelocity
-          orders={filteredCompletedOrders}
-          menuItems={menuItems}
-          categories={categories}
-          timeRange={timeRange}
-        />
-      )}
-
-      {/* PRIMARY SECTION: Interactive Pie & Donut Charts */}
-      {(analyticsSection === 'all' || analyticsSection === 'distribution') && (
-      <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-xs space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-100 pb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="grid h-9 w-9 place-items-center rounded-2xl bg-amber-500/10 text-amber-600">
-              <LucidePieChart className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="font-display text-base font-bold text-stone-900">
-                Distribution &amp; Share Breakdown
-              </h3>
-              <p className="text-xs text-stone-500">
-                Interactive pie analysis by category, payment method, order type, and channel
-              </p>
-            </div>
-          </div>
-
-          {/* Pie Chart View Tabs */}
-          <div className="flex flex-wrap items-center gap-1 rounded-2xl bg-stone-100 p-1 border border-stone-200">
+      {/* Section Navigation Tabs (Collapsible) */}
+      <div className="border-b border-stone-200 pb-2 space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setActivePieTab('category')}
-              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
-                activePieTab === 'category'
-                  ? 'bg-white text-stone-900 shadow-xs'
-                  : 'text-stone-500 hover:text-stone-900'
-              }`}
+              onClick={() => setIsSectionNavCollapsed(!isSectionNavCollapsed)}
+              className="flex items-center gap-1.5 rounded-xl bg-stone-100 hover:bg-stone-200/80 px-2.5 py-1 text-xs font-bold text-stone-700 transition-all cursor-pointer border border-stone-200"
+              title={isSectionNavCollapsed ? 'Expand section filter' : 'Collapse section filter'}
             >
-              Categories
+              <SlidersHorizontal className="h-3.5 w-3.5 text-stone-500" />
+              <span>Section View</span>
+              {isSectionNavCollapsed ? (
+                <ChevronDown className="h-3.5 w-3.5 text-stone-500" />
+              ) : (
+                <ChevronUp className="h-3.5 w-3.5 text-stone-500" />
+              )}
             </button>
-            <button
-              type="button"
-              onClick={() => setActivePieTab('payment')}
-              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
-                activePieTab === 'payment'
-                  ? 'bg-white text-stone-900 shadow-xs'
-                  : 'text-stone-500 hover:text-stone-900'
-              }`}
-            >
-              Payment Methods
-            </button>
-            <button
-              type="button"
-              onClick={() => setActivePieTab('orderType')}
-              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
-                activePieTab === 'orderType'
-                  ? 'bg-white text-stone-900 shadow-xs'
-                  : 'text-stone-500 hover:text-stone-900'
-              }`}
-            >
-              Dine-In vs Take-Out
-            </button>
-            <button
-              type="button"
-              onClick={() => setActivePieTab('channel')}
-              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
-                activePieTab === 'channel'
-                  ? 'bg-white text-stone-900 shadow-xs'
-                  : 'text-stone-500 hover:text-stone-900'
-              }`}
-            >
-              Channel Share
-            </button>
-          </div>
-        </div>
 
-        {/* Dynamic Pie Display */}
-        <div className="grid gap-6 lg:grid-cols-12 items-center">
-          {/* Chart Canvas */}
-          <div className="lg:col-span-7 h-72 sm:h-80 w-full flex items-center justify-center">
-            {totalRevenue === 0 ? (
-              <div className="text-center text-stone-400 py-8">
-                <LucidePieChart className="h-10 w-10 mx-auto text-stone-300 mb-2 opacity-60" />
-                <p className="font-bold text-sm text-stone-600">No settled transactions found</p>
-                <p className="text-xs text-stone-400">Complete POS or Online orders to see distribution</p>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Tooltip content={<CustomCurrencyTooltip />} />
-                  <Pie
-                    data={
-                      activePieTab === 'category'
-                        ? categoryPieData
-                        : activePieTab === 'payment'
-                        ? paymentPieData
-                        : activePieTab === 'orderType'
-                        ? orderTypePieData
-                        : channelPieData
-                    }
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={activePieTab === 'channel' ? 60 : 50}
-                    outerRadius={95}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {(activePieTab === 'category'
-                      ? categoryPieData
-                      : activePieTab === 'payment'
-                      ? paymentPieData
-                      : activePieTab === 'orderType'
-                      ? orderTypePieData
-                      : channelPieData
-                    ).map((entry, index) => {
-                      let fill = CATEGORY_COLORS[index % CATEGORY_COLORS.length];
-                      if (activePieTab === 'payment') {
-                        fill = PAYMENT_COLORS[entry.name] || fill;
-                      } else if (activePieTab === 'orderType') {
-                        fill = ORDER_TYPE_COLORS[entry.name] || fill;
-                      } else if (activePieTab === 'channel') {
-                        fill = CHANNEL_COLORS[entry.name] || fill;
-                      }
-                      return <Cell key={`cell-${index}`} fill={fill} stroke="#ffffff" strokeWidth={2} />;
-                    })}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
+            {/* Active section indicator pill when collapsed */}
+            {isSectionNavCollapsed && (
+              <span className="flex items-center gap-1 text-xs font-extrabold text-amber-900 bg-amber-100/80 px-2.5 py-0.5 rounded-lg border border-amber-200">
+                {analyticsSection === 'all' && 'Complete Dashboard'}
+                {analyticsSection === 'movement' && 'Fast & Slow Moving Charts'}
+                {analyticsSection === 'distribution' && 'Pie & Donut Charts'}
+                {analyticsSection === 'trends' && 'Hourly Trends'}
+              </span>
             )}
           </div>
 
-          {/* Slices Legend & Ranked Breakdown */}
-          <div className="lg:col-span-5 space-y-2.5 max-h-72 overflow-y-auto pr-1">
-            {(activePieTab === 'category'
-              ? categoryPieData
-              : activePieTab === 'payment'
-              ? paymentPieData
-              : activePieTab === 'orderType'
-              ? orderTypePieData
-              : channelPieData
-            ).map((item, idx) => {
-              let fill = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
-              if (activePieTab === 'payment') fill = PAYMENT_COLORS[item.name] || fill;
-              else if (activePieTab === 'orderType') fill = ORDER_TYPE_COLORS[item.name] || fill;
-              else if (activePieTab === 'channel') fill = CHANNEL_COLORS[item.name] || fill;
+          <div className="text-xs text-stone-500 hidden sm:block">
+            Timeframe: <strong className="text-stone-800 capitalize">{timeRange === 'all' ? 'All Time' : timeRange}</strong>
+          </div>
+        </div>
 
-              return (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between rounded-2xl border border-stone-100 bg-stone-50/70 p-2.5 hover:bg-stone-100/80 transition"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span
-                      className="h-3 w-3 rounded-full shrink-0 shadow-2xs"
-                      style={{ backgroundColor: fill }}
-                    />
-                    <span className="font-bold text-xs text-stone-800 truncate">{item.name}</span>
+        {!isSectionNavCollapsed && (
+          <div className="flex flex-wrap items-center gap-1.5 rounded-2xl bg-stone-100 p-1.5 border border-stone-200">
+            <button
+              type="button"
+              onClick={() => setAnalyticsSection('all')}
+              className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-extrabold transition-all cursor-pointer ${
+                analyticsSection === 'all'
+                  ? 'bg-amber-500 text-stone-950 shadow-xs'
+                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+              }`}
+            >
+              <Layers className="h-3.5 w-3.5" />
+              <span>Complete Dashboard</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAnalyticsSection('movement')}
+              className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-extrabold transition-all cursor-pointer ${
+                analyticsSection === 'movement'
+                  ? 'bg-amber-500 text-stone-950 shadow-xs'
+                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+              }`}
+            >
+              <Flame className="h-3.5 w-3.5 text-amber-950" />
+              <span>Fast &amp; Slow Moving Charts</span>
+              <span className="rounded-full bg-emerald-200 px-1.5 py-0.2 text-[10px] font-black text-emerald-950">
+                New
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAnalyticsSection('distribution')}
+              className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-extrabold transition-all cursor-pointer ${
+                analyticsSection === 'distribution'
+                  ? 'bg-amber-500 text-stone-950 shadow-xs'
+                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+              }`}
+            >
+              <LucidePieChart className="h-3.5 w-3.5" />
+              <span>Pie &amp; Donut Charts</span>
+              <span className="rounded-full bg-amber-200/80 px-1.5 py-0.2 text-[10px] font-black text-amber-950">
+                Featured
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAnalyticsSection('trends')}
+              className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-extrabold transition-all cursor-pointer ${
+                analyticsSection === 'trends'
+                  ? 'bg-amber-500 text-stone-950 shadow-xs'
+                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+              }`}
+            >
+              <TrendingUp className="h-3.5 w-3.5" />
+              <span>Hourly Trends</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* DUAL PIE & DONUT CHARTS SHOWCASE: Category Share & Best Sellers Share */}
+      {(analyticsSection === 'all' || analyticsSection === 'distribution') && (
+        <div className="space-y-6">
+          {/* Main Dual Donut / Pie Grid */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* CHART 1: Category Sales Share (Donut / Pie Chart) */}
+            <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-xs flex flex-col justify-between space-y-5">
+              <div>
+                {/* Header & Controls */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="grid h-10 w-10 place-items-center rounded-2xl bg-amber-500/10 text-amber-700">
+                      <Layers className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-display text-base font-extrabold text-stone-900 flex items-center gap-1.5">
+                        <span>Category Sales Share</span>
+                      </h3>
+                      <p className="text-xs text-stone-500">
+                        {categoryMetric === 'revenue' ? 'Revenue distribution' : 'Unit volume share'} by menu category
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-3 shrink-0 font-mono text-xs">
-                    <span className="font-extrabold text-stone-900">₱{item.value.toFixed(2)}</span>
-                    <span className="rounded-md bg-stone-200/70 px-1.5 py-0.5 text-[10px] font-bold text-stone-700">
-                      {item.pct}%
-                    </span>
+                  {/* Chart Customizer (Metric & Donut/Pie Toggles) */}
+                  <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                    {/* Metric Toggle */}
+                    <div className="flex items-center gap-0.5 rounded-xl bg-stone-100 p-0.5 border border-stone-200 text-[11px]">
+                      <button
+                        type="button"
+                        onClick={() => setCategoryMetric('revenue')}
+                        className={`rounded-lg px-2 py-1 font-bold transition-all cursor-pointer ${
+                          categoryMetric === 'revenue'
+                            ? 'bg-white text-stone-900 shadow-2xs'
+                            : 'text-stone-500 hover:text-stone-800'
+                        }`}
+                        title="View share by Gross Revenue (₱)"
+                      >
+                        ₱ Sales
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCategoryMetric('quantity')}
+                        className={`rounded-lg px-2 py-1 font-bold transition-all cursor-pointer ${
+                          categoryMetric === 'quantity'
+                            ? 'bg-white text-stone-900 shadow-2xs'
+                            : 'text-stone-500 hover:text-stone-800'
+                        }`}
+                        title="View share by Volume (Units Sold)"
+                      >
+                        Qty Units
+                      </button>
+                    </div>
+
+                    {/* Donut vs Pie Toggle */}
+                    <div className="flex items-center gap-0.5 rounded-xl bg-stone-100 p-0.5 border border-stone-200 text-[11px]">
+                      <button
+                        type="button"
+                        onClick={() => setChartShape('donut')}
+                        className={`p-1 rounded-lg transition-all cursor-pointer ${
+                          chartShape === 'donut'
+                            ? 'bg-white text-amber-700 shadow-2xs'
+                            : 'text-stone-400 hover:text-stone-700'
+                        }`}
+                        title="Donut Chart View"
+                      >
+                        <Disc className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setChartShape('pie')}
+                        className={`p-1 rounded-lg transition-all cursor-pointer ${
+                          chartShape === 'pie'
+                            ? 'bg-white text-amber-700 shadow-2xs'
+                            : 'text-stone-400 hover:text-stone-700'
+                        }`}
+                        title="Solid Pie Chart View"
+                      >
+                        <CircleDot className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              );
-            })}
+
+                {/* Chart Graphic + Center Callout */}
+                <div className="relative h-64 sm:h-72 w-full flex items-center justify-center my-3">
+                  {categoryPieData.length === 0 ? (
+                    <div className="text-center text-stone-400 py-8">
+                      <LucidePieChart className="h-10 w-10 mx-auto text-stone-300 mb-2 opacity-60" />
+                      <p className="font-bold text-sm text-stone-600">No category sales found</p>
+                      <p className="text-xs text-stone-400">Complete transactions to view category pie</p>
+                    </div>
+                  ) : (
+                    <>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Tooltip content={<CustomCategoryTooltip />} />
+                          <Pie
+                            data={categoryPieData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={chartShape === 'donut' ? 62 : 0}
+                            outerRadius={95}
+                            paddingAngle={chartShape === 'donut' ? 3 : 1}
+                            dataKey="value"
+                            animationDuration={600}
+                          >
+                            {categoryPieData.map((_, index) => (
+                              <Cell
+                                key={`cat-cell-${index}`}
+                                fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]}
+                                stroke="#ffffff"
+                                strokeWidth={2}
+                              />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+
+                      {/* Donut Center Total Overlay */}
+                      {chartShape === 'donut' && categoryPieData.length > 0 && (
+                        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400">
+                            {categoryMetric === 'revenue' ? 'Total Sales' : 'Total Units'}
+                          </span>
+                          <span className="font-display font-black text-stone-900 text-base sm:text-lg font-mono">
+                            {categoryMetric === 'revenue'
+                              ? `₱${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                              : `${totalItemsSold}`}
+                          </span>
+                          <span className="text-[9px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded-md mt-0.5">
+                            {categoryPieData.length} Categories
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Category Breakdown Ranked Table */}
+              <div className="space-y-2 pt-3 border-t border-stone-100 max-h-48 overflow-y-auto pr-1">
+                {categoryPieData.map((item, idx) => {
+                  const fill = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
+                  return (
+                    <div
+                      key={item.name}
+                      className="flex items-center justify-between rounded-2xl border border-stone-100 bg-stone-50/70 p-2.5 hover:bg-amber-50/50 hover:border-amber-200 transition text-xs"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span
+                          className="h-3 w-3 rounded-full shrink-0 shadow-2xs"
+                          style={{ backgroundColor: fill }}
+                        />
+                        <span className="font-bold text-stone-800 truncate">{item.name}</span>
+                        <span className="text-[10px] text-stone-400 font-mono">
+                          ({item.quantity} sold)
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2.5 shrink-0 font-mono">
+                        <span className="font-extrabold text-stone-900">₱{item.revenue.toFixed(2)}</span>
+                        <span className="rounded-md bg-stone-200/80 px-1.5 py-0.5 text-[10px] font-extrabold text-stone-800">
+                          {item.pct}%
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* CHART 2: Best Sellers Sales Share (Donut / Pie Chart) */}
+            <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-xs flex flex-col justify-between space-y-5">
+              <div>
+                {/* Header & Controls */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="grid h-10 w-10 place-items-center rounded-2xl bg-amber-500/10 text-amber-700">
+                      <Award className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-display text-base font-extrabold text-stone-900 flex items-center gap-1.5">
+                        <span>Best Sellers Sales Share</span>
+                        <Crown className="h-3.5 w-3.5 text-amber-500 fill-amber-400" />
+                      </h3>
+                      <p className="text-xs text-stone-500">
+                        Top {bestSellerTopCount} revenue leaders vs other catalog items
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Chart Customizer (Metric & Top N Count) */}
+                  <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                    {/* Metric Toggle */}
+                    <div className="flex items-center gap-0.5 rounded-xl bg-stone-100 p-0.5 border border-stone-200 text-[11px]">
+                      <button
+                        type="button"
+                        onClick={() => setBestSellerMetric('revenue')}
+                        className={`rounded-lg px-2 py-1 font-bold transition-all cursor-pointer ${
+                          bestSellerMetric === 'revenue'
+                            ? 'bg-white text-stone-900 shadow-2xs'
+                            : 'text-stone-500 hover:text-stone-800'
+                        }`}
+                        title="Top sellers by Gross Revenue (₱)"
+                      >
+                        ₱ Revenue
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBestSellerMetric('quantity')}
+                        className={`rounded-lg px-2 py-1 font-bold transition-all cursor-pointer ${
+                          bestSellerMetric === 'quantity'
+                            ? 'bg-white text-stone-900 shadow-2xs'
+                            : 'text-stone-500 hover:text-stone-800'
+                        }`}
+                        title="Top sellers by Volume (Cups/Units)"
+                      >
+                        Qty Sold
+                      </button>
+                    </div>
+
+                    {/* Top 5 / Top 8 Selector */}
+                    <select
+                      value={bestSellerTopCount}
+                      onChange={(e) => setBestSellerTopCount(Number(e.target.value))}
+                      className="rounded-xl border border-stone-200 bg-stone-100 px-2 py-1 text-[11px] font-bold text-stone-700 focus:outline-none cursor-pointer"
+                    >
+                      <option value={5}>Top 5</option>
+                      <option value={6}>Top 6</option>
+                      <option value={8}>Top 8</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Chart Graphic + Center Callout */}
+                <div className="relative h-64 sm:h-72 w-full flex items-center justify-center my-3">
+                  {bestSellersPieData.length === 0 ? (
+                    <div className="text-center text-stone-400 py-8">
+                      <Award className="h-10 w-10 mx-auto text-stone-300 mb-2 opacity-60" />
+                      <p className="font-bold text-sm text-stone-600">No item sales recorded</p>
+                      <p className="text-xs text-stone-400">Products sold will appear in this donut chart</p>
+                    </div>
+                  ) : (
+                    <>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Tooltip content={<CustomBestSellerTooltip />} />
+                          <Pie
+                            data={bestSellersPieData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={chartShape === 'donut' ? 62 : 0}
+                            outerRadius={95}
+                            paddingAngle={chartShape === 'donut' ? 3 : 1}
+                            dataKey="value"
+                            animationDuration={600}
+                          >
+                            {bestSellersPieData.map((entry, index) => (
+                              <Cell
+                                key={`bs-cell-${index}`}
+                                fill={entry.color}
+                                stroke="#ffffff"
+                                strokeWidth={2}
+                              />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+
+                      {/* Donut Center Best Seller Highlight */}
+                      {chartShape === 'donut' && bestSellersPieData.length > 0 && (
+                        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center px-4">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-700 flex items-center gap-1">
+                            <Crown className="h-2.5 w-2.5 fill-amber-500" /> #1 Best Seller
+                          </span>
+                          <span className="font-display font-black text-stone-900 text-xs sm:text-sm truncate max-w-[130px]">
+                            {bestSellersPieData[0]?.name}
+                          </span>
+                          <span className="font-mono text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-md mt-0.5">
+                            {bestSellersPieData[0]?.pct}% of all sales
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Best Sellers Ranked Breakdown */}
+              <div className="space-y-2 pt-3 border-t border-stone-100 max-h-48 overflow-y-auto pr-1">
+                {bestSellersPieData.map((item) => (
+                  <div
+                    key={item.name}
+                    className="flex items-center justify-between rounded-2xl border border-stone-100 bg-stone-50/70 p-2.5 hover:bg-amber-50/50 hover:border-amber-200 transition text-xs"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="h-3 w-3 rounded-full shrink-0 shadow-2xs"
+                        style={{ backgroundColor: item.color }}
+                      />
+                      {!item.isOther && item.rank && item.rank <= 3 && (
+                        <span
+                          className={`grid h-4 w-4 place-items-center rounded-full text-[9px] font-black shrink-0 ${
+                            item.rank === 1
+                              ? 'bg-amber-400 text-stone-950'
+                              : item.rank === 2
+                              ? 'bg-stone-300 text-stone-900'
+                              : 'bg-amber-700 text-white'
+                          }`}
+                        >
+                          {item.rank}
+                        </span>
+                      )}
+                      <span className="font-bold text-stone-800 truncate">{item.name}</span>
+                      <span className="text-[10px] text-stone-400 font-mono shrink-0">
+                        {item.quantity} sold
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 shrink-0 font-mono">
+                      <span className="font-extrabold text-stone-900">₱{item.revenue.toFixed(2)}</span>
+                      <span className="rounded-md bg-stone-200/80 px-1.5 py-0.5 text-[10px] font-extrabold text-stone-800">
+                        {item.pct}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
       )}
 
-      {/* SECONDARY GRIDS: Revenue Trend & Top Sellers */}
-      {(analyticsSection === 'all' || analyticsSection === 'trends') && (
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Hourly Sales Trend Area Chart */}
-        <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-            <div className="flex items-center gap-2">
-              <div className="grid h-8 w-8 place-items-center rounded-xl bg-amber-500/10 text-amber-600">
-                <Clock className="h-4 w-4" />
-              </div>
-              <div>
-                <h3 className="font-display text-base font-bold text-stone-900">
-                  Hourly Sales Velocity
-                </h3>
-                <p className="text-xs text-stone-500">Peak dining &amp; beverage rush hours (7 AM - 10 PM)</p>
-              </div>
-            </div>
-          </div>
+      {/* FAST & SLOW MOVING PRODUCT VELOCITY CHARTS */}
+      {(analyticsSection === 'all' || analyticsSection === 'movement') && (
+        <div className="space-y-6">
+          {/* DUAL CHARTS GRID (Split View) */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* CHART 1: FAST MOVING ITEMS */}
+            <div className="rounded-3xl border border-emerald-200/80 bg-linear-to-b from-emerald-50/30 to-white p-6 shadow-xs flex flex-col justify-between space-y-5">
+                <div className="space-y-4">
+                  {/* Fast Movers Card Header */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-100 pb-3.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="grid h-9 w-9 place-items-center rounded-2xl bg-emerald-500/10 text-emerald-700">
+                        <Flame className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-display text-base font-extrabold text-stone-900 flex items-center gap-2">
+                          <span>Fast Moving Items</span>
+                          <span className="rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-bold border border-emerald-200">
+                            High Velocity
+                          </span>
+                        </h4>
+                        <p className="text-xs text-stone-500">
+                          {fastMetric === 'quantity'
+                            ? 'Highest volume sales & fastest turnover'
+                            : 'Top grossing revenue drivers'}
+                        </p>
+                      </div>
+                    </div>
 
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="amberGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis
-                  dataKey="hourLabel"
-                  tick={{ fontSize: 10, fill: '#78716c' }}
-                  interval={2}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 10, fill: '#78716c' }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(val) => `₱${val}`}
-                />
-                <Tooltip content={<CustomTrendTooltip />} />
-                <Area
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#f59e0b"
-                  strokeWidth={2.5}
-                  fillOpacity={1}
-                  fill="url(#amberGradient)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+                    <div className="sm:text-right font-mono self-start sm:self-auto">
+                      <span className="text-[10px] uppercase font-bold text-stone-400">Total Fast Units</span>
+                      <p className="text-sm font-extrabold text-emerald-800">
+                        {fastMovingItems.reduce((sum, i) => sum + i.unitsSold, 0)} sold
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Fast Movers Dedicated Filter Controls Bar */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-emerald-50/70 p-2 border border-emerald-100 text-xs">
+                    {/* Category Filter */}
+                    <div className="flex items-center gap-1.5 rounded-xl bg-white px-2.5 py-1 border border-emerald-200/80 text-xs shadow-2xs">
+                      <Filter className="h-3 w-3 text-emerald-600" />
+                      <select
+                        value={fastCategoryFilter}
+                        onChange={(e) => setFastCategoryFilter(e.target.value)}
+                        className="bg-transparent font-bold text-stone-700 outline-none cursor-pointer text-xs"
+                      >
+                        <option value="all">All Categories</option>
+                        {categories.map((cat) => (
+                          <option key={cat.id} value={cat.name}>
+                            {cat.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* Metric Toggle */}
+                      <div className="flex items-center gap-0.5 rounded-xl bg-white p-0.5 border border-emerald-200/80 text-xs shadow-2xs">
+                        <button
+                          type="button"
+                          onClick={() => setFastMetric('quantity')}
+                          className={`rounded-lg px-2.5 py-1 font-bold transition-all cursor-pointer ${
+                            fastMetric === 'quantity'
+                              ? 'bg-emerald-600 text-white shadow-2xs font-extrabold'
+                              : 'text-stone-500 hover:text-stone-800'
+                          }`}
+                          title="View by Units Sold (Volume)"
+                        >
+                          Qty Units
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFastMetric('revenue')}
+                          className={`rounded-lg px-2.5 py-1 font-bold transition-all cursor-pointer ${
+                            fastMetric === 'revenue'
+                              ? 'bg-emerald-600 text-white shadow-2xs font-extrabold'
+                              : 'text-stone-500 hover:text-stone-800'
+                          }`}
+                          title="View by Gross Revenue (₱)"
+                        >
+                          ₱ Sales
+                        </button>
+                      </div>
+
+                      {/* Item Count Toggle */}
+                      <div className="flex items-center gap-0.5 rounded-xl bg-white p-0.5 border border-emerald-200/80 text-xs shadow-2xs">
+                        {[5, 8, 10].map((count) => (
+                          <button
+                            key={count}
+                            type="button"
+                            onClick={() => setFastLimit(count)}
+                            className={`rounded-lg px-2 py-1 font-bold transition-all cursor-pointer ${
+                              fastLimit === count
+                                ? 'bg-emerald-100 text-emerald-900 font-extrabold'
+                                : 'text-stone-500 hover:text-stone-800'
+                            }`}
+                          >
+                            Top {count}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Fast Moving Bar Chart */}
+                  <div className="h-64 sm:h-72 w-full">
+                    {fastMovingItems.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center text-stone-400 py-8">
+                        <Flame className="h-8 w-8 text-stone-300 mb-2 opacity-50" />
+                        <p className="text-sm font-bold text-stone-600">No fast moving items found</p>
+                        <p className="text-xs text-stone-400">Adjust category or date filter</p>
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={fastMovingItems}
+                          layout="vertical"
+                          margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                          <XAxis
+                            type="number"
+                            tick={{ fontSize: 10, fill: '#78716c' }}
+                            axisLine={false}
+                            tickLine={false}
+                            tickFormatter={(val) => (fastMetric === 'revenue' ? `₱${val}` : `${val}`)}
+                          />
+                          <YAxis
+                            type="category"
+                            dataKey="shortName"
+                            tick={{ fontSize: 11, fill: '#1c1917', fontWeight: 600 }}
+                            axisLine={false}
+                            tickLine={false}
+                            width={95}
+                          />
+                          <Tooltip content={<CustomMovementTooltip />} />
+                          <Bar
+                            dataKey={fastMetric === 'revenue' ? 'revenue' : 'unitsSold'}
+                            fill="#10b981"
+                            radius={[0, 8, 8, 0]}
+                          >
+                            {fastMovingItems.map((_, idx) => (
+                              <Cell
+                                key={`fast-cell-${idx}`}
+                                fill={idx === 0 ? '#059669' : idx === 1 ? '#10b981' : '#34d399'}
+                              />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                </div>
+
+                {/* Fast Moving Detail List */}
+                <div className="space-y-2 border-t border-emerald-100/70 pt-3.5 max-h-56 overflow-y-auto pr-1">
+                  {fastMovingItems.map((item, idx) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between rounded-2xl border border-stone-100 bg-white/80 p-2.5 hover:bg-emerald-50/40 transition text-xs"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span
+                          className={`grid h-6 w-6 place-items-center rounded-lg font-bold text-[11px] shrink-0 ${
+                            idx === 0
+                              ? 'bg-amber-400 text-stone-950 shadow-2xs font-extrabold'
+                              : idx === 1
+                              ? 'bg-stone-200 text-stone-800'
+                              : idx === 2
+                              ? 'bg-amber-100 text-amber-900'
+                              : 'bg-stone-100 text-stone-600'
+                          }`}
+                        >
+                          {idx + 1}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-stone-900 truncate">{item.name}</span>
+                            <span className="rounded-md bg-stone-100 px-1.5 py-0.2 text-[9px] font-semibold text-stone-500 shrink-0">
+                              {item.categoryName}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] text-stone-500 font-mono mt-0.5">
+                            <span className="text-emerald-700 font-bold">⚡ {item.velocity} / day</span>
+                            <span>•</span>
+                            <span className={item.stock <= 5 ? 'text-rose-600 font-bold' : 'text-stone-600'}>
+                              {item.stock <= 5 ? `⚠️ Low stock: ${item.stock} left` : `Stock: ${item.stock}`}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2.5 shrink-0 font-mono text-right">
+                        <div>
+                          <div className="font-extrabold text-stone-900">
+                            {fastMetric === 'revenue' ? `₱${item.revenue.toFixed(2)}` : `${item.unitsSold} sold`}
+                          </div>
+                          <div className="text-[10px] text-stone-400">
+                            {fastMetric === 'revenue' ? `${item.unitsSold} units` : `₱${item.revenue.toFixed(2)}`}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            {/* CHART 2: SLOW MOVING ITEMS */}
+            <div className="rounded-3xl border border-rose-200/80 bg-linear-to-b from-rose-50/30 to-white p-6 shadow-xs flex flex-col justify-between space-y-5">
+                <div className="space-y-4">
+                  {/* Slow Movers Card Header */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-rose-100 pb-3.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="grid h-9 w-9 place-items-center rounded-2xl bg-rose-500/10 text-rose-700">
+                        <Turtle className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-display text-base font-extrabold text-stone-900 flex items-center gap-2">
+                          <span>Slow Moving Items</span>
+                          <span className="rounded-full bg-rose-100 text-rose-800 px-2 py-0.5 text-[10px] font-bold border border-rose-200">
+                            Turnover Alert
+                          </span>
+                        </h4>
+                        <p className="text-xs text-stone-500">
+                          Lowest turnover, stagnant inventory &amp; zero-sale candidates
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="sm:text-right font-mono self-start sm:self-auto">
+                      <span className="text-[10px] uppercase font-bold text-stone-400">Dormant Items</span>
+                      <p className="text-sm font-extrabold text-rose-800">
+                        {slowMovingItems.filter((i) => i.unitsSold === 0).length} items (0 sold)
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Slow Movers Dedicated Filter Controls Bar */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-rose-50/70 p-2 border border-rose-100 text-xs">
+                    {/* Category Filter */}
+                    <div className="flex items-center gap-1.5 rounded-xl bg-white px-2.5 py-1 border border-rose-200/80 text-xs shadow-2xs">
+                      <Filter className="h-3 w-3 text-rose-600" />
+                      <select
+                        value={slowCategoryFilter}
+                        onChange={(e) => setSlowCategoryFilter(e.target.value)}
+                        className="bg-transparent font-bold text-stone-700 outline-none cursor-pointer text-xs"
+                      >
+                        <option value="all">All Categories</option>
+                        {categories.map((cat) => (
+                          <option key={cat.id} value={cat.name}>
+                            {cat.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* Metric Toggle */}
+                      <div className="flex items-center gap-0.5 rounded-xl bg-white p-0.5 border border-rose-200/80 text-xs shadow-2xs">
+                        <button
+                          type="button"
+                          onClick={() => setSlowMetric('quantity')}
+                          className={`rounded-lg px-2.5 py-1 font-bold transition-all cursor-pointer ${
+                            slowMetric === 'quantity'
+                              ? 'bg-rose-600 text-white shadow-2xs font-extrabold'
+                              : 'text-stone-500 hover:text-stone-800'
+                          }`}
+                          title="View by Units Sold (Volume)"
+                        >
+                          Qty Units
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSlowMetric('revenue')}
+                          className={`rounded-lg px-2.5 py-1 font-bold transition-all cursor-pointer ${
+                            slowMetric === 'revenue'
+                              ? 'bg-rose-600 text-white shadow-2xs font-extrabold'
+                              : 'text-stone-500 hover:text-stone-800'
+                          }`}
+                          title="View by Gross Revenue (₱)"
+                        >
+                          ₱ Sales
+                        </button>
+                      </div>
+
+                      {/* Item Count Toggle */}
+                      <div className="flex items-center gap-0.5 rounded-xl bg-white p-0.5 border border-rose-200/80 text-xs shadow-2xs">
+                        {[5, 8, 10].map((count) => (
+                          <button
+                            key={count}
+                            type="button"
+                            onClick={() => setSlowLimit(count)}
+                            className={`rounded-lg px-2 py-1 font-bold transition-all cursor-pointer ${
+                              slowLimit === count
+                                ? 'bg-rose-100 text-rose-900 font-extrabold'
+                                : 'text-stone-500 hover:text-stone-800'
+                            }`}
+                          >
+                            Top {count}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Slow Moving Bar Chart */}
+                  <div className="h-64 sm:h-72 w-full">
+                    {slowMovingItems.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center text-stone-400 py-8">
+                        <Turtle className="h-8 w-8 text-stone-300 mb-2 opacity-50" />
+                        <p className="text-sm font-bold text-stone-600">No slow moving items found</p>
+                        <p className="text-xs text-stone-400">All items have healthy velocity</p>
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={slowMovingItems}
+                          layout="vertical"
+                          margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                          <XAxis
+                            type="number"
+                            tick={{ fontSize: 10, fill: '#78716c' }}
+                            axisLine={false}
+                            tickLine={false}
+                            tickFormatter={(val) => (slowMetric === 'revenue' ? `₱${val}` : `${val}`)}
+                          />
+                          <YAxis
+                            type="category"
+                            dataKey="shortName"
+                            tick={{ fontSize: 11, fill: '#1c1917', fontWeight: 600 }}
+                            axisLine={false}
+                            tickLine={false}
+                            width={95}
+                          />
+                          <Tooltip content={<CustomMovementTooltip />} />
+                          <Bar
+                            dataKey={slowMetric === 'revenue' ? 'revenue' : 'unitsSold'}
+                            fill="#f43f5e"
+                            radius={[0, 8, 8, 0]}
+                          >
+                            {slowMovingItems.map((entry, idx) => (
+                              <Cell
+                                key={`slow-cell-${idx}`}
+                                fill={entry.unitsSold === 0 ? '#94a3b8' : idx < 2 ? '#f43f5e' : '#fb7185'}
+                              />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                </div>
+
+                {/* Slow Moving Detail List */}
+                <div className="space-y-2 border-t border-rose-100/70 pt-3.5 max-h-56 overflow-y-auto pr-1">
+                  {slowMovingItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between rounded-2xl border border-stone-100 bg-white/80 p-2.5 hover:bg-rose-50/40 transition text-xs"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span
+                          className={`grid h-6 w-6 place-items-center rounded-lg font-bold text-[11px] shrink-0 ${
+                            item.unitsSold === 0
+                              ? 'bg-stone-200 text-stone-600'
+                              : 'bg-rose-100 text-rose-800'
+                          }`}
+                        >
+                          {item.unitsSold === 0 ? '💤' : '🐢'}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-stone-900 truncate">{item.name}</span>
+                            <span className="rounded-md bg-stone-100 px-1.5 py-0.2 text-[9px] font-semibold text-stone-500 shrink-0">
+                              {item.categoryName}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] text-stone-500 font-mono mt-0.5">
+                            <span className={item.stock >= 15 ? 'text-amber-700 font-bold' : 'text-stone-600'}>
+                              Stock on hand: {item.stock}
+                            </span>
+                            {item.stock >= 15 && (
+                              <span className="rounded-sm bg-amber-100 text-amber-800 px-1 py-0.2 text-[9px] font-bold">
+                                Overstock Risk
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2.5 shrink-0 font-mono text-right">
+                        <div>
+                          <div
+                            className={`font-extrabold ${
+                              item.unitsSold === 0 ? 'text-stone-400' : 'text-stone-900'
+                            }`}
+                          >
+                            {item.unitsSold} sold
+                          </div>
+                          <div className="text-[10px] text-stone-400 font-bold">
+                            ₱{item.revenue.toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
           </div>
         </div>
+      )}
 
-        {/* Top Selling Products Bar Chart */}
-        <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-            <div className="flex items-center gap-2">
-              <div className="grid h-8 w-8 place-items-center rounded-xl bg-amber-500/10 text-amber-600">
-                <BarChart3 className="h-4 w-4" />
-              </div>
-              <div>
-                <h3 className="font-display text-base font-bold text-stone-900">
-                  Top Selling Products (Revenue)
-                </h3>
-                <p className="text-xs text-stone-500">Highest grossing items in current timeframe</p>
+      {/* SECONDARY GRIDS: Revenue Trend & Top Sellers Bar Chart */}
+      {(analyticsSection === 'all' || analyticsSection === 'trends') && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Hourly Sales Trend Area Chart */}
+          <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="grid h-8 w-8 place-items-center rounded-xl bg-amber-500/10 text-amber-600">
+                  <Clock className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="font-display text-base font-bold text-stone-900">
+                    Hourly Sales Velocity
+                  </h3>
+                  <p className="text-xs text-stone-500">Peak dining &amp; beverage rush hours (7 AM - 10 PM)</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="h-64 w-full">
-            {topProductsBarData.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-center text-stone-400">
-                <p className="text-xs">No items sold yet in this period</p>
-              </div>
-            ) : (
+            <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={topProductsBarData}
-                  layout="vertical"
-                  margin={{ top: 5, right: 20, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="amberGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                   <XAxis
-                    type="number"
+                    dataKey="hourLabel"
+                    tick={{ fontSize: 10, fill: '#78716c' }}
+                    interval={2}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
                     tick={{ fontSize: 10, fill: '#78716c' }}
                     axisLine={false}
                     tickLine={false}
                     tickFormatter={(val) => `₱${val}`}
                   />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    tick={{ fontSize: 10, fill: '#44403c', fontWeight: 600 }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={85}
+                  <Tooltip content={<CustomTrendTooltip />} />
+                  <Area
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="#f59e0b"
+                    strokeWidth={2.5}
+                    fillOpacity={1}
+                    fill="url(#amberGradient)"
                   />
-                  <Tooltip content={<CustomBarTooltip />} />
-                  <Bar dataKey="revenue" fill="#f59e0b" radius={[0, 8, 8, 0]} />
-                </BarChart>
+                </AreaChart>
               </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-      </div>
-      )}
-
-      {/* Channel Comparison Cards */}
-      {(analyticsSection === 'all' || analyticsSection === 'trends') && (
-      <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-100 pb-3">
-          <div>
-            <h3 className="font-display text-base font-bold text-stone-900">
-              Channel Performance: POS On-the-Place vs Online Storefront
-            </h3>
-            <p className="text-xs text-stone-500">
-              Direct comparison between in-store dine-in/counter registers and customer web orders
-            </p>
-          </div>
-          <div className="text-right">
-            <span className="text-xs text-stone-400 font-medium">Filtered Settled Revenue</span>
-            <div className="font-mono text-base font-extrabold text-amber-900">
-              ₱{totalRevenue.toFixed(2)}
             </div>
           </div>
-        </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          {/* On-the-Place card */}
-          <div className="rounded-2xl border border-amber-200/80 bg-amber-50/50 p-4 space-y-3">
-            <div className="flex items-center justify-between">
+          {/* Top Selling Products Bar Chart */}
+          <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
               <div className="flex items-center gap-2">
-                <div className="grid h-8 w-8 place-items-center rounded-xl bg-amber-500 text-stone-950 font-bold">
-                  <Store className="h-4 w-4" />
+                <div className="grid h-8 w-8 place-items-center rounded-xl bg-amber-500/10 text-amber-600">
+                  <BarChart3 className="h-4 w-4" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-stone-900 text-sm">On-the-Place (In-Store)</h4>
-                  <span className="text-[11px] text-stone-500">Dine-in tables &amp; POS walk-in</span>
+                  <h3 className="font-display text-base font-bold text-stone-900">
+                    Top Selling Products (Revenue Leaderboard)
+                  </h3>
+                  <p className="text-xs text-stone-500">Highest grossing menu items in current period</p>
                 </div>
               </div>
-              <span className="font-mono text-lg font-extrabold text-amber-950">
-                ₱{inStoreRevenue.toFixed(2)}
-              </span>
             </div>
 
-            <div className="space-y-1">
-              <div className="flex justify-between text-xs font-semibold text-stone-600">
-                <span>{inStoreOrders.length} Orders</span>
-                <span>{inStorePct}% of Total</span>
-              </div>
-              <div className="h-2.5 w-full overflow-hidden rounded-full bg-amber-200/60">
-                <div
-                  className="h-full bg-amber-500 rounded-full transition-all duration-500"
-                  style={{ width: `${inStorePct}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Online card */}
-          <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/50 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="grid h-8 w-8 place-items-center rounded-xl bg-indigo-600 text-white font-bold">
-                  <Globe className="h-4 w-4" />
+            <div className="h-64 w-full">
+              {topProductsBarData.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-center text-stone-400">
+                  <p className="text-xs">No items sold yet in this period</p>
                 </div>
-                <div>
-                  <h4 className="font-bold text-stone-900 text-sm">Online Storefront</h4>
-                  <span className="text-[11px] text-stone-500">Customer web orders</span>
-                </div>
-              </div>
-              <span className="font-mono text-lg font-extrabold text-indigo-950">
-                ₱{onlineRevenue.toFixed(2)}
-              </span>
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex justify-between text-xs font-semibold text-stone-600">
-                <span>{onlineOrders.length} Orders</span>
-                <span>{onlinePct}% of Total</span>
-              </div>
-              <div className="h-2.5 w-full overflow-hidden rounded-full bg-indigo-200/60">
-                <div
-                  className="h-full bg-indigo-600 rounded-full transition-all duration-500"
-                  style={{ width: `${onlinePct}%` }}
-                />
-              </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={topProductsBarData}
+                    layout="vertical"
+                    margin={{ top: 5, right: 20, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      tick={{ fontSize: 10, fill: '#78716c' }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(val) => `₱${val}`}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      tick={{ fontSize: 10, fill: '#44403c', fontWeight: 600 }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={85}
+                    />
+                    <Tooltip content={<CustomBarTooltip />} />
+                    <Bar dataKey="revenue" fill="#f59e0b" radius={[0, 8, 8, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </div>
         </div>
-      </div>
       )}
     </div>
   );

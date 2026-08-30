@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { MenuItem, Category } from '../../types';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { MenuItem, Category, Order, OrderItem } from '../../types';
 import { AppStore } from '../../services/store';
 import { useModal } from '../../context/ModalContext';
 import {
@@ -11,6 +11,8 @@ import {
   X,
   Sparkles,
   Package,
+  PackagePlus,
+  Minus,
   AlertTriangle,
   Flame,
   Coffee,
@@ -31,6 +33,8 @@ import {
   Folder,
   Layers,
   ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   MoveRight,
   SlidersHorizontal,
   Bell,
@@ -38,6 +42,9 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  ChevronDown,
+  ChevronUp,
+  Filter,
   Download,
 } from 'lucide-react';
 import { LowStockNotificationModal } from './LowStockNotificationModal';
@@ -50,24 +57,111 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ categories: 
   const { showConfirm, showAlert } = useModal();
   const [items, setItems] = useState<MenuItem[]>(() => AppStore.getMenuItems());
   const [categories, setCategories] = useState<Category[]>(() => AppStore.getCategories());
+  const [orders, setOrders] = useState<Order[]>(() => AppStore.getOrders());
   const [isLowStockModalOpen, setIsLowStockModalOpen] = useState(false);
 
   // Active View Tab: 'items' or 'categories'
   const [activeTab, setActiveTab] = useState<'items' | 'categories'>('items');
 
   // Menu Items Filters
-  const [categoryType, setCategoryType] = useState<'drinks' | 'food' | 'all'>('drinks');
+  const [categoryType, setCategoryType] = useState<'drinks' | 'food' | 'all'>('all');
   const [selectedCat, setSelectedCat] = useState<number | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isCatDropdownOpen, setIsCatDropdownOpen] = useState(false);
+  const catDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close Category Dropdown on Outside Click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (catDropdownRef.current && !catDropdownRef.current.contains(event.target as Node)) {
+        setIsCatDropdownOpen(false);
+      }
+    };
+    if (isCatDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isCatDropdownOpen]);
+
+  // Label for current category selection
+  const currentCategoryLabel = useMemo(() => {
+    if (selectedCat !== 'all') {
+      const cat = categories.find((c) => c.id === selectedCat);
+      return cat ? cat.name : 'Category';
+    }
+    if (categoryType === 'drinks') return 'Drinks';
+    if (categoryType === 'food') return 'Food';
+    return 'All Categories';
+  }, [selectedCat, categoryType, categories]);
 
   // Items Pagination State
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(15);
 
+  // Map each item ID to its latest order timestamp
+  const lastSaleMap = useMemo(() => {
+    const map = new Map<number, { timestamp: number; dateStr: string }>();
+
+    orders.forEach((order) => {
+      if (!order.items || order.status === 'cancelled') return;
+      const orderTime = new Date(order.createdAt).getTime();
+      if (isNaN(orderTime)) return;
+
+      order.items.forEach((oi: OrderItem) => {
+        const existing = map.get(oi.menuItemId);
+        if (!existing || orderTime > existing.timestamp) {
+          map.set(oi.menuItemId, {
+            timestamp: orderTime,
+            dateStr: order.createdAt,
+          });
+        }
+      });
+    });
+
+    return map;
+  }, [orders]);
+
+  // Formatter for MM/DD/YY h:mmA (e.g. 08/28/26 3:00AM)
+  const formatLastSale = (dateInput?: string | number) => {
+    if (!dateInput) return 'Never ordered';
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return 'Never ordered';
+
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const yy = String(d.getFullYear()).slice(-2);
+
+    let hours = d.getHours();
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12; // 12 instead of 0
+
+    return `${mm}/${dd}/${yy} ${hours}:${minutes}${ampm}`;
+  };
+
+  // Items Sorting State
+  type SortField = 'name' | 'category' | 'price' | 'quantity' | 'lastSale' | 'status';
+  type SortDirection = 'asc' | 'desc';
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection(field === 'price' || field === 'quantity' || field === 'lastSale' ? 'desc' : 'asc');
+    }
+    setCurrentPage(1);
+  };
+
   // Reset page to 1 whenever filters or sorting change
   useEffect(() => {
     setCurrentPage(1);
-  }, [categoryType, selectedCat, searchQuery, pageSize]);
+  }, [categoryType, selectedCat, searchQuery, pageSize, sortField, sortDirection]);
 
   // Category Directory Filters
   const [catSearchQuery, setCatSearchQuery] = useState('');
@@ -95,6 +189,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ categories: 
     const unsub = AppStore.subscribe(() => {
       setCategories(AppStore.getCategories());
       setItems(AppStore.getMenuItems());
+      setOrders(AppStore.getOrders());
     });
     return () => unsub();
   }, []);
@@ -222,6 +317,38 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ categories: 
   const refresh = () => {
     setItems(AppStore.getMenuItems());
     setCategories(AppStore.getCategories());
+  };
+
+  // Quick Restock State
+  const [quickRestockItem, setQuickRestockItem] = useState<MenuItem | null>(null);
+  const [restockQty, setRestockQty] = useState<number>(5);
+
+  const handleOpenQuickRestock = (item: MenuItem) => {
+    setQuickRestockItem(item);
+    setRestockQty(5);
+  };
+
+  const handleApplyQuickRestock = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!quickRestockItem) return;
+
+    const currentQty = quickRestockItem.quantity || 0;
+    const addAmount = Math.max(1, restockQty);
+    const newQty = currentQty + addAmount;
+
+    AppStore.updateMenuItem(quickRestockItem.id, {
+      quantity: newQty,
+      isAvailable: newQty > 0 ? true : quickRestockItem.isAvailable,
+    });
+
+    showAlert({
+      title: 'Restock Successful',
+      message: `Added +${addAmount} unit(s) to "${quickRestockItem.name}". New inventory count: ${newQty} units.`,
+      type: 'success',
+    });
+
+    setQuickRestockItem(null);
+    refresh();
   };
 
   // Open Add Item Modal
@@ -456,24 +583,50 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ categories: 
     });
   };
 
-  // Filtered items list
-  const filteredItems = items.filter((item) => {
-    if (selectedCat !== 'all') {
-      if (item.categoryId !== selectedCat) return false;
-    } else if (categoryType !== 'all') {
-      const cat = categories.find((c) => c.id === item.categoryId);
-      if (cat) {
-        const isDrink = isDrinkCategory(cat);
-        if (categoryType === 'drinks' && !isDrink) return false;
-        if (categoryType === 'food' && isDrink) return false;
+  // Filtered and sorted items list
+  const filteredItems = useMemo(() => {
+    const list = items.filter((item) => {
+      if (selectedCat !== 'all') {
+        if (item.categoryId !== selectedCat) return false;
+      } else if (categoryType !== 'all') {
+        const cat = categories.find((c) => c.id === item.categoryId);
+        if (cat) {
+          const isDrink = isDrinkCategory(cat);
+          if (categoryType === 'drinks' && !isDrink) return false;
+          if (categoryType === 'food' && isDrink) return false;
+        }
       }
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      return item.name.toLowerCase().includes(q) || item.description.toLowerCase().includes(q);
-    }
-    return true;
-  });
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        return item.name.toLowerCase().includes(q) || item.description.toLowerCase().includes(q);
+      }
+      return true;
+    });
+
+    list.sort((a, b) => {
+      let comparison = 0;
+      if (sortField === 'name') {
+        comparison = a.name.localeCompare(b.name);
+      } else if (sortField === 'category') {
+        const catA = categories.find((c) => c.id === a.categoryId)?.name || '';
+        const catB = categories.find((c) => c.id === b.categoryId)?.name || '';
+        comparison = catA.localeCompare(catB);
+      } else if (sortField === 'price') {
+        comparison = a.price - b.price;
+      } else if (sortField === 'quantity') {
+        comparison = (a.quantity ?? 0) - (b.quantity ?? 0);
+      } else if (sortField === 'lastSale') {
+        const timeA = lastSaleMap.get(a.id)?.timestamp ?? 0;
+        const timeB = lastSaleMap.get(b.id)?.timestamp ?? 0;
+        comparison = timeA - timeB;
+      } else if (sortField === 'status') {
+        comparison = Number(b.isAvailable) - Number(a.isAvailable);
+      }
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+
+    return list;
+  }, [items, selectedCat, categoryType, categories, searchQuery, sortField, sortDirection, lastSaleMap]);
 
   // Derived Items Pagination Calculations
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
@@ -518,44 +671,26 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ categories: 
       'Product Name',
       'Category',
       'Classification',
-      'Temperature',
       'Base Price (PHP)',
       'Current Stock Units',
-      'Low Stock Threshold',
+      'Last Sale',
       'Availability Status',
-      'Description',
     ];
 
     const rows = filteredItems.map((item) => {
       const cat = categories.find((c) => c.id === item.categoryId);
       const isDrink = cat ? isDrinkCategory(cat) : false;
-
-      let tempStr = 'Standard';
-      if (isDrink) {
-        if (item.availableTemperatures && item.availableTemperatures.length > 0) {
-          tempStr = item.availableTemperatures.map((t: string) => (t === 'hot' ? 'Hot' : 'Iced')).join(' / ');
-        } else if (item.isHot && item.isIced) {
-          tempStr = 'Hot & Iced';
-        } else if (item.isHot) {
-          tempStr = 'Hot Only';
-        } else if (item.isIced) {
-          tempStr = 'Iced Only';
-        } else if (item.temperature) {
-          tempStr = item.temperature;
-        }
-      }
+      const lastSaleEntry = lastSaleMap.get(item.id);
 
       return [
         escapeCsv(item.id),
         escapeCsv(item.name),
         escapeCsv(cat?.name || 'Uncategorized'),
         escapeCsv(isDrink ? 'Drink / Beverage' : 'Food / Pastry'),
-        escapeCsv(tempStr),
         escapeCsv(Number(item.price || 0).toFixed(2)),
         escapeCsv(item.quantity ?? item.stock ?? 0),
-        escapeCsv(item.lowStockThreshold ?? 10),
+        escapeCsv(formatLastSale(lastSaleEntry?.dateStr)),
         escapeCsv(item.isAvailable ?? item.available ? 'Available (Active)' : 'Unavailable (Hidden)'),
-        escapeCsv(item.description || ''),
       ].join(',');
     });
 
@@ -617,15 +752,9 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ categories: 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 pb-5">
         <div>
-          <span className="text-xs font-bold uppercase tracking-widest text-amber-700">
-            Catalog &amp; Stock Hub
-          </span>
           <h2 className="font-display text-2xl font-extrabold text-stone-900">
             Inventory &amp; Menu Catalog
           </h2>
-          <p className="text-xs text-stone-500 mt-0.5">
-            Add, edit, and remove menu categories, organize products, and track real-time stock.
-          </p>
         </div>
 
         {/* Global Quick Action Buttons */}
@@ -635,15 +764,15 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ categories: 
             onClick={() => setIsLowStockModalOpen(true)}
             className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition cursor-pointer ${
               items.filter((i) => (i.quantity ?? 0) <= 5).length > 0
-                ? 'bg-rose-50 border-rose-300 text-rose-800 hover:bg-rose-100 shadow-2xs'
+                ? 'bg-amber-50 border-amber-300 text-amber-950 hover:bg-amber-100 shadow-2xs'
                 : 'border-stone-300 bg-white text-stone-700 hover:bg-stone-50'
             }`}
             title="Open Low Stock Notifications & Batch Restock"
           >
-            <Bell className={`h-4 w-4 ${items.filter((i) => (i.quantity ?? 0) <= 5).length > 0 ? 'text-rose-600 animate-bounce' : 'text-stone-500'}`} />
+            <Bell className={`h-4 w-4 ${items.filter((i) => (i.quantity ?? 0) <= 5).length > 0 ? 'text-amber-600 animate-bounce' : 'text-stone-500'}`} />
             <span>Low Stock</span>
             {items.filter((i) => (i.quantity ?? 0) <= 5).length > 0 && (
-              <span className="rounded-full bg-rose-600 px-1.5 py-0.2 text-[10px] font-black text-white">
+              <span className="rounded-full bg-amber-400 px-1.5 py-0.2 text-[10px] font-black text-stone-950 border border-amber-500/60 shadow-2xs">
                 {items.filter((i) => (i.quantity ?? 0) <= 5).length}
               </span>
             )}
@@ -728,190 +857,310 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ categories: 
       {/* VIEW 1: MENU ITEMS */}
       {activeTab === 'items' && (
         <div className="space-y-5">
-          {/* Primary Toggle: Drinks vs Food vs All & Search */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-stone-100/70 p-3 rounded-2xl border border-stone-200/80">
-            {/* Toggle Pill */}
-            <div className="inline-flex rounded-xl bg-white p-1 border border-stone-200 shadow-2xs">
+          {/* Filter Bar: Single Categories Dropdown Button + Search Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-stone-100/80 p-3 rounded-2xl border border-stone-200/80">
+            {/* Single "Categories" Dropdown Button */}
+            <div className="relative inline-block" ref={catDropdownRef}>
               <button
                 type="button"
-                onClick={() => {
-                  setCategoryType('drinks');
-                  setSelectedCat('all');
-                }}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-extrabold transition-all duration-150 cursor-pointer ${
-                  categoryType === 'drinks'
-                    ? 'bg-amber-500 text-stone-950 shadow-xs'
-                    : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
+                id="inventory-category-dropdown-btn"
+                onClick={() => setIsCatDropdownOpen((prev) => !prev)}
+                className={`flex items-center justify-between sm:justify-start gap-2.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-150 border cursor-pointer shadow-2xs w-full sm:w-auto ${
+                  isCatDropdownOpen
+                    ? 'bg-stone-900 text-white border-stone-900 ring-2 ring-amber-500/30'
+                    : 'bg-white text-stone-800 border-stone-300 hover:border-amber-500 hover:bg-stone-50'
                 }`}
+                title="Filter inventory by category"
               >
-                <Coffee className="h-4 w-4" />
-                <span>Drinks</span>
-                <span
-                  className={`text-[10px] font-mono px-1.5 py-0.2 rounded-md ${
-                    categoryType === 'drinks' ? 'bg-stone-950/15 text-stone-950' : 'bg-stone-100 text-stone-500'
+                <div className="flex items-center gap-2">
+                  <span className={isCatDropdownOpen ? 'text-amber-400' : 'text-amber-600'}>
+                    {categoryType === 'drinks' && selectedCat === 'all' ? (
+                      <Coffee className="h-4 w-4" />
+                    ) : categoryType === 'food' && selectedCat === 'all' ? (
+                      <Utensils className="h-4 w-4" />
+                    ) : selectedCat !== 'all' ? (
+                      (() => {
+                        const cat = categories.find((c) => c.id === selectedCat);
+                        return cat ? renderCategoryIcon(cat.name, isDrinkCategory(cat), cat.icon) : <Layers className="h-4 w-4" />;
+                      })()
+                    ) : (
+                      <Layers className="h-4 w-4" />
+                    )}
+                  </span>
+                  <span className="font-extrabold text-stone-900 ${isCatDropdownOpen ? 'text-white' : ''}">Categories:</span>
+                  <span
+                    className={`rounded-lg px-2.5 py-0.5 text-xs font-black transition ${
+                      isCatDropdownOpen
+                        ? 'bg-amber-500 text-stone-950'
+                        : 'bg-amber-100 text-amber-950'
+                    }`}
+                  >
+                    {currentCategoryLabel}
+                  </span>
+                </div>
+
+                <ChevronDown
+                  className={`h-4 w-4 shrink-0 transition-transform duration-200 ${
+                    isCatDropdownOpen ? 'rotate-180 text-amber-400' : 'text-stone-400'
                   }`}
-                >
-                  {drinkCategories.length}
-                </span>
+                />
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setCategoryType('food');
-                  setSelectedCat('all');
-                }}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-extrabold transition-all duration-150 cursor-pointer ${
-                  categoryType === 'food'
-                    ? 'bg-amber-500 text-stone-950 shadow-xs'
-                    : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
-                }`}
-              >
-                <Utensils className="h-4 w-4" />
-                <span>Food</span>
-                <span
-                  className={`text-[10px] font-mono px-1.5 py-0.2 rounded-md ${
-                    categoryType === 'food' ? 'bg-stone-950/15 text-stone-950' : 'bg-stone-100 text-stone-500'
-                  }`}
+              {/* Dropdown Menu (Collapsible) */}
+              {isCatDropdownOpen && (
+                <div
+                  id="inventory-category-dropdown-menu"
+                  className="absolute left-0 top-full mt-2 z-50 w-72 sm:w-80 max-h-[75vh] overflow-y-auto rounded-2xl border border-stone-200 bg-white p-2 shadow-2xl animate-in fade-in zoom-in-95 duration-150 divide-y divide-stone-100"
                 >
-                  {foodCategories.length}
-                </span>
-              </button>
+                  {/* Primary High-Level Filters (All / Drinks / Food) */}
+                  <div className="p-1 space-y-1">
+                    <div className="text-[10px] font-black uppercase tracking-wider text-stone-400 px-2 py-1">
+                      Primary Filters
+                    </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setCategoryType('all');
-                  setSelectedCat('all');
-                }}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-all duration-150 cursor-pointer ${
-                  categoryType === 'all'
-                    ? 'bg-amber-500 text-stone-950 shadow-xs font-extrabold'
-                    : 'text-stone-500 hover:text-stone-900 hover:bg-stone-50'
-                }`}
-              >
-                <span>All Items</span>
-              </button>
+                    {/* All Categories / All Items */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCategoryType('all');
+                        setSelectedCat('all');
+                        setIsCatDropdownOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-bold transition cursor-pointer ${
+                        selectedCat === 'all' && categoryType === 'all'
+                          ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
+                          : 'text-stone-700 hover:bg-stone-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Layers className="h-4 w-4 text-amber-600" />
+                        <span>All Categories</span>
+                      </div>
+                      <span
+                        className={`font-mono text-[10px] px-1.5 py-0.2 rounded-md ${
+                          selectedCat === 'all' && categoryType === 'all'
+                            ? 'bg-stone-950/20 text-stone-950 font-bold'
+                            : 'bg-stone-100 text-stone-500'
+                        }`}
+                      >
+                        {items.length}
+                      </span>
+                    </button>
+
+                    {/* Drinks (All) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCategoryType('drinks');
+                        setSelectedCat('all');
+                        setIsCatDropdownOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-bold transition cursor-pointer ${
+                        selectedCat === 'all' && categoryType === 'drinks'
+                          ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
+                          : 'text-stone-700 hover:bg-stone-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Coffee className="h-4 w-4 text-amber-700" />
+                        <span>Drinks</span>
+                      </div>
+                      <span
+                        className={`font-mono text-[10px] px-1.5 py-0.2 rounded-md ${
+                          selectedCat === 'all' && categoryType === 'drinks'
+                            ? 'bg-stone-950/20 text-stone-950 font-bold'
+                            : 'bg-stone-100 text-stone-500'
+                        }`}
+                      >
+                        {items.filter((i) => {
+                          const c = categories.find((cat) => cat.id === i.categoryId);
+                          return c && isDrinkCategory(c);
+                        }).length}
+                      </span>
+                    </button>
+
+                    {/* Food (All) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCategoryType('food');
+                        setSelectedCat('all');
+                        setIsCatDropdownOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-bold transition cursor-pointer ${
+                        selectedCat === 'all' && categoryType === 'food'
+                          ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
+                          : 'text-stone-700 hover:bg-stone-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Utensils className="h-4 w-4 text-amber-800" />
+                        <span>Food</span>
+                      </div>
+                      <span
+                        className={`font-mono text-[10px] px-1.5 py-0.2 rounded-md ${
+                          selectedCat === 'all' && categoryType === 'food'
+                            ? 'bg-stone-950/20 text-stone-950 font-bold'
+                            : 'bg-stone-100 text-stone-500'
+                        }`}
+                      >
+                        {items.filter((i) => {
+                          const c = categories.find((cat) => cat.id === i.categoryId);
+                          return c && !isDrinkCategory(c);
+                        }).length}
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* Drink Subcategories */}
+                  {drinkCategories.length > 0 && (
+                    <div className="p-1 space-y-1">
+                      <div className="text-[10px] font-black uppercase tracking-wider text-stone-400 px-2 py-1 flex items-center justify-between">
+                        <span>☕ Drinks ({drinkCategories.length})</span>
+                      </div>
+                      <div className="space-y-0.5 max-h-48 overflow-y-auto pr-1">
+                        {drinkCategories.map((cat) => {
+                          const isSelected = selectedCat === cat.id;
+                          const count = items.filter((i) => i.categoryId === cat.id).length;
+                          return (
+                            <button
+                              key={cat.id}
+                              type="button"
+                              onClick={() => {
+                                setCategoryType('drinks');
+                                setSelectedCat(cat.id);
+                                setIsCatDropdownOpen(false);
+                              }}
+                              className={`w-full flex items-center justify-between rounded-xl px-3 py-1.5 text-xs transition cursor-pointer ${
+                                isSelected
+                                  ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
+                                  : 'text-stone-700 hover:bg-stone-100 font-medium'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 truncate">
+                                <span className={isSelected ? 'text-stone-950' : 'text-stone-500'}>
+                                  {renderCategoryIcon(cat.name, true, cat.icon)}
+                                </span>
+                                <span className="truncate">{cat.name}</span>
+                              </div>
+                              <span
+                                className={`font-mono text-[10px] px-1.5 py-0.2 rounded-md shrink-0 ml-2 ${
+                                  isSelected
+                                    ? 'bg-stone-950/20 text-stone-950 font-bold'
+                                    : 'bg-stone-100 text-stone-500'
+                                }`}
+                              >
+                                {count}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Food Subcategories */}
+                  {foodCategories.length > 0 && (
+                    <div className="p-1 space-y-1">
+                      <div className="text-[10px] font-black uppercase tracking-wider text-stone-400 px-2 py-1 flex items-center justify-between">
+                        <span>🍽️ Food ({foodCategories.length})</span>
+                      </div>
+                      <div className="space-y-0.5 max-h-48 overflow-y-auto pr-1">
+                        {foodCategories.map((cat) => {
+                          const isSelected = selectedCat === cat.id;
+                          const count = items.filter((i) => i.categoryId === cat.id).length;
+                          return (
+                            <button
+                              key={cat.id}
+                              type="button"
+                              onClick={() => {
+                                setCategoryType('food');
+                                setSelectedCat(cat.id);
+                                setIsCatDropdownOpen(false);
+                              }}
+                              className={`w-full flex items-center justify-between rounded-xl px-3 py-1.5 text-xs transition cursor-pointer ${
+                                isSelected
+                                  ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
+                                  : 'text-stone-700 hover:bg-stone-100 font-medium'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 truncate">
+                                <span className={isSelected ? 'text-stone-950' : 'text-stone-500'}>
+                                  {renderCategoryIcon(cat.name, false, cat.icon)}
+                                </span>
+                                <span className="truncate">{cat.name}</span>
+                              </div>
+                              <span
+                                className={`font-mono text-[10px] px-1.5 py-0.2 rounded-md shrink-0 ml-2 ${
+                                  isSelected
+                                    ? 'bg-stone-950/20 text-stone-950 font-bold'
+                                    : 'bg-stone-100 text-stone-500'
+                                }`}
+                              >
+                                {count}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Add New Category Shortcut in Dropdown */}
+                  <div className="p-1 pt-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCatDropdownOpen(false);
+                        handleOpenAddCategory(categoryType === 'food' ? 'food' : 'drinks');
+                      }}
+                      className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-stone-300 bg-stone-50/80 px-3 py-2 text-xs font-bold text-amber-900 hover:bg-amber-50 hover:border-amber-400 transition cursor-pointer"
+                    >
+                      <Plus className="h-3.5 w-3.5 text-amber-600" />
+                      <span>Add New Category</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Search Bar */}
-            <div className="relative w-full md:w-80">
-              <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-stone-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={`Search ${categoryType === 'drinks' ? 'drinks' : categoryType === 'food' ? 'food' : 'all items'}...`}
-                className="w-full rounded-xl border border-stone-300 bg-white pl-10 pr-4 py-2 text-xs text-stone-900 focus:border-amber-500 focus:outline-none shadow-2xs"
-              />
-              {searchQuery && (
+            {/* Search Bar & Reset */}
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-72">
+                <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-stone-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={`Search ${currentCategoryLabel.toLowerCase()}...`}
+                  className="w-full rounded-xl border border-stone-300 bg-white pl-10 pr-8 py-2 text-xs text-stone-900 focus:border-amber-500 focus:outline-none shadow-2xs"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-2.5 text-stone-400 hover:text-stone-600"
+                    title="Clear search"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
+              {(selectedCat !== 'all' || categoryType !== 'all' || searchQuery) && (
                 <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-2.5 text-stone-400 hover:text-stone-600"
+                  type="button"
+                  onClick={() => {
+                    setCategoryType('all');
+                    setSelectedCat('all');
+                    setSearchQuery('');
+                  }}
+                  className="shrink-0 rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-bold text-stone-600 hover:bg-stone-100 hover:text-stone-900 transition cursor-pointer"
+                  title="Reset all filters"
                 >
-                  <X className="h-4 w-4" />
+                  Reset
                 </button>
               )}
             </div>
-          </div>
-
-          {/* Subcategory Filter Tabs with Inline Edit Shortcut */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-            <button
-              onClick={() => setSelectedCat('all')}
-              className={`shrink-0 flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition cursor-pointer ${
-                selectedCat === 'all'
-                  ? 'bg-amber-500 text-stone-950 font-extrabold shadow-xs'
-                  : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
-              }`}
-            >
-              <span>
-                {categoryType === 'drinks'
-                  ? 'All Drinks'
-                  : categoryType === 'food'
-                  ? 'All Food'
-                  : 'All Categories'}
-              </span>
-              <span
-                className={`text-[10px] font-mono px-1.5 py-0.2 rounded-md ${
-                  selectedCat === 'all'
-                    ? 'bg-stone-950/20 text-stone-950 font-bold'
-                    : 'bg-stone-100 text-stone-600'
-                }`}
-              >
-                {categoryType === 'drinks'
-                  ? items.filter((i) => {
-                      const c = categories.find((cat) => cat.id === i.categoryId);
-                      return c && isDrinkCategory(c);
-                    }).length
-                  : categoryType === 'food'
-                  ? items.filter((i) => {
-                      const c = categories.find((cat) => cat.id === i.categoryId);
-                      return c && !isDrinkCategory(c);
-                    }).length
-                  : items.length}
-              </span>
-            </button>
-
-            {activeCategoriesList.map((cat) => {
-              const isSelected = selectedCat === cat.id;
-              const isDrink = isDrinkCategory(cat);
-              const count = items.filter((i) => i.categoryId === cat.id).length;
-
-              return (
-                <div
-                  key={cat.id}
-                  className={`shrink-0 flex items-center rounded-xl border transition ${
-                    isSelected
-                      ? 'bg-amber-500 text-stone-950 font-extrabold border-amber-500 shadow-xs'
-                      : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-50'
-                  }`}
-                >
-                  <button
-                    onClick={() => setSelectedCat(cat.id)}
-                    className="flex items-center gap-2 pl-3.5 pr-1.5 py-2 text-xs font-bold cursor-pointer"
-                  >
-                    <span className={isSelected ? 'text-stone-950' : 'text-stone-600'}>
-                      {renderCategoryIcon(cat.name, isDrink, cat.icon)}
-                    </span>
-                    <span>{cat.name}</span>
-                    <span
-                      className={`text-[10px] font-mono px-1.5 py-0.2 rounded-md ${
-                        isSelected
-                          ? 'bg-stone-950/20 text-stone-950 font-bold'
-                          : 'bg-stone-100 text-stone-500'
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  </button>
-
-                  {/* Inline Category Quick Edit button */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenEditCategory(cat);
-                    }}
-                    title={`Edit Category "${cat.name}"`}
-                    className={`pr-2.5 pl-1 py-2 text-stone-400 hover:text-stone-950 transition cursor-pointer ${
-                      isSelected ? 'text-stone-800 hover:text-stone-950' : 'text-stone-400 hover:text-amber-700'
-                    }`}
-                  >
-                    <Edit2 className="h-3 w-3" />
-                  </button>
-                </div>
-              );
-            })}
-
-            {/* Quick Add Category Chip */}
-            <button
-              onClick={() => handleOpenAddCategory(categoryType === 'food' ? 'food' : 'drinks')}
-              className="shrink-0 flex items-center gap-1.5 rounded-xl border border-dashed border-stone-300 bg-stone-50/70 hover:bg-amber-50 hover:border-amber-400 px-3 py-2 text-xs font-bold text-stone-600 hover:text-amber-900 transition cursor-pointer"
-              title="Add a new category in this section"
-            >
-              <Plus className="h-3.5 w-3.5 text-amber-600" />
-              <span>Add Category</span>
-            </button>
           </div>
 
           {/* Items Table */}
@@ -976,12 +1225,115 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ categories: 
               <table className="w-full text-left text-xs">
                 <thead className="bg-stone-50 border-b border-stone-200 text-stone-500 font-bold uppercase text-[10px]">
                   <tr>
-                    <th className="px-5 py-3.5">Product Name</th>
-                    <th className="px-5 py-3.5">Category</th>
-                    <th className="px-5 py-3.5">Temp</th>
-                    <th className="px-5 py-3.5 text-right">Price</th>
-                    <th className="px-5 py-3.5 text-center">Stock Qty</th>
-                    <th className="px-5 py-3.5 text-center">Status</th>
+                    {/* Product Name Column */}
+                    <th className="px-5 py-3.5">
+                      <button
+                        type="button"
+                        onClick={() => handleSort('name')}
+                        className="group inline-flex items-center gap-1.5 font-bold uppercase hover:text-stone-900 transition cursor-pointer"
+                      >
+                        <span>Product Name</span>
+                        <span className={`transition-colors ${sortField === 'name' ? 'text-amber-600' : 'text-stone-300 group-hover:text-stone-500'}`}>
+                          {sortField === 'name' ? (
+                            sortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                          ) : (
+                            <ArrowUpDown className="h-3 w-3" />
+                          )}
+                        </span>
+                      </button>
+                    </th>
+
+                    {/* Category Column */}
+                    <th className="px-5 py-3.5">
+                      <button
+                        type="button"
+                        onClick={() => handleSort('category')}
+                        className="group inline-flex items-center gap-1.5 font-bold uppercase hover:text-stone-900 transition cursor-pointer"
+                      >
+                        <span>Category</span>
+                        <span className={`transition-colors ${sortField === 'category' ? 'text-amber-600' : 'text-stone-300 group-hover:text-stone-500'}`}>
+                          {sortField === 'category' ? (
+                            sortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                          ) : (
+                            <ArrowUpDown className="h-3 w-3" />
+                          )}
+                        </span>
+                      </button>
+                    </th>
+
+                    {/* Price Column */}
+                    <th className="px-5 py-3.5 text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleSort('price')}
+                        className="group inline-flex items-center gap-1.5 font-bold uppercase hover:text-stone-900 transition cursor-pointer ml-auto"
+                      >
+                        <span>Price</span>
+                        <span className={`transition-colors ${sortField === 'price' ? 'text-amber-600' : 'text-stone-300 group-hover:text-stone-500'}`}>
+                          {sortField === 'price' ? (
+                            sortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                          ) : (
+                            <ArrowUpDown className="h-3 w-3" />
+                          )}
+                        </span>
+                      </button>
+                    </th>
+
+                    {/* Stock Qty Column */}
+                    <th className="px-5 py-3.5 text-center">
+                      <button
+                        type="button"
+                        onClick={() => handleSort('quantity')}
+                        className="group inline-flex items-center gap-1.5 font-bold uppercase hover:text-stone-900 transition cursor-pointer mx-auto"
+                      >
+                        <span>Stock Qty</span>
+                        <span className={`transition-colors ${sortField === 'quantity' ? 'text-amber-600' : 'text-stone-300 group-hover:text-stone-500'}`}>
+                          {sortField === 'quantity' ? (
+                            sortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                          ) : (
+                            <ArrowUpDown className="h-3 w-3" />
+                          )}
+                        </span>
+                      </button>
+                    </th>
+
+                    {/* Last Sale Column */}
+                    <th className="px-5 py-3.5">
+                      <button
+                        type="button"
+                        onClick={() => handleSort('lastSale')}
+                        className="group inline-flex items-center gap-1.5 font-bold uppercase hover:text-stone-900 transition cursor-pointer"
+                      >
+                        <span>Last Sale</span>
+                        <span className={`transition-colors ${sortField === 'lastSale' ? 'text-amber-600' : 'text-stone-300 group-hover:text-stone-500'}`}>
+                          {sortField === 'lastSale' ? (
+                            sortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                          ) : (
+                            <ArrowUpDown className="h-3 w-3" />
+                          )}
+                        </span>
+                      </button>
+                    </th>
+
+                    {/* Status Column */}
+                    <th className="px-5 py-3.5 text-center">
+                      <button
+                        type="button"
+                        onClick={() => handleSort('status')}
+                        className="group inline-flex items-center gap-1.5 font-bold uppercase hover:text-stone-900 transition cursor-pointer mx-auto"
+                      >
+                        <span>Status</span>
+                        <span className={`transition-colors ${sortField === 'status' ? 'text-amber-600' : 'text-stone-300 group-hover:text-stone-500'}`}>
+                          {sortField === 'status' ? (
+                            sortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                          ) : (
+                            <ArrowUpDown className="h-3 w-3" />
+                          )}
+                        </span>
+                      </button>
+                    </th>
+
+                    {/* Actions Column */}
                     <th className="px-5 py-3.5 text-center">Actions</th>
                   </tr>
                 </thead>
@@ -1000,6 +1352,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ categories: 
                     paginatedItems.map((item) => {
                       const cat = categories.find((c) => c.id === item.categoryId);
                       const isDrink = cat ? isDrinkCategory(cat) : false;
+                      const lastSaleEntry = lastSaleMap.get(item.id);
 
                       return (
                         <tr key={item.id} className="hover:bg-stone-50/70 transition">
@@ -1008,23 +1361,18 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ categories: 
                               <img
                                 src={item.imageUrl || '/images/latte.webp'}
                                 alt={item.name}
-                                className="h-9 w-9 rounded-lg object-cover border border-stone-200"
+                                className="h-9 w-9 rounded-lg object-cover border border-stone-200 shrink-0"
                                 onError={(e) => {
                                   (e.target as HTMLImageElement).src = '/images/latte.webp';
                                 }}
                               />
-                              <div>
-                                <div className="font-bold text-stone-900 flex items-center gap-1.5">
-                                  <span>{item.name}</span>
-                                  {item.isBestSeller && (
-                                    <span className="rounded-full bg-amber-100 text-amber-800 text-[9px] font-extrabold px-1.5 py-0.2">
-                                      ⭐ Star
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-[11px] text-stone-400 line-clamp-1">
-                                  {item.description}
-                                </p>
+                              <div className="font-bold text-stone-900 flex items-center gap-1.5">
+                                <span>{item.name}</span>
+                                {item.isBestSeller && (
+                                  <span className="rounded-full bg-amber-100 text-amber-800 text-[9px] font-extrabold px-1.5 py-0.2">
+                                    ⭐ Star
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </td>
@@ -1045,22 +1393,32 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ categories: 
                               </span>
                             </div>
                           </td>
-                          <td className="px-5 py-3.5 uppercase text-[10px] text-stone-500 font-bold">
-                            {item.temperature}
-                          </td>
                           <td className="px-5 py-3.5 text-right font-mono font-bold text-stone-900">
                             ₱{item.price.toFixed(2)}
                           </td>
                           <td className="px-5 py-3.5 text-center font-mono font-bold">
                             <span
                               className={`rounded-lg px-2 py-0.5 ${
-                                item.quantity <= 5
-                                  ? 'bg-rose-100 text-rose-800'
+                                item.quantity <= 0
+                                  ? 'bg-rose-100 text-rose-800 border border-rose-200 font-extrabold'
+                                  : item.quantity <= (item.lowStockThreshold ?? 5)
+                                  ? 'bg-amber-100 text-amber-900 border border-amber-300 font-extrabold'
                                   : 'bg-stone-100 text-stone-800'
                               }`}
                             >
                               {item.quantity}
                             </span>
+                          </td>
+                          <td className="px-5 py-3.5 whitespace-nowrap">
+                            {lastSaleEntry ? (
+                              <div className="font-mono text-xs font-bold text-stone-700">
+                                {formatLastSale(lastSaleEntry.dateStr)}
+                              </div>
+                            ) : (
+                              <span className="text-[11px] font-medium text-stone-400 italic">
+                                Never ordered
+                              </span>
+                            )}
                           </td>
                           <td className="px-5 py-3.5 text-center">
                             <button
@@ -1076,6 +1434,13 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ categories: 
                           </td>
                           <td className="px-5 py-3.5 text-center">
                             <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => handleOpenQuickRestock(item)}
+                                className="rounded-lg p-1.5 text-amber-600 hover:bg-amber-50 hover:text-amber-800 transition cursor-pointer"
+                                title="Quick Restock"
+                              >
+                                <PackagePlus className="h-4 w-4" />
+                              </button>
                               <button
                                 onClick={() => handleOpenEditItem(item)}
                                 className="rounded-lg p-1.5 text-stone-500 hover:bg-stone-100 hover:text-stone-900 cursor-pointer"
@@ -1910,6 +2275,183 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ categories: 
           activeStaff={AppStore.getActiveStaff()}
           onNavigateToInventory={() => setIsLowStockModalOpen(false)}
         />
+      )}
+
+      {/* QUICK RESTOCK MODAL */}
+      {quickRestockItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-stone-200 animate-in fade-in zoom-in duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3.5">
+              <div className="flex items-center gap-2.5">
+                <div className="rounded-xl bg-amber-100 p-2 text-amber-700">
+                  <PackagePlus className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-display text-base font-bold text-stone-900">
+                    Quick Restock
+                  </h3>
+                  <p className="text-[11px] text-stone-500">
+                    Add inventory units to this menu item
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setQuickRestockItem(null)}
+                className="rounded-full p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700 transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Product Card Summary */}
+            <div className="mt-4 flex items-center gap-3.5 rounded-2xl bg-stone-50 p-3.5 border border-stone-200">
+              <img
+                src={quickRestockItem.imageUrl || '/images/latte.webp'}
+                alt={quickRestockItem.name}
+                className="h-12 w-12 rounded-xl object-cover border border-stone-200 shrink-0"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/images/latte.webp';
+                }}
+              />
+              <div className="min-w-0 flex-1">
+                <h4 className="font-bold text-stone-900 text-sm truncate">
+                  {quickRestockItem.name}
+                </h4>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[10px] font-bold text-stone-500 uppercase">
+                    {categories.find((c) => c.id === quickRestockItem.categoryId)?.name || 'Category'}
+                  </span>
+                  <span className="text-stone-300">•</span>
+                  <span className="font-mono text-xs font-bold text-stone-700">
+                    ₱{quickRestockItem.price.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <span className="text-[10px] text-stone-400 font-bold block uppercase">Current</span>
+                <span
+                  className={`inline-block rounded-lg px-2 py-0.5 font-mono text-xs font-bold ${
+                    quickRestockItem.quantity <= 0
+                      ? 'bg-rose-100 text-rose-800'
+                      : quickRestockItem.quantity <= (quickRestockItem.lowStockThreshold ?? 5)
+                      ? 'bg-amber-100 text-amber-900'
+                      : 'bg-stone-200 text-stone-800'
+                  }`}
+                >
+                  {quickRestockItem.quantity} units
+                </span>
+              </div>
+            </div>
+
+            <form onSubmit={handleApplyQuickRestock} className="mt-5 space-y-4">
+              {/* Stepper / Up Stock Down */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 uppercase mb-2">
+                  Restock Amount (Units to Add)
+                </label>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setRestockQty((prev) => Math.max(1, prev - 1))}
+                    disabled={restockQty <= 1}
+                    className="flex h-12 w-12 items-center justify-center rounded-2xl border border-stone-300 bg-stone-50 text-stone-700 hover:bg-stone-100 hover:text-stone-900 active:scale-95 transition disabled:opacity-40 disabled:pointer-events-none cursor-pointer shadow-xs"
+                    title="Down Stock (-1)"
+                  >
+                    <Minus className="h-5 w-5" />
+                  </button>
+
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      min={1}
+                      value={restockQty}
+                      onChange={(e) => setRestockQty(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="h-12 w-full rounded-2xl border-2 border-amber-500 bg-amber-50/40 text-center font-mono text-xl font-black text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                    />
+                    <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-amber-700/70">
+                      units
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setRestockQty((prev) => prev + 1)}
+                    className="flex h-12 w-12 items-center justify-center rounded-2xl border border-stone-300 bg-stone-50 text-stone-700 hover:bg-stone-100 hover:text-stone-900 active:scale-95 transition cursor-pointer shadow-xs"
+                    title="Up Stock (+1)"
+                  >
+                    <Plus className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Add Presets: +1, +2, +5, +10, +20 */}
+              <div>
+                <label className="block text-[11px] font-bold text-stone-500 uppercase mb-1.5">
+                  Quick Add Presets
+                </label>
+                <div className="grid grid-cols-5 gap-2">
+                  {[
+                    { label: '+1', val: 1 },
+                    { label: '+2', val: 2 },
+                    { label: '+5', val: 5 },
+                    { label: '+10', val: 10 },
+                    { label: '+20', val: 20 },
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setRestockQty((prev) => prev + preset.val)}
+                      className="group flex flex-col items-center justify-center rounded-xl border border-stone-200 bg-white py-2 text-xs font-extrabold text-stone-800 hover:border-amber-500 hover:bg-amber-50/80 hover:text-amber-900 active:scale-95 transition cursor-pointer shadow-2xs"
+                    >
+                      <span className="font-mono">{preset.label}</span>
+                      <span className="text-[9px] text-stone-400 group-hover:text-amber-700 font-semibold">
+                        Add
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Stock Calculation Preview */}
+              <div className="rounded-2xl bg-amber-500/10 border border-amber-500/20 p-3.5 flex items-center justify-between text-xs">
+                <div className="space-y-0.5">
+                  <div className="text-stone-600 font-medium">
+                    Current: <strong className="font-mono text-stone-900">{quickRestockItem.quantity}</strong> + Adding:{' '}
+                    <strong className="font-mono text-amber-800">+{restockQty}</strong>
+                  </div>
+                  <div className="text-[11px] text-stone-500">
+                    Stock status will update to <strong className="text-emerald-700">Available</strong>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-bold text-amber-900 uppercase block">New Total</span>
+                  <span className="font-mono text-base font-black text-amber-950">
+                    {quickRestockItem.quantity + restockQty} units
+                  </span>
+                </div>
+              </div>
+
+              {/* Actions Footer */}
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setQuickRestockItem(null)}
+                  className="rounded-xl border border-stone-200 px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 py-2.5 text-xs font-extrabold text-stone-950 shadow-md hover:bg-amber-400 active:scale-98 transition cursor-pointer"
+                >
+                  <PackagePlus className="h-4 w-4" />
+                  <span>Apply Restock (+{restockQty})</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

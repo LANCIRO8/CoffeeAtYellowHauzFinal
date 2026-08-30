@@ -669,10 +669,10 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
       </div>
 
       {/* KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-xs">
           <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">
-            Net Revenue {cashierFilter !== 'all' ? `(${cashierFilter})` : `(${channelFilter.replace('_', ' ')})`}
+            Revenue {cashierFilter !== 'all' ? `(${cashierFilter})` : `(${channelFilter.replace('_', ' ')})`}
           </span>
           <div className="mt-2 font-display text-2xl font-extrabold text-amber-900 font-mono">
             ₱{netRevenue.toFixed(2)}
@@ -684,17 +684,7 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
 
         <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-xs">
           <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">
-            Gross Subtotal
-          </span>
-          <div className="mt-2 font-display text-2xl font-extrabold text-stone-900 font-mono">
-            ₱{grossSales.toFixed(2)}
-          </div>
-          <p className="mt-1 text-[11px] text-stone-500">Before discounts &amp; VAT</p>
-        </div>
-
-        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">
-            VAT Collected (12%)
+            TAX
           </span>
           <div className="mt-2 font-display text-2xl font-extrabold text-stone-900 font-mono">
             ₱{totalTax.toFixed(2)}

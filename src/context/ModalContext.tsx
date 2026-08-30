@@ -193,21 +193,21 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (kind === 'prompt') {
       if (modal && 'badge' in modal && modal.badge === 'admin') {
         return (
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-500/10 text-amber-600 ring-8 ring-amber-500/5">
-            <Lock className="h-6 w-6 stroke-[2.2]" />
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-500/10 text-amber-600 ring-4 ring-amber-500/5">
+            <Lock className="h-5 w-5 stroke-[2.2]" />
           </div>
         );
       }
       if (modal && 'badge' in modal && modal.badge === 'discount') {
         return (
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-500/10 text-amber-600 ring-8 ring-amber-500/5">
-            <Percent className="h-6 w-6 stroke-[2.2]" />
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-500/10 text-amber-600 ring-4 ring-amber-500/5">
+            <Percent className="h-5 w-5 stroke-[2.2]" />
           </div>
         );
       }
       return (
-        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-stone-100 text-stone-700 ring-8 ring-stone-100/50">
-          <HelpCircle className="h-6 w-6 stroke-[2.2]" />
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-stone-100 text-stone-700 ring-4 ring-stone-100/50">
+          <HelpCircle className="h-5 w-5 stroke-[2.2]" />
         </div>
       );
     }
@@ -215,28 +215,28 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     switch (type) {
       case 'success':
         return (
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-emerald-50 text-emerald-600 ring-8 ring-emerald-50/50">
-            <CheckCircle2 className="h-6 w-6 stroke-[2.2]" />
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-600 ring-4 ring-emerald-50/50">
+            <CheckCircle2 className="h-5 w-5 stroke-[2.2]" />
           </div>
         );
       case 'error':
       case 'danger':
         return (
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-rose-50 text-rose-600 ring-8 ring-rose-50/50">
-            <AlertCircle className="h-6 w-6 stroke-[2.2]" />
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-rose-50 text-rose-600 ring-4 ring-rose-50/50">
+            <AlertCircle className="h-5 w-5 stroke-[2.2]" />
           </div>
         );
       case 'warning':
         return (
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-50 text-amber-600 ring-8 ring-amber-50/50">
-            <AlertTriangle className="h-6 w-6 stroke-[2.2]" />
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-600 ring-4 ring-amber-50/50">
+            <AlertTriangle className="h-5 w-5 stroke-[2.2]" />
           </div>
         );
       case 'info':
       default:
         return (
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-sky-50 text-sky-600 ring-8 ring-sky-50/50">
-            <Info className="h-6 w-6 stroke-[2.2]" />
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-sky-50 text-sky-600 ring-4 ring-sky-50/50">
+            <Info className="h-5 w-5 stroke-[2.2]" />
           </div>
         );
     }
@@ -269,7 +269,7 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-              className="relative w-full max-w-md overflow-hidden rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl z-10"
+              className="relative w-full max-w-md overflow-hidden rounded-3xl border border-stone-200 bg-white p-5 sm:p-6 shadow-2xl z-10"
               role="dialog"
               aria-modal="true"
             >
@@ -281,22 +281,26 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   else if (modal.kind === 'confirm') handleConfirmAction(false);
                   else handlePromptCancel();
                 }}
-                className="absolute right-4 top-4 grid h-8 w-8 place-items-center rounded-xl text-stone-400 hover:bg-stone-100 hover:text-stone-700 transition-colors"
+                className="absolute right-4 top-4 grid h-8 w-8 place-items-center rounded-xl text-stone-400 hover:bg-stone-100 hover:text-stone-700 transition-colors cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
 
-              <div className="flex flex-col items-center text-center">
-                {renderIcon(modal.type || 'info', modal.kind)}
-
-                <h3 className="mt-4 text-xl font-bold font-display text-stone-900 tracking-tight">
-                  {modal.title}
-                </h3>
+              <div className="flex flex-col">
+                {/* Side-by-Side Header: Icon + Title */}
+                <div className="flex items-center gap-3 pr-7">
+                  {renderIcon(modal.type || 'info', modal.kind)}
+                  <h3 className="text-lg sm:text-xl font-bold font-display text-stone-900 tracking-tight leading-snug">
+                    {modal.title}
+                  </h3>
+                </div>
 
                 {modal.message && (
-                  <p className="mt-2 text-sm leading-relaxed text-stone-600 max-w-xs whitespace-pre-line">
-                    {modal.message}
-                  </p>
+                  <div className="mt-3.5 w-full text-left">
+                    <div className="rounded-2xl bg-stone-50 border border-stone-200/80 p-3.5 text-xs sm:text-sm leading-relaxed text-stone-700 whitespace-pre-line">
+                      {modal.message}
+                    </div>
+                  </div>
                 )}
 
                 {/* Prompt input field */}

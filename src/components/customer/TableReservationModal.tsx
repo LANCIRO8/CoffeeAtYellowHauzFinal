@@ -39,7 +39,7 @@ export const TableReservationModal: React.FC<TableReservationModalProps> = ({
   onRequireLogin,
   onNavigateAccount,
 }) => {
-  const { showAlert } = useModal();
+  const { showAlert, showConfirm } = useModal();
 
   // Form State
   const [customerName, setCustomerName] = useState(activeCustomer?.fullName || '');
@@ -76,7 +76,7 @@ export const TableReservationModal: React.FC<TableReservationModalProps> = ({
 
   if (!table) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Mandatory Customer Sign In Check
@@ -98,6 +98,18 @@ export const TableReservationModal: React.FC<TableReservationModalProps> = ({
         message: 'Please provide your full name and contact number for this booking.',
         type: 'warning',
       });
+      return;
+    }
+
+    const confirmed = await showConfirm({
+      title: 'Confirm Table Reservation',
+      message: `Please confirm your reservation for Table #${table.tableNumber} on ${date} at ${timeSlot} for ${guestCount} guest(s). Proceed with booking?`,
+      type: 'info',
+      confirmText: 'Yes, Confirm Reservation',
+      cancelText: 'Edit Details',
+    });
+
+    if (!confirmed) {
       return;
     }
 

@@ -1,36 +1,21 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Reservation, CustomerAccount, StoreSettings, VenueAddon } from '../../types';
+import React, { useState, useMemo } from 'react';
+import { Reservation, CustomerAccount, StoreSettings } from '../../types';
 import { AppStore } from '../../services/store';
 import { useModal } from '../../context/ModalContext';
 import {
-  Sparkles,
   Calendar,
   Clock,
   Users,
-  Wifi,
-  Tv,
-  Mic,
-  Volume2,
   CheckCircle,
   CheckCircle2,
   AlertCircle,
-  Phone,
-  User as UserIcon,
-  Lock,
   ShieldCheck,
-  LogIn,
   Layers,
-  Coffee,
-  Plus,
-  Info,
-  Building,
   CreditCard,
   QrCode,
   DollarSign,
-  Printer,
-  ChevronRight,
-  Maximize2,
-  FileText,
+  Info,
+  Lock,
 } from 'lucide-react';
 
 interface VenueReservationProps {
@@ -66,56 +51,6 @@ const SEATING_LAYOUTS = [
   { id: 'lounge', name: 'Casual Lounge & Circle', pax: '10-15 Pax', desc: 'Armchairs, cozy sofas & coffee tables' },
 ];
 
-const AVAILABLE_ADDONS: { id: string; name: string; description: string; price: number }[] = [
-  {
-    id: 'coffee_dispenser',
-    name: 'Fresh Brewed Coffee Carafe (10-12 Cups)',
-    description: 'Freshly brewed Yellow Hauz signature house blend with cups, milk, and sweeteners',
-    price: 450,
-  },
-  {
-    id: 'pastry_platter',
-    name: 'Artisan Pastry Box (12 Pieces)',
-    description: 'Assorted bite-sized blueberry cheesecakes, banana muffins, and fudge brownies',
-    price: 380,
-  },
-  {
-    id: 'merienda_tray',
-    name: 'Sandwich Merienda Platter (10 Halves)',
-    description: 'Selection of grilled garlic cheese, chicken salad, and club sandwiches',
-    price: 550,
-  },
-  {
-    id: 'pizza_pack',
-    name: 'Double Pizza Special Combo',
-    description: '1 Yellow Hauz Special Pizza + 1 Three Cheese Pizza freshly baked from the oven',
-    price: 400,
-  },
-];
-
-const VENUE_PHOTOS = [
-  {
-    url: '/images/24_Modern_Cafe_Design.webp',
-    title: 'Private Event Studio Space',
-    desc: 'Spacious airconditioned nook with warm wooden accents',
-  },
-  {
-    url: '/images/28_Seating_Arrangement.webp',
-    title: 'Flexible Table Setup',
-    desc: 'Easily rearranged for workshops, meetings, or celebrations',
-  },
-  {
-    url: '/images/31_Cafe_Interior.webp',
-    title: 'Aesthetic Lighting & Ambiance',
-    desc: 'Customizable lighting suitable for photography and seminars',
-  },
-  {
-    url: '/images/34_Cozy_Seating.webp',
-    title: 'Comfortable Lounge Corner',
-    desc: 'Cozy breakout space for casual chats and coffee breaks',
-  },
-];
-
 export const VenueReservation: React.FC<VenueReservationProps> = ({
   settings,
   activeCustomer,
@@ -123,20 +58,15 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
   onRequireLogin,
   onNavigateAccount,
 }) => {
-  const { showAlert } = useModal();
+  const { showAlert, showConfirm } = useModal();
   const allReservations = useMemo(() => AppStore.getReservations(), []);
 
   // Form State
-  const [customerName, setCustomerName] = useState(activeCustomer?.fullName || '');
-  const [contactNumber, setContactNumber] = useState(activeCustomer?.contactNumber || '');
   const [guestCount, setGuestCount] = useState<number>(12);
   const [selectedDuration, setSelectedDuration] = useState<number>(3); // 3 hours standard
   const [eventType, setEventType] = useState<string>('🎨 Creative Workshop & Art Class');
   const [seatingLayout, setSeatingLayout] = useState<'boardroom' | 'classroom' | 'banquet' | 'lounge'>('classroom');
-  const [selectedAddons, setSelectedAddons] = useState<VenueAddon[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<'gcash' | 'cash' | 'card'>('gcash');
-  const [notes, setNotes] = useState('');
-  const [selectedPhotoIdx, setSelectedPhotoIdx] = useState(0);
 
   // Date and Time calculation
   const [date, setDate] = useState<string>(() => {
@@ -146,18 +76,6 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
   });
   const [timeSlot, setTimeSlot] = useState<string>('14:00'); // 2:00 PM
   const [confirmedReservation, setConfirmedReservation] = useState<Reservation | null>(null);
-
-  // Sync customer account info if available
-  useEffect(() => {
-    if (activeCustomer) {
-      if (!customerName || customerName.trim() === '') {
-        setCustomerName(activeCustomer.fullName);
-      }
-      if (!contactNumber || contactNumber.trim() === '') {
-        setContactNumber(activeCustomer.contactNumber || '');
-      }
-    }
-  }, [activeCustomer]);
 
   // Compute End Time based on selected duration
   const endTimeFormatted = useMemo(() => {
@@ -185,17 +103,10 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
 
   // Pricing calculations
   const baseRate = useMemo(() => {
-    // 3 hours = 300 pesos (100 pesos/hr)
     return selectedDuration === 3 ? 300 : selectedDuration * 100;
   }, [selectedDuration]);
 
-  const addonsTotal = useMemo(() => {
-    return selectedAddons.reduce((sum, item) => sum + item.price, 0);
-  }, [selectedAddons]);
-
-  const grandTotal = useMemo(() => {
-    return baseRate + addonsTotal;
-  }, [baseRate, addonsTotal]);
+  const grandTotal = baseRate;
 
   // Conflict Checking: Check if single venue is booked on this date & time range
   const conflictingBooking = useMemo(() => {
@@ -211,44 +122,21 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
       const resDurationHrs = res.venueDurationHours || 3;
       const resEnd = resStart + resDurationHrs * 3600000;
 
-      // Check overlap: StartA < EndB && EndA > StartB
       return targetStart < resEnd && targetEnd > resStart;
     });
   }, [date, timeSlot, selectedDuration, allReservations]);
 
-  const toggleAddon = (addon: { id: string; name: string; price: number }) => {
-    setSelectedAddons((prev) => {
-      const exists = prev.some((a) => a.id === addon.id);
-      if (exists) {
-        return prev.filter((a) => a.id !== addon.id);
-      } else {
-        return [...prev, { id: addon.id, name: addon.name, price: addon.price }];
-      }
-    });
-  };
-
-  const handleBookVenue = (e: React.FormEvent) => {
+  const handleBookVenue = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Mandatory Customer Sign In Check
+    // Check customer sign in requirement
     if (!activeCustomer) {
       showAlert({
         title: 'Sign In Required',
-        message: 'Please sign in or register a customer account before confirming your private venue reservation.',
+        message: 'Please sign in or create an account to reserve the private studio.',
         type: 'warning',
       });
-      if (onRequireLogin) {
-        onRequireLogin();
-      }
-      return;
-    }
-
-    if (!customerName.trim() || !contactNumber.trim()) {
-      showAlert({
-        title: 'Contact Information Required',
-        message: 'Please enter your name and phone number so our team can confirm your event booking.',
-        type: 'warning',
-      });
+      if (onRequireLogin) onRequireLogin();
       return;
     }
 
@@ -263,7 +151,22 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
       return;
     }
 
+    const confirmed = await showConfirm({
+      title: 'Confirm Studio Venue Booking',
+      message: `Please review your booking details:\n\n• Event: ${eventType}\n• Date & Time: ${date} at ${timeSlot}\n• Duration: ${selectedDuration} hours\n• Guests: ${guestCount} people\n• Total: ₱${grandTotal.toFixed(2)}\n\nConfirm this venue reservation?`,
+      type: 'info',
+      confirmText: 'Yes, Confirm Booking',
+      cancelText: 'Review Details',
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
     const reservationAt = `${date}T${timeSlot}:00`;
+    // Name and contact are populated directly from the authenticated customer account
+    const customerName = activeCustomer.fullName;
+    const contactNumber = activeCustomer.contactNumber || settings.shop_phone || 'N/A';
 
     const newVenueRes = AppStore.createReservation({
       bookingType: 'venue',
@@ -272,18 +175,17 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
       tableNumber: 99,
       venueDurationHours: selectedDuration,
       venueRate: baseRate,
-      venueAddons: selectedAddons,
+      venueAddons: [],
       totalAmount: grandTotal,
       eventType,
       seatingLayout,
       paymentStatus: paymentMethod === 'gcash' ? 'downpayment_paid' : 'unpaid',
       paymentMethod,
       customerId: activeCustomer.id,
-      customerName: customerName.trim(),
-      contactNumber: contactNumber.trim(),
+      customerName,
+      contactNumber,
       guestCount,
       reservationAt,
-      notes: notes.trim() || undefined,
     });
 
     setConfirmedReservation(newVenueRes);
@@ -388,23 +290,6 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
               </div>
             </div>
 
-            {/* Add-ons if any */}
-            {confirmedReservation.venueAddons && confirmedReservation.venueAddons.length > 0 && (
-              <div className="pt-2 border-t border-stone-200">
-                <span className="text-stone-400 font-bold uppercase block text-[10px] mb-1">
-                  Selected Food &amp; Beverage Add-ons
-                </span>
-                <div className="space-y-1">
-                  {confirmedReservation.venueAddons.map((ad, idx) => (
-                    <div key={idx} className="flex justify-between text-stone-700 font-medium">
-                      <span>• {ad.name}</span>
-                      <span className="font-mono font-bold">₱{ad.price.toFixed(2)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Total Fee & Payment */}
             <div className="pt-3 border-t border-stone-200 flex items-center justify-between">
               <div>
@@ -445,9 +330,8 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
           </div>
         </div>
       ) : (
-        /* Venue Booking Form & Showcase */
+        /* Venue Booking Form */
         <div className="space-y-8">
-          {/* Interactive Booking Form Layout */}
           <form onSubmit={handleBookVenue} className="grid gap-8 lg:grid-cols-[1.15fr_.85fr]">
             {/* Left Column: Booking Form Parameters */}
             <div className="space-y-6 rounded-3xl border border-stone-200 bg-white p-6 sm:p-8 shadow-xs">
@@ -645,166 +529,6 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                   </div>
                 </div>
               </div>
-
-              {/* Step 4: Optional Hospitality Add-ons */}
-              <div>
-                <h3 className="font-display text-base font-bold text-stone-900 flex items-center gap-2 border-b border-stone-100 pb-3 mb-3">
-                  <Coffee className="h-5 w-5 text-amber-600" />
-                  4. Hospitality &amp; Refreshment Add-ons (Optional)
-                </h3>
-
-                <div className="space-y-2">
-                  {AVAILABLE_ADDONS.map((addon) => {
-                    const isChecked = selectedAddons.some((a) => a.id === addon.id);
-                    return (
-                      <div
-                        key={addon.id}
-                        onClick={() => toggleAddon(addon)}
-                        className={`flex items-start justify-between gap-3 p-3 rounded-2xl border cursor-pointer transition select-none ${
-                          isChecked
-                            ? 'border-amber-500 bg-amber-50/80 shadow-2xs'
-                            : 'border-stone-200 bg-white hover:border-stone-300'
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => {}}
-                            className="mt-1 h-4 w-4 rounded border-stone-300 text-amber-600 focus:ring-amber-500"
-                          />
-                          <div>
-                            <span className="font-bold text-xs text-stone-900 block">{addon.name}</span>
-                            <span className="text-[11px] text-stone-500 block mt-0.5 leading-relaxed">
-                              {addon.description}
-                            </span>
-                          </div>
-                        </div>
-                        <span className="font-mono font-bold text-xs text-amber-900 shrink-0 bg-white px-2 py-1 rounded-lg border border-stone-200">
-                          +₱{addon.price}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Step 5: Customer Contact Info */}
-              <div>
-                <div className="flex items-center justify-between border-b border-stone-100 pb-3 mb-3">
-                  <h3 className="font-display text-base font-bold text-stone-900 flex items-center gap-2">
-                    <UserIcon className="h-5 w-5 text-amber-600" />
-                    5. Contact Information &amp; Account
-                  </h3>
-                  {activeCustomer ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                      <ShieldCheck className="h-3.5 w-3.5" />
-                      Signed In
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full">
-                      <Lock className="h-3 w-3" />
-                      Sign In Required
-                    </span>
-                  )}
-                </div>
-
-                {!activeCustomer ? (
-                  <div className="mb-4 rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-stone-50 p-4 shadow-xs">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-start gap-3">
-                        <div className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500 text-stone-950 shrink-0 shadow-xs">
-                          <Lock className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-bold text-stone-900 uppercase tracking-wide">
-                            Sign In Required to Reserve Venue
-                          </h4>
-                          <p className="text-xs text-stone-600 mt-0.5">
-                            Please sign in or create an account to record your booking voucher in your customer portal.
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={onRequireLogin}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-xs font-black text-stone-950 shadow-xs hover:bg-amber-400 transition shrink-0"
-                      >
-                        <LogIn className="h-4 w-4" />
-                        Sign In / Register
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="grid h-8 w-8 place-items-center rounded-full bg-emerald-200 text-emerald-900 font-bold text-xs">
-                        {activeCustomer.fullName.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="text-xs">
-                        <span className="font-bold text-stone-900 block">{activeCustomer.fullName}</span>
-                        <span className="text-stone-500">{activeCustomer.email}</span>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={onRequireLogin}
-                      className="text-[11px] font-bold text-stone-600 hover:text-stone-900 underline"
-                    >
-                      Switch Account
-                    </button>
-                  </div>
-                )}
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                      Full Name *
-                    </label>
-                    <div className="relative">
-                      <UserIcon className="absolute left-3.5 top-2.5 h-4 w-4 text-stone-400" />
-                      <input
-                        type="text"
-                        required
-                        value={customerName}
-                        onChange={(e) => setCustomerName(e.target.value)}
-                        placeholder="e.g. Maria Santos"
-                        className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-10 pr-4 py-2 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                      Phone Number *
-                    </label>
-                    <div className="relative">
-                      <Phone className="absolute left-3.5 top-2.5 h-4 w-4 text-stone-400" />
-                      <input
-                        type="tel"
-                        required
-                        value={contactNumber}
-                        onChange={(e) => setContactNumber(e.target.value)}
-                        placeholder="+63 917 123 4567"
-                        className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-10 pr-4 py-2 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-3">
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                    Special Setup Instructions / Requests
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="e.g. Need 2 extension cords for laptops, HDMI adapter for Mac, surprise birthday banner setup..."
-                    className="w-full rounded-xl border border-stone-300 bg-stone-50 p-3 text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
-                  />
-                </div>
-              </div>
             </div>
 
             {/* Right Column: Order Summary & Checkout Card */}
@@ -845,6 +569,12 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                     <span className="text-stone-500">Guests:</span>
                     <span className="font-bold text-stone-900">{guestCount} Pax</span>
                   </div>
+                  {activeCustomer && (
+                    <div className="flex justify-between pt-1 border-t border-stone-200">
+                      <span className="text-stone-500">Customer:</span>
+                      <span className="font-bold text-stone-900">{activeCustomer.fullName}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Itemized Price Breakdown */}
@@ -855,13 +585,6 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                     </span>
                     <span className="font-mono font-bold">₱{baseRate.toFixed(2)}</span>
                   </div>
-
-                  {selectedAddons.map((ad) => (
-                    <div key={ad.id} className="flex justify-between text-stone-600">
-                      <span className="truncate max-w-[200px]">• {ad.name}</span>
-                      <span className="font-mono font-bold">₱{ad.price.toFixed(2)}</span>
-                    </div>
-                  ))}
 
                   <div className="pt-2 border-t border-stone-200 flex justify-between items-baseline">
                     <span className="font-display font-bold text-sm text-stone-900">Total Amount:</span>
@@ -928,7 +651,7 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                   )}
                 </div>
 
-                {/* Submit Action */}
+                {/* Submit / Sign-in Action */}
                 {activeCustomer ? (
                   <button
                     type="submit"
@@ -936,7 +659,7 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                     className={`w-full rounded-2xl py-3.5 text-sm font-black transition shadow-md flex items-center justify-center gap-2 ${
                       conflictingBooking
                         ? 'bg-stone-300 text-stone-500 cursor-not-allowed'
-                        : 'bg-amber-500 text-stone-950 hover:bg-amber-400 active:scale-[0.99]'
+                        : 'bg-amber-500 text-stone-950 hover:bg-amber-400 active:scale-[0.99] cursor-pointer'
                     }`}
                   >
                     <CheckCircle className="h-4 w-4" />
@@ -948,15 +671,15 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                     onClick={() => {
                       showAlert({
                         title: 'Sign In Required',
-                        message: 'Please sign in or register to complete your private studio booking.',
+                        message: 'Please sign in or create an account to finalize and reserve the private studio.',
                         type: 'warning',
                       });
                       if (onRequireLogin) onRequireLogin();
                     }}
-                    className="w-full rounded-2xl bg-stone-950 py-3.5 text-sm font-extrabold text-amber-400 hover:bg-stone-800 transition flex items-center justify-center gap-2 shadow-md"
+                    className="w-full rounded-2xl bg-stone-950 py-3.5 text-sm font-extrabold text-amber-400 shadow-md hover:bg-stone-800 active:scale-[0.99] transition flex items-center justify-center gap-2"
                   >
                     <Lock className="h-4 w-4 text-amber-400" />
-                    Sign In to Book Venue
+                    Sign In to Reserve Studio
                   </button>
                 )}
 

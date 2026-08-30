@@ -58,6 +58,7 @@ export interface CustomerAccount {
   email: string;
   contactNumber: string;
   status: 'active' | 'inactive';
+  loyaltyPoints?: number;
   createdAt: string;
 }
 

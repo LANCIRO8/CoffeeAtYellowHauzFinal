@@ -83,6 +83,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Selected date filtering preset for executive metrics
   const [timeRange, setTimeRange] = useState<'today' | '7days' | '30days' | 'all'>('today');
+  const [dashboardChartTab, setDashboardChartTab] = useState<'category' | 'bestSellers'>('category');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Live collections from Store
@@ -405,7 +406,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
             <div>
               <div className="text-xs font-bold text-white">POS Register</div>
-              <div className="text-[10px] text-stone-400">Ring Orders</div>
             </div>
           </button>
 
@@ -426,7 +426,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </span>
                 )}
               </div>
-              <div className="text-[10px] text-stone-400">Active Kitchen</div>
             </div>
           </button>
 
@@ -440,7 +439,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
             <div>
               <div className="text-xs font-bold text-white">Floor Plan</div>
-              <div className="text-[10px] text-stone-400">{occupiedTables.length}/{tables.length} Occupied</div>
             </div>
           </button>
 
@@ -461,7 +459,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </span>
                 )}
               </div>
-              <div className="text-[10px] text-stone-400">{menuItems.length} Products</div>
             </div>
           </button>
 
@@ -475,7 +472,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
             <div>
               <div className="text-xs font-bold text-white">Sales Ledger</div>
-              <div className="text-[10px] text-stone-400">Reports & CSV</div>
             </div>
           </button>
 
@@ -489,7 +485,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
             <div>
               <div className="text-xs font-bold text-white">Store Config</div>
-              <div className="text-[10px] text-stone-400">Staff PINs & Tax</div>
             </div>
           </button>
         </div>
@@ -602,9 +597,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <Clock className="h-4 w-4 text-amber-600" />
                 Hourly Sales Trend & Rush Curve (Today)
               </h2>
-              <p className="text-xs text-stone-400 mt-0.5">
-                Track morning coffee surges, lunch peaks, and evening traffic.
-              </p>
             </div>
             <span className="text-xs font-mono font-bold bg-amber-50 text-amber-800 px-2.5 py-1 rounded-xl border border-amber-200/60 self-start sm:self-auto">
               Realtime POS & Online
@@ -647,21 +639,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         </div>
 
-        {/* Category Share Distribution */}
+        {/* Category & Best Seller Share Distribution */}
         <div className="rounded-3xl border border-stone-200 bg-white p-5 sm:p-6 shadow-xs flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-3">
               <h2 className="font-display text-base font-bold text-stone-900 flex items-center gap-2">
                 <Layers className="h-4 w-4 text-amber-600" />
-                Category Revenue Share
+                {dashboardChartTab === 'category' ? 'Category Share' : 'Top Items Share'}
               </h2>
+              <div className="flex items-center bg-stone-100 p-0.5 rounded-lg border border-stone-200 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setDashboardChartTab('category')}
+                  className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                    dashboardChartTab === 'category'
+                      ? 'bg-white text-stone-900 shadow-xs font-semibold'
+                      : 'text-stone-500 hover:text-stone-800'
+                  }`}
+                >
+                  Categories
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDashboardChartTab('bestSellers')}
+                  className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                    dashboardChartTab === 'bestSellers'
+                      ? 'bg-white text-stone-900 shadow-xs font-semibold'
+                      : 'text-stone-500 hover:text-stone-800'
+                  }`}
+                >
+                  Best Sellers
+                </button>
+              </div>
             </div>
-            <p className="text-xs text-stone-400 -mt-3 mb-4">
-              Revenue contribution per menu classification.
-            </p>
 
             <div className="h-48 w-full">
-              {categorySalesData.length === 0 ? (
+              {(dashboardChartTab === 'category' ? categorySalesData : topProducts).length === 0 ? (
                 <div className="h-full flex items-center justify-center text-xs text-stone-400">
                   No transaction data for this period
                 </div>
@@ -669,15 +682,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={categorySalesData}
+                      data={dashboardChartTab === 'category' ? categorySalesData : topProducts}
                       cx="50%"
                       cy="50%"
                       innerRadius={45}
                       outerRadius={75}
                       paddingAngle={4}
                       dataKey="revenue"
+                      nameKey="name"
                     >
-                      {categorySalesData.map((entry, index) => (
+                      {(dashboardChartTab === 'category' ? categorySalesData : topProducts).map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
@@ -698,7 +712,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           {/* Legend Items */}
           <div className="space-y-1.5 mt-2 max-h-36 overflow-y-auto no-scrollbar pt-2 border-t border-stone-100">
-            {categorySalesData.slice(0, 4).map((c, i) => (
+            {(dashboardChartTab === 'category' ? categorySalesData : topProducts).slice(0, 4).map((c, i) => (
               <div key={c.name} className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2 truncate">
                   <span
@@ -724,9 +738,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <ClipboardList className="h-4 w-4 text-amber-600" />
                 Live Orders & Receipts Stream
               </h2>
-              <p className="text-xs text-stone-400 mt-0.5">
-                Most recent orders across POS Register and Customer Online Storefront.
-              </p>
             </div>
 
             <button
@@ -821,19 +832,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-display text-base font-bold text-stone-900 flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-rose-600" />
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
                 Inventory Stock Alerts
               </h2>
               {lowStockItems.length > 0 && (
-                <span className="rounded-full bg-rose-100 text-rose-800 px-2 py-0.5 text-[10px] font-black">
-                  {lowStockItems.length} low
+                <span className="rounded-full bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 text-[10px] font-black">
+                  {lowStockItems.length} alerts
                 </span>
               )}
             </div>
-
-            <p className="text-xs text-stone-400 -mt-3 mb-4">
-              Products at or below safety reorder thresholds.
-            </p>
 
             {lowStockItems.length === 0 ? (
               <div className="rounded-2xl bg-emerald-50 border border-emerald-200/60 p-5 text-center my-4">
@@ -845,31 +852,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             ) : (
               <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
-                {lowStockItems.slice(0, 5).map((item) => (
-                  <div
-                    key={item.id}
-                    className="p-3 rounded-2xl border border-rose-100 bg-rose-50/40 flex items-center justify-between gap-2"
-                  >
-                    <div>
-                      <div className="text-xs font-bold text-stone-900">{item.name}</div>
-                      <div className="text-[11px] font-bold text-rose-700 mt-0.5">
-                        {item.quantity <= 0 ? (
-                          <span className="text-rose-700 font-extrabold uppercase">Out of Stock (0)</span>
-                        ) : (
-                          <span>Only {item.quantity} units left (Min: {item.lowStockThreshold ?? 5})</span>
-                        )}
-                      </div>
-                    </div>
-
-                    <button
-                      id={`admin-quick-restock-${item.id}`}
-                      onClick={() => handleQuickRestock(item)}
-                      className="px-2.5 py-1 rounded-xl bg-white border border-rose-200 text-rose-800 text-[11px] font-extrabold hover:bg-rose-100 transition shadow-2xs cursor-pointer shrink-0"
+                {lowStockItems.slice(0, 5).map((item) => {
+                  const isOut = item.quantity <= 0;
+                  return (
+                    <div
+                      key={item.id}
+                      className={`p-3 rounded-2xl border flex items-center justify-between gap-2 transition-all ${
+                        isOut
+                          ? 'border-rose-200 bg-rose-50/70'
+                          : 'border-amber-300 bg-amber-50/70'
+                      }`}
                     >
-                      +10 Restock
-                    </button>
-                  </div>
-                ))}
+                      <div>
+                        <div className="text-xs font-bold text-stone-900">{item.name}</div>
+                        <div className="text-[11px] font-bold mt-0.5">
+                          {isOut ? (
+                            <span className="text-rose-700 font-extrabold uppercase">Out of Stock (0 left)</span>
+                          ) : (
+                            <span className="text-amber-900 font-extrabold">
+                              Only {item.quantity} units left • Low Stock
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <button
+                        id={`admin-quick-restock-${item.id}`}
+                        onClick={() => handleQuickRestock(item)}
+                        className={`px-2.5 py-1 rounded-xl text-[11px] font-extrabold transition shadow-2xs cursor-pointer shrink-0 border ${
+                          isOut
+                            ? 'bg-white border-rose-200 text-rose-800 hover:bg-rose-100'
+                            : 'bg-amber-100 border-amber-300 text-amber-950 hover:bg-amber-200'
+                        }`}
+                      >
+                        +10 Restock
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -895,9 +915,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <Calendar className="h-4 w-4 text-amber-600" />
                 Table & Venue Reservations
               </h2>
-              <p className="text-xs text-stone-400 mt-0.5">
-                Upcoming guest bookings and private event reservations.
-              </p>
             </div>
 
             <button
@@ -992,9 +1009,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <Users className="h-4 w-4 text-amber-600" />
                 Staff & Cashier Shift Performance
               </h2>
-              <p className="text-xs text-stone-400 mt-0.5">
-                Transactions and volume rung up by staff members.
-              </p>
             </div>
 
             <button

@@ -66,29 +66,34 @@ export const CustomerOrderSubmittedModal: React.FC<CustomerOrderSubmittedModalPr
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="relative w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl border border-stone-200 animate-in zoom-in-95 duration-200">
         {/* Top Decorative Header */}
-        <div className="bg-gradient-to-br from-amber-500 via-amber-400 to-yellow-500 p-6 text-stone-950 text-center relative">
+        <div className="bg-gradient-to-br from-amber-500 via-amber-400 to-yellow-500 px-5 py-4 text-stone-950 relative">
           <button
             onClick={onClose}
             title="Close modal"
-            className="absolute top-4 right-4 rounded-full bg-black/10 hover:bg-black/20 p-1.5 text-stone-900 transition cursor-pointer"
+            className="absolute top-3 right-3 rounded-full bg-black/10 hover:bg-black/20 p-1.5 text-stone-900 transition cursor-pointer"
           >
             <X className="h-4 w-4" />
           </button>
 
-          <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-stone-950 text-amber-400 shadow-md mb-3">
-            {isLiveInHouse ? (
-              <Coffee className="h-7 w-7 stroke-[2.2] animate-bounce" />
-            ) : (
-              <Calendar className="h-7 w-7 stroke-[2.2] animate-pulse" />
-            )}
-          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 pr-7">
+            <div className="flex items-center gap-2.5">
+              <div className="grid h-9 w-9 place-items-center rounded-xl bg-stone-950 text-amber-400 shadow-md shrink-0">
+                {isLiveInHouse ? (
+                  <Coffee className="h-5 w-5 stroke-[2.2]" />
+                ) : (
+                  <Calendar className="h-5 w-5 stroke-[2.2]" />
+                )}
+              </div>
+              <h2 className="font-display text-lg sm:text-xl font-black tracking-tight">
+                {isLiveInHouse ? 'Live Order Placed!' : 'Advance Booking Confirmed!'}
+              </h2>
+            </div>
 
-          <h2 className="font-display text-2xl font-black tracking-tight">
-            {isLiveInHouse ? 'Live Order Placed!' : 'Advance Booking Confirmed!'}
-          </h2>
-          <p className="text-xs font-bold text-stone-900/80 mt-1">
-            Order Ref: <span className="font-mono text-stone-950 font-black">#{order.orderNumber}</span>
-          </p>
+            <div className="rounded-xl bg-stone-950/10 px-3 py-1 text-xs font-bold text-stone-900 border border-stone-950/15">
+              <span>Order Ref: </span>
+              <span className="font-mono text-stone-950 font-black">#{order.orderNumber}</span>
+            </div>
+          </div>
         </div>
 
         {/* Content Body */}

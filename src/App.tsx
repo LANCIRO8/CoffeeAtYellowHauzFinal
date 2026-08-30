@@ -31,6 +31,7 @@ import { ReceiptModal } from './components/ReceiptModal';
 import { CustomerOrderSubmittedModal } from './components/customer/CustomerOrderSubmittedModal';
 import { ChatbotModal } from './components/ChatbotModal';
 import { LowStockNotificationModal } from './components/pos/LowStockNotificationModal';
+import { CustomerCartDrawer } from './components/customer/CustomerCartDrawer';
 import { TableRequestModal } from './components/customer/TableRequestModal';
 import { ScannedTableModal } from './components/customer/ScannedTableModal';
 import { Bot, Coffee } from 'lucide-react';
@@ -50,7 +51,7 @@ function MainApp() {
   // App navigation state
   const [appMode, setAppMode] = useState<'customer' | 'staff'>('staff');
   const [customerTab, setCustomerTab] = useState<
-    'home' | 'menu' | 'orders' | 'reservation' | 'venue' | 'account'
+    'home' | 'menu' | 'orders' | 'reservation' | 'account'
   >('home');
   const [staffTab, setStaffTab] = useState<
     'dashboard' | 'pos' | 'tables' | 'tickets' | 'reports' | 'analytics' | 'inventory' | 'settings'
@@ -76,9 +77,26 @@ function MainApp() {
   const [manualTableModalOpen, setManualTableModalOpen] = useState(false);
   const lastHandledUrlTableRef = React.useRef<number | null>(null);
 
-  // Customer Cart state
-  const [customerCart, setCustomerCart] = useState<CartItem[]>([]);
+  // Customer Cart state (persisted across page reloads)
+  const [customerCart, setCustomerCart] = useState<CartItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('yh_customer_cart');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [isCustomerCartOpen, setIsCustomerCartOpen] = useState(false);
+  const [isCustomerCheckoutOpen, setIsCustomerCheckoutOpen] = useState(false);
+
+  // Synchronize cart with localStorage whenever customerCart updates
+  useEffect(() => {
+    try {
+      localStorage.setItem('yh_customer_cart', JSON.stringify(customerCart));
+    } catch (e) {
+      console.error('Failed to persist customer bag items:', e);
+    }
+  }, [customerCart]);
 
   const customerCartCount = useMemo(
     () => customerCart.reduce((sum, ci) => sum + ci.quantity, 0),
@@ -341,7 +359,7 @@ function MainApp() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 mx-auto w-full max-w-7xl px-2 sm:px-4 py-2 sm:py-3">
+      <main className="flex-1 mx-auto w-full max-w-7xl px-2 sm:px-4 py-2 sm:py-3 pb-20 sm:pb-3">
         {appMode === 'customer' ? (
           /* Customer Experience */
           <>
@@ -351,7 +369,6 @@ function MainApp() {
                 settings={settings}
                 onNavigateMenu={() => setCustomerTab('menu')}
                 onNavigateReservation={() => setCustomerTab('reservation')}
-                onNavigateVenue={() => setCustomerTab('venue')}
                 onNavigateOrders={() => setCustomerTab('orders')}
                 onAddToCart={(item) => {
                   handleCustomerAddToCart(item);
@@ -381,6 +398,8 @@ function MainApp() {
                 onRemoveItem={handleCustomerRemoveItem}
                 onClearCart={handleCustomerClearCart}
                 onUpdateItemInstructions={handleCustomerUpdateItemInstructions}
+                isCheckoutOpen={isCustomerCheckoutOpen}
+                onSetCheckoutOpen={setIsCustomerCheckoutOpen}
               />
             )}
 
@@ -409,20 +428,6 @@ function MainApp() {
               <CustomerReservation
                 settings={settings}
                 activeCustomer={activeCustomer}
-                mode="table"
-                onModeChange={(mode) => setCustomerTab(mode === 'venue' ? 'venue' : 'reservation')}
-                onReservationSuccess={() => refreshAppData()}
-                onRequireLogin={() => setIsCustomerLoginOpen(true)}
-                onNavigateAccount={() => setCustomerTab('account')}
-              />
-            )}
-
-            {customerTab === 'venue' && (
-              <CustomerReservation
-                settings={settings}
-                activeCustomer={activeCustomer}
-                mode="venue"
-                onModeChange={(mode) => setCustomerTab(mode === 'venue' ? 'venue' : 'reservation')}
                 onReservationSuccess={() => refreshAppData()}
                 onRequireLogin={() => setIsCustomerLoginOpen(true)}
                 onNavigateAccount={() => setCustomerTab('account')}
@@ -528,7 +533,34 @@ function MainApp() {
         )}
       </main>
 
-      {/* Modals */}
+      {/* Modals & Customer Cart Drawer */}
+      {appMode === 'customer' && (
+        <CustomerCartDrawer
+          isOpen={isCustomerCartOpen}
+          onToggle={() => setIsCustomerCartOpen((prev) => !prev)}
+          onClose={() => setIsCustomerCartOpen(false)}
+          cart={customerCart}
+          onUpdateQuantity={handleCustomerUpdateQuantity}
+          onRemoveItem={handleCustomerRemoveItem}
+          onClearCart={handleCustomerClearCart}
+          onUpdateItemInstructions={handleCustomerUpdateItemInstructions}
+          onAddToCart={handleCustomerAddToCart}
+          settings={settings}
+          activeTableBinding={activeTableBinding}
+          activeCustomer={activeCustomer}
+          onRequireLogin={() => setIsCustomerLoginOpen(true)}
+          onProceedToCheckout={() => {
+            if (!activeTableBinding && !activeCustomer) {
+              setIsCustomerLoginOpen(true);
+              return;
+            }
+            setIsCustomerCartOpen(false);
+            setCustomerTab('menu');
+            setIsCustomerCheckoutOpen(true);
+          }}
+        />
+      )}
+
       {customerSubmittedOrder && (
         <CustomerOrderSubmittedModal
           order={customerSubmittedOrder}
@@ -557,7 +589,7 @@ function MainApp() {
           onSuccess={(c) => {
             setActiveCustomer(c);
             setIsCustomerLoginOpen(false);
-            if (customerTab !== 'menu' && customerTab !== 'reservation' && customerTab !== 'venue') {
+            if (customerTab !== 'menu' && customerTab !== 'reservation') {
               setCustomerTab('account');
             }
           }}
