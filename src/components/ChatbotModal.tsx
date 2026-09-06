@@ -62,8 +62,16 @@ export const ChatbotModal: React.FC<ChatbotModalProps> = ({ onClose }) => {
         {/* Header */}
         <div className="flex items-center justify-between bg-stone-900 px-6 py-4 text-white">
           <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-2xl bg-amber-500 text-stone-950">
-              <Bot className="h-5 w-5" />
+            <div className="relative h-10 w-10 overflow-hidden rounded-2xl bg-amber-500 text-stone-950 border border-amber-400/40 flex items-center justify-center shrink-0">
+              <img
+                src="/images/Coffeatyellowhauz_logo.jpg"
+                alt="Yellow Hauz Assistant"
+                className="h-full w-full object-cover"
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = 'none';
+                }}
+              />
+              <Bot className="h-5 w-5 absolute pointer-events-none -z-10" />
             </div>
             <div>
               <div className="flex items-center gap-1.5 font-bold text-sm">

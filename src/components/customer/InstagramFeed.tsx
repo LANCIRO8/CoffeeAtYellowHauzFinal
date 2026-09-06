@@ -90,14 +90,10 @@ export const InstagramFeed: React.FC<InstagramFeedProps> = ({
               <Camera className="h-3.5 w-3.5 text-amber-400" />
               <span>@coffeeatyellowhauz</span>
             </span>
-            <span className="text-xs font-bold text-stone-500">• Official Shop Posts</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight font-baskerville">
             Instagram Feed &amp; Daily Stories
           </h2>
-          <p className="mt-1 text-xs sm:text-sm text-stone-600 max-w-xl">
-            Live snippets from our coffee bar, latte art experiments, cozy corners, and community moments in Davao City.
-          </p>
         </div>
 
         {/* Action button & Filter tabs */}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Table, Order, Reservation, TableRequest, User } from '../../types';
 import { AppStore } from '../../services/store';
@@ -39,6 +39,9 @@ import {
   ChevronDown,
   ChevronUp,
   SlidersHorizontal,
+  Grid2X2,
+  Square,
+  LayoutGrid,
 } from 'lucide-react';
 
 interface TableManagementProps {
@@ -77,6 +80,43 @@ export const TableManagement: React.FC<TableManagementProps> = ({
   const [areaFilter, setAreaFilter] = useState<AreaFilter>('all');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const isAnyFilterActive = statusFilter !== 'all' || areaFilter !== 'all';
+
+  // Grid column view mode for tables floor plan: 1 column or 2 columns (persisted in localStorage)
+  const [gridColumns, setGridColumns] = useState<1 | 2>(() => {
+    try {
+      const saved = localStorage.getItem('yh_tables_grid_columns');
+      return saved === '1' ? 1 : 2;
+    } catch {
+      return 2;
+    }
+  });
+
+  const [isGridModalOpen, setIsGridModalOpen] = useState(false);
+  const gridModalRef = useRef<HTMLDivElement>(null);
+
+  const handleSetGridColumns = (cols: 1 | 2) => {
+    setGridColumns(cols);
+    try {
+      localStorage.setItem('yh_tables_grid_columns', String(cols));
+    } catch (e) {
+      console.error(e);
+    }
+    setIsGridModalOpen(false);
+  };
+
+  // Close grid modal on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        gridModalRef.current &&
+        !gridModalRef.current.contains(e.target as Node)
+      ) {
+        setIsGridModalOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Selected table for detailed reservation / contact drawer
   const [selectedTableForDetails, setSelectedTableForDetails] = useState<Table | null>(null);
@@ -621,59 +661,64 @@ export const TableManagement: React.FC<TableManagementProps> = ({
             notes: '',
           });
         }}
-        className="relative group cursor-pointer select-none transition-all duration-200 hover:-translate-y-1"
-        style={{ minWidth: '220px', maxWidth: isExtraLargeTable ? '320px' : isLargeTable ? '280px' : '260px', width: '100%' }}
+        className="relative group cursor-pointer select-none transition-all duration-200 hover:-translate-y-1 w-full max-w-[155px] sm:max-w-[280px] md:max-w-[320px] min-w-0"
+        style={{ width: '100%' }}
       >
         {/* Top Chairs */}
-        <div className="absolute -top-3 left-0 right-0 flex justify-center gap-6 pointer-events-none z-0">
-          <div className="w-10 sm:w-12 h-3.5 border-2 border-stone-300 bg-white/70 rounded-t-full transition-all group-hover:border-stone-400" />
-          <div className="w-10 sm:w-12 h-3.5 border-2 border-stone-300 bg-white/70 rounded-t-full transition-all group-hover:border-stone-400" />
+        <div className="absolute -top-1.5 sm:-top-3 left-0 right-0 flex justify-center gap-1.5 sm:gap-6 pointer-events-none z-0">
+          <div className="w-5 sm:w-10 md:w-12 h-1.5 sm:h-3.5 border sm:border-2 border-stone-300 bg-white/70 rounded-t-full transition-all group-hover:border-stone-400" />
+          <div className="w-5 sm:w-10 md:w-12 h-1.5 sm:h-3.5 border sm:border-2 border-stone-300 bg-white/70 rounded-t-full transition-all group-hover:border-stone-400" />
         </div>
 
         {/* Bottom Chairs */}
-        <div className="absolute -bottom-3 left-0 right-0 flex justify-center gap-6 pointer-events-none z-0">
-          <div className="w-10 sm:w-12 h-3.5 border-2 border-stone-300 bg-white/70 rounded-b-full transition-all group-hover:border-stone-400" />
-          <div className="w-10 sm:w-12 h-3.5 border-2 border-stone-300 bg-white/70 rounded-b-full transition-all group-hover:border-stone-400" />
+        <div className="absolute -bottom-1.5 sm:-bottom-3 left-0 right-0 flex justify-center gap-1.5 sm:gap-6 pointer-events-none z-0">
+          <div className="w-5 sm:w-10 md:w-12 h-1.5 sm:h-3.5 border sm:border-2 border-stone-300 bg-white/70 rounded-b-full transition-all group-hover:border-stone-400" />
+          <div className="w-5 sm:w-10 md:w-12 h-1.5 sm:h-3.5 border sm:border-2 border-stone-300 bg-white/70 rounded-b-full transition-all group-hover:border-stone-400" />
         </div>
 
         {/* Left Side Chairs (for 6 or 8 seaters) */}
         {hasSideChairs && (
-          <div className="absolute -left-3 top-0 bottom-0 flex flex-col justify-center gap-4 pointer-events-none z-0">
-            <div className="h-10 sm:h-12 w-3.5 border-2 border-stone-300 bg-white/70 rounded-l-full transition-all group-hover:border-stone-400" />
+          <div className="absolute -left-1.5 sm:-left-3 top-0 bottom-0 flex flex-col justify-center gap-1 sm:gap-4 pointer-events-none z-0">
+            <div className="h-5 sm:h-10 md:h-12 w-1.5 sm:w-3.5 border sm:border-2 border-stone-300 bg-white/70 rounded-l-full transition-all group-hover:border-stone-400" />
             {isExtraLargeTable && (
-              <div className="h-10 sm:h-12 w-3.5 border-2 border-stone-300 bg-white/70 rounded-l-full transition-all group-hover:border-stone-400" />
+              <div className="h-5 sm:h-10 md:h-12 w-1.5 sm:w-3.5 border sm:border-2 border-stone-300 bg-white/70 rounded-l-full transition-all group-hover:border-stone-400" />
             )}
           </div>
         )}
 
         {/* Right Side Chairs (for 6 or 8 seaters) */}
         {hasSideChairs && (
-          <div className="absolute -right-3 top-0 bottom-0 flex flex-col justify-center gap-4 pointer-events-none z-0">
-            <div className="h-10 sm:h-12 w-3.5 border-2 border-stone-300 bg-white/70 rounded-r-full transition-all group-hover:border-stone-400" />
+          <div className="absolute -right-1.5 sm:-right-3 top-0 bottom-0 flex flex-col justify-center gap-1 sm:gap-4 pointer-events-none z-0">
+            <div className="h-5 sm:h-10 md:h-12 w-1.5 sm:w-3.5 border sm:border-2 border-stone-300 bg-white/70 rounded-r-full transition-all group-hover:border-stone-400" />
             {isExtraLargeTable && (
-              <div className="h-10 sm:h-12 w-3.5 border-2 border-stone-300 bg-white/70 rounded-r-full transition-all group-hover:border-stone-400" />
+              <div className="h-5 sm:h-10 md:h-12 w-1.5 sm:w-3.5 border sm:border-2 border-stone-300 bg-white/70 rounded-r-full transition-all group-hover:border-stone-400" />
             )}
           </div>
         )}
 
         {/* Main Table Card */}
         <div
-          className={`relative z-10 flex flex-col justify-between rounded-[28px] p-5 transition-all shadow-xs group-hover:shadow-lg ${
+          className={`relative z-10 flex flex-col justify-between rounded-xl sm:rounded-[28px] p-2 sm:p-4 md:p-5 transition-all shadow-xs group-hover:shadow-lg ${
             isReserved
-              ? 'bg-amber-100/90 border-2 border-amber-300'
+              ? 'bg-amber-100/90 border sm:border-2 border-amber-300'
               : isOccupied
-              ? 'bg-stone-900 border-2 border-amber-400 text-white'
+              ? 'bg-stone-900 border sm:border-2 border-amber-400 text-white'
               : isCleaning
-              ? 'bg-sky-50 border-2 border-sky-300'
-              : 'bg-white border-2 border-stone-200/90'
+              ? 'bg-sky-50 border sm:border-2 border-sky-300'
+              : 'bg-white border sm:border-2 border-stone-200/90'
+          } ${
+            isExtraLargeTable
+              ? 'min-h-[105px] sm:min-h-[260px]'
+              : isLargeTable
+              ? 'min-h-[95px] sm:min-h-[230px]'
+              : 'min-h-[82px] sm:min-h-[170px]'
           }`}
-          style={{ minHeight: isExtraLargeTable ? '260px' : isLargeTable ? '230px' : '170px' }}
         >
           {/* Top Row: Table Badge, Edit/Delete Action Icons, & Timestamp if Occupied */}
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between gap-0.5 sm:gap-1">
             {/* Table Badge */}
             <div
-              className={`grid h-8 w-8 place-items-center rounded-full text-xs font-extrabold ${
+              className={`grid h-5 w-5 sm:h-8 sm:w-8 place-items-center rounded-full text-[9px] sm:text-xs font-extrabold shrink-0 ${
                 isReserved
                   ? 'bg-amber-300 text-stone-950 shadow-2xs font-bold'
                   : isOccupied
@@ -686,16 +731,16 @@ export const TableManagement: React.FC<TableManagementProps> = ({
               T{table.tableNumber}
             </div>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-0.5 sm:gap-1.5 min-w-0">
               {/* Occupied Timestamp */}
               {isOccupied && (
-                <span className="font-mono text-xs font-bold text-amber-400 tracking-wide mr-1">
+                <span className="font-mono text-[8px] sm:text-xs font-bold text-amber-400 tracking-tight truncate">
                   12:03 PM
                 </span>
               )}
 
               {/* Admin Quick Actions (Edit / Delete) */}
-              <div className="flex items-center gap-1 rounded-full bg-white/90 backdrop-blur-xs p-0.5 border border-stone-200 shadow-2xs">
+              <div className="flex items-center gap-0.5 sm:gap-1 rounded-full bg-white/90 backdrop-blur-xs p-0.5 border border-stone-200 shadow-2xs shrink-0">
                 <button
                   type="button"
                   onClick={(e) => {
@@ -703,9 +748,9 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                     handleOpenEditModal(table);
                   }}
                   title={`Edit Table #${table.tableNumber}`}
-                  className="grid h-6 w-6 place-items-center rounded-full text-stone-600 hover:bg-amber-100 hover:text-amber-900 transition active:scale-90"
+                  className="grid h-4 w-4 sm:h-6 sm:w-6 place-items-center rounded-full text-stone-600 hover:bg-amber-100 hover:text-amber-900 transition active:scale-90 cursor-pointer"
                 >
-                  <Edit3 className="h-3 w-3" />
+                  <Edit3 className="h-2 w-2 sm:h-3 sm:w-3" />
                 </button>
                 <button
                   type="button"
@@ -714,22 +759,22 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                     handleDeleteTable(table);
                   }}
                   title={`Delete Table #${table.tableNumber}`}
-                  className="grid h-6 w-6 place-items-center rounded-full text-stone-400 hover:bg-rose-100 hover:text-rose-700 transition active:scale-90"
+                  className="grid h-4 w-4 sm:h-6 sm:w-6 place-items-center rounded-full text-stone-400 hover:bg-rose-100 hover:text-rose-700 transition active:scale-90 cursor-pointer"
                 >
-                  <Trash2 className="h-3 w-3" />
+                  <Trash2 className="h-2 w-2 sm:h-3 sm:w-3" />
                 </button>
               </div>
             </div>
           </div>
 
           {/* Center Info if Reserved or Occupied */}
-          <div className="my-auto py-2">
+          <div className="my-auto py-0.5 sm:py-2">
             {isReserved && (
               <div className="space-y-0.5">
-                <h4 className="font-serif text-base sm:text-lg font-bold text-stone-900 leading-tight">
+                <h4 className="font-serif text-[10px] sm:text-base md:text-lg font-bold text-stone-900 leading-tight truncate">
                   {activeRes?.customerName || 'Reserved Guest'}
                 </h4>
-                <p className="text-xs text-stone-700 font-medium">
+                <p className="text-[8px] sm:text-xs text-stone-700 font-medium">
                   {activeRes?.guestCount || table.capacity} Guests
                 </p>
               </div>
@@ -737,10 +782,10 @@ export const TableManagement: React.FC<TableManagementProps> = ({
 
             {isOccupied && (
               <div className="space-y-0.5">
-                <h4 className="font-serif text-base sm:text-lg font-bold text-white leading-tight">
+                <h4 className="font-serif text-[10px] sm:text-base md:text-lg font-bold text-white leading-tight truncate">
                   Guest
                 </h4>
-                <p className="text-xs text-stone-400 font-medium">
+                <p className="text-[8px] sm:text-xs text-stone-400 font-medium">
                   {table.capacity} Guests
                 </p>
               </div>
@@ -748,19 +793,27 @@ export const TableManagement: React.FC<TableManagementProps> = ({
 
             {isCleaning && (
               <div className="space-y-0.5">
-                <h4 className="font-serif text-sm font-bold text-sky-900">
+                <h4 className="font-serif text-[9px] sm:text-sm font-bold text-sky-900 leading-tight">
                   Being Sanitized
                 </h4>
-                <p className="text-xs text-sky-700">Ready soon</p>
+                <p className="text-[8px] sm:text-xs text-sky-700">Ready soon</p>
+              </div>
+            )}
+
+            {!isReserved && !isOccupied && !isCleaning && (
+              <div className="space-y-0.5">
+                <p className="text-[8px] sm:text-xs text-stone-500 font-medium">
+                  {table.capacity} Seats Available
+                </p>
               </div>
             )}
           </div>
 
           {/* Bottom Row: Area Tag & Status Tag */}
-          <div className="flex items-center justify-end gap-1.5 flex-wrap pt-2">
+          <div className="flex items-center justify-end gap-0.5 sm:gap-1.5 flex-wrap pt-0.5 sm:pt-2">
             {/* Area Tag */}
             <span
-              className={`rounded-md px-2 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider ${
+              className={`rounded px-1 sm:px-2 py-0.2 sm:py-0.5 text-[7px] sm:text-[9px] md:text-[10px] font-bold uppercase tracking-wider ${
                 isOccupied
                   ? 'bg-stone-800 border border-stone-700 text-stone-300'
                   : isReserved
@@ -768,18 +821,18 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                   : 'bg-stone-50 border border-stone-200 text-stone-600'
               }`}
             >
-              {table.area === 'airconditioned' ? 'AIRCONDITIONED' : 'NORMAL'}
+              {table.area === 'airconditioned' ? 'AC' : 'NORMAL'}
             </span>
 
             {/* Status Tag */}
             <span
-              className={`rounded-md px-2 py-0.5 text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider ${
+              className={`rounded px-1 sm:px-2 py-0.2 sm:py-0.5 text-[7px] sm:text-[9px] md:text-[10px] font-extrabold uppercase tracking-wider ${
                 isReserved
                   ? 'bg-stone-950 text-amber-300'
                   : isOccupied
                   ? 'bg-stone-800 border border-amber-400/40 text-amber-300'
                   : isCleaning
-                  ? 'bg-sky-200 text-sky-900 border border-sky-300'
+                  ? 'bg-sky-200 text-sky-950 border border-sky-300'
                   : 'bg-stone-50 border border-stone-200 text-stone-600'
               }`}
             >
@@ -792,12 +845,12 @@ export const TableManagement: React.FC<TableManagementProps> = ({
   };
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-2 sm:space-y-6 pb-16 sm:pb-20">
       {/* Top Header Bar matching image.png */}
-      <div className="flex flex-row items-center justify-between gap-2 sm:gap-4 border-b border-stone-200 pb-3 sm:pb-5">
-        <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+      <div className="flex flex-row items-center justify-between gap-1.5 sm:gap-4 border-b border-stone-200 pb-2.5 sm:pb-5">
+        <div className="flex items-center gap-1.5 sm:gap-4 min-w-0 flex-1">
           {/* Left Title: TABLES */}
-          <h1 className="font-serif text-xl sm:text-3xl font-black tracking-wider text-stone-950 uppercase shrink-0">
+          <h1 className="font-serif text-lg sm:text-3xl font-black tracking-wider text-stone-950 uppercase shrink-0">
             TABLES
           </h1>
 
@@ -805,7 +858,7 @@ export const TableManagement: React.FC<TableManagementProps> = ({
           <button
             type="button"
             onClick={() => setIsFilterModalOpen(true)}
-            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all duration-150 cursor-pointer shadow-2xs shrink-0 ${
+            className={`inline-flex items-center gap-1 sm:gap-1.5 rounded-full px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs font-bold transition-all duration-150 cursor-pointer shadow-2xs shrink-0 ${
               isAnyFilterActive
                 ? 'bg-amber-500 text-stone-950 font-black hover:bg-amber-400'
                 : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
@@ -820,6 +873,118 @@ export const TableManagement: React.FC<TableManagementProps> = ({
               </span>
             ) : null}
           </button>
+
+          {/* Grid Layout Filter Button */}
+          <div className="relative" ref={gridModalRef}>
+            <button
+              type="button"
+              id="tables-grid-layout-filter-btn"
+              onClick={() => setIsGridModalOpen((prev) => !prev)}
+              title="Change Floor Plan Grid Columns (1 or 2)"
+              className={`relative flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border transition active:scale-95 cursor-pointer shadow-2xs font-bold text-xs ${
+                isGridModalOpen
+                  ? 'border-amber-400 bg-amber-50 text-amber-950 ring-2 ring-amber-400/30'
+                  : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50 hover:text-stone-950'
+              }`}
+            >
+              {gridColumns === 1 ? (
+                <Square className="h-3.5 w-3.5 text-amber-600 stroke-[2.2]" />
+              ) : (
+                <Grid2X2 className="h-3.5 w-3.5 text-amber-600 stroke-[2.2]" />
+              )}
+              <span className="font-extrabold text-[11px] hidden sm:inline">
+                {gridColumns} Col
+              </span>
+              <ChevronDown className="h-3 w-3 opacity-60" />
+            </button>
+
+            {/* Grid Layout Filter Modal on Mobile / Popover on Desktop */}
+            {isGridModalOpen && (
+              <div
+                className="fixed inset-0 z-50 flex items-end sm:items-start justify-center sm:justify-end p-4 sm:p-0 bg-stone-950/50 backdrop-blur-xs sm:bg-transparent sm:backdrop-blur-none sm:absolute sm:inset-auto sm:left-0 sm:sm:left-auto sm:right-0 sm:top-10"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) {
+                    setIsGridModalOpen(false);
+                  }
+                }}
+              >
+                <div
+                  id="tables-grid-layout-filter-modal"
+                  className="w-full max-w-xs sm:w-64 rounded-3xl sm:rounded-2xl border border-stone-200 bg-white p-4 sm:p-3.5 shadow-2xl sm:shadow-xl animate-in fade-in-0 slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200 font-sans"
+                >
+                  <div className="flex items-center justify-between pb-3 sm:pb-2.5 border-b border-stone-100 mb-3.5 sm:mb-3">
+                    <div className="flex items-center gap-2 sm:gap-1.5 font-black text-sm sm:text-xs text-stone-900">
+                      <LayoutGrid className="h-4 w-4 text-amber-600" />
+                      <span>Floor Plan Layout</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsGridModalOpen(false)}
+                      className="p-1.5 sm:p-1 rounded-xl sm:rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer"
+                    >
+                      <X className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="text-xs sm:text-[11px] text-stone-500 mb-3.5 sm:mb-3 font-medium">
+                    Choose your preferred table layout:
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* 1 Column Option */}
+                    <button
+                      type="button"
+                      id="tables-grid-col-1-btn"
+                      onClick={() => handleSetGridColumns(1)}
+                      className={`flex flex-col items-center justify-center gap-2 p-3 rounded-2xl border text-center transition cursor-pointer ${
+                        gridColumns === 1
+                          ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
+                          : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
+                      }`}
+                    >
+                      <div className="grid h-8 w-8 place-items-center rounded-xl bg-white border border-stone-200 shadow-2xs text-amber-700">
+                        <Square className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold">1 Column</div>
+                        <div className="text-[10px] text-stone-500 font-normal">Full-width view</div>
+                      </div>
+                      {gridColumns === 1 && (
+                        <span className="flex items-center gap-1 text-[10px] font-black text-amber-700">
+                          <Check className="h-3 w-3 stroke-[3]" /> Active
+                        </span>
+                      )}
+                    </button>
+
+                    {/* 2 Column Option */}
+                    <button
+                      type="button"
+                      id="tables-grid-col-2-btn"
+                      onClick={() => handleSetGridColumns(2)}
+                      className={`flex flex-col items-center justify-center gap-2 p-3 rounded-2xl border text-center transition cursor-pointer ${
+                        gridColumns === 2
+                          ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
+                          : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
+                      }`}
+                    >
+                      <div className="grid h-8 w-8 place-items-center rounded-xl bg-white border border-stone-200 shadow-2xs text-amber-700">
+                        <Grid2X2 className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold">2 Columns</div>
+                        <div className="text-[10px] text-stone-500 font-normal">Standard grid</div>
+                      </div>
+                      {gridColumns === 2 && (
+                        <span className="flex items-center gap-1 text-[10px] font-black text-amber-700">
+                          <Check className="h-3 w-3 stroke-[3]" /> Active
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Right Actions: Add Table & New Booking */}
@@ -1096,9 +1261,9 @@ export const TableManagement: React.FC<TableManagementProps> = ({
       )}
 
       {/* Floor Plan Canvas */}
-      <div className="rounded-3xl border border-stone-200/80 bg-[#f7f7f7] p-6 sm:p-10 shadow-inner min-h-[520px]">
+      <div className="rounded-xl sm:rounded-3xl border border-stone-200/80 bg-[#f7f7f7] p-1.5 sm:p-6 md:p-10 shadow-inner min-h-[340px] sm:min-h-[520px]">
         {filteredTables.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-stone-300 bg-white/80 p-12 text-center text-xs text-stone-500 space-y-3">
+          <div className="rounded-2xl border border-dashed border-stone-300 bg-white/80 p-6 sm:p-12 text-center text-xs text-stone-500 space-y-3">
             <p>No tables match the selected status or area filter.</p>
             <button
               type="button"
@@ -1110,7 +1275,13 @@ export const TableManagement: React.FC<TableManagementProps> = ({
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-12 justify-items-center items-center">
+          <div
+            className={`grid gap-x-1.5 sm:gap-x-6 md:gap-x-8 gap-y-2 sm:gap-y-8 md:gap-y-12 justify-items-center items-center ${
+              gridColumns === 1
+                ? 'grid-cols-1 max-w-md mx-auto'
+                : 'grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+            }`}
+          >
             {filteredTables.map((table) => renderTableCard(table))}
           </div>
         )}

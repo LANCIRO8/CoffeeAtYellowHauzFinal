@@ -23,6 +23,9 @@ interface DiscountModalProps {
   customIdNumber?: string;
   onApplyDiscount: (discount: Discount, idNumber?: string) => void;
   onRemoveDiscount: () => void;
+  targetItemName?: string;
+  targetItemPrice?: number;
+  targetItemQuantity?: number;
 }
 
 export const DiscountModal: React.FC<DiscountModalProps> = ({
@@ -33,6 +36,9 @@ export const DiscountModal: React.FC<DiscountModalProps> = ({
   customIdNumber = '',
   onApplyDiscount,
   onRemoveDiscount,
+  targetItemName,
+  targetItemPrice,
+  targetItemQuantity,
 }) => {
   const [discounts, setDiscounts] = useState<Discount[]>(() => AppStore.getDiscounts());
   const [couponCodeInput, setCouponCodeInput] = useState('');
@@ -54,11 +60,16 @@ export const DiscountModal: React.FC<DiscountModalProps> = ({
     setDiscounts(AppStore.getDiscounts());
   };
 
+  const itemBaseTotal =
+    targetItemPrice !== undefined && targetItemQuantity !== undefined
+      ? targetItemPrice * targetItemQuantity
+      : subtotal;
+
   const calculateDiscountSavings = (disc: Discount) => {
     if (disc.type === 'percent') {
-      return (subtotal * disc.value) / 100;
+      return (itemBaseTotal * disc.value) / 100;
     }
-    return Math.min(subtotal, disc.value);
+    return Math.min(itemBaseTotal, disc.value);
   };
 
   const handleApplyCouponCode = (e: React.FormEvent) => {
@@ -146,11 +157,13 @@ export const DiscountModal: React.FC<DiscountModalProps> = ({
               <Ticket className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="font-display font-bold text-lg text-white">
-                Coupons &amp; Discounts
+              <h3 className="font-display font-bold text-lg text-white flex items-center gap-2">
+                <span>{targetItemName ? `Item Discount: ${targetItemName}` : 'Coupons & Discounts'}</span>
               </h3>
               <p className="text-xs text-stone-400">
-                Apply government statutory concessions, promo codes, or custom discounts
+                {targetItemName
+                  ? `Apply discount specifically to "${targetItemName}" (₱${(targetItemPrice ?? 0).toFixed(2)}${targetItemQuantity && targetItemQuantity > 1 ? ` × ${targetItemQuantity}` : ''})`
+                  : 'Apply government statutory concessions, promo codes, or custom discounts'}
               </p>
             </div>
           </div>
@@ -165,6 +178,27 @@ export const DiscountModal: React.FC<DiscountModalProps> = ({
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Item Target Callout if provided */}
+          {targetItemName && (
+            <div className="rounded-2xl border border-amber-300 bg-amber-50/70 p-3.5 flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5">
+                <div className="grid h-8 w-8 place-items-center rounded-xl bg-amber-500 text-stone-950 font-bold shrink-0">
+                  <Tag className="h-4 w-4" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900 block">Target Item</span>
+                  <span className="font-bold text-stone-900 text-sm">{targetItemName}</span>
+                  <span className="font-mono text-stone-600 ml-2">
+                    ₱{(targetItemPrice ?? 0).toFixed(2)} × {targetItemQuantity ?? 1} = <strong>₱{itemBaseTotal.toFixed(2)}</strong>
+                  </span>
+                </div>
+              </div>
+              <span className="rounded-full bg-amber-200/80 px-2.5 py-1 text-[11px] font-extrabold text-amber-950 shrink-0">
+                Item-Only Discount
+              </span>
+            </div>
+          )}
+
           {/* Active Applied Discount Banner */}
           {appliedDiscount ? (
             <div className="rounded-2xl border-2 border-emerald-500 bg-emerald-50/80 p-4 flex items-center justify-between">
@@ -185,7 +219,8 @@ export const DiscountModal: React.FC<DiscountModalProps> = ({
                   </div>
                   <h4 className="text-base font-bold text-emerald-950">{appliedDiscount.name}</h4>
                   <p className="text-xs text-emerald-700 font-medium">
-                    Order savings: <strong className="font-mono">₱{calculateDiscountSavings(appliedDiscount).toFixed(2)}</strong>
+                    {targetItemName ? 'Item savings: ' : 'Order savings: '}
+                    <strong className="font-mono">₱{calculateDiscountSavings(appliedDiscount).toFixed(2)}</strong>
                     {appliedDiscount.code && ` (Code: ${appliedDiscount.code})`}
                   </p>
                 </div>
@@ -203,7 +238,11 @@ export const DiscountModal: React.FC<DiscountModalProps> = ({
             <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4 flex items-center justify-between text-xs text-stone-600">
               <div className="flex items-center gap-2.5">
                 <Tag className="h-4 w-4 text-stone-400" />
-                <span>No discount currently applied to this order (Subtotal: <strong>₱{subtotal.toFixed(2)}</strong>).</span>
+                <span>
+                  {targetItemName
+                    ? `No discount currently applied to "${targetItemName}" (Base: ₱${itemBaseTotal.toFixed(2)}).`
+                    : `No discount currently applied to this order (Subtotal: ₱${subtotal.toFixed(2)}).`}
+                </span>
               </div>
             </div>
           )}

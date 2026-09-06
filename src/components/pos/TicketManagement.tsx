@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Order, User, StoreSettings, OrderStatus } from '../../types';
-import { AppStore } from '../../services/store';
+import { AppStore, isDrinkOrderItem, getOrderFulfillmentBreakdown } from '../../services/store';
 import { useModal } from '../../context/ModalContext';
 import {
   Search,
@@ -14,6 +14,7 @@ import {
   Columns,
   Layers,
   ChefHat,
+  Coffee,
   Bell,
   User as UserIcon,
   Timer,
@@ -32,6 +33,11 @@ import {
   X,
   ArrowLeft,
   SlidersHorizontal,
+  Grid2X2,
+  Square,
+  Grid3X3,
+  LayoutGrid,
+  ClipboardList,
 } from 'lucide-react';
 
 interface TicketManagementProps {
@@ -68,9 +74,15 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
   onViewReceipt,
 }) => {
   const { showAlert } = useModal();
+  const isBarista = activeStaff.role === 'barista';
+  const isCook = activeStaff.role === 'cook';
+  const isCashier = activeStaff.role === 'cashier';
+  const isAdmin = activeStaff.role === 'admin';
+
   const [orders, setOrders] = useState<Order[]>(() => AppStore.getOrders());
   const [channelTab, setChannelTab] = useState<ChannelTab>('all');
   const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
+  const [stationFilter, setStationFilter] = useState<'all' | 'barista' | 'kitchen'>('all');
   const [statusFilters, setStatusFilters] = useState<string[]>(['all']);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -110,11 +122,17 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
   const getStatusFilterLabel = () => {
     const isAll = statusFilters.includes('all') || statusFilters.length === 0;
     if (isAll) {
-      return isCook ? 'All Active Prep' : 'All Tickets';
+      if (isBarista) return 'All Active Bar';
+      if (isCook) return 'All Active Kitchen';
+      return 'All Tickets';
     }
     if (statusFilters.length === 1) {
       const s = statusFilters[0];
-      if (isCook) {
+      if (isBarista) {
+        if (s === 'to_prep') return 'Start Prep';
+        if (s === 'processing') return 'Brewing / Processing';
+        if (s === 'completed') return 'Drinks Ready';
+      } else if (isCook) {
         if (s === 'to_prep') return 'Start Prep';
         if (s === 'processing') return 'Processing';
         if (s === 'completed') return 'Complete';
@@ -139,6 +157,47 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
   const [cancelReason, setCancelReason] = useState<string>(CANCEL_REASONS[0]);
   const [customCancelNotes, setCustomCancelNotes] = useState<string>('');
 
+  // Grid column view mode for staff tickets: 1, 2, 3, or 4 columns (persisted in localStorage)
+  const [gridColumns, setGridColumns] = useState<1 | 2 | 3 | 4>(() => {
+    try {
+      const saved = localStorage.getItem('yh_staff_ticket_grid_columns');
+      if (saved === '1') return 1;
+      if (saved === '2') return 2;
+      if (saved === '3') return 3;
+      if (saved === '4') return 4;
+      return 2;
+    } catch {
+      return 2;
+    }
+  });
+
+  const [isGridModalOpen, setIsGridModalOpen] = useState(false);
+  const gridModalRef = useRef<HTMLDivElement>(null);
+
+  const handleSetGridColumns = (cols: 1 | 2 | 3 | 4) => {
+    setGridColumns(cols);
+    try {
+      localStorage.setItem('yh_staff_ticket_grid_columns', String(cols));
+    } catch (e) {
+      console.error(e);
+    }
+    setIsGridModalOpen(false);
+  };
+
+  // Close grid modal on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        gridModalRef.current &&
+        !gridModalRef.current.contains(e.target as Node)
+      ) {
+        setIsGridModalOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // Real-time ticker to update live customer wait times every second
   useEffect(() => {
     const interval = setInterval(() => {
@@ -147,29 +206,12 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  const isCook = activeStaff.role === 'cook';
-  const isCashier = activeStaff.role === 'cashier';
-  const isAdmin = activeStaff.role === 'admin';
-
   const refreshOrders = () => {
     setOrders(AppStore.getOrders());
     setNow(Date.now());
   };
 
   const handleUpdateStatus = (orderId: number, nextStatus: OrderStatus) => {
-    // Cook role validation for kitchen prep
-    if (nextStatus === 'processing') {
-      if (isCashier) {
-        showAlert({
-          title: 'Cook Action Required',
-          message:
-            'Only kitchen cooks can press "Start Prep" to begin food & beverage preparation. Please ask the cook or sign in as Cook.',
-          type: 'warning',
-        });
-        return;
-      }
-    }
-
     AppStore.updateOrderStatus(orderId, nextStatus);
     refreshOrders();
   };
@@ -302,6 +344,8 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
     };
   };
 
+  const menuItems = AppStore.getMenuItems();
+
   const inStoreOrdersAll = orders.filter((o) => getChannel(o) === 'in_store');
   const onlineOrdersAll = orders.filter((o) => getChannel(o) === 'online');
   const pendingConfirmCount = orders.filter(
@@ -313,26 +357,74 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
   const completedCount = orders.filter((o) => o.status === 'completed').length;
   const cancelledCount = orders.filter((o) => o.status === 'cancelled').length;
 
+  // Barista-specific queues (orders containing drink items)
+  const baristaOrdersAll = orders.filter(
+    (o) => getOrderFulfillmentBreakdown(o, menuItems).hasDrinks && o.status !== 'cancelled'
+  );
+  const baristaToPrepCount = orders.filter((o) => {
+    const b = getOrderFulfillmentBreakdown(o, menuItems);
+    return b.hasDrinks && (o.baristaStatus === 'to_prep' || (!o.baristaStatus && o.status === 'to_prep'));
+  }).length;
+  const baristaProcessingCount = orders.filter((o) => {
+    const b = getOrderFulfillmentBreakdown(o, menuItems);
+    return b.hasDrinks && o.baristaStatus === 'processing';
+  }).length;
+  const baristaCompletedCount = orders.filter((o) => {
+    const b = getOrderFulfillmentBreakdown(o, menuItems);
+    return b.hasDrinks && (o.baristaStatus === 'ready' || o.status === 'to_serve' || o.status === 'completed');
+  }).length;
+
+  // Cook-specific queues (orders containing food items)
+  const cookOrdersAll = orders.filter(
+    (o) => getOrderFulfillmentBreakdown(o, menuItems).hasFood && o.status !== 'cancelled'
+  );
+  const cookToPrepCount = orders.filter((o) => {
+    const b = getOrderFulfillmentBreakdown(o, menuItems);
+    return b.hasFood && (o.cookStatus === 'to_prep' || (!o.cookStatus && o.status === 'to_prep'));
+  }).length;
+  const cookProcessingCount = orders.filter((o) => {
+    const b = getOrderFulfillmentBreakdown(o, menuItems);
+    return b.hasFood && o.cookStatus === 'processing';
+  }).length;
+  const cookCompletedCount = orders.filter((o) => {
+    const b = getOrderFulfillmentBreakdown(o, menuItems);
+    return b.hasFood && (o.cookStatus === 'ready' || o.status === 'to_serve' || o.status === 'completed');
+  }).length;
+
   const matchesFilter = (order: Order, targetChannel?: 'in_store' | 'online') => {
     if (targetChannel && getChannel(order) !== targetChannel) return false;
     if (channelTab !== 'all' && channelTab !== 'split' && getChannel(order) !== channelTab) {
       return false;
     }
 
-    // Role-specific status filter matching
+    const breakdown = getOrderFulfillmentBreakdown(order, menuItems);
     const isAllStatus = statusFilters.includes('all') || statusFilters.length === 0;
-    if (isCook) {
-      if (isAllStatus) {
-        // Show active tickets for cook (to_prep, processing, to_serve)
-        if (order.status === 'cancelled') return false;
-      } else {
-        const matchPrep = statusFilters.includes('to_prep') && order.status === 'to_prep';
-        const matchProcessing = statusFilters.includes('processing') && order.status === 'processing';
-        const matchCompleted = statusFilters.includes('completed') && (order.status === 'to_serve' || order.status === 'completed');
+
+    // Barista Role: only orders that include drinks
+    if (isBarista) {
+      if (!breakdown.hasDrinks) return false;
+      if (order.status === 'cancelled') return false;
+      if (!isAllStatus) {
+        const matchPrep = statusFilters.includes('to_prep') && (order.baristaStatus === 'to_prep' || (!order.baristaStatus && order.status === 'to_prep'));
+        const matchProcessing = statusFilters.includes('processing') && order.baristaStatus === 'processing';
+        const matchCompleted = statusFilters.includes('completed') && (order.baristaStatus === 'ready' || order.status === 'to_serve' || order.status === 'completed');
+        if (!matchPrep && !matchProcessing && !matchCompleted) return false;
+      }
+    } else if (isCook) {
+      // Cook Role: only orders that include food
+      if (!breakdown.hasFood) return false;
+      if (order.status === 'cancelled') return false;
+      if (!isAllStatus) {
+        const matchPrep = statusFilters.includes('to_prep') && (order.cookStatus === 'to_prep' || (!order.cookStatus && order.status === 'to_prep'));
+        const matchProcessing = statusFilters.includes('processing') && order.cookStatus === 'processing';
+        const matchCompleted = statusFilters.includes('completed') && (order.cookStatus === 'ready' || order.status === 'to_serve' || order.status === 'completed');
         if (!matchPrep && !matchProcessing && !matchCompleted) return false;
       }
     } else {
-      // Cashier and Admin
+      // Cashier and Admin: station filter check + multi-status filter
+      if (stationFilter === 'barista' && !breakdown.hasDrinks) return false;
+      if (stationFilter === 'kitchen' && !breakdown.hasFood) return false;
+
       if (!isAllStatus) {
         const matchesAny = statusFilters.some((status) => {
           if (status === 'to_confirm') {
@@ -360,13 +452,24 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
   const filteredOnline = orders.filter((o) => matchesFilter(o, 'online'));
 
   const activeStatusCount = orders.filter((o) => {
-    if (isCook) {
-      if (statusFilters.includes('all') || statusFilters.length === 0) return o.status !== 'cancelled';
-      const matchPrep = statusFilters.includes('to_prep') && o.status === 'to_prep';
-      const matchProcessing = statusFilters.includes('processing') && o.status === 'processing';
-      const matchCompleted = statusFilters.includes('completed') && (o.status === 'to_serve' || o.status === 'completed');
+    const breakdown = getOrderFulfillmentBreakdown(o, menuItems);
+    if (isBarista) {
+      if (!breakdown.hasDrinks || o.status === 'cancelled') return false;
+      if (statusFilters.includes('all') || statusFilters.length === 0) return true;
+      const matchPrep = statusFilters.includes('to_prep') && (o.baristaStatus === 'to_prep' || (!o.baristaStatus && o.status === 'to_prep'));
+      const matchProcessing = statusFilters.includes('processing') && o.baristaStatus === 'processing';
+      const matchCompleted = statusFilters.includes('completed') && (o.baristaStatus === 'ready' || o.status === 'to_serve' || o.status === 'completed');
+      return matchPrep || matchProcessing || matchCompleted;
+    } else if (isCook) {
+      if (!breakdown.hasFood || o.status === 'cancelled') return false;
+      if (statusFilters.includes('all') || statusFilters.length === 0) return true;
+      const matchPrep = statusFilters.includes('to_prep') && (o.cookStatus === 'to_prep' || (!o.cookStatus && o.status === 'to_prep'));
+      const matchProcessing = statusFilters.includes('processing') && o.cookStatus === 'processing';
+      const matchCompleted = statusFilters.includes('completed') && (o.cookStatus === 'ready' || o.status === 'to_serve' || o.status === 'completed');
       return matchPrep || matchProcessing || matchCompleted;
     } else {
+      if (stationFilter === 'barista' && !breakdown.hasDrinks) return false;
+      if (stationFilter === 'kitchen' && !breakdown.hasFood) return false;
       if (statusFilters.includes('all') || statusFilters.length === 0) return true;
       return statusFilters.some((s) => {
         if (s === 'to_confirm') return o.status === 'to_confirm' || o.status === 'pending';
@@ -385,37 +488,37 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
     const isCompleted = st === 'completed';
     const isCancelled = st === 'cancelled';
 
-    if (isCook) {
-      if (isToPrep) {
+    if (isBarista) {
+      if (order.baristaStatus === 'ready' || isToServe || isCompleted) {
         return (
           <span
-            title="Start Prep"
-            className="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-300 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-amber-900 animate-pulse"
+            title="Drinks Ready"
+            className="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-400 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-emerald-950"
           >
-            <Flame className="h-3 w-3 text-amber-600 shrink-0" />
+            <CheckCircle2 className="h-3 w-3 text-emerald-900 stroke-[2.4] shrink-0" />
+            <span className="hidden sm:inline">Drinks Ready</span>
+          </span>
+        );
+      }
+      if (order.baristaStatus === 'processing') {
+        return (
+          <span
+            title="Brewing / Prepping"
+            className="inline-flex items-center gap-1 rounded-full bg-sky-100 border border-sky-400 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-sky-950"
+          >
+            <Coffee className="h-3 w-3 text-sky-900 stroke-[2.4] shrink-0" />
+            <span className="hidden sm:inline">Brewing / Prepping</span>
+          </span>
+        );
+      }
+      if (order.baristaStatus === 'to_prep' || isToPrep) {
+        return (
+          <span
+            title="Drinks To Prep"
+            className="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-400 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-amber-950 animate-pulse"
+          >
+            <Coffee className="h-3 w-3 text-amber-900 stroke-[2.4] shrink-0" />
             <span className="hidden sm:inline">Start Prep</span>
-          </span>
-        );
-      }
-      if (isProcessing) {
-        return (
-          <span
-            title="Processing"
-            className="inline-flex items-center gap-1 rounded-full bg-sky-100 border border-sky-300 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-sky-900"
-          >
-            <ChefHat className="h-3 w-3 text-sky-600 shrink-0" />
-            <span className="hidden sm:inline">Processing</span>
-          </span>
-        );
-      }
-      if (isToServe || isCompleted) {
-        return (
-          <span
-            title="Complete"
-            className="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-300 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-emerald-900"
-          >
-            <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
-            <span className="hidden sm:inline">Complete</span>
           </span>
         );
       }
@@ -423,9 +526,56 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
         return (
           <span
             title="Awaiting Confirmation"
-            className="inline-flex items-center gap-1 rounded-full bg-stone-100 border border-stone-200 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-bold text-stone-600"
+            className="inline-flex items-center gap-1 rounded-full bg-stone-100 border border-stone-300 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-stone-900"
           >
-            <Clock className="h-3 w-3 text-stone-500 shrink-0" />
+            <Clock className="h-3 w-3 text-stone-800 stroke-[2.4] shrink-0" />
+            <span className="hidden sm:inline">Awaiting Confirmation</span>
+          </span>
+        );
+      }
+    }
+
+    if (isCook) {
+      if (order.cookStatus === 'ready' || isToServe || isCompleted) {
+        return (
+          <span
+            title="Kitchen Ready"
+            className="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-400 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-emerald-950"
+          >
+            <CheckCircle2 className="h-3 w-3 text-emerald-900 stroke-[2.4] shrink-0" />
+            <span className="hidden sm:inline">Kitchen Ready</span>
+          </span>
+        );
+      }
+      if (order.cookStatus === 'processing') {
+        return (
+          <span
+            title="Cooking / Processing"
+            className="inline-flex items-center gap-1 rounded-full bg-sky-100 border border-sky-400 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-sky-950"
+          >
+            <ChefHat className="h-3 w-3 text-sky-900 stroke-[2.4] shrink-0" />
+            <span className="hidden sm:inline">Cooking</span>
+          </span>
+        );
+      }
+      if (order.cookStatus === 'to_prep' || isToPrep) {
+        return (
+          <span
+            title="Start Prep"
+            className="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-400 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-amber-950 animate-pulse"
+          >
+            <Flame className="h-3 w-3 text-amber-900 stroke-[2.4] shrink-0" />
+            <span className="hidden sm:inline">Start Prep</span>
+          </span>
+        );
+      }
+      if (isToConfirm) {
+        return (
+          <span
+            title="Awaiting Confirmation"
+            className="inline-flex items-center gap-1 rounded-full bg-stone-100 border border-stone-300 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-stone-900"
+          >
+            <Clock className="h-3 w-3 text-stone-800 stroke-[2.4] shrink-0" />
             <span className="hidden sm:inline">Awaiting Confirmation</span>
           </span>
         );
@@ -437,9 +587,9 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
       return (
         <span
           title="To Confirm"
-          className="inline-flex items-center gap-1 rounded-full bg-rose-100 border border-rose-300 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-rose-900 animate-pulse"
+          className="inline-flex items-center gap-1 rounded-full bg-rose-100 border border-rose-400 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-rose-950 animate-pulse"
         >
-          <AlertCircle className="h-3 w-3 text-rose-600 shrink-0" />
+          <AlertCircle className="h-3 w-3 text-rose-900 stroke-[2.4] shrink-0" />
           <span className="hidden sm:inline">To Confirm</span>
         </span>
       );
@@ -448,9 +598,9 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
       return (
         <span
           title="To Prep"
-          className="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-300 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-amber-900"
+          className="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-400 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-amber-950"
         >
-          <Clock className="h-3 w-3 text-amber-600 shrink-0" />
+          <Clock className="h-3 w-3 text-amber-900 stroke-[2.4] shrink-0" />
           <span className="hidden sm:inline">To Prep</span>
         </span>
       );
@@ -459,9 +609,9 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
       return (
         <span
           title="Processing"
-          className="inline-flex items-center gap-1 rounded-full bg-sky-100 border border-sky-300 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-sky-900"
+          className="inline-flex items-center gap-1 rounded-full bg-sky-100 border border-sky-400 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-sky-950"
         >
-          <ChefHat className="h-3 w-3 text-sky-600 shrink-0" />
+          <ChefHat className="h-3 w-3 text-sky-900 stroke-[2.4] shrink-0" />
           <span className="hidden sm:inline">Processing</span>
         </span>
       );
@@ -470,9 +620,9 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
       return (
         <span
           title="To Serve"
-          className="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-300 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-emerald-950 animate-bounce"
+          className="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-400 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-emerald-950 animate-bounce"
         >
-          <Bell className="h-3 w-3 text-emerald-600 shrink-0" />
+          <Bell className="h-3 w-3 text-emerald-900 stroke-[2.4] shrink-0" />
           <span className="hidden sm:inline">To Serve</span>
         </span>
       );
@@ -481,9 +631,9 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
       return (
         <span
           title="Completed"
-          className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-bold text-emerald-800"
+          className="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-300 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-emerald-950"
         >
-          <Check className="h-3 w-3 text-emerald-600 shrink-0" />
+          <Check className="h-3 w-3 text-emerald-900 stroke-[2.5] shrink-0" />
           <span className="hidden sm:inline">Completed</span>
         </span>
       );
@@ -491,7 +641,7 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
     return (
       <span
         title={order.status}
-        className="rounded-full bg-stone-100 border border-stone-200 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-bold text-stone-600"
+        className="rounded-full bg-stone-100 border border-stone-300 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-bold text-stone-900"
       >
         <span className="hidden sm:inline">{order.status}</span>
       </span>
@@ -538,7 +688,7 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
               <span className="font-mono text-[11px] sm:text-xs font-extrabold text-stone-900 truncate">
                 #{order.orderNumber}
               </span>
-              <span className="text-[9px] sm:text-[10px] text-stone-400 shrink-0">
+              <span className="text-[9px] sm:text-[10px] text-stone-600 font-semibold shrink-0">
                 {new Date(order.createdAt).toLocaleTimeString([], {
                   hour: '2-digit',
                   minute: '2-digit',
@@ -550,20 +700,20 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
               {/* Channel badge */}
               <span
                 title={isOnline ? 'Online Order' : 'In-Store Order'}
-                className={`inline-flex items-center gap-0.5 sm:gap-1 rounded-md px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wide ${
+                className={`inline-flex items-center gap-0.5 sm:gap-1 rounded-md px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wide ${
                   isOnline
-                    ? 'bg-indigo-50 text-indigo-700 border border-indigo-200/60'
-                    : 'bg-amber-50 text-amber-800 border border-amber-200/60'
+                    ? 'bg-indigo-100 text-indigo-950 border border-indigo-300'
+                    : 'bg-amber-100 text-amber-950 border border-amber-400'
                 }`}
               >
                 {isOnline ? (
                   <>
-                    <Globe className="h-3 w-3 text-indigo-600 shrink-0" />
+                    <Globe className="h-3 w-3 text-indigo-900 stroke-[2.4] shrink-0" />
                     <span className="hidden sm:inline">Online</span>
                   </>
                 ) : (
                   <>
-                    <Store className="h-3 w-3 text-amber-600 shrink-0" />
+                    <Store className="h-3 w-3 text-amber-950 stroke-[2.4] shrink-0" />
                     <span className="hidden sm:inline">In-Store</span>
                   </>
                 )}
@@ -639,11 +789,11 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                   <div className="min-w-0">
                     <div className="flex items-center gap-1">
                       <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wide text-amber-900 truncate">
-                        {isCook ? 'Ready for Prep' : 'Kitchen Queue'}
+                        Ready for Prep
                       </span>
                     </div>
                     <div className="text-[9px] sm:text-[11px] text-stone-600 truncate hidden sm:block">
-                      {isCook ? 'Press Start Prep' : 'Queued'}
+                      Press Start Prep
                     </div>
                   </div>
                 </div>
@@ -749,6 +899,79 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
             )}
           </div>
 
+          {/* Station Fulfillment Status Breakdown */}
+          {(() => {
+            const breakdown = getOrderFulfillmentBreakdown(order, menuItems);
+            if (breakdown.hasDrinks && breakdown.hasFood) {
+              return (
+                <div className="mt-2 grid grid-cols-2 gap-1 rounded-xl border border-stone-200 bg-stone-50/90 p-1 text-[9px] sm:text-[10px]">
+                  {/* Barista Status */}
+                  <div
+                    className={`flex items-center justify-between rounded-lg px-2 py-1 border font-bold ${
+                      order.baristaStatus === 'ready'
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-950'
+                        : order.baristaStatus === 'processing'
+                        ? 'border-sky-300 bg-sky-50 text-sky-950'
+                        : 'border-amber-300 bg-amber-50 text-amber-950'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1 min-w-0">
+                      <Coffee className="h-3 w-3 shrink-0 text-amber-700" />
+                      <span className="truncate">Bar:</span>
+                    </div>
+                    <span className="shrink-0 uppercase font-black text-[8px] sm:text-[9px]">
+                      {order.baristaStatus === 'ready' ? 'Ready' : order.baristaStatus === 'processing' ? 'Prep' : 'Queue'}
+                    </span>
+                  </div>
+
+                  {/* Kitchen Cook Status */}
+                  <div
+                    className={`flex items-center justify-between rounded-lg px-2 py-1 border font-bold ${
+                      order.cookStatus === 'ready'
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-950'
+                        : order.cookStatus === 'processing'
+                        ? 'border-sky-300 bg-sky-50 text-sky-950'
+                        : 'border-amber-300 bg-amber-50 text-amber-950'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1 min-w-0">
+                      <ChefHat className="h-3 w-3 shrink-0 text-orange-700" />
+                      <span className="truncate">Kitchen:</span>
+                    </div>
+                    <span className="shrink-0 uppercase font-black text-[8px] sm:text-[9px]">
+                      {order.cookStatus === 'ready' ? 'Ready' : order.cookStatus === 'processing' ? 'Prep' : 'Queue'}
+                    </span>
+                  </div>
+                </div>
+              );
+            } else if (breakdown.hasDrinks) {
+              return (
+                <div className="mt-2 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50/80 px-2.5 py-1 text-[9px] sm:text-[10px] text-amber-950 font-bold">
+                  <div className="flex items-center gap-1.5">
+                    <Coffee className="h-3.5 w-3.5 text-amber-700 shrink-0" />
+                    <span>Bar Station (Drinks Only)</span>
+                  </div>
+                  <span className="uppercase font-black text-[8px] sm:text-[9px]">
+                    {order.baristaStatus === 'ready' ? 'Ready' : order.baristaStatus === 'processing' ? 'Prep' : 'Queue'}
+                  </span>
+                </div>
+              );
+            } else if (breakdown.hasFood) {
+              return (
+                <div className="mt-2 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50/80 px-2.5 py-1 text-[9px] sm:text-[10px] text-emerald-950 font-bold">
+                  <div className="flex items-center gap-1.5">
+                    <ChefHat className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
+                    <span>Kitchen Station (Food Only)</span>
+                  </div>
+                  <span className="uppercase font-black text-[8px] sm:text-[9px]">
+                    {order.cookStatus === 'ready' ? 'Ready' : order.cookStatus === 'processing' ? 'Prep' : 'Queue'}
+                  </span>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
           {/* Customer & Dining Context */}
           <div className="mt-2 sm:mt-3 space-y-1 text-[10px] sm:text-xs">
             <div className="flex items-center justify-between gap-1">
@@ -784,25 +1007,46 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
           </div>
 
           {/* Items List */}
-          <div className="my-2 sm:my-3 space-y-1 border-y border-stone-100 py-2 sm:py-3 text-[10px] sm:text-xs max-h-24 sm:max-h-36 overflow-y-auto pr-0.5">
-            {order.items.map((item, idx) => (
-              <div key={idx} className="flex justify-between items-start gap-1">
-                <div className="flex-1 pr-1 min-w-0">
-                  <span className="font-medium text-stone-800 truncate block">
-                    <span className="font-bold text-amber-800 mr-1">{item.quantity}x</span>
-                    {item.name}
+          <div className="my-2 sm:my-3 space-y-1 border-y border-stone-100 py-2 sm:py-3 text-[10px] sm:text-xs max-h-28 sm:max-h-36 overflow-y-auto pr-0.5">
+            {order.items.map((item, idx) => {
+              const isDrink = isDrinkOrderItem(item, menuItems);
+              const isDimmed = (isBarista && !isDrink) || (isCook && isDrink);
+
+              return (
+                <div
+                  key={idx}
+                  className={`flex justify-between items-start gap-1 py-0.5 rounded px-1 transition ${
+                    isDimmed ? 'opacity-40 bg-stone-100/50' : ''
+                  }`}
+                >
+                  <div className="flex-1 pr-1 min-w-0">
+                    <div className="flex items-center gap-1 font-medium text-stone-800 truncate">
+                      <span className="font-bold text-amber-800 mr-0.5">{item.quantity}x</span>
+                      <span className="truncate">{item.name}</span>
+                      {isDrink ? (
+                        <span className="inline-flex items-center gap-0.5 rounded bg-amber-100 text-amber-900 px-1 py-0.2 text-[8px] font-bold shrink-0">
+                          <Coffee className="h-2 w-2 text-amber-700" />
+                          <span>Bar</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-0.5 rounded bg-emerald-100 text-emerald-900 px-1 py-0.2 text-[8px] font-bold shrink-0">
+                          <Utensils className="h-2 w-2 text-emerald-700" />
+                          <span>Kitchen</span>
+                        </span>
+                      )}
+                    </div>
+                    {item.specialInstructions && (
+                      <p className="text-[8px] sm:text-[10px] italic text-amber-700 ml-2 font-semibold line-clamp-1">
+                        "{item.specialInstructions}"
+                      </p>
+                    )}
+                  </div>
+                  <span className="font-mono text-stone-600 shrink-0 text-[10px] sm:text-xs">
+                    ₱{item.totalPrice.toFixed(2)}
                   </span>
-                  {item.specialInstructions && (
-                    <p className="text-[8px] sm:text-[10px] italic text-amber-700 ml-2 font-semibold line-clamp-1">
-                      "{item.specialInstructions}"
-                    </p>
-                  )}
                 </div>
-                <span className="font-mono text-stone-600 shrink-0 text-[10px] sm:text-xs">
-                  ₱{item.totalPrice.toFixed(2)}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Financial & Payment Info */}
@@ -822,91 +1066,70 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
             type="button"
             onClick={() => onViewReceipt(order)}
             title="Print Receipt"
-            className="flex items-center justify-center gap-1 rounded-lg sm:rounded-xl bg-stone-100 hover:bg-stone-200 p-1.5 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-bold text-stone-800 transition active:scale-95 cursor-pointer shrink-0"
+            className={`flex items-center justify-center gap-1 rounded-lg sm:rounded-xl bg-stone-100 hover:bg-stone-200 p-1.5 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-bold text-stone-800 transition active:scale-95 cursor-pointer shrink-0 ${
+              gridColumns === 1 ? 'px-2.5 py-1.5' : ''
+            }`}
           >
-            <Printer className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-            <span className="hidden sm:inline">Receipt</span>
+            <Printer className="h-3.5 w-3.5" />
+            <span className={gridColumns === 1 ? 'inline' : 'hidden sm:inline'}>Receipt</span>
           </button>
 
           <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 justify-end flex-wrap">
-            {/* 1. TO CONFIRM (Cashier / Admin): Confirm & Cancel */}
-            {isToConfirm && (
+            {/* === BARISTA ROLE ACTIONS === */}
+            {isBarista && (
               <>
-                {!isCook && (
+                {/* Drinks to prep */}
+                {(order.baristaStatus === 'to_prep' || (!order.baristaStatus && (isToPrep || isProcessing))) && (
                   <button
                     type="button"
-                    onClick={() => handleUpdateStatus(order.id, 'to_prep')}
-                    className="flex items-center gap-1 rounded-lg sm:rounded-xl bg-amber-500 hover:bg-amber-400 p-1.5 sm:px-3.5 sm:py-1.5 text-[10px] sm:text-xs font-extrabold text-stone-950 transition shadow-xs active:scale-95 cursor-pointer shrink-0"
-                    title="Confirm self-order and forward to kitchen cook"
+                    onClick={() => {
+                      AppStore.updateOrderBaristaStatus(order.id, 'processing', activeStaff.fullName);
+                      refreshOrders();
+                    }}
+                    className={`flex items-center gap-1 rounded-lg sm:rounded-xl bg-amber-600 hover:bg-amber-500 text-white p-1.5 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-extrabold transition shadow-xs active:scale-95 cursor-pointer shrink-0 ${
+                      gridColumns === 1 ? 'px-3 py-1.5' : ''
+                    }`}
+                    title="Start preparing drinks at barista bar"
                   >
-                    <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                    <span className="hidden sm:inline">Confirm</span>
-                    <span className="hidden lg:inline"> &amp; Send</span>
+                    <Coffee className="h-3.5 w-3.5" />
+                    <span className={gridColumns === 1 ? 'inline' : 'hidden sm:inline'}>Prep Drinks</span>
                   </button>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCancelReason(CANCEL_REASONS[0]);
-                    setCustomCancelNotes('');
-                    setCancellingOrder(order);
-                  }}
-                  className="flex items-center gap-1 rounded-lg sm:rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 p-1.5 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-bold text-rose-700 transition active:scale-95 cursor-pointer shrink-0"
-                  title="Cancel order"
-                >
-                  <XCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-rose-600" />
-                  <span className="hidden sm:inline">Cancel</span>
-                </button>
-              </>
-            )}
-
-            {/* 2. TO PREP (Cook or Cashier): Start Prep (Cook) & Cancel */}
-            {isToPrep && (
-              <>
-                {isCook && (
+                {/* Drinks processing: click to complete drinks */}
+                {order.baristaStatus === 'processing' && (
                   <button
                     type="button"
-                    onClick={() => handleUpdateStatus(order.id, 'processing')}
-                    className="flex items-center gap-1 rounded-lg sm:rounded-xl bg-sky-600 hover:bg-sky-500 text-white p-1.5 sm:px-4 sm:py-1.5 text-[10px] sm:text-xs font-extrabold transition shadow-xs active:scale-95 cursor-pointer shadow-sky-600/20 shrink-0"
-                    title="Start cooking and preparation for this order"
+                    onClick={() => {
+                      AppStore.updateOrderBaristaStatus(order.id, 'ready', activeStaff.fullName);
+                      refreshOrders();
+                    }}
+                    className={`flex items-center gap-1 rounded-lg sm:rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white p-1.5 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-extrabold transition shadow-xs active:scale-95 cursor-pointer shrink-0 ${
+                      gridColumns === 1 ? 'px-3 py-1.5' : ''
+                    }`}
+                    title="Complete drinks preparation"
                   >
-                    <Flame className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                    <span className="hidden sm:inline">Prep</span>
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span className={gridColumns === 1 ? 'inline' : 'hidden sm:inline'}>Drinks Ready</span>
                   </button>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCancelReason(CANCEL_REASONS[0]);
-                    setCustomCancelNotes('');
-                    setCancellingOrder(order);
-                  }}
-                  className="flex items-center gap-1 rounded-lg sm:rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 p-1.5 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-bold text-rose-700 transition active:scale-95 cursor-pointer shrink-0"
-                  title="Cancel order before cooking starts"
-                >
-                  <XCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-rose-600" />
-                  <span className="hidden sm:inline">Cancel</span>
-                </button>
-              </>
-            )}
-
-            {/* 3. PROCESSING: Complete (Cook) & Void */}
-            {isProcessing && (
-              <>
-                {isCook && (
-                  <button
-                    type="button"
-                    onClick={() => handleUpdateStatus(order.id, 'to_serve')}
-                    className="flex items-center gap-1 rounded-lg sm:rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white p-1.5 sm:px-4 sm:py-1.5 text-[10px] sm:text-xs font-extrabold transition shadow-xs active:scale-95 cursor-pointer shadow-emerald-600/20 shrink-0"
-                    title="Mark kitchen preparation complete and ready for service"
-                  >
-                    <CheckCircle2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                    <span className="hidden sm:inline">Done</span>
-                  </button>
+                {/* Drinks already ready */}
+                {order.baristaStatus === 'ready' && (
+                  <div className="flex items-center gap-1">
+                    <span className="flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-950">
+                      <Check className="h-3 w-3 text-emerald-600 stroke-[3]" />
+                      <span>Drinks Ready</span>
+                    </span>
+                    {getOrderFulfillmentBreakdown(order, menuItems).hasFood && order.cookStatus !== 'ready' && (
+                      <span className="rounded-lg border border-amber-300 bg-amber-50 px-1.5 py-1 text-[9px] font-bold text-amber-950">
+                        Wait Kitchen
+                      </span>
+                    )}
+                  </div>
                 )}
 
+                {/* Void/Issue */}
                 <button
                   type="button"
                   onClick={() => {
@@ -914,30 +1137,70 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                     setVoidReturnCustomNote('');
                     setVoidingOrder(order);
                   }}
-                  className="flex items-center gap-1 rounded-lg sm:rounded-xl border border-rose-300 bg-rose-50 hover:bg-rose-100 p-1.5 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-extrabold text-rose-700 transition active:scale-95 cursor-pointer shrink-0"
-                  title="Void order or return back to cashier"
+                  className="flex items-center gap-1 rounded-lg sm:rounded-xl border border-rose-300 bg-rose-50 hover:bg-rose-100 p-1.5 sm:px-2.5 sm:py-1.5 text-[10px] sm:text-xs font-bold text-rose-700 transition active:scale-95 cursor-pointer shrink-0"
+                  title="Report issue or void ticket"
                 >
-                  <Ban className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-rose-600" />
-                  <span className="hidden sm:inline">Void</span>
+                  <Ban className="h-3.5 w-3.5 text-rose-600" />
+                  <span className={gridColumns === 1 ? 'inline' : 'hidden sm:inline'}>Void</span>
                 </button>
               </>
             )}
 
-            {/* 4. TO SERVE: Mark as Served (Cashier) & Void */}
-            {isToServe && (
+            {/* === COOK ROLE ACTIONS === */}
+            {isCook && (
               <>
-                {!isCook && (
+                {/* Food to prep */}
+                {(order.cookStatus === 'to_prep' || (!order.cookStatus && (isToPrep || isProcessing))) && (
                   <button
                     type="button"
-                    onClick={() => handleUpdateStatus(order.id, 'completed')}
-                    className="flex items-center gap-1 rounded-lg sm:rounded-xl bg-emerald-600 hover:bg-emerald-500 p-1.5 sm:px-3.5 sm:py-1.5 text-[10px] sm:text-xs font-extrabold text-white transition shadow-xs active:scale-95 cursor-pointer shrink-0"
-                    title="Mark order as served to customer"
+                    onClick={() => {
+                      AppStore.updateOrderCookStatus(order.id, 'processing', activeStaff.fullName);
+                      refreshOrders();
+                    }}
+                    className={`flex items-center gap-1 rounded-lg sm:rounded-xl bg-sky-600 hover:bg-sky-500 text-white p-1.5 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-extrabold transition shadow-xs active:scale-95 cursor-pointer shrink-0 ${
+                      gridColumns === 1 ? 'px-3 py-1.5' : ''
+                    }`}
+                    title="Start cooking kitchen dishes"
                   >
-                    <Bell className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                    <span className="hidden sm:inline">Serve</span>
+                    <Flame className="h-3.5 w-3.5" />
+                    <span className={gridColumns === 1 ? 'inline' : 'hidden sm:inline'}>Prep Food</span>
                   </button>
                 )}
 
+                {/* Food processing: click to complete food */}
+                {order.cookStatus === 'processing' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      AppStore.updateOrderCookStatus(order.id, 'ready', activeStaff.fullName);
+                      refreshOrders();
+                    }}
+                    className={`flex items-center gap-1 rounded-lg sm:rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white p-1.5 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-extrabold transition shadow-xs active:scale-95 cursor-pointer shrink-0 ${
+                      gridColumns === 1 ? 'px-3 py-1.5' : ''
+                    }`}
+                    title="Complete cooking and mark kitchen food ready"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span className={gridColumns === 1 ? 'inline' : 'hidden sm:inline'}>Food Ready</span>
+                  </button>
+                )}
+
+                {/* Food already ready */}
+                {order.cookStatus === 'ready' && (
+                  <div className="flex items-center gap-1">
+                    <span className="flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-950">
+                      <Check className="h-3 w-3 text-emerald-600 stroke-[3]" />
+                      <span>Food Ready</span>
+                    </span>
+                    {getOrderFulfillmentBreakdown(order, menuItems).hasDrinks && order.baristaStatus !== 'ready' && (
+                      <span className="rounded-lg border border-amber-300 bg-amber-50 px-1.5 py-1 text-[9px] font-bold text-amber-950">
+                        Wait Barista
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Void/Issue */}
                 <button
                   type="button"
                   onClick={() => {
@@ -945,30 +1208,180 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                     setVoidReturnCustomNote('');
                     setVoidingOrder(order);
                   }}
-                  className="flex items-center gap-1 rounded-lg sm:rounded-xl border border-rose-300 bg-rose-50 hover:bg-rose-100 p-1.5 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-extrabold text-rose-700 transition active:scale-95 cursor-pointer shrink-0"
-                  title="Void order or return back to cashier"
+                  className="flex items-center gap-1 rounded-lg sm:rounded-xl border border-rose-300 bg-rose-50 hover:bg-rose-100 p-1.5 sm:px-2.5 sm:py-1.5 text-[10px] sm:text-xs font-bold text-rose-700 transition active:scale-95 cursor-pointer shrink-0"
+                  title="Report issue or void ticket"
                 >
-                  <Ban className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-rose-600" />
-                  <span className="hidden sm:inline">Void</span>
+                  <Ban className="h-3.5 w-3.5 text-rose-600" />
+                  <span className={gridColumns === 1 ? 'inline' : 'hidden sm:inline'}>Void</span>
                 </button>
               </>
             )}
 
-            {/* 5. COMPLETED: Void */}
-            {isCompleted && (
-              <button
-                type="button"
-                onClick={() => {
-                  setVoidReturnReason(RETURN_REASONS[0]);
-                  setVoidReturnCustomNote('');
-                  setVoidingOrder(order);
-                }}
-                className="flex items-center gap-1 rounded-lg sm:rounded-xl border border-stone-300 bg-white hover:bg-rose-50 hover:border-rose-300 hover:text-rose-700 p-1.5 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-bold text-stone-600 transition active:scale-95 cursor-pointer shrink-0"
-                title="Void completed transaction"
-              >
-                <Ban className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-rose-500" />
-                <span className="hidden sm:inline">Void</span>
-              </button>
+            {/* === CASHIER & ADMIN ACTIONS === */}
+            {!isBarista && !isCook && (
+              <>
+                {/* 1. TO CONFIRM (Cashier / Admin): Confirm & Cancel */}
+                {isToConfirm && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateStatus(order.id, 'to_prep')}
+                      className={`flex items-center gap-1 rounded-lg sm:rounded-xl bg-amber-500 hover:bg-amber-400 p-1.5 sm:px-3.5 sm:py-1.5 text-[10px] sm:text-xs font-extrabold text-stone-950 transition shadow-xs active:scale-95 cursor-pointer shrink-0 ${
+                        gridColumns === 1 ? 'px-3 py-1.5' : ''
+                      }`}
+                      title="Confirm order and send to Barista & Kitchen"
+                    >
+                      <Check className="h-3.5 w-3.5 stroke-[2.5]" />
+                      <span className={gridColumns === 1 ? 'inline' : 'hidden sm:inline'}>Confirm</span>
+                      <span className="hidden lg:inline"> &amp; Send</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCancelReason(CANCEL_REASONS[0]);
+                        setCustomCancelNotes('');
+                        setCancellingOrder(order);
+                      }}
+                      className={`flex items-center gap-1 rounded-lg sm:rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 p-1.5 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-bold text-rose-700 transition active:scale-95 cursor-pointer shrink-0 ${
+                        gridColumns === 1 ? 'px-2.5 py-1.5' : ''
+                      }`}
+                      title="Cancel order"
+                    >
+                      <XCircle className="h-3.5 w-3.5 text-rose-600" />
+                      <span className={gridColumns === 1 ? 'inline' : 'hidden sm:inline'}>Cancel</span>
+                    </button>
+                  </>
+                )}
+
+                {/* 2. TO PREP & PROCESSING (Cashier / Admin): Can complete drinks, food, or override complete all */}
+                {(isToPrep || isProcessing) && (() => {
+                  const breakdown = getOrderFulfillmentBreakdown(order, menuItems);
+                  return (
+                    <>
+                      {/* Split buttons if order has both */}
+                      {breakdown.hasDrinks && breakdown.hasFood && (
+                        <>
+                          {order.baristaStatus !== 'ready' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                AppStore.updateOrderBaristaStatus(order.id, 'ready', activeStaff.fullName);
+                                refreshOrders();
+                              }}
+                              className="flex items-center gap-1 rounded-lg sm:rounded-xl border border-amber-400 bg-amber-50 hover:bg-amber-100 text-amber-950 p-1.5 sm:px-2.5 sm:py-1.5 text-[10px] sm:text-xs font-bold transition shadow-2xs active:scale-95 cursor-pointer shrink-0"
+                              title="Cashier mark drinks ready"
+                            >
+                              <Coffee className="h-3.5 w-3.5 text-amber-700" />
+                              <span className={gridColumns === 1 ? 'inline' : 'hidden sm:inline'}>Ready Bar</span>
+                            </button>
+                          )}
+                          {order.cookStatus !== 'ready' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                AppStore.updateOrderCookStatus(order.id, 'ready', activeStaff.fullName);
+                                refreshOrders();
+                              }}
+                              className="flex items-center gap-1 rounded-lg sm:rounded-xl border border-emerald-400 bg-emerald-50 hover:bg-emerald-100 text-emerald-950 p-1.5 sm:px-2.5 sm:py-1.5 text-[10px] sm:text-xs font-bold transition shadow-2xs active:scale-95 cursor-pointer shrink-0"
+                              title="Cashier mark food ready"
+                            >
+                              <ChefHat className="h-3.5 w-3.5 text-emerald-700" />
+                              <span className={gridColumns === 1 ? 'inline' : 'hidden sm:inline'}>Ready Kitchen</span>
+                            </button>
+                          )}
+                        </>
+                      )}
+
+                      {/* Complete All / Ready button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          AppStore.completeAllOrderSections(order.id, activeStaff.fullName);
+                          refreshOrders();
+                        }}
+                        className={`flex items-center gap-1 rounded-lg sm:rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white p-1.5 sm:px-3.5 sm:py-1.5 text-[10px] sm:text-xs font-extrabold transition shadow-xs active:scale-95 cursor-pointer shadow-emerald-600/20 shrink-0 ${
+                          gridColumns === 1 ? 'px-3 py-1.5' : ''
+                        }`}
+                        title="Cashier complete all items and mark ready to serve"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        <span className={gridColumns === 1 ? 'inline' : 'hidden sm:inline'}>
+                          {breakdown.hasDrinks && breakdown.hasFood ? 'Complete All' : breakdown.hasDrinks ? 'Complete Drinks' : 'Complete Food'}
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setVoidReturnReason(RETURN_REASONS[0]);
+                          setVoidReturnCustomNote('');
+                          setVoidingOrder(order);
+                        }}
+                        className={`flex items-center gap-1 rounded-lg sm:rounded-xl border border-rose-300 bg-rose-50 hover:bg-rose-100 p-1.5 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-bold text-rose-700 transition active:scale-95 cursor-pointer shrink-0 ${
+                          gridColumns === 1 ? 'px-2.5 py-1.5' : ''
+                        }`}
+                        title="Cancel or void order"
+                      >
+                        <Ban className="h-3.5 w-3.5 text-rose-600" />
+                        <span className={gridColumns === 1 ? 'inline' : 'hidden sm:inline'}>Void</span>
+                      </button>
+                    </>
+                  );
+                })()}
+
+                {/* 3. TO SERVE: Mark as Served & Void */}
+                {isToServe && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateStatus(order.id, 'completed')}
+                      className={`flex items-center gap-1 rounded-lg sm:rounded-xl bg-emerald-600 hover:bg-emerald-500 p-1.5 sm:px-3.5 sm:py-1.5 text-[10px] sm:text-xs font-extrabold text-white transition shadow-xs active:scale-95 cursor-pointer shrink-0 ${
+                        gridColumns === 1 ? 'px-3 py-1.5' : ''
+                      }`}
+                      title="Mark order as served to customer"
+                    >
+                      <Bell className="h-3.5 w-3.5" />
+                      <span className={gridColumns === 1 ? 'inline' : 'hidden sm:inline'}>Serve</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVoidReturnReason(RETURN_REASONS[0]);
+                        setVoidReturnCustomNote('');
+                        setVoidingOrder(order);
+                      }}
+                      className={`flex items-center gap-1 rounded-lg sm:rounded-xl border border-rose-300 bg-rose-50 hover:bg-rose-100 p-1.5 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-extrabold text-rose-700 transition active:scale-95 cursor-pointer shrink-0 ${
+                        gridColumns === 1 ? 'px-2.5 py-1.5' : ''
+                      }`}
+                      title="Void order"
+                    >
+                      <Ban className="h-3.5 w-3.5 text-rose-600" />
+                      <span className={gridColumns === 1 ? 'inline' : 'hidden sm:inline'}>Void</span>
+                    </button>
+                  </>
+                )}
+
+                {/* 4. COMPLETED: Void */}
+                {isCompleted && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVoidReturnReason(RETURN_REASONS[0]);
+                      setVoidReturnCustomNote('');
+                      setVoidingOrder(order);
+                    }}
+                    className={`flex items-center gap-1 rounded-lg sm:rounded-xl border border-stone-300 bg-white hover:bg-rose-50 hover:border-rose-300 hover:text-rose-700 p-1.5 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-bold text-stone-600 transition active:scale-95 cursor-pointer shrink-0 ${
+                      gridColumns === 1 ? 'px-2.5 py-1.5' : ''
+                    }`}
+                    title="Void completed transaction"
+                  >
+                    <Ban className="h-3.5 w-3.5 text-rose-500" />
+                    <span className={gridColumns === 1 ? 'inline' : 'hidden sm:inline'}>Void</span>
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -977,16 +1390,235 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
   };
 
   return (
-    <div className="space-y-6 pb-16">
+    <div className="space-y-3 sm:space-y-4 pb-16">
       {/* Header & Controls */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h2 className="font-display text-2xl font-extrabold text-stone-900">
-            {isCook ? 'Kitchen Order Tickets' : 'Ticket Management'}
+          <h2 className="font-display text-2xl font-extrabold text-stone-900 flex items-center gap-2.5">
+            {isBarista ? (
+              <>
+                <Coffee className="h-6 w-6 text-amber-700 shrink-0" />
+                <span>Barista Station</span>
+              </>
+            ) : isCook ? (
+              <>
+                <ChefHat className="h-6 w-6 text-orange-600 shrink-0" />
+                <span>Kitchen Station</span>
+              </>
+            ) : (
+              <>
+                <ClipboardList className="h-6 w-6 text-stone-900 shrink-0" />
+                <span>Order Tickets</span>
+              </>
+            )}
           </h2>
+          <p className="text-xs text-stone-600 mt-0.5">
+            {isBarista
+              ? 'Brew and prepare drinks • Kitchen handles food orders'
+              : isCook
+              ? 'Cook kitchen dishes • Barista handles drink orders'
+              : 'Monitor, confirm, and fulfill orders across Bar and Kitchen stations'}
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+          {/* Station Filter for Cashier & Admin */}
+          {(isCashier || isAdmin) && (
+            <div className="flex items-center rounded-xl border border-stone-200 bg-stone-100 p-0.5 text-xs font-bold shadow-2xs">
+              <button
+                type="button"
+                id="station-filter-all"
+                onClick={() => setStationFilter('all')}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  stationFilter === 'all'
+                    ? 'bg-white text-stone-950 shadow-xs'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                id="station-filter-barista"
+                onClick={() => setStationFilter('barista')}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  stationFilter === 'barista'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <Coffee className="h-3 w-3" />
+                <span>Bar</span>
+              </button>
+              <button
+                type="button"
+                id="station-filter-kitchen"
+                onClick={() => setStationFilter('kitchen')}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  stationFilter === 'kitchen'
+                    ? 'bg-orange-600 text-white shadow-xs'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <ChefHat className="h-3 w-3" />
+                <span>Kitchen</span>
+              </button>
+            </div>
+          )}
+          {/* Grid Layout Filter Button */}
+          <div className="relative" ref={gridModalRef}>
+            <button
+              type="button"
+              id="staff-grid-layout-filter-btn"
+              onClick={() => setIsGridModalOpen((prev) => !prev)}
+              title="Change Ticket Grid Columns (1 to 4)"
+              className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition active:scale-95 cursor-pointer shadow-2xs font-extrabold text-xs ${
+                isGridModalOpen
+                  ? 'border-amber-500 bg-amber-100 text-stone-950 ring-2 ring-amber-500/40'
+                  : 'border-stone-300 bg-white text-stone-950 hover:bg-stone-100 hover:border-stone-400'
+              }`}
+            >
+              {gridColumns === 1 ? (
+                <Square className="h-3.5 w-3.5 text-stone-950 stroke-[2.5]" />
+              ) : gridColumns === 2 ? (
+                <Grid2X2 className="h-3.5 w-3.5 text-stone-950 stroke-[2.5]" />
+              ) : gridColumns === 3 ? (
+                <Grid3X3 className="h-3.5 w-3.5 text-stone-950 stroke-[2.5]" />
+              ) : (
+                <LayoutGrid className="h-3.5 w-3.5 text-stone-950 stroke-[2.5]" />
+              )}
+              <span className="font-black text-[11px] hidden sm:inline text-stone-950">
+                {gridColumns} Col
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 text-stone-800 stroke-[2.2] ml-0.5" />
+            </button>
+
+            {/* Grid Layout Filter Modal on Mobile / Dropdown on Desktop */}
+            {isGridModalOpen && (
+              <div
+                className="fixed inset-0 z-50 flex items-end sm:items-start justify-center sm:justify-end p-4 sm:p-0 bg-stone-950/50 backdrop-blur-xs sm:bg-transparent sm:backdrop-blur-none sm:absolute sm:inset-auto sm:right-0 sm:top-11"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) {
+                    setIsGridModalOpen(false);
+                  }
+                }}
+              >
+                <div
+                  id="staff-grid-layout-filter-modal"
+                  className="w-full max-w-sm sm:w-80 rounded-3xl sm:rounded-2xl border border-stone-200 bg-white p-5 sm:p-3.5 shadow-2xl sm:shadow-xl animate-in fade-in-0 slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200 font-sans"
+                >
+                  <div className="flex items-center justify-between pb-3 sm:pb-2.5 border-b border-stone-100 mb-3.5 sm:mb-3">
+                    <div className="flex items-center gap-2 sm:gap-1.5 font-black text-sm sm:text-xs text-stone-900">
+                      <LayoutGrid className="h-4 w-4 text-amber-600" />
+                      <span>Ticket Grid Layout (1–4 Columns)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsGridModalOpen(false)}
+                      className="p-1.5 sm:p-1 rounded-xl sm:rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer"
+                    >
+                      <X className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="text-xs sm:text-[11px] text-stone-500 mb-3.5 sm:mb-2.5 font-medium">
+                    Choose your preferred ticket card view for tablet &amp; PC:
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2 sm:gap-1.5">
+                    {/* 1 Column Option */}
+                    <button
+                      type="button"
+                      id="staff-grid-col-1-btn"
+                      onClick={() => handleSetGridColumns(1)}
+                      className={`flex flex-col items-center justify-center gap-1.5 sm:gap-1 p-2.5 sm:p-2 rounded-2xl sm:rounded-xl border text-center transition cursor-pointer ${
+                        gridColumns === 1
+                          ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
+                          : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
+                      }`}
+                    >
+                      <div className="grid h-7 w-7 sm:h-6 sm:w-6 place-items-center rounded-xl sm:rounded-lg bg-white border border-stone-200 shadow-2xs text-amber-700">
+                        <Square className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
+                      </div>
+                      <div className="text-xs sm:text-[11px] font-bold leading-none">1 Col</div>
+                      {gridColumns === 1 && (
+                        <span className="flex items-center gap-0.5 text-[9px] sm:text-[8px] font-black text-amber-700">
+                          <Check className="h-2.5 w-2.5 sm:h-2 sm:w-2 stroke-[3]" />
+                        </span>
+                      )}
+                    </button>
+
+                    {/* 2 Column Option */}
+                    <button
+                      type="button"
+                      id="staff-grid-col-2-btn"
+                      onClick={() => handleSetGridColumns(2)}
+                      className={`flex flex-col items-center justify-center gap-1.5 sm:gap-1 p-2.5 sm:p-2 rounded-2xl sm:rounded-xl border text-center transition cursor-pointer ${
+                        gridColumns === 2
+                          ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
+                          : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
+                      }`}
+                    >
+                      <div className="grid h-7 w-7 sm:h-6 sm:w-6 place-items-center rounded-xl sm:rounded-lg bg-white border border-stone-200 shadow-2xs text-amber-700">
+                        <Grid2X2 className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
+                      </div>
+                      <div className="text-xs sm:text-[11px] font-bold leading-none">2 Cols</div>
+                      {gridColumns === 2 && (
+                        <span className="flex items-center gap-0.5 text-[9px] sm:text-[8px] font-black text-amber-700">
+                          <Check className="h-2.5 w-2.5 sm:h-2 sm:w-2 stroke-[3]" />
+                        </span>
+                      )}
+                    </button>
+
+                    {/* 3 Column Option */}
+                    <button
+                      type="button"
+                      id="staff-grid-col-3-btn"
+                      onClick={() => handleSetGridColumns(3)}
+                      className={`flex flex-col items-center justify-center gap-1.5 sm:gap-1 p-2.5 sm:p-2 rounded-2xl sm:rounded-xl border text-center transition cursor-pointer ${
+                        gridColumns === 3
+                          ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
+                          : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
+                      }`}
+                    >
+                      <div className="grid h-7 w-7 sm:h-6 sm:w-6 place-items-center rounded-xl sm:rounded-lg bg-white border border-stone-200 shadow-2xs text-amber-700">
+                        <Grid3X3 className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
+                      </div>
+                      <div className="text-xs sm:text-[11px] font-bold leading-none">3 Cols</div>
+                      {gridColumns === 3 && (
+                        <span className="flex items-center gap-0.5 text-[9px] sm:text-[8px] font-black text-amber-700">
+                          <Check className="h-2.5 w-2.5 sm:h-2 sm:w-2 stroke-[3]" />
+                        </span>
+                      )}
+                    </button>
+
+                    {/* 4 Column Option */}
+                    <button
+                      type="button"
+                      id="staff-grid-col-4-btn"
+                      onClick={() => handleSetGridColumns(4)}
+                      className={`flex flex-col items-center justify-center gap-1.5 sm:gap-1 p-2.5 sm:p-2 rounded-2xl sm:rounded-xl border text-center transition cursor-pointer ${
+                        gridColumns === 4
+                          ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
+                          : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
+                      }`}
+                    >
+                      <div className="grid h-7 w-7 sm:h-6 sm:w-6 place-items-center rounded-xl sm:rounded-lg bg-white border border-stone-200 shadow-2xs text-amber-700">
+                        <LayoutGrid className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
+                      </div>
+                      <div className="text-xs sm:text-[11px] font-bold leading-none">4 Cols</div>
+                      {gridColumns === 4 && (
+                        <span className="flex items-center gap-0.5 text-[9px] sm:text-[8px] font-black text-amber-700">
+                          <Check className="h-2.5 w-2.5 sm:h-2 sm:w-2 stroke-[3]" />
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Channel Filter Modal Trigger Button */}
           <button
             id="ticket-channel-filter-btn"
@@ -1093,15 +1725,6 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
               )}
             </div>
           )}
-
-          <button
-            onClick={refreshOrders}
-            className="flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-xs font-bold text-stone-700 hover:bg-stone-50 transition active:scale-95 cursor-pointer shadow-2xs"
-            title="Refresh tickets"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
         </div>
       </div>
 
@@ -1113,33 +1736,128 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
           onClick={() => setIsStatusModalOpen(true)}
           className={`flex w-full items-center justify-between gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold shadow-2xs transition active:scale-98 cursor-pointer ${
             !statusFilters.includes('all') && statusFilters.length > 0
-              ? 'border-amber-400 bg-amber-50/70 text-amber-950 ring-1 ring-amber-400/50'
-              : 'border-stone-200 bg-white text-stone-800 hover:bg-stone-50'
+              ? 'border-amber-500 bg-amber-100/90 text-stone-950 ring-1 ring-amber-500/50'
+              : 'border-stone-300 bg-white text-stone-900 hover:bg-stone-100'
           }`}
         >
           <div className="flex items-center gap-2 truncate">
-            <SlidersHorizontal className="h-4 w-4 text-amber-600 shrink-0" />
-            <span className="text-stone-500 font-medium shrink-0">Status:</span>
-            <span className="font-black text-stone-900 truncate">
+            <SlidersHorizontal className="h-4 w-4 text-stone-950 stroke-[2.4] shrink-0" />
+            <span className="text-stone-700 font-bold shrink-0">Status:</span>
+            <span className="font-black text-stone-950 truncate">
               {getStatusFilterLabel()}
             </span>
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-900">
+            <span className="rounded-full bg-amber-200 border border-amber-300 px-2 py-0.5 text-[10px] font-black text-amber-950">
               {activeStatusCount}
             </span>
-            <span className="text-[11px] text-stone-400 font-normal">Tap to filter</span>
+            <span className="text-[11px] text-stone-600 font-semibold">Tap to filter</span>
           </div>
         </button>
       </div>
 
       {/* Desktop & Tablet: Status Tabs (Multi-Select Enabled) */}
-      {isCook ? (
+      {isBarista ? (
+        /* BARISTA STATUS TABS: Start Prep | Brewing / Prepping | Ready */
+        <div className="hidden sm:flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <span className="text-xs font-black text-stone-800 mr-1 flex items-center gap-1">
+            <Coffee className="h-3.5 w-3.5 text-amber-800 stroke-[2.2]" />
+            Bar Status:
+          </span>
+
+          <button
+            onClick={() => toggleStatusFilter('all')}
+            className={`rounded-xl px-2.5 sm:px-3.5 py-1.5 text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+              isStatusActive('all')
+                ? 'bg-stone-950 text-white shadow-xs font-extrabold'
+                : 'bg-white border border-stone-300 text-stone-900 hover:bg-stone-100 hover:border-stone-400'
+            }`}
+          >
+            {isStatusActive('all') && <Check className="h-3 w-3 text-amber-400 stroke-[2.5] shrink-0" />}
+            <span>All Active Bar ({toPrepCount + processingCount + toServeCount})</span>
+          </button>
+
+          <button
+            onClick={() => toggleStatusFilter('to_prep')}
+            title="Toggle Start Prep"
+            className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
+              isStatusActive('to_prep')
+                ? 'bg-amber-500 text-stone-950 font-extrabold shadow-xs ring-2 ring-amber-600/30'
+                : 'bg-white border border-stone-300 text-stone-900 hover:bg-stone-100 hover:border-stone-400'
+            }`}
+          >
+            {isStatusActive('to_prep') ? (
+              <Check className="h-3.5 w-3.5 text-stone-950 stroke-[2.5] shrink-0" />
+            ) : (
+              <Flame className="h-3.5 w-3.5 text-amber-800 stroke-[2.2] shrink-0" />
+            )}
+            <span>Start Prep</span>
+            <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
+              isStatusActive('to_prep') ? 'bg-stone-950 text-amber-300' : 'bg-amber-200 text-amber-950 border border-amber-300'
+            }`}>
+              {toPrepCount}
+            </span>
+          </button>
+
+          <button
+            onClick={() => toggleStatusFilter('processing')}
+            title="Toggle Brewing / Prepping"
+            className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
+              isStatusActive('processing')
+                ? 'bg-sky-600 text-white font-extrabold shadow-xs ring-2 ring-sky-600/30'
+                : 'bg-white border border-stone-300 text-stone-900 hover:bg-stone-100 hover:border-stone-400'
+            }`}
+          >
+            {isStatusActive('processing') ? (
+              <Check className="h-3.5 w-3.5 text-white stroke-[2.5] shrink-0" />
+            ) : (
+              <Coffee className="h-3.5 w-3.5 text-sky-800 stroke-[2.2] shrink-0" />
+            )}
+            <span>Brewing</span>
+            <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
+              isStatusActive('processing') ? 'bg-white/20 text-white' : 'bg-sky-100 text-sky-950 border border-sky-300'
+            }`}>
+              {processingCount}
+            </span>
+          </button>
+
+          <button
+            onClick={() => toggleStatusFilter('completed')}
+            title="Toggle Drinks Ready"
+            className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
+              isStatusActive('completed')
+                ? 'bg-emerald-600 text-white font-extrabold shadow-xs ring-2 ring-emerald-600/30'
+                : 'bg-white border border-stone-300 text-stone-900 hover:bg-stone-100 hover:border-stone-400'
+            }`}
+          >
+            {isStatusActive('completed') ? (
+              <Check className="h-3.5 w-3.5 text-white stroke-[2.5] shrink-0" />
+            ) : (
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-800 stroke-[2.2] shrink-0" />
+            )}
+            <span>Drinks Ready</span>
+            <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
+              isStatusActive('completed') ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-950 border border-emerald-300'
+            }`}>
+              {toServeCount + completedCount}
+            </span>
+          </button>
+
+          {!isStatusActive('all') && (
+            <button
+              onClick={() => toggleStatusFilter('all')}
+              className="text-[11px] font-extrabold text-stone-700 hover:text-stone-950 underline ml-1 cursor-pointer"
+            >
+              Reset to All
+            </button>
+          )}
+        </div>
+      ) : isCook ? (
         /* COOK STATUS TABS: Start Prep | Processing | Complete */
         <div className="hidden sm:flex flex-wrap items-center gap-1.5 sm:gap-2">
-          <span className="text-xs font-bold text-stone-500 mr-1 flex items-center gap-1">
-            <ChefHat className="h-3.5 w-3.5 text-orange-600" />
+          <span className="text-xs font-black text-stone-800 mr-1 flex items-center gap-1">
+            <ChefHat className="h-3.5 w-3.5 text-stone-900 stroke-[2.2]" />
             Kitchen Status:
           </span>
 
@@ -1147,11 +1865,11 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
             onClick={() => toggleStatusFilter('all')}
             className={`rounded-xl px-2.5 sm:px-3.5 py-1.5 text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
               isStatusActive('all')
-                ? 'bg-stone-900 text-white shadow-xs font-extrabold'
-                : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
+                ? 'bg-stone-950 text-white shadow-xs font-extrabold'
+                : 'bg-white border border-stone-300 text-stone-900 hover:bg-stone-100 hover:border-stone-400'
             }`}
           >
-            {isStatusActive('all') && <Check className="h-3 w-3 text-amber-400 shrink-0" />}
+            {isStatusActive('all') && <Check className="h-3 w-3 text-amber-400 stroke-[2.5] shrink-0" />}
             <span>All Active Prep ({toPrepCount + processingCount + toServeCount})</span>
           </button>
 
@@ -1161,17 +1879,17 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
             className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
               isStatusActive('to_prep')
                 ? 'bg-amber-500 text-stone-950 font-extrabold shadow-xs ring-2 ring-amber-600/30'
-                : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
+                : 'bg-white border border-stone-300 text-stone-900 hover:bg-stone-100 hover:border-stone-400'
             }`}
           >
             {isStatusActive('to_prep') ? (
-              <Check className="h-3.5 w-3.5 text-stone-950 shrink-0" />
+              <Check className="h-3.5 w-3.5 text-stone-950 stroke-[2.5] shrink-0" />
             ) : (
-              <Flame className="h-3.5 w-3.5 text-amber-700 shrink-0" />
+              <Flame className="h-3.5 w-3.5 text-amber-800 stroke-[2.2] shrink-0" />
             )}
             <span>Start Prep</span>
             <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
-              isStatusActive('to_prep') ? 'bg-stone-950 text-amber-300' : 'bg-amber-100 text-amber-900'
+              isStatusActive('to_prep') ? 'bg-stone-950 text-amber-300' : 'bg-amber-200 text-amber-950 border border-amber-300'
             }`}>
               {toPrepCount}
             </span>
@@ -1183,17 +1901,17 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
             className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
               isStatusActive('processing')
                 ? 'bg-sky-600 text-white font-extrabold shadow-xs ring-2 ring-sky-600/30'
-                : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
+                : 'bg-white border border-stone-300 text-stone-900 hover:bg-stone-100 hover:border-stone-400'
             }`}
           >
             {isStatusActive('processing') ? (
-              <Check className="h-3.5 w-3.5 text-white shrink-0" />
+              <Check className="h-3.5 w-3.5 text-white stroke-[2.5] shrink-0" />
             ) : (
-              <ChefHat className="h-3.5 w-3.5 text-sky-400 shrink-0" />
+              <ChefHat className="h-3.5 w-3.5 text-sky-800 stroke-[2.2] shrink-0" />
             )}
             <span>Processing</span>
             <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
-              isStatusActive('processing') ? 'bg-white/20 text-white' : 'bg-sky-100 text-sky-900'
+              isStatusActive('processing') ? 'bg-white/20 text-white' : 'bg-sky-100 text-sky-950 border border-sky-300'
             }`}>
               {processingCount}
             </span>
@@ -1205,17 +1923,17 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
             className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
               isStatusActive('completed')
                 ? 'bg-emerald-600 text-white font-extrabold shadow-xs ring-2 ring-emerald-600/30'
-                : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
+                : 'bg-white border border-stone-300 text-stone-900 hover:bg-stone-100 hover:border-stone-400'
             }`}
           >
             {isStatusActive('completed') ? (
-              <Check className="h-3.5 w-3.5 text-white shrink-0" />
+              <Check className="h-3.5 w-3.5 text-white stroke-[2.5] shrink-0" />
             ) : (
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-800 stroke-[2.2] shrink-0" />
             )}
             <span>Complete</span>
             <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
-              isStatusActive('completed') ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-900'
+              isStatusActive('completed') ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-950 border border-emerald-300'
             }`}>
               {toServeCount + completedCount}
             </span>
@@ -1224,7 +1942,7 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
           {!isStatusActive('all') && (
             <button
               onClick={() => toggleStatusFilter('all')}
-              className="text-[11px] font-bold text-stone-500 hover:text-stone-900 underline ml-1 cursor-pointer"
+              className="text-[11px] font-extrabold text-stone-700 hover:text-stone-950 underline ml-1 cursor-pointer"
             >
               Reset to All
             </button>
@@ -1233,8 +1951,8 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
       ) : (
         /* CASHIER & ADMIN STATUS TABS: Multi-Select */
         <div className="hidden sm:flex flex-wrap items-center gap-1.5 sm:gap-2">
-          <span className="text-xs font-bold text-stone-500 mr-1 flex items-center gap-1">
-            <Store className="h-3.5 w-3.5 text-amber-600" />
+          <span className="text-xs font-black text-stone-800 mr-1 flex items-center gap-1">
+            <Store className="h-3.5 w-3.5 text-stone-900 stroke-[2.2]" />
             Cashier Status:
           </span>
 
@@ -1242,11 +1960,11 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
             onClick={() => toggleStatusFilter('all')}
             className={`rounded-xl px-2.5 sm:px-3.5 py-1.5 text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
               isStatusActive('all')
-                ? 'bg-stone-900 text-white shadow-xs font-extrabold'
-                : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
+                ? 'bg-stone-950 text-white shadow-xs font-extrabold'
+                : 'bg-white border border-stone-300 text-stone-900 hover:bg-stone-100 hover:border-stone-400'
             }`}
           >
-            {isStatusActive('all') && <Check className="h-3 w-3 text-amber-400 shrink-0" />}
+            {isStatusActive('all') && <Check className="h-3 w-3 text-amber-400 stroke-[2.5] shrink-0" />}
             <span>All ({orders.length})</span>
           </button>
 
@@ -1256,17 +1974,17 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
             className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
               isStatusActive('to_confirm')
                 ? 'bg-rose-600 text-white font-extrabold shadow-xs ring-2 ring-rose-600/30'
-                : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
+                : 'bg-white border border-stone-300 text-stone-900 hover:bg-stone-100 hover:border-stone-400'
             }`}
           >
             {isStatusActive('to_confirm') ? (
-              <Check className="h-3.5 w-3.5 text-white shrink-0" />
+              <Check className="h-3.5 w-3.5 text-white stroke-[2.5] shrink-0" />
             ) : (
-              <AlertCircle className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+              <AlertCircle className="h-3.5 w-3.5 text-rose-700 stroke-[2.2] shrink-0" />
             )}
             <span>To Confirm</span>
             <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
-              isStatusActive('to_confirm') ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-900'
+              isStatusActive('to_confirm') ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-950 border border-rose-300'
             }`}>
               {pendingConfirmCount}
             </span>
@@ -1278,17 +1996,17 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
             className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
               isStatusActive('to_prep')
                 ? 'bg-amber-500 text-stone-950 font-extrabold shadow-xs ring-2 ring-amber-600/30'
-                : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
+                : 'bg-white border border-stone-300 text-stone-900 hover:bg-stone-100 hover:border-stone-400'
             }`}
           >
             {isStatusActive('to_prep') ? (
-              <Check className="h-3.5 w-3.5 text-stone-950 shrink-0" />
+              <Check className="h-3.5 w-3.5 text-stone-950 stroke-[2.5] shrink-0" />
             ) : (
-              <Clock className="h-3.5 w-3.5 text-amber-700 shrink-0" />
+              <Clock className="h-3.5 w-3.5 text-amber-800 stroke-[2.2] shrink-0" />
             )}
             <span>To Prep</span>
             <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
-              isStatusActive('to_prep') ? 'bg-stone-950 text-amber-300' : 'bg-amber-100 text-amber-900'
+              isStatusActive('to_prep') ? 'bg-stone-950 text-amber-300' : 'bg-amber-200 text-amber-950 border border-amber-300'
             }`}>
               {toPrepCount}
             </span>
@@ -1300,17 +2018,17 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
             className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
               isStatusActive('processing')
                 ? 'bg-sky-600 text-white font-extrabold shadow-xs ring-2 ring-sky-600/30'
-                : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
+                : 'bg-white border border-stone-300 text-stone-900 hover:bg-stone-100 hover:border-stone-400'
             }`}
           >
             {isStatusActive('processing') ? (
-              <Check className="h-3.5 w-3.5 text-white shrink-0" />
+              <Check className="h-3.5 w-3.5 text-white stroke-[2.5] shrink-0" />
             ) : (
-              <ChefHat className="h-3.5 w-3.5 text-sky-400 shrink-0" />
+              <ChefHat className="h-3.5 w-3.5 text-sky-800 stroke-[2.2] shrink-0" />
             )}
             <span>Processing</span>
             <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
-              isStatusActive('processing') ? 'bg-white/20 text-white' : 'bg-sky-100 text-sky-900'
+              isStatusActive('processing') ? 'bg-white/20 text-white' : 'bg-sky-100 text-sky-950 border border-sky-300'
             }`}>
               {processingCount}
             </span>
@@ -1322,17 +2040,17 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
             className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
               isStatusActive('to_serve')
                 ? 'bg-emerald-600 text-white font-extrabold shadow-xs ring-2 ring-emerald-600/30'
-                : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
+                : 'bg-white border border-stone-300 text-stone-900 hover:bg-stone-100 hover:border-stone-400'
             }`}
           >
             {isStatusActive('to_serve') ? (
-              <Check className="h-3.5 w-3.5 text-white shrink-0" />
+              <Check className="h-3.5 w-3.5 text-white stroke-[2.5] shrink-0" />
             ) : (
-              <Bell className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+              <Bell className="h-3.5 w-3.5 text-emerald-800 stroke-[2.2] shrink-0" />
             )}
             <span>To Serve</span>
             <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
-              isStatusActive('to_serve') ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-900'
+              isStatusActive('to_serve') ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-950 border border-emerald-300'
             }`}>
               {toServeCount}
             </span>
@@ -1418,7 +2136,17 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                 No in-store orders match current filter.
               </div>
             ) : (
-              <div className="grid grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2 sm:gap-4">
+              <div
+                className={`grid gap-2 sm:gap-4 ${
+                  gridColumns === 1
+                    ? 'grid-cols-1 max-w-2xl mx-auto'
+                    : gridColumns === 2
+                    ? 'grid-cols-2'
+                    : gridColumns === 3
+                    ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3'
+                    : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4'
+                }`}
+              >
                 {filteredInStore.map((order) => renderOrderCard(order))}
               </div>
             )}
@@ -1446,7 +2174,17 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                 No online orders match current filter.
               </div>
             ) : (
-              <div className="grid grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2 sm:gap-4">
+              <div
+                className={`grid gap-2 sm:gap-4 ${
+                  gridColumns === 1
+                    ? 'grid-cols-1 max-w-2xl mx-auto'
+                    : gridColumns === 2
+                    ? 'grid-cols-2'
+                    : gridColumns === 3
+                    ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3'
+                    : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4'
+                }`}
+              >
                 {filteredOnline.map((order) => renderOrderCard(order))}
               </div>
             )}
@@ -1460,7 +2198,17 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
               No orders found matching current filter.
             </div>
           ) : (
-            <div className="grid gap-2 sm:gap-4 grid-cols-2 lg:grid-cols-3">
+            <div
+              className={`grid gap-2 sm:gap-4 ${
+                gridColumns === 1
+                  ? 'grid-cols-1 max-w-3xl mx-auto'
+                  : gridColumns === 2
+                  ? 'grid-cols-2'
+                  : gridColumns === 3
+                  ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3'
+                  : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4'
+              }`}
+            >
               {filteredOrders.map((order) => renderOrderCard(order))}
             </div>
           )}
@@ -1788,7 +2536,110 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
 
             {/* Status Options Grid */}
             <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
-              {isCook ? (
+              {isBarista ? (
+                /* Barista Options */
+                <div className="grid grid-cols-1 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleStatusFilter('all')}
+                    className={`flex items-center justify-between rounded-xl p-3 text-xs font-bold transition cursor-pointer border ${
+                      isStatusActive('all')
+                        ? 'border-stone-950 bg-stone-950 text-white shadow-xs'
+                        : 'border-stone-200 bg-stone-50 text-stone-800 hover:bg-stone-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`flex h-5 w-5 items-center justify-center rounded-md border ${
+                        isStatusActive('all') ? 'bg-amber-400 border-amber-400 text-stone-950' : 'border-stone-300 bg-white'
+                      }`}>
+                        {isStatusActive('all') && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Coffee className="h-4 w-4 text-amber-700" />
+                        <span>All Active Bar</span>
+                      </div>
+                    </div>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${isStatusActive('all') ? 'bg-white/20 text-white' : 'bg-stone-200 text-stone-800'}`}>
+                      {toPrepCount + processingCount + toServeCount}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => toggleStatusFilter('to_prep')}
+                    className={`flex items-center justify-between rounded-xl p-3 text-xs font-bold transition cursor-pointer border ${
+                      isStatusActive('to_prep')
+                        ? 'border-amber-500 bg-amber-50 text-amber-950 ring-1 ring-amber-400'
+                        : 'border-stone-200 bg-stone-50 text-stone-800 hover:bg-stone-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`flex h-5 w-5 items-center justify-center rounded-md border ${
+                        isStatusActive('to_prep') ? 'bg-amber-500 border-amber-500 text-stone-950' : 'border-stone-300 bg-white'
+                      }`}>
+                        {isStatusActive('to_prep') && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Flame className="h-4 w-4 text-amber-700" />
+                        <span>Start Prep</span>
+                      </div>
+                    </div>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${isStatusActive('to_prep') ? 'bg-amber-200 text-amber-950' : 'bg-amber-100 text-amber-900'}`}>
+                      {toPrepCount}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => toggleStatusFilter('processing')}
+                    className={`flex items-center justify-between rounded-xl p-3 text-xs font-bold transition cursor-pointer border ${
+                      isStatusActive('processing')
+                        ? 'border-sky-600 bg-sky-50 text-sky-950 ring-1 ring-sky-400'
+                        : 'border-stone-200 bg-stone-50 text-stone-800 hover:bg-stone-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`flex h-5 w-5 items-center justify-center rounded-md border ${
+                        isStatusActive('processing') ? 'bg-sky-600 border-sky-600 text-white' : 'border-stone-300 bg-white'
+                      }`}>
+                        {isStatusActive('processing') && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Coffee className="h-4 w-4 text-sky-600" />
+                        <span>Brewing / Prepping</span>
+                      </div>
+                    </div>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${isStatusActive('processing') ? 'bg-sky-200 text-sky-950' : 'bg-sky-100 text-sky-900'}`}>
+                      {processingCount}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => toggleStatusFilter('completed')}
+                    className={`flex items-center justify-between rounded-xl p-3 text-xs font-bold transition cursor-pointer border ${
+                      isStatusActive('completed')
+                        ? 'border-emerald-600 bg-emerald-50 text-emerald-950 ring-1 ring-emerald-400'
+                        : 'border-stone-200 bg-stone-50 text-stone-800 hover:bg-stone-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`flex h-5 w-5 items-center justify-center rounded-md border ${
+                        isStatusActive('completed') ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-stone-300 bg-white'
+                      }`}>
+                        {isStatusActive('completed') && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                        <span>Drinks Ready</span>
+                      </div>
+                    </div>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${isStatusActive('completed') ? 'bg-emerald-200 text-emerald-950' : 'bg-emerald-100 text-emerald-900'}`}>
+                      {toServeCount + completedCount}
+                    </span>
+                  </button>
+                </div>
+              ) : isCook ? (
                 /* Cook Options */
                 <div className="grid grid-cols-1 gap-2">
                   <button

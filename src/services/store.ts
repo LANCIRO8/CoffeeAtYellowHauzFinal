@@ -4,15 +4,21 @@ import {
   Table,
   User,
   Order,
+  OrderItem,
   Reservation,
   CustomerAccount,
   StoreSettings,
   ChatIntent,
   Discount,
   TableBinding,
+  GuestOrderRecord,
   TableRequest,
   TableRequestType,
   TableRequestStatus,
+  RefillRequest,
+  RefillRequestStatus,
+  RefillUrgency,
+  RefillStation,
 } from '../types';
 import {
   SEED_CATEGORIES,
@@ -88,6 +94,89 @@ export const DEFAULT_DISCOUNTS: Discount[] = [
   },
 ];
 
+export const SEED_REFILL_REQUESTS: RefillRequest[] = [
+  {
+    id: 'RF-101',
+    menuItemId: 1,
+    itemName: 'Whole Coffee Beans (Espresso Blend 1kg)',
+    categoryName: 'Hot Coffee',
+    station: 'bar',
+    unit: 'bags',
+    currentStock: 3,
+    suggestedQuantity: 10,
+    urgency: 'high',
+    notes: 'Down to 3 bags. Need restock for weekend coffee rush.',
+    status: 'pending',
+    requestedBy: {
+      id: 4,
+      name: 'Paolo Barista',
+      role: 'barista',
+      employeeId: 'BAR-001',
+    },
+    createdAt: new Date(Date.now() - 3600000 * 4).toISOString(),
+  },
+  {
+    id: 'RF-102',
+    menuItemId: null,
+    itemName: 'Whole Fresh Milk (1 Liter Barista Edition)',
+    categoryName: 'Milk & Dairy',
+    station: 'bar',
+    unit: 'cartons',
+    currentStock: 4,
+    suggestedQuantity: 24,
+    urgency: 'urgent',
+    notes: 'High consumption on Iced Lattes and Cappuccinos. Needed by tomorrow.',
+    status: 'pending',
+    requestedBy: {
+      id: 4,
+      name: 'Paolo Barista',
+      role: 'barista',
+      employeeId: 'BAR-001',
+    },
+    createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+  },
+  {
+    id: 'RF-103',
+    menuItemId: null,
+    itemName: 'Farm Fresh Large Eggs (Tray of 30)',
+    categoryName: 'Kitchen Supply',
+    station: 'kitchen',
+    unit: 'trays',
+    currentStock: 1,
+    suggestedQuantity: 5,
+    urgency: 'high',
+    notes: 'Breakfast meals and pastries running low on fresh eggs.',
+    status: 'pending',
+    requestedBy: {
+      id: 3,
+      name: 'Mario Kitchen Cook',
+      role: 'cook',
+      employeeId: 'CK-001',
+    },
+    createdAt: new Date(Date.now() - 3600000 * 6).toISOString(),
+  },
+  {
+    id: 'RF-104',
+    menuItemId: null,
+    itemName: 'Takeaway Kraft Paper Bags & Cup Carriers',
+    categoryName: 'Packaging & Counter',
+    station: 'counter',
+    unit: 'bundles',
+    currentStock: 2,
+    suggestedQuantity: 15,
+    urgency: 'normal',
+    notes: 'Takeaway packaging for front cashier counter.',
+    status: 'pending',
+    requestedBy: {
+      id: 2,
+      name: 'Elena Cashier',
+      role: 'cashier',
+      employeeId: 'CSH-001',
+    },
+    createdAt: new Date(Date.now() - 3600000 * 12).toISOString(),
+  },
+];
+
 const STORAGE_KEYS = {
   ITEMS: 'yh_menu_items',
   CATEGORIES: 'yh_categories',
@@ -103,6 +192,8 @@ const STORAGE_KEYS = {
   DISCOUNTS: 'yh_discounts',
   TABLE_REQUESTS: 'yh_table_requests',
   CLIENT_SESSION_ID: 'yh_client_session_id',
+  GUEST_ORDERS: 'yh_guest_orders',
+  REFILL_REQUESTS: 'yh_refill_requests',
 };
 
 // Defensive helper to strip undefined values so Firestore never throws 'Unsupported field value: undefined'
@@ -145,6 +236,73 @@ function setStored<T>(key: string, val: T): void {
 }
 
 type StoreListener = () => void;
+
+export function isDrinkOrderItem(item: OrderItem, menuItems?: MenuItem[]): boolean {
+  if (menuItems && menuItems.length > 0) {
+    const mi = menuItems.find((m) => m.id === item.menuItemId);
+    if (mi) {
+      if (mi.categoryId >= 9 && mi.categoryId <= 17) return true;
+    }
+  }
+  const n = (item.name || '').toLowerCase();
+  return (
+    n.includes('coffee') ||
+    n.includes('tea') ||
+    n.includes('latte') ||
+    n.includes('espresso') ||
+    n.includes('cappuccino') ||
+    n.includes('americano') ||
+    n.includes('macchiato') ||
+    n.includes('frappe') ||
+    n.includes('blended') ||
+    n.includes('shake') ||
+    n.includes('milkshake') ||
+    n.includes('smoothie') ||
+    n.includes('refresher') ||
+    n.includes('cooler') ||
+    n.includes('juice') ||
+    n.includes('soda') ||
+    n.includes('drink') ||
+    n.includes('rocks') ||
+    n.includes('lemonade')
+  );
+}
+
+export function getOrderFulfillmentBreakdown(order: Order, menuItems?: MenuItem[]) {
+  const allItems = order.items || [];
+  const drinkItems = allItems.filter((i) => isDrinkOrderItem(i, menuItems));
+  const foodItems = allItems.filter((i) => !isDrinkOrderItem(i, menuItems));
+
+  const hasDrinks = drinkItems.length > 0;
+  const hasFood = foodItems.length > 0;
+
+  const isOrderOverallReady = order.status === 'to_serve' || order.status === 'completed';
+  const isOrderCancelled = order.status === 'cancelled';
+
+  let drinksReady = false;
+  let foodReady = false;
+
+  if (isOrderOverallReady) {
+    drinksReady = hasDrinks;
+    foodReady = hasFood;
+  } else if (!isOrderCancelled) {
+    drinksReady = hasDrinks ? order.baristaStatus === 'ready' : true;
+    foodReady = hasFood ? order.cookStatus === 'ready' : true;
+  }
+
+  const allApplicableReady = (hasDrinks ? drinksReady : true) && (hasFood ? foodReady : true);
+
+  return {
+    drinkItems,
+    foodItems,
+    hasDrinks,
+    hasFood,
+    isMixed: hasDrinks && hasFood,
+    drinksReady,
+    foodReady,
+    allApplicableReady,
+  };
+}
 
 export class AppStore {
   private static listeners: Set<StoreListener> = new Set();
@@ -305,7 +463,14 @@ export class AppStore {
                 u.pin = u.pin.repeat(2);
               }
             } else if (!u.pin) {
-              u.pin = u.role === 'admin' ? '12345678' : u.role === 'cook' ? '55667788' : '00000000';
+              u.pin =
+                u.role === 'admin'
+                  ? '12345678'
+                  : u.role === 'cook'
+                  ? '55667788'
+                  : u.role === 'barista'
+                  ? '33445566'
+                  : '00000000';
             }
             return u;
           });
@@ -365,6 +530,24 @@ export class AppStore {
           setStored(STORAGE_KEYS.TABLE_REQUESTS, list);
         } else {
           setStored(STORAGE_KEYS.TABLE_REQUESTS, []);
+        }
+        this.notify();
+      });
+
+      // 10. Listen to Refill Suggestions (Cashier, Cook, Barista -> Admin confirmation)
+      onSnapshot(collection(db, 'refill_requests'), (snapshot) => {
+        if (!snapshot.empty) {
+          const list = snapshot.docs.map((doc) => doc.data() as RefillRequest);
+          list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setStored(STORAGE_KEYS.REFILL_REQUESTS, list);
+        } else {
+          const existing = getStored<RefillRequest[]>(STORAGE_KEYS.REFILL_REQUESTS, []);
+          if (existing.length === 0) {
+            setStored(STORAGE_KEYS.REFILL_REQUESTS, SEED_REFILL_REQUESTS);
+            SEED_REFILL_REQUESTS.forEach((req) => {
+              setDoc(doc(db, 'refill_requests', req.id), cleanForFirestore(req)).catch(() => {});
+            });
+          }
         }
         this.notify();
       });
@@ -556,6 +739,148 @@ export class AppStore {
     return updatedCount;
   }
 
+  // Refill Suggestions & Restock Requests (Cashiers, Cooks, Baristas -> Admin confirmation)
+  static getRefillRequests(): RefillRequest[] {
+    const list = getStored<RefillRequest[]>(STORAGE_KEYS.REFILL_REQUESTS, SEED_REFILL_REQUESTS);
+    if (!list || list.length === 0) {
+      return SEED_REFILL_REQUESTS;
+    }
+    return list;
+  }
+
+  static saveRefillRequests(requests: RefillRequest[]): void {
+    setStored(STORAGE_KEYS.REFILL_REQUESTS, requests);
+    this.notify();
+  }
+
+  static getPendingRefillRequestsCount(): number {
+    return this.getRefillRequests().filter((r) => r.status === 'pending').length;
+  }
+
+  static createRefillRequest(data: {
+    source?: 'catalog' | 'custom';
+    menuItemId?: number | null;
+    categoryId?: number;
+    itemName: string;
+    categoryName?: string;
+    station: RefillStation;
+    unit: string;
+    currentStock: number;
+    suggestedQuantity: number;
+    urgency: RefillUrgency;
+    notes?: string;
+    requestedBy: {
+      id: number;
+      name: string;
+      role: 'cashier' | 'cook' | 'barista' | 'admin';
+      employeeId?: string;
+    };
+  }): RefillRequest {
+    const requests = this.getRefillRequests();
+    const id = `RF-${Date.now().toString().slice(-6)}`;
+    const newRequest: RefillRequest = {
+      id,
+      ...data,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    };
+    requests.unshift(newRequest);
+    this.saveRefillRequests(requests);
+
+    // Sync to Firestore
+    setDoc(doc(db, 'refill_requests', id), cleanForFirestore(newRequest)).catch((e) =>
+      console.error('Firestore create refill request error:', e)
+    );
+
+    return newRequest;
+  }
+
+  static approveRefillRequest(
+    id: string,
+    finalQuantity: number,
+    adminUser: { id: number; name: string; role: string },
+    adminNotes?: string
+  ): boolean {
+    const requests = this.getRefillRequests();
+    const idx = requests.findIndex((r) => r.id === id);
+    if (idx === -1) return false;
+
+    const target = requests[idx];
+    const approvedQty = Math.max(0, Number(finalQuantity));
+
+    // If this refill request was linked to an existing menu item, increase stock in the system!
+    if (target.menuItemId) {
+      const item = this.getMenuItems().find((i) => i.id === target.menuItemId);
+      if (item) {
+        const updatedQty = (item.quantity ?? 0) + approvedQty;
+        this.updateMenuItem(item.id, {
+          quantity: updatedQty,
+          isAvailable: updatedQty > 0 ? true : item.isAvailable,
+        });
+      }
+    }
+
+    const updated: RefillRequest = {
+      ...target,
+      status: 'approved',
+      finalQuantity: approvedQty,
+      reviewedBy: adminUser,
+      reviewedAt: new Date().toISOString(),
+      adminNotes: adminNotes || target.adminNotes,
+    };
+
+    requests[idx] = updated;
+    this.saveRefillRequests(requests);
+
+    // Sync to Firestore
+    setDoc(doc(db, 'refill_requests', id), cleanForFirestore(updated)).catch(() => {});
+
+    return true;
+  }
+
+  static rejectRefillRequest(
+    id: string,
+    adminUser: { id: number; name: string; role: string },
+    adminNotes?: string
+  ): boolean {
+    const requests = this.getRefillRequests();
+    const idx = requests.findIndex((r) => r.id === id);
+    if (idx === -1) return false;
+
+    const updated: RefillRequest = {
+      ...requests[idx],
+      status: 'rejected',
+      reviewedBy: adminUser,
+      reviewedAt: new Date().toISOString(),
+      adminNotes: adminNotes || 'Declined by Admin',
+    };
+
+    requests[idx] = updated;
+    this.saveRefillRequests(requests);
+
+    // Sync to Firestore
+    setDoc(doc(db, 'refill_requests', id), cleanForFirestore(updated)).catch(() => {});
+
+    return true;
+  }
+
+  static cancelRefillRequest(id: string): boolean {
+    const requests = this.getRefillRequests();
+    const idx = requests.findIndex((r) => r.id === id);
+    if (idx === -1) return false;
+
+    const updated: RefillRequest = {
+      ...requests[idx],
+      status: 'cancelled',
+    };
+
+    requests[idx] = updated;
+    this.saveRefillRequests(requests);
+
+    setDoc(doc(db, 'refill_requests', id), cleanForFirestore(updated)).catch(() => {});
+    return true;
+  }
+
   // Floor plan tables
   static getTables(): Table[] {
     return getStored<Table[]>(STORAGE_KEYS.TABLES, SEED_TABLES);
@@ -683,6 +1008,12 @@ export class AppStore {
       classification = 'advance_booking';
     }
 
+    const currentMenuItems = this.getMenuItems();
+    const hasDrinks = (orderData.items || []).some((oi) => isDrinkOrderItem(oi, currentMenuItems));
+    const hasFood = (orderData.items || []).some((oi) => !isDrinkOrderItem(oi, currentMenuItems));
+    const initialStatus = orderData.status || (channel === 'online' ? 'to_confirm' : 'to_prep');
+    const isToPrep = initialStatus === 'to_prep';
+
     const newOrder: Order = {
       id: newId,
       orderNumber,
@@ -709,7 +1040,9 @@ export class AppStore {
       discountPercent: Number(orderData.discountPercent) || 0,
       amountPaid: Number(orderData.amountPaid) || 0,
       changeAmount: Number(orderData.changeAmount) || 0,
-      status: orderData.status || (channel === 'online' ? 'to_confirm' : 'to_prep'),
+      status: initialStatus,
+      baristaStatus: hasDrinks ? (isToPrep ? 'to_prep' : 'pending') : undefined,
+      cookStatus: hasFood ? (isToPrep ? 'to_prep' : 'pending') : undefined,
       cashierId: orderData.cashierId ?? (channel === 'online' ? 1 : 2),
       cashierName: orderData.cashierName || (channel === 'online' ? 'Online Storefront' : 'Staff Member'),
       items: (orderData.items || []).map((oi) => ({
@@ -720,11 +1053,18 @@ export class AppStore {
         totalPrice: oi.totalPrice || (oi.unitPrice || 0) * (oi.quantity || 1),
         specialInstructions: oi.specialInstructions || '',
         imageUrl: oi.imageUrl || '',
+        selectedVariant: oi.selectedVariant,
+        discount: oi.discount,
       })),
     };
 
     orders.unshift(newOrder);
     this.saveOrders(orders);
+
+    // If not authenticated, record as a guest order for this device/session & table
+    if (!newOrder.customerId) {
+      this.recordGuestOrder(newOrder.id, newOrder.tableNumber ?? null);
+    }
 
     // Save to Firestore with clean sanitization
     setDoc(doc(db, 'orders', String(newOrder.id)), cleanForFirestore(newOrder)).catch((e) =>
@@ -775,26 +1115,42 @@ export class AppStore {
         order.returnReason = details.returnReason;
       }
     }
-    if (status === 'to_prep' && !order.confirmedAt) {
-      order.confirmedAt = nowIso;
+    if (status === 'to_prep') {
+      if (!order.confirmedAt) order.confirmedAt = nowIso;
+      const breakdown = getOrderFulfillmentBreakdown(order, this.getMenuItems());
+      if (breakdown.hasDrinks && (!order.baristaStatus || order.baristaStatus === 'pending')) {
+        order.baristaStatus = 'to_prep';
+      }
+      if (breakdown.hasFood && (!order.cookStatus || order.cookStatus === 'pending')) {
+        order.cookStatus = 'to_prep';
+      }
     }
     if (status === 'processing' && !order.processingStartedAt) {
       order.processingStartedAt = nowIso;
     }
-    if (status === 'to_serve' && !order.readyToServeAt) {
-      order.readyToServeAt = nowIso;
+    if (status === 'to_serve') {
+      if (!order.readyToServeAt) order.readyToServeAt = nowIso;
+      const breakdown = getOrderFulfillmentBreakdown(order, this.getMenuItems());
+      if (breakdown.hasDrinks && order.baristaStatus !== 'ready') {
+        order.baristaStatus = 'ready';
+        if (!order.baristaCompletedAt) order.baristaCompletedAt = nowIso;
+      }
+      if (breakdown.hasFood && order.cookStatus !== 'ready') {
+        order.cookStatus = 'ready';
+        if (!order.cookCompletedAt) order.cookCompletedAt = nowIso;
+      }
     }
-    if (status === 'completed' && !order.completedAt) {
-      order.completedAt = nowIso;
-      if (!order.readyToServeAt) {
-        order.readyToServeAt = nowIso;
-      }
-      if (!order.processingStartedAt) {
-        order.processingStartedAt = order.createdAt;
-      }
+    if (status === 'completed') {
+      if (!order.completedAt) order.completedAt = nowIso;
+      if (!order.readyToServeAt) order.readyToServeAt = nowIso;
+      if (!order.processingStartedAt) order.processingStartedAt = order.createdAt;
+      const breakdown = getOrderFulfillmentBreakdown(order, this.getMenuItems());
+      if (breakdown.hasDrinks) order.baristaStatus = 'ready';
+      if (breakdown.hasFood) order.cookStatus = 'ready';
     }
     if (status === 'cancelled') {
       order.cancelledAt = nowIso;
+      order.cancellationRequested = false;
       if (details?.cancelReason) order.cancelReason = details.cancelReason;
       if (details?.cancelNotes) order.cancelNotes = details.cancelNotes;
       if (details?.cancelledBy) order.cancelledBy = details.cancelledBy;
@@ -820,6 +1176,10 @@ export class AppStore {
     // Firestore sync
     const updates: Partial<Order> = {
       status,
+      ...(order.baristaStatus ? { baristaStatus: order.baristaStatus } : {}),
+      ...(order.baristaCompletedAt ? { baristaCompletedAt: order.baristaCompletedAt } : {}),
+      ...(order.cookStatus ? { cookStatus: order.cookStatus } : {}),
+      ...(order.cookCompletedAt ? { cookCompletedAt: order.cookCompletedAt } : {}),
       ...(order.confirmedAt ? { confirmedAt: order.confirmedAt } : {}),
       ...(order.processingStartedAt ? { processingStartedAt: order.processingStartedAt } : {}),
       ...(order.readyToServeAt ? { readyToServeAt: order.readyToServeAt } : {}),
@@ -844,6 +1204,262 @@ export class AppStore {
         this.updateTableStatus(table.id, 'available', null);
       }
     }
+
+    return order;
+  }
+
+  static updateOrderBaristaStatus(
+    orderId: number,
+    status: 'to_prep' | 'processing' | 'ready',
+    staffName?: string
+  ): Order | null {
+    const orders = this.getOrders();
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return null;
+
+    const nowIso = new Date().toISOString();
+    order.baristaStatus = status;
+
+    if (status === 'processing') {
+      if (!order.baristaStartedAt) order.baristaStartedAt = nowIso;
+      if (order.status === 'to_prep') {
+        order.status = 'processing';
+        if (!order.processingStartedAt) order.processingStartedAt = nowIso;
+      }
+    } else if (status === 'ready') {
+      order.baristaCompletedAt = nowIso;
+      order.baristaCompletedBy = staffName || 'Barista';
+
+      // Check if food is also needed
+      const breakdown = getOrderFulfillmentBreakdown(order, this.getMenuItems());
+      if (!breakdown.hasFood || order.cookStatus === 'ready') {
+        // Both (or only drinks) are ready! Advance order to 'to_serve'
+        order.status = 'to_serve';
+        if (!order.readyToServeAt) order.readyToServeAt = nowIso;
+      } else {
+        // Food is still being cooked by kitchen cook. Keep order in processing
+        if (order.status === 'to_prep') {
+          order.status = 'processing';
+          if (!order.processingStartedAt) order.processingStartedAt = nowIso;
+        }
+      }
+    }
+
+    this.saveOrders(orders);
+
+    const updates: Partial<Order> = {
+      status: order.status,
+      baristaStatus: order.baristaStatus,
+      ...(order.baristaStartedAt ? { baristaStartedAt: order.baristaStartedAt } : {}),
+      ...(order.baristaCompletedAt ? { baristaCompletedAt: order.baristaCompletedAt } : {}),
+      ...(order.baristaCompletedBy ? { baristaCompletedBy: order.baristaCompletedBy } : {}),
+      ...(order.processingStartedAt ? { processingStartedAt: order.processingStartedAt } : {}),
+      ...(order.readyToServeAt ? { readyToServeAt: order.readyToServeAt } : {}),
+    };
+    updateDoc(doc(db, 'orders', String(orderId)), cleanForFirestore(updates)).catch(() => {
+      setDoc(doc(db, 'orders', String(orderId)), cleanForFirestore(order)).catch(() => {});
+    });
+
+    return order;
+  }
+
+  static updateOrderCookStatus(
+    orderId: number,
+    status: 'to_prep' | 'processing' | 'ready',
+    staffName?: string
+  ): Order | null {
+    const orders = this.getOrders();
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return null;
+
+    const nowIso = new Date().toISOString();
+    order.cookStatus = status;
+
+    if (status === 'processing') {
+      if (!order.cookStartedAt) order.cookStartedAt = nowIso;
+      if (order.status === 'to_prep') {
+        order.status = 'processing';
+        if (!order.processingStartedAt) order.processingStartedAt = nowIso;
+      }
+    } else if (status === 'ready') {
+      order.cookCompletedAt = nowIso;
+      order.cookCompletedBy = staffName || 'Cook';
+
+      // Check if drinks are also needed
+      const breakdown = getOrderFulfillmentBreakdown(order, this.getMenuItems());
+      if (!breakdown.hasDrinks || order.baristaStatus === 'ready') {
+        // Both (or only food) are ready! Advance order to 'to_serve'
+        order.status = 'to_serve';
+        if (!order.readyToServeAt) order.readyToServeAt = nowIso;
+      } else {
+        // Drinks are still being prepared by barista. Keep order in processing
+        if (order.status === 'to_prep') {
+          order.status = 'processing';
+          if (!order.processingStartedAt) order.processingStartedAt = nowIso;
+        }
+      }
+    }
+
+    this.saveOrders(orders);
+
+    const updates: Partial<Order> = {
+      status: order.status,
+      cookStatus: order.cookStatus,
+      ...(order.cookStartedAt ? { cookStartedAt: order.cookStartedAt } : {}),
+      ...(order.cookCompletedAt ? { cookCompletedAt: order.cookCompletedAt } : {}),
+      ...(order.cookCompletedBy ? { cookCompletedBy: order.cookCompletedBy } : {}),
+      ...(order.processingStartedAt ? { processingStartedAt: order.processingStartedAt } : {}),
+      ...(order.readyToServeAt ? { readyToServeAt: order.readyToServeAt } : {}),
+    };
+    updateDoc(doc(db, 'orders', String(orderId)), cleanForFirestore(updates)).catch(() => {
+      setDoc(doc(db, 'orders', String(orderId)), cleanForFirestore(order)).catch(() => {});
+    });
+
+    return order;
+  }
+
+  static completeAllOrderSections(orderId: number, staffName?: string): Order | null {
+    const orders = this.getOrders();
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return null;
+
+    const nowIso = new Date().toISOString();
+    const breakdown = getOrderFulfillmentBreakdown(order, this.getMenuItems());
+
+    if (breakdown.hasDrinks) {
+      order.baristaStatus = 'ready';
+      order.baristaCompletedAt = nowIso;
+      order.baristaCompletedBy = staffName || 'Cashier';
+    }
+    if (breakdown.hasFood) {
+      order.cookStatus = 'ready';
+      order.cookCompletedAt = nowIso;
+      order.cookCompletedBy = staffName || 'Cashier';
+    }
+
+    order.status = 'to_serve';
+    if (!order.readyToServeAt) order.readyToServeAt = nowIso;
+
+    this.saveOrders(orders);
+
+    const updates: Partial<Order> = {
+      status: 'to_serve',
+      readyToServeAt: order.readyToServeAt,
+      ...(breakdown.hasDrinks
+        ? {
+            baristaStatus: 'ready',
+            baristaCompletedAt: nowIso,
+            baristaCompletedBy: staffName || 'Cashier',
+          }
+        : {}),
+      ...(breakdown.hasFood
+        ? {
+            cookStatus: 'ready',
+            cookCompletedAt: nowIso,
+            cookCompletedBy: staffName || 'Cashier',
+          }
+        : {}),
+    };
+
+    updateDoc(doc(db, 'orders', String(orderId)), cleanForFirestore(updates)).catch(() => {
+      setDoc(doc(db, 'orders', String(orderId)), cleanForFirestore(order)).catch(() => {});
+    });
+
+    return order;
+  }
+
+  static requestOrderCancellation(
+    orderId: number,
+    reason: string,
+    notes?: string
+  ): Order | null {
+    const orders = this.getOrders();
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return null;
+    const nowIso = new Date().toISOString();
+
+    order.cancellationRequested = true;
+    order.cancellationRequestedAt = nowIso;
+    order.cancellationReason = reason;
+    order.cancellationNotes = notes || '';
+
+    this.saveOrders(orders);
+
+    const updates: Partial<Order> = {
+      cancellationRequested: true,
+      cancellationRequestedAt: nowIso,
+      cancellationReason: reason,
+      cancellationNotes: notes || '',
+    };
+
+    updateDoc(doc(db, 'orders', String(orderId)), cleanForFirestore(updates)).catch(() => {
+      setDoc(doc(db, 'orders', String(orderId)), cleanForFirestore(order)).catch(() => {});
+    });
+
+    return order;
+  }
+
+  static confirmOrderCancellation(
+    orderId: number,
+    confirmedBy: string,
+    notes?: string
+  ): Order | null {
+    const orders = this.getOrders();
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return null;
+
+    return this.updateOrderStatus(orderId, 'cancelled', {
+      cancelledBy: confirmedBy,
+      cancelReason: order.cancellationReason || 'Customer requested cancellation',
+      cancelNotes: notes || order.cancellationNotes || '',
+    });
+  }
+
+  static rejectOrderCancellation(
+    orderId: number,
+    rejectReason?: string
+  ): Order | null {
+    const orders = this.getOrders();
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return null;
+    const nowIso = new Date().toISOString();
+
+    order.cancellationRequested = false;
+    order.cancellationRejectedAt = nowIso;
+    if (rejectReason) {
+      order.cancellationRejectReason = rejectReason;
+    }
+
+    this.saveOrders(orders);
+
+    const updates: Partial<Order> = {
+      cancellationRequested: false,
+      cancellationRejectedAt: nowIso,
+      ...(rejectReason ? { cancellationRejectReason: rejectReason } : {}),
+    };
+
+    updateDoc(doc(db, 'orders', String(orderId)), cleanForFirestore(updates)).catch(() => {
+      setDoc(doc(db, 'orders', String(orderId)), cleanForFirestore(order)).catch(() => {});
+    });
+
+    return order;
+  }
+
+  static withdrawOrderCancellation(orderId: number): Order | null {
+    const orders = this.getOrders();
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return null;
+
+    order.cancellationRequested = false;
+    this.saveOrders(orders);
+
+    const updates: Partial<Order> = {
+      cancellationRequested: false,
+    };
+
+    updateDoc(doc(db, 'orders', String(orderId)), cleanForFirestore(updates)).catch(() => {
+      setDoc(doc(db, 'orders', String(orderId)), cleanForFirestore(order)).catch(() => {});
+    });
 
     return order;
   }
@@ -981,6 +1597,8 @@ export class AppStore {
               ? '12345678'
               : updated.role === 'cook'
               ? '55667788'
+              : updated.role === 'barista'
+              ? '33445566'
               : '00000000',
         };
       }
@@ -1096,7 +1714,153 @@ export class AppStore {
 
   static setActiveCustomer(cust: CustomerAccount | null): void {
     setStored(STORAGE_KEYS.ACTIVE_CUSTOMER, cust);
+    if (cust) {
+      // If customer signs up or signs in, link any guest orders to their account so it is saved permanently
+      this.linkGuestOrdersToCustomer(cust.id, cust.fullName, cust.contactNumber);
+    }
     this.notify();
+  }
+
+  // Guest Order Tracking & Session Management
+  static getGuestOrders(): GuestOrderRecord[] {
+    return getStored<GuestOrderRecord[]>(STORAGE_KEYS.GUEST_ORDERS, []);
+  }
+
+  static recordGuestOrder(orderId: number, tableNumber: number | null): void {
+    const records = this.getGuestOrders();
+    // Avoid duplicate records
+    if (!records.some((r) => r.orderId === orderId)) {
+      records.push({
+        orderId,
+        tableNumber: tableNumber ?? null,
+        createdAt: new Date().toISOString(),
+      });
+      setStored(STORAGE_KEYS.GUEST_ORDERS, records);
+      this.notify();
+    }
+  }
+
+  // Clear guest table orders (called when a guest exits the table)
+  static clearGuestTableOrders(tableNumber?: number): void {
+    const records = this.getGuestOrders();
+    const remaining =
+      tableNumber !== undefined
+        ? records.filter((r) => r.tableNumber !== tableNumber)
+        : records.filter((r) => r.tableNumber === null); // keep only non-table online guest orders
+    setStored(STORAGE_KEYS.GUEST_ORDERS, remaining);
+    this.notify();
+  }
+
+  // Clear all guest orders
+  static clearAllGuestOrders(): void {
+    setStored(STORAGE_KEYS.GUEST_ORDERS, []);
+    this.notify();
+  }
+
+  // Link any guest orders placed on this device to a newly signed-in or signed-up customer account
+  static linkGuestOrdersToCustomer(customerId: number, fullName?: string, phone?: string): void {
+    const records = this.getGuestOrders();
+    if (!records.length) return;
+
+    const orderIdsToLink = new Set(records.map((r) => r.orderId));
+    const allOrders = this.getOrders();
+    let hasChanges = false;
+
+    const updated = allOrders.map((ord) => {
+      if (orderIdsToLink.has(ord.id) && !ord.customerId) {
+        hasChanges = true;
+        const newOrd: Order = {
+          ...ord,
+          customerId,
+          customerName: fullName || ord.customerName,
+          customerPhone: phone || ord.customerPhone,
+        };
+        // Update in Firestore
+        setDoc(doc(db, 'orders', String(newOrd.id)), cleanForFirestore(newOrd)).catch((err) =>
+          console.error('Firestore link guest order error:', err)
+        );
+        return newOrd;
+      }
+      return ord;
+    });
+
+    if (hasChanges) {
+      this.saveOrders(updated);
+    }
+    // Now that orders are bound to the permanent customer account, clear guest session records
+    this.clearAllGuestOrders();
+  }
+
+  // Exits the table: if not logged in, guest table order history is deleted
+  static exitTable(isLoggedIn: boolean = false): void {
+    const activeBinding = this.getActiveTableBinding();
+    if (!isLoggedIn) {
+      this.clearGuestTableOrders(activeBinding?.tableNumber);
+    }
+    this.setActiveTableBinding(null);
+  }
+
+  // Returns ONLY orders visible to the customer based on authentication and active table
+  static getCustomerVisibleOrders(
+    customer: CustomerAccount | null,
+    tableBinding: TableBinding | null
+  ): Order[] {
+    const allOrders = this.getOrders();
+
+    // 1. If signed in, customer sees all orders saved to their account (saved across sessions and tables)
+    if (customer) {
+      return allOrders.filter(
+        (o) =>
+          o.customerId === customer.id ||
+          (o.customerName &&
+            customer.fullName &&
+            o.customerName.toLowerCase() === customer.fullName.toLowerCase())
+      );
+    }
+
+    // 2. If guest customer (not signed in):
+    const guestRecords = this.getGuestOrders();
+
+    if (tableBinding && tableBinding.tableNumber) {
+      // Dine-in guest at a table:
+      // Only show orders placed by this guest at THIS table!
+      // Different table numbers never share order tracking or history!
+      const thisTableOrderIds = new Set(
+        guestRecords
+          .filter((r) => r.tableNumber === tableBinding.tableNumber)
+          .map((r) => r.orderId)
+      );
+      return allOrders.filter(
+        (o) =>
+          thisTableOrderIds.has(o.id) &&
+          o.tableNumber === tableBinding.tableNumber &&
+          !o.customerId
+      );
+    }
+
+    // Online guest without an active table binding:
+    // Only show online orders placed in this guest session
+    const onlineGuestOrderIds = new Set(
+      guestRecords.filter((r) => r.tableNumber === null).map((r) => r.orderId)
+    );
+    return allOrders.filter(
+      (o) => onlineGuestOrderIds.has(o.id) && !o.tableNumber && !o.customerId
+    );
+  }
+
+  // Get active orders count for the customer badge
+  static getActiveCustomerOrdersCount(
+    customer: CustomerAccount | null,
+    tableBinding: TableBinding | null
+  ): number {
+    const visible = this.getCustomerVisibleOrders(customer, tableBinding);
+    const isActiveStatus = (st: string) =>
+      st === 'to_confirm' ||
+      st === 'pending' ||
+      st === 'to_prep' ||
+      st === 'processing' ||
+      st === 'to_serve';
+    return visible.filter((o) => isActiveStatus(o.status)).length;
   }
 
   // Dual-Mode Table Binding Engine (for Dine-in Patrons vs External Online)

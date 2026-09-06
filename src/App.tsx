@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Category,
   MenuItem,
@@ -9,8 +9,10 @@ import {
   Reservation,
   CartItem,
   TableBinding,
+  StaffTabType,
 } from './types';
 import { AppStore } from './services/store';
+import { AppRouter } from './services/router';
 import { Navigation } from './components/Navigation';
 import { CustomerHome } from './components/customer/CustomerHome';
 import { CustomerMenu } from './components/customer/CustomerMenu';
@@ -26,6 +28,7 @@ import { TicketManagement } from './components/pos/TicketManagement';
 import { SalesReports } from './components/pos/SalesReports';
 import { SalesAnalytics } from './components/pos/SalesAnalytics';
 import { InventoryManager } from './components/pos/InventoryManager';
+import { StaffInventoryManager } from './components/pos/StaffInventoryManager';
 import { SettingsManager } from './components/pos/SettingsManager';
 import { ReceiptModal } from './components/ReceiptModal';
 import { CustomerOrderSubmittedModal } from './components/customer/CustomerOrderSubmittedModal';
@@ -48,14 +51,33 @@ export default function App() {
 function MainApp() {
   const { showConfirm } = useModal();
 
-  // App navigation state
-  const [appMode, setAppMode] = useState<'customer' | 'staff'>('staff');
+  // App navigation state initialized from current URL route (e.g. /admin, /staff, /cook, /menu, /reservation)
+  const initialRoute = useMemo(() => AppRouter.parseCurrentRoute(), []);
+
+  const [appMode, setAppMode] = useState<'customer' | 'staff'>(() => {
+    const r = AppRouter.parseCurrentRoute();
+    return r.mode;
+  });
+
   const [customerTab, setCustomerTab] = useState<
     'home' | 'menu' | 'orders' | 'reservation' | 'account'
-  >('home');
-  const [staffTab, setStaffTab] = useState<
-    'dashboard' | 'pos' | 'tables' | 'tickets' | 'reports' | 'analytics' | 'inventory' | 'settings'
-  >('dashboard');
+  >(() => {
+    const r = AppRouter.parseCurrentRoute();
+    return r.mode === 'customer' ? r.tab : 'home';
+  });
+
+  const [staffTab, setStaffTab] = useState<StaffTabType>(() => {
+    const r = AppRouter.parseCurrentRoute();
+    if (r.mode === 'staff' && r.staffTab) {
+      return r.staffTab;
+    }
+    return 'dashboard';
+  });
+
+  const [targetLoginRole, setTargetLoginRole] = useState<'cashier' | 'cook' | 'barista' | 'admin'>(() => {
+    const r = AppRouter.parseCurrentRoute();
+    return r.mode === 'staff' && r.roleTarget ? r.roleTarget : 'cashier';
+  });
 
   // Shared store state
   const [categories, setCategories] = useState<Category[]>(() => AppStore.getCategories());
@@ -69,13 +91,36 @@ function MainApp() {
     AppStore.getActiveTableBinding()
   );
 
-  // Scanned QR Table Modal (for customers scanning in-store table URL ?table=6)
-  const [scannedTableModalOpen, setScannedTableModalOpen] = useState(false);
-  const [scannedTableNumber, setScannedTableNumber] = useState<number | null>(null);
+  // Scanned QR Table Modal (for customers scanning in-store table URL ?table=5)
+  const [scannedTableNumber, setScannedTableNumber] = useState<number | null>(() => {
+    const route = AppRouter.parseCurrentRoute();
+    return route.mode === 'customer' && route.tableNumber
+      ? route.tableNumber
+      : AppStore.parseTableParamFromUrl();
+  });
+  const [scannedTableModalOpen, setScannedTableModalOpen] = useState<boolean>(() => {
+    const route = AppRouter.parseCurrentRoute();
+    const tableNum =
+      route.mode === 'customer' && route.tableNumber
+        ? route.tableNumber
+        : AppStore.parseTableParamFromUrl();
+    if (tableNum) {
+      const binding = AppStore.getActiveTableBinding();
+      return !binding || binding.tableNumber !== tableNum;
+    }
+    return false;
+  });
 
   // Manual Online Table Picker Modal (for customers choosing tables from website floor map)
   const [manualTableModalOpen, setManualTableModalOpen] = useState(false);
-  const lastHandledUrlTableRef = React.useRef<number | null>(null);
+  const lastHandledUrlTableRef = React.useRef<number | null>(
+    (() => {
+      const route = AppRouter.parseCurrentRoute();
+      return route.mode === 'customer' && route.tableNumber
+        ? route.tableNumber
+        : AppStore.parseTableParamFromUrl();
+    })()
+  );
 
   // Customer Cart state (persisted across page reloads)
   const [customerCart, setCustomerCart] = useState<CartItem[]>(() => {
@@ -88,6 +133,28 @@ function MainApp() {
   });
   const [isCustomerCartOpen, setIsCustomerCartOpen] = useState(false);
   const [isCustomerCheckoutOpen, setIsCustomerCheckoutOpen] = useState(false);
+
+  // Dark Mode / Light Mode Theme state (persisted across page reloads)
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('theme');
+      if (saved) return saved === 'dark';
+      return document.documentElement.classList.contains('dark');
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      document.body.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.body.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
 
   // Synchronize cart with localStorage whenever customerCart updates
   useEffect(() => {
@@ -113,7 +180,6 @@ function MainApp() {
       }
       return [...prev, { item, quantity: 1 }];
     });
-    setIsCustomerCartOpen(true);
   };
 
   const handleCustomerUpdateQuantity = (itemId: number, delta: number) => {
@@ -193,7 +259,7 @@ function MainApp() {
   };
 
   const handleClearTableBinding = () => {
-    AppStore.setActiveTableBinding(null);
+    AppStore.exitTable(Boolean(activeCustomer));
     setActiveTableBinding(null);
   };
 
@@ -215,55 +281,79 @@ function MainApp() {
     return () => unsubscribe();
   }, []);
 
-  // Monitor URL table parameter changes (e.g. ?table=6 to ?table=5) and trigger scanned table modal
+  // Synchronize browser URL path whenever appMode, customerTab, or staff state changes
   useEffect(() => {
-    const checkUrlTable = () => {
-      const tableFromUrl = AppStore.parseTableParamFromUrl();
-      if (tableFromUrl) {
-        if (tableFromUrl !== lastHandledUrlTableRef.current) {
-          lastHandledUrlTableRef.current = tableFromUrl;
-          const currentBinding = AppStore.getActiveTableBinding();
-          // If not already bound to this table, trigger the dedicated QR Scanned Table modal
-          if (!currentBinding || currentBinding.tableNumber !== tableFromUrl) {
-            setScannedTableNumber(tableFromUrl);
-            setScannedTableModalOpen(true);
-            setAppMode('customer');
+    AppRouter.syncBrowserUrl(appMode, customerTab, activeStaff?.role, staffTab);
+  }, [appMode, customerTab, activeStaff, staffTab]);
+
+  // Monitor URL route & table parameter changes (e.g. ?table=6, /admin, /staff, /cook, /menu, /reservation)
+  useEffect(() => {
+    let isHandlingRoute = false;
+
+    const handleLocationChange = () => {
+      if (isHandlingRoute) return;
+      isHandlingRoute = true;
+
+      try {
+        // 1. Check table parameter
+        const tableFromUrl = AppStore.parseTableParamFromUrl();
+        if (tableFromUrl) {
+          if (tableFromUrl !== lastHandledUrlTableRef.current) {
+            lastHandledUrlTableRef.current = tableFromUrl;
+            const currentBinding = AppStore.getActiveTableBinding();
+            // If not already bound to this table, trigger the dedicated QR Scanned Table modal
+            if (!currentBinding || currentBinding.tableNumber !== tableFromUrl) {
+              setScannedTableNumber(tableFromUrl);
+              setScannedTableModalOpen(true);
+              setAppMode('customer');
+            }
           }
+        } else {
+          lastHandledUrlTableRef.current = null;
         }
-      } else {
-        lastHandledUrlTableRef.current = null;
+
+        // 2. Parse current route
+        const currentRoute = AppRouter.parseCurrentRoute();
+        if (currentRoute.mode === 'staff') {
+          setAppMode((prev) => (prev !== 'staff' ? 'staff' : prev));
+          if (currentRoute.roleTarget) {
+            setTargetLoginRole(currentRoute.roleTarget);
+          }
+          if (currentRoute.staffTab) {
+            setStaffTab(currentRoute.staffTab);
+          }
+        } else if (currentRoute.mode === 'customer') {
+          setAppMode((prev) => (prev !== 'customer' ? 'customer' : prev));
+          setCustomerTab((prev) => (prev !== currentRoute.tab ? currentRoute.tab : prev));
+        }
+      } finally {
+        isHandlingRoute = false;
       }
     };
 
-    // Check immediately on mount
-    checkUrlTable();
-
-    // Listen for browser history and hash navigation
-    window.addEventListener('popstate', checkUrlTable);
-    window.addEventListener('hashchange', checkUrlTable);
-
-    // Continuous check to detect query param changes without full page reload
-    const intervalId = setInterval(checkUrlTable, 300);
+    // Listen for browser history and hash navigation (back/forward, direct links)
+    window.addEventListener('popstate', handleLocationChange);
+    window.addEventListener('hashchange', handleLocationChange);
 
     return () => {
-      window.removeEventListener('popstate', checkUrlTable);
-      window.removeEventListener('hashchange', checkUrlTable);
-      clearInterval(intervalId);
+      window.removeEventListener('popstate', handleLocationChange);
+      window.removeEventListener('hashchange', handleLocationChange);
     };
   }, []);
 
   // Enforce role-based access control:
-  // - Cook strictly accesses Tickets ONLY
-  // - Cashiers strictly access Register, Floor Plan, and Tickets
+  // - Cook strictly accesses Tickets and Supplies & Refills
+  // - Cashiers & Baristas strictly access Register, Floor Plan, Tickets, and Stock & Refills
   useEffect(() => {
     if (activeStaff) {
       if (activeStaff.role === 'cook') {
-        if (staffTab !== 'tickets') {
+        const allowedCookTabs: StaffTabType[] = ['tickets', 'refills'];
+        if (!allowedCookTabs.includes(staffTab)) {
           setStaffTab('tickets');
         }
       } else if (activeStaff.role !== 'admin') {
-        const allowedCashierTabs = ['pos', 'tables', 'tickets'];
-        if (!allowedCashierTabs.includes(staffTab)) {
+        const allowedStaffTabs: StaffTabType[] = ['pos', 'tables', 'tickets', 'refills'];
+        if (!allowedStaffTabs.includes(staffTab)) {
           setStaffTab('pos');
         }
       }
@@ -325,7 +415,11 @@ function MainApp() {
 
   return (
     <div
-      className={`min-h-screen bg-stone-100/70 text-stone-900 flex flex-col selection:bg-amber-500 selection:text-stone-950 ${
+      className={`min-h-screen flex flex-col selection:bg-amber-500 selection:text-stone-950 transition-colors duration-200 ${
+        isDarkMode
+          ? 'dark bg-[#15120e] text-[#ede8d0]'
+          : 'bg-stone-100/70 text-stone-900'
+      } ${
         appMode === 'customer' ? 'customer-mode font-baskerville' : 'font-sans'
       }`}
     >
@@ -356,10 +450,13 @@ function MainApp() {
         onOpenTableBindingModal={() => {
           setManualTableModalOpen(true);
         }}
+        onViewOrderReceipt={(order) => setSelectedReceiptOrder(order)}
+        isDarkMode={isDarkMode}
+        onSetDarkMode={setIsDarkMode}
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 mx-auto w-full max-w-7xl px-2 sm:px-4 py-2 sm:py-3 pb-20 sm:pb-3">
+      <main className="flex-1 mx-auto w-full max-w-7xl px-1 sm:px-3 py-1 sm:py-2 pb-16 sm:pb-2">
         {appMode === 'customer' ? (
           /* Customer Experience */
           <>
@@ -406,6 +503,8 @@ function MainApp() {
             {customerTab === 'orders' && (
               <CustomerOrders
                 customer={activeCustomer}
+                activeTableBinding={activeTableBinding}
+                onExitTable={handleClearTableBinding}
                 settings={settings}
                 onNavigateMenu={() => setCustomerTab('menu')}
                 onRequireLogin={() => setIsCustomerLoginOpen(true)}
@@ -455,11 +554,17 @@ function MainApp() {
           <>
             {!activeStaff ? (
               <StaffLogin
+                initialRoleTarget={targetLoginRole}
+                onBackToCustomer={() => {
+                  setAppMode('customer');
+                  setCustomerTab('home');
+                  AppRouter.syncBrowserUrl('customer', 'home');
+                }}
                 onLoginSuccess={(u) => {
                   setActiveStaff(u);
                   if (u.role === 'admin') {
                     setStaffTab('dashboard');
-                  } else if (u.role === 'cook') {
+                  } else if (u.role === 'cook' || u.role === 'barista') {
                     setStaffTab('tickets');
                   } else {
                     setStaffTab('pos');
@@ -515,8 +620,12 @@ function MainApp() {
 
                 {activeStaff.role === 'admin' && staffTab === 'analytics' && <SalesAnalytics />}
 
-                {activeStaff.role === 'admin' && staffTab === 'inventory' && (
-                  <InventoryManager categories={categories} />
+                {/* Inventory & Refills (Unified view with Admin Confirmation workflow):
+                    - Both Admin and Staff (Cook, Barista, Cashier) have the same Catalog table & filters
+                    - Admin has direct restock / confirmation
+                    - Staff restocks create Refill Requests requiring Admin confirmation */}
+                {(staffTab === 'inventory' || staffTab === 'refills') && (
+                  <InventoryManager categories={categories} activeStaff={activeStaff} />
                 )}
 
                 {activeStaff.role === 'admin' && staffTab === 'settings' && (
@@ -589,7 +698,7 @@ function MainApp() {
           onSuccess={(c) => {
             setActiveCustomer(c);
             setIsCustomerLoginOpen(false);
-            if (customerTab !== 'menu' && customerTab !== 'reservation') {
+            if (customerTab !== 'menu' && customerTab !== 'reservation' && customerTab !== 'orders') {
               setCustomerTab('account');
             }
           }}

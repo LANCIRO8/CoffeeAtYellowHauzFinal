@@ -101,7 +101,14 @@ export const Footer: React.FC<FooterProps> = ({
       {!isExpanded ? (
         <div className="mx-auto max-w-7xl px-4 sm:px-8 py-2 flex items-center justify-between text-xs">
           <div className="flex items-center gap-2 text-stone-700 font-bold">
-            <Coffee className="h-4 w-4 text-amber-600" />
+            <img
+              src="/images/Coffeatyellowhauz_logo.jpg"
+              alt="Yellow Hauz"
+              className="h-4 w-4 rounded-full object-cover border border-amber-400/60 shrink-0"
+              onError={(e) => {
+                (e.currentTarget as HTMLElement).style.display = 'none';
+              }}
+            />
             <span className="text-[11px] font-semibold">Coffee at Yellow Hauz</span>
           </div>
 
@@ -129,8 +136,16 @@ export const Footer: React.FC<FooterProps> = ({
         <div className="mx-auto max-w-7xl px-4 sm:px-8 py-4 sm:py-5 flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4 text-xs">
           {/* Brand & Identity */}
           <div className="flex items-center gap-2.5 text-stone-800 font-bold">
-            <div className="grid h-7 w-7 place-items-center rounded-xl bg-amber-500 text-stone-950 shadow-2xs">
-              <Coffee className="h-4 w-4" />
+            <div className="relative h-8 w-8 overflow-hidden rounded-xl bg-amber-500 shadow-2xs border border-amber-400/40 shrink-0 flex items-center justify-center">
+              <img
+                src="/images/Coffeatyellowhauz_logo.jpg"
+                alt="Coffee at Yellow Hauz"
+                className="h-full w-full object-cover"
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = 'none';
+                }}
+              />
+              <Coffee className="h-4 w-4 fill-stone-950 text-stone-950 absolute pointer-events-none -z-10" />
             </div>
             <div>
               <div className="text-xs sm:text-sm font-display font-extrabold text-stone-900">

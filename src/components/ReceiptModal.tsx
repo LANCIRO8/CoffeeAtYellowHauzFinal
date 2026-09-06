@@ -37,20 +37,28 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, settings, onC
         {/* Thermal Receipt Content Container */}
         <div
           id="printable-receipt"
-          className="my-4 rounded-xl border border-dashed border-stone-300 bg-stone-50/70 p-5 font-mono text-xs text-stone-800"
+          className="my-3 rounded-xl border border-dashed border-stone-300 bg-stone-50/70 p-4 font-mono text-[11px] leading-tight text-stone-800"
         >
-          <div className="text-center pb-3 border-b border-dashed border-stone-300">
-            <h2 className="text-sm font-bold tracking-tight text-stone-900 font-display">
+          <div className="text-center pb-2.5 border-b border-dashed border-stone-300 flex flex-col items-center">
+            <img
+              src="/images/Coffeatyellowhauz_logo.jpg"
+              alt="Yellow Hauz"
+              className="h-10 w-10 rounded-full object-cover border border-stone-300 mb-1.5 grayscale"
+              onError={(e) => {
+                (e.currentTarget as HTMLElement).style.display = 'none';
+              }}
+            />
+            <h2 className="text-xs font-black tracking-tight text-stone-900 font-display">
               {settings.shop_name}
             </h2>
-            <p className="text-[11px] text-stone-500 mt-0.5">{settings.shop_address}</p>
-            <p className="text-[11px] text-stone-500">Tel: {settings.shop_phone}</p>
-            <div className="mt-2 inline-block rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold text-amber-900 uppercase">
+            <p className="text-[10px] text-stone-500 mt-0.5">{settings.shop_address}</p>
+            <p className="text-[10px] text-stone-500">Tel: {settings.shop_phone}</p>
+            <div className="mt-1.5 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold text-amber-900 uppercase">
               {order.orderType.replace('_', ' ')} {order.tableNumber ? `• Table #${order.tableNumber}` : ''}
             </div>
           </div>
 
-          <div className="py-2.5 border-b border-dashed border-stone-300 space-y-1 text-[11px]">
+          <div className="py-2 border-b border-dashed border-stone-300 space-y-0.5 text-[10px]">
             <div className="flex justify-between">
               <span className="text-stone-500">Receipt No:</span>
               <span className="font-bold text-stone-900">{order.orderNumber}</span>
@@ -72,10 +80,10 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, settings, onC
           </div>
 
           {/* Items List */}
-          <div className="py-3 border-b border-dashed border-stone-300">
+          <div className="py-2 border-b border-dashed border-stone-300 text-[10px]">
             <table className="w-full text-left">
               <thead>
-                <tr className="text-stone-400 text-[10px] border-b border-stone-200">
+                <tr className="text-stone-400 text-[9px] border-b border-stone-200">
                   <th className="pb-1">ITEM</th>
                   <th className="pb-1 text-center">QTY</th>
                   <th className="pb-1 text-right">PRICE</th>
@@ -84,18 +92,18 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, settings, onC
               </thead>
               <tbody className="divide-y divide-stone-100">
                 {order.items.map((item, idx) => (
-                  <tr key={idx} className="py-1">
-                    <td className="py-1 pr-1 font-medium text-stone-900">
+                  <tr key={idx} className="py-0.5">
+                    <td className="py-0.5 pr-1 font-medium text-stone-900 text-[10px]">
                       {item.name}
                       {item.specialInstructions && (
-                        <div className="text-[10px] text-stone-500 italic">
+                        <div className="text-[9px] text-stone-500 italic">
                           ({item.specialInstructions})
                         </div>
                       )}
                     </td>
-                    <td className="py-1 text-center text-stone-600">{item.quantity}</td>
-                    <td className="py-1 text-right text-stone-600">₱{item.unitPrice.toFixed(2)}</td>
-                    <td className="py-1 text-right font-medium text-stone-900">
+                    <td className="py-0.5 text-center text-stone-600 text-[10px]">{item.quantity}</td>
+                    <td className="py-0.5 text-right text-stone-600 text-[10px]">₱{item.unitPrice.toFixed(2)}</td>
+                    <td className="py-0.5 text-right font-medium text-stone-900 text-[10px]">
                       ₱{item.totalPrice.toFixed(2)}
                     </td>
                   </tr>
@@ -105,7 +113,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, settings, onC
           </div>
 
           {/* Calculation Breakdown */}
-          <div className="py-2.5 border-b border-dashed border-stone-300 space-y-1 text-[11px]">
+          <div className="py-2 border-b border-dashed border-stone-300 space-y-0.5 text-[10px]">
             <div className="flex justify-between">
               <span className="text-stone-500">Subtotal:</span>
               <span>₱{order.subtotal.toFixed(2)}</span>
@@ -122,14 +130,14 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, settings, onC
               <span className="text-stone-500">VAT ({order.taxRate}%):</span>
               <span>₱{order.taxAmount.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-sm font-bold text-stone-900 pt-1 border-t border-stone-200">
+            <div className="flex justify-between text-xs font-bold text-stone-900 pt-1 border-t border-stone-200">
               <span>TOTAL AMOUNT:</span>
               <span>₱{order.totalAmount.toFixed(2)}</span>
             </div>
           </div>
 
           {/* Payment Breakdown */}
-          <div className="py-2.5 space-y-1 text-[11px]">
+          <div className="py-2 space-y-0.5 text-[10px]">
             <div className="flex justify-between">
               <span className="text-stone-500">Payment Method:</span>
               <span className="uppercase font-bold">{order.paymentMethod}</span>
@@ -148,9 +156,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, settings, onC
             )}
           </div>
 
-          <div className="text-center pt-3 border-t border-dashed border-stone-300 text-[10px] text-stone-500">
+          <div className="text-center pt-2 border-t border-dashed border-stone-300 text-[9px] text-stone-500 space-y-0.5">
             <p className="font-medium text-stone-700">{settings.receipt_footer}</p>
-            <p className="mt-1">This serves as your official sales invoice.</p>
+            <p>This serves as your official sales invoice.</p>
           </div>
         </div>
 

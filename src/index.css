@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-amber-50: #FCFAF6;
   --color-amber-100: #F8F5EC;
@@ -133,3 +135,319 @@ table, th, td,
     color: black;
   }
 }
+
+/* ==========================================================================
+   Dark Mode System & Component Overrides
+   ========================================================================== */
+html.dark,
+body.dark {
+  background-color: #15120e !important;
+  color: #ede8d0 !important;
+  color-scheme: dark;
+}
+
+html.dark body {
+  background-color: #15120e !important;
+  color: #ede8d0 !important;
+}
+
+/* Base scrollbar dark */
+.dark ::-webkit-scrollbar-thumb {
+  background: #3f3930;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #594f42;
+}
+
+/* Sticky Nav Bar & Mobile Bottom Nav Bar in Dark Mode */
+.dark header.sticky {
+  background-color: rgba(24, 21, 17, 0.95) !important;
+  border-color: #2b251e !important;
+}
+
+.dark #mobile-bottom-navbar,
+.dark nav#mobile-bottom-navbar {
+  background-color: rgba(24, 21, 17, 0.96) !important;
+  border-top-color: #2b251e !important;
+  color: #ede8d0 !important;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Card & Surface Overrides for Dark Mode */
+.dark .bg-white,
+.dark .bg-white\/95,
+.dark .bg-white\/90 {
+  background-color: #201c17 !important;
+  color: #f7f3ee !important;
+}
+
+.dark .bg-stone-50,
+.dark .bg-stone-50\/60,
+.dark .bg-stone-50\/70,
+.dark .bg-stone-50\/80,
+.dark .bg-stone-50\/90 {
+  background-color: #1a1713 !important;
+}
+
+.dark .bg-stone-100,
+.dark .bg-stone-100\/70,
+.dark .bg-stone-100\/80,
+.dark .bg-stone-100\/90 {
+  background-color: #25201a !important;
+}
+
+.dark .border-stone-100,
+.dark .border-stone-200,
+.dark .border-stone-200\/80,
+.dark .border-stone-200\/90 {
+  border-color: #383127 !important;
+}
+
+.dark .border-stone-300 {
+  border-color: #4a4134 !important;
+}
+
+/* High contrast text handling in Dark Mode for dark background surfaces */
+.dark .text-stone-950,
+.dark .text-stone-900,
+.dark .text-stone-800 {
+  color: #f7f3ee !important;
+}
+
+.dark .text-stone-700,
+.dark .text-stone-600 {
+  color: #d6c2a9 !important;
+}
+
+.dark .text-stone-500,
+.dark .text-stone-400 {
+  color: #a69078 !important;
+}
+
+/* ==========================================================================
+   Dark Mode: Deep Dark Amber Accents (Backgrounds & Borders)
+   Dark amber background surfaces (#78350f / Amber-900) with crisp white text.
+   CRITICAL: Text in dark mode must NEVER be amber-900 (#78350f) or dark brown;
+   it must always be crisp white on dark amber buttons or warm legible gold (#fde68a)
+   on dark surfaces.
+   ========================================================================== */
+.dark {
+  /* In dark mode, ensure text tokens resolve to bright, legible amber/cream */
+  --color-amber-950: #fef3c7;
+  --color-amber-900: #fde68a;
+  --color-amber-800: #fde68a;
+  --color-amber-700: #fcd34d;
+}
+
+/* Backgrounds: Amber 500 converted to deep dark amber in Dark Mode */
+.dark .bg-amber-500,
+.dark .bg-amber-500\/95,
+.dark .bg-amber-500\/90 {
+  background-color: #78350f !important;
+  color: #ffffff !important;
+  border-color: #451a03 !important;
+}
+
+.dark .hover\:bg-amber-400:hover,
+.dark .hover\:bg-amber-500:hover {
+  background-color: #92400e !important;
+  color: #ffffff !important;
+}
+
+.dark .active\:bg-amber-600:active {
+  background-color: #5c2709 !important;
+  color: #ffffff !important;
+}
+
+/* All text and labels inside darker amber surfaces stay crisp white */
+.dark .bg-amber-500 *,
+.dark .bg-amber-500 p,
+.dark .bg-amber-500 span,
+.dark .bg-amber-500 div,
+.dark .bg-amber-500 h1,
+.dark .bg-amber-500 h2,
+.dark .bg-amber-500 h3,
+.dark .bg-amber-500 h4,
+.dark .bg-amber-500 label,
+.dark .bg-amber-500 button,
+.dark .bg-amber-500 strong,
+.dark .bg-amber-500 b {
+  color: #ffffff !important;
+}
+
+/* Text overrides on bg-amber-500 (overriding any dark text classes) */
+.dark .bg-amber-500.text-stone-950,
+.dark .bg-amber-500 .text-stone-950,
+.dark .bg-amber-500.text-stone-900,
+.dark .bg-amber-500 .text-stone-900,
+.dark .bg-amber-500.text-stone-800,
+.dark .bg-amber-500 .text-stone-800,
+.dark .bg-amber-500.text-stone-700,
+.dark .bg-amber-500 .text-stone-700,
+.dark .bg-amber-500.text-stone-600,
+.dark .bg-amber-500 .text-stone-600,
+.dark .bg-amber-500.text-amber-950,
+.dark .bg-amber-500 .text-amber-950,
+.dark .bg-amber-500.text-amber-900,
+.dark .bg-amber-500 .text-amber-900,
+.dark .bg-amber-500.text-amber-800,
+.dark .bg-amber-500 .text-amber-800,
+.dark .hover\:bg-amber-400:hover .text-stone-950,
+.dark .hover\:bg-amber-500:hover .text-stone-950 {
+  color: #ffffff !important;
+}
+
+/* Icons & SVGs on darker amber surfaces */
+.dark .bg-amber-500 svg,
+.dark .bg-amber-500 svg *,
+.dark .hover\:bg-amber-400:hover svg,
+.dark .hover\:bg-amber-500:hover svg {
+  stroke: #ffffff !important;
+  color: #ffffff !important;
+}
+
+.dark .bg-amber-500 .fill-stone-950,
+.dark .bg-amber-500 svg.fill-stone-950 {
+  fill: #ffffff !important;
+}
+
+/* Translucent & soft amber accents convert to clean translucent dark amber */
+.dark .bg-amber-500\/10,
+.dark .bg-amber-500\/15,
+.dark .bg-amber-500\/20,
+.dark .bg-amber-500\/25,
+.dark .bg-amber-500\/30 {
+  background-color: rgba(120, 53, 15, 0.35) !important;
+  color: #fde68a !important;
+  border-color: rgba(146, 64, 14, 0.45) !important;
+}
+
+.dark .bg-amber-500\/10 *,
+.dark .bg-amber-500\/15 *,
+.dark .bg-amber-500\/20 *,
+.dark .bg-amber-500\/25 *,
+.dark .bg-amber-500\/30 * {
+  color: #fde68a !important;
+}
+
+/* Border and focus rings for darker amber in dark mode */
+.dark .border-amber-500,
+.dark .border-amber-400,
+.dark .focus\:border-amber-500:focus {
+  border-color: #78350f !important;
+}
+
+.dark .ring-amber-500,
+.dark .ring-amber-500\/20,
+.dark .ring-amber-500\/30 {
+  --tw-ring-color: #78350f !important;
+}
+
+/* text-amber-500 in dark mode becomes warm, visible amber/gold */
+.dark .text-amber-500 {
+  color: #fbbf24 !important;
+}
+
+/* ABSOLUTE BAN: NEVER use Amber 900 (or dark amber) for text in dark mode */
+.dark .text-amber-900,
+.dark [class*="text-amber-900"],
+.dark .text-amber-950,
+.dark [class*="text-amber-950"],
+.dark .text-amber-800,
+.dark [class*="text-amber-800"],
+.dark .text-amber-700,
+.dark [class*="text-amber-700"],
+.dark .text-amber-600,
+.dark [class*="text-amber-600"] {
+  color: #fde68a !important; /* Legible, bright warm amber gold; never dark amber 900 */
+}
+
+.dark .hover\:text-amber-900:hover,
+.dark .hover\:text-amber-800:hover,
+.dark .group-hover\:text-amber-900:hover,
+.dark .group:hover .group-hover\:text-amber-900 {
+  color: #fef08a !important;
+}
+
+/* On dark amber buttons & badges, text must be crisp pure white */
+.dark .bg-amber-500,
+.dark .bg-amber-500 *,
+.dark .bg-\[\#78350f\],
+.dark .bg-\[\#78350f\] *,
+.dark .bg-\[\#b45309\],
+.dark .bg-\[\#b45309\] * {
+  color: #ffffff !important;
+}
+
+/* Selection background with darker amber */
+.dark ::selection,
+.dark *::selection {
+  background-color: #78350f !important;
+  color: #ffffff !important;
+}
+
+/* Staff Login Card and Keypad in Dark Mode with darker amber */
+.dark .bg-amber-500 .bg-white,
+.dark .bg-amber-500 .bg-white\/80 {
+  background-color: #24160c !important;
+  color: #ffffff !important;
+  border-color: #5c2709 !important;
+}
+
+.dark .bg-amber-500 .bg-white *,
+.dark .bg-amber-500 .bg-white\/80 * {
+  color: #ffffff !important;
+}
+
+.dark .bg-amber-500 .hover\:bg-amber-50:hover {
+  background-color: #78350f !important;
+  color: #ffffff !important;
+}
+
+.dark .bg-amber-500 .bg-amber-400\/80,
+.dark .bg-amber-500 .bg-amber-400\/50,
+.dark .bg-amber-500 .bg-amber-600\/20 {
+  background-color: #24160c !important;
+  border-color: #5c2709 !important;
+  color: #fef3c7 !important;
+}
+
+.dark .bg-amber-500 .bg-amber-400\/80 *,
+.dark .bg-amber-500 .bg-amber-400\/50 *,
+.dark .bg-amber-500 .bg-amber-600\/20 * {
+  color: #fef3c7 !important;
+}
+
+.dark .bg-amber-500 .hover\:bg-amber-400:hover {
+  background-color: #92400e !important;
+}
+
+/* Translucent & soft amber badges/chips in Dark Mode */
+.dark :not(.bg-amber-500) > .bg-amber-100,
+.dark :not(.bg-amber-500) > .bg-amber-50,
+.dark .bg-amber-100,
+.dark .bg-amber-50 {
+  background-color: #2b2318 !important;
+  color: #fde68a !important;
+  border-color: #4a3c28 !important;
+}
+
+.dark .bg-amber-100 *,
+.dark .bg-amber-50 * {
+  color: #fde68a !important;
+}
+
+/* Interactive hover adjustments */
+.dark .hover\:bg-stone-100:hover {
+  background-color: #2c2720 !important;
+}
+
+.dark .hover\:bg-stone-50:hover {
+  background-color: #24201a !important;
+}
+
+.dark .hover\:text-stone-950:hover,
+.dark .hover\:text-stone-900:hover {
+  color: #ffffff !important;
+}
+

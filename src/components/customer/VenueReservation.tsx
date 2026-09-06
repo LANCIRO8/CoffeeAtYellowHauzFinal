@@ -196,57 +196,57 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
     <div className="space-y-10">
       {/* Confirmation Success View */}
       {confirmedReservation ? (
-        <div className="max-w-2xl mx-auto rounded-3xl border border-emerald-300 bg-white p-6 sm:p-10 shadow-xl space-y-6 animate-in fade-in zoom-in duration-200">
-          <div className="text-center space-y-3">
-            <div className="grid h-16 w-16 place-items-center rounded-full bg-emerald-100 text-emerald-700 mx-auto shadow-xs">
-              <CheckCircle className="h-8 w-8" />
+        <div className="max-w-2xl mx-auto rounded-2xl sm:rounded-3xl border border-emerald-300 bg-white p-4 sm:p-10 shadow-xl space-y-4 sm:space-y-6 animate-in fade-in zoom-in duration-200">
+          <div className="text-center space-y-2 sm:space-y-3">
+            <div className="grid h-12 w-12 sm:h-16 sm:w-16 place-items-center rounded-full bg-emerald-100 text-emerald-700 mx-auto shadow-xs">
+              <CheckCircle className="h-6 w-6 sm:h-8 sm:w-8" />
             </div>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-emerald-800">
-              <ShieldCheck className="h-3.5 w-3.5" />
+            <span className="inline-flex items-center gap-1 sm:gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 sm:px-3.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-800">
+              <ShieldCheck className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
               Venue Reservation Confirmed
             </span>
-            <h2 className="text-2xl sm:text-3xl font-extrabold font-display text-stone-900">
+            <h2 className="text-lg sm:text-3xl font-extrabold font-display text-stone-900 leading-tight">
               The Private Studio is Booked for You!
             </h2>
-            <p className="text-xs sm:text-sm text-stone-600 max-w-md mx-auto leading-relaxed">
+            <p className="text-[11px] sm:text-sm text-stone-600 max-w-md mx-auto leading-relaxed">
               We have locked in your schedule. Our event coordinator and baristas are preparing the space, Wi-Fi, audio setup, and amenities.
             </p>
           </div>
 
           {/* Reservation Code Badge */}
-          <div className="rounded-2xl border border-amber-300 bg-amber-50/80 p-4 text-center">
-            <span className="text-[11px] font-extrabold uppercase tracking-widest text-amber-800 block">
+          <div className="rounded-xl sm:rounded-2xl border border-amber-300 bg-amber-50/80 p-3 sm:p-4 text-center">
+            <span className="text-[9px] sm:text-[11px] font-extrabold uppercase tracking-widest text-amber-800 block">
               Official Venue Voucher Code
             </span>
-            <span className="font-mono text-2xl font-black text-amber-950 tracking-wider">
+            <span className="font-mono text-lg sm:text-2xl font-black text-amber-950 tracking-wider">
               {confirmedReservation.reservationCode}
             </span>
-            <span className="text-[11px] text-stone-500 block mt-1">
+            <span className="text-[9px] sm:text-[11px] text-stone-500 block mt-0.5">
               Please present this voucher code upon arrival at the café front counter.
             </span>
           </div>
 
           {/* Summary Details Grid */}
-          <div className="rounded-2xl border border-stone-200 bg-stone-50/80 p-5 space-y-4 text-xs">
-            <div className="grid grid-cols-2 gap-3 pb-3 border-b border-stone-200">
+          <div className="rounded-xl sm:rounded-2xl border border-stone-200 bg-stone-50/80 p-3 sm:p-5 space-y-3 sm:space-y-4 text-[10px] sm:text-xs">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 pb-2 sm:pb-3 border-b border-stone-200">
               <div>
-                <span className="text-stone-400 font-bold uppercase block text-[10px]">Client / Host</span>
-                <span className="font-bold text-stone-800 text-sm">{confirmedReservation.customerName}</span>
-                <span className="text-stone-500 block">{confirmedReservation.contactNumber}</span>
+                <span className="text-stone-400 font-bold uppercase block text-[9px] sm:text-[10px]">Client / Host</span>
+                <span className="font-bold text-stone-800 text-xs sm:text-sm">{confirmedReservation.customerName}</span>
+                <span className="text-stone-500 block text-[9px] sm:text-xs">{confirmedReservation.contactNumber}</span>
               </div>
               <div>
-                <span className="text-stone-400 font-bold uppercase block text-[10px]">Event Type &amp; Guests</span>
-                <span className="font-bold text-stone-800 text-sm">{confirmedReservation.eventType}</span>
-                <span className="text-stone-500 block">
+                <span className="text-stone-400 font-bold uppercase block text-[9px] sm:text-[10px]">Event Type &amp; Guests</span>
+                <span className="font-bold text-stone-800 text-xs sm:text-sm">{confirmedReservation.eventType}</span>
+                <span className="text-stone-500 block text-[9px] sm:text-xs">
                   {confirmedReservation.guestCount} Guests • {confirmedReservation.seatingLayout} setup
                 </span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 pb-3 border-b border-stone-200">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 pb-2 sm:pb-3 border-b border-stone-200">
               <div>
-                <span className="text-stone-400 font-bold uppercase block text-[10px]">Date &amp; Schedule</span>
-                <span className="font-bold text-stone-800 text-sm">
+                <span className="text-stone-400 font-bold uppercase block text-[9px] sm:text-[10px]">Date &amp; Schedule</span>
+                <span className="font-bold text-stone-800 text-xs sm:text-sm">
                   {new Date(confirmedReservation.reservationAt).toLocaleDateString('en-PH', {
                     weekday: 'short',
                     month: 'short',
@@ -254,47 +254,47 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                     year: 'numeric',
                   })}
                 </span>
-                <span className="text-amber-800 font-bold block">
-                  {startTimeFormatted} – {endTimeFormatted} ({confirmedReservation.venueDurationHours || 3} Hours)
+                <span className="text-amber-800 font-bold block text-[9px] sm:text-xs">
+                  {startTimeFormatted} – {endTimeFormatted} ({confirmedReservation.venueDurationHours || 3}h)
                 </span>
               </div>
               <div>
-                <span className="text-stone-400 font-bold uppercase block text-[10px]">Venue Location</span>
-                <span className="font-bold text-stone-800">The Yellow Hauz Private Studio</span>
-                <span className="text-stone-500 block">V. Mapa &amp; Mabini St., Davao City</span>
+                <span className="text-stone-400 font-bold uppercase block text-[9px] sm:text-[10px]">Venue Location</span>
+                <span className="font-bold text-stone-800 text-xs sm:text-sm">The Yellow Hauz Private Studio</span>
+                <span className="text-stone-500 block text-[9px] sm:text-xs">V. Mapa &amp; Mabini St., Davao</span>
               </div>
             </div>
 
             {/* Inclusions Checklist */}
             <div>
-              <span className="text-stone-400 font-bold uppercase block text-[10px] mb-1.5">
+              <span className="text-stone-400 font-bold uppercase block text-[9px] sm:text-[10px] mb-1">
                 Included Amenities Prepared
               </span>
-              <div className="grid grid-cols-2 gap-1.5 text-[11px] text-stone-700">
-                <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+              <div className="grid grid-cols-2 gap-1 sm:gap-1.5 text-[9px] sm:text-[11px] text-stone-700">
+                <span className="flex items-center gap-1 sm:gap-1.5">
+                  <CheckCircle2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-600 shrink-0" />
                   High-speed Fiber Wi-Fi
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                <span className="flex items-center gap-1 sm:gap-1.5">
+                  <CheckCircle2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-600 shrink-0" />
                   Whisper Air-Conditioning
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                <span className="flex items-center gap-1 sm:gap-1.5">
+                  <CheckCircle2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-600 shrink-0" />
                   HD Projector &amp; Screen
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                <span className="flex items-center gap-1 sm:gap-1.5">
+                  <CheckCircle2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-600 shrink-0" />
                   Sound &amp; Wireless Mic
                 </span>
               </div>
             </div>
 
             {/* Total Fee & Payment */}
-            <div className="pt-3 border-t border-stone-200 flex items-center justify-between">
+            <div className="pt-2 sm:pt-3 border-t border-stone-200 flex items-center justify-between">
               <div>
-                <span className="text-stone-400 font-bold uppercase block text-[10px]">Total Venue Fee</span>
-                <span className="text-xs text-stone-500 font-medium capitalize">
+                <span className="text-stone-400 font-bold uppercase block text-[9px] sm:text-[10px]">Total Venue Fee</span>
+                <span className="text-[10px] sm:text-xs text-stone-500 font-medium capitalize">
                   Payment: {confirmedReservation.paymentMethod} (
                   {confirmedReservation.paymentStatus === 'downpayment_paid'
                     ? 'Downpayment Settled'
@@ -303,19 +303,19 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                 </span>
               </div>
               <div className="text-right">
-                <span className="font-mono text-xl font-extrabold text-amber-900">
+                <span className="font-mono text-base sm:text-xl font-extrabold text-amber-900">
                   ₱{(confirmedReservation.totalAmount || 300).toFixed(2)}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-1 sm:pt-2">
             {onNavigateAccount && (
               <button
                 type="button"
                 onClick={onNavigateAccount}
-                className="flex-1 rounded-xl bg-stone-900 py-3 text-xs font-bold text-amber-400 hover:bg-stone-800 transition text-center"
+                className="flex-1 rounded-xl bg-stone-900 py-2.5 sm:py-3 text-xs font-bold text-amber-400 hover:bg-stone-800 transition text-center"
               >
                 View in My Account
               </button>
@@ -323,7 +323,7 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
             <button
               type="button"
               onClick={() => setConfirmedReservation(null)}
-              className="flex-1 rounded-xl bg-amber-500 py-3 text-xs font-black text-stone-950 hover:bg-amber-400 transition shadow-md text-center"
+              className="flex-1 rounded-xl bg-amber-500 py-2.5 sm:py-3 text-xs font-black text-stone-950 hover:bg-amber-400 transition shadow-md text-center"
             >
               Book Another Event Slot
             </button>
@@ -331,23 +331,23 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
         </div>
       ) : (
         /* Venue Booking Form */
-        <div className="space-y-8">
-          <form onSubmit={handleBookVenue} className="grid gap-8 lg:grid-cols-[1.15fr_.85fr]">
+        <div className="space-y-6 sm:space-y-8">
+          <form onSubmit={handleBookVenue} className="grid gap-5 sm:gap-8 lg:grid-cols-[1.15fr_.85fr]">
             {/* Left Column: Booking Form Parameters */}
-            <div className="space-y-6 rounded-3xl border border-stone-200 bg-white p-6 sm:p-8 shadow-xs">
+            <div className="space-y-4 sm:space-y-6 rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-8 shadow-xs">
               {/* Step 1: Duration Selector */}
               <div>
-                <div className="flex items-center justify-between border-b border-stone-100 pb-3 mb-3">
-                  <h3 className="font-display text-base sm:text-lg font-bold text-stone-900 flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-amber-600" />
-                    1. Select Reservation Duration
+                <div className="flex items-center justify-between border-b border-stone-100 pb-2 sm:pb-3 mb-2.5 sm:mb-3">
+                  <h3 className="font-display text-xs sm:text-lg font-bold text-stone-900 flex items-center gap-1.5 sm:gap-2">
+                    <Clock className="h-3.5 w-3.5 sm:h-5 sm:w-5 text-amber-600 shrink-0" />
+                    <span>1. Select Duration</span>
                   </h3>
-                  <span className="text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
-                    Base: 3 Hours @ ₱300
+                  <span className="text-[9px] sm:text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.2 sm:px-2.5 sm:py-0.5 rounded-full">
+                    Base: 3 Hrs @ ₱300
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2.5">
                   {VENUE_HOURLY_OPTIONS.map((opt) => {
                     const isSelected = selectedDuration === opt.hours;
                     return (
@@ -355,24 +355,24 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                         key={opt.hours}
                         type="button"
                         onClick={() => setSelectedDuration(opt.hours)}
-                        className={`relative rounded-2xl p-3.5 text-left border-2 transition-all ${
+                        className={`relative rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 text-left border-2 transition-all cursor-pointer ${
                           isSelected
                             ? 'border-amber-500 bg-amber-50/90 shadow-xs ring-2 ring-amber-500/20'
                             : 'border-stone-200 bg-stone-50 hover:bg-stone-100 hover:border-stone-300'
                         }`}
                       >
                         {opt.isPopular && (
-                          <span className="absolute -top-2.5 right-2 rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-black uppercase text-stone-950 shadow-2xs">
+                          <span className="absolute -top-2 right-1.5 sm:-top-2.5 sm:right-2 rounded-full bg-amber-500 px-1.5 py-0.2 sm:px-2 sm:py-0.5 text-[8px] sm:text-[9px] font-black uppercase text-stone-950 shadow-2xs">
                             Standard
                           </span>
                         )}
-                        <span className="font-mono text-base font-black text-stone-900 block">
+                        <span className="font-mono text-xs sm:text-base font-black text-stone-900 block">
                           ₱{opt.price}
                         </span>
-                        <span className="font-bold text-xs text-stone-800 block mt-0.5">
+                        <span className="font-bold text-[10px] sm:text-xs text-stone-800 block mt-0.5">
                           {opt.label}
                         </span>
-                        <span className="text-[10px] text-stone-500 block">
+                        <span className="text-[8px] sm:text-[10px] text-stone-500 block truncate">
                           {opt.subtitle}
                         </span>
                       </button>
@@ -383,39 +383,39 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
 
               {/* Step 2: Date & Time Slot */}
               <div>
-                <h3 className="font-display text-base font-bold text-stone-900 flex items-center gap-2 border-b border-stone-100 pb-3 mb-3">
-                  <Calendar className="h-5 w-5 text-amber-600" />
-                  2. Choose Date &amp; Start Time
+                <h3 className="font-display text-xs sm:text-base font-bold text-stone-900 flex items-center gap-1.5 sm:gap-2 border-b border-stone-100 pb-2 sm:pb-3 mb-2.5 sm:mb-3">
+                  <Calendar className="h-3.5 w-3.5 sm:h-5 sm:w-5 text-amber-600 shrink-0" />
+                  <span>2. Choose Date &amp; Start Time</span>
                 </h3>
 
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-2 sm:gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                    <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
                       Event Date
                     </label>
                     <div className="relative">
-                      <Calendar className="absolute left-3.5 top-2.5 h-4 w-4 text-stone-400" />
+                      <Calendar className="absolute left-3 top-2 sm:top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-400" />
                       <input
                         type="date"
                         required
                         value={date}
                         min={new Date().toISOString().slice(0, 10)}
                         onChange={(e) => setDate(e.target.value)}
-                        className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-10 pr-4 py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
+                        className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-9 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2.5 text-[11px] sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                    <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
                       Start Time
                     </label>
                     <div className="relative">
-                      <Clock className="absolute left-3.5 top-2.5 h-4 w-4 text-stone-400" />
+                      <Clock className="absolute left-3 top-2 sm:top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-400" />
                       <select
                         value={timeSlot}
                         onChange={(e) => setTimeSlot(e.target.value)}
-                        className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-10 pr-4 py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
+                        className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-9 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2.5 text-[11px] sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
                       >
                         <option value="08:00">08:00 AM (Morning Session)</option>
                         <option value="09:00">09:00 AM (Morning Workshop)</option>
@@ -431,18 +431,18 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                 </div>
 
                 {/* Computed Time Slot Badge */}
-                <div className="mt-3 flex items-center justify-between rounded-xl bg-stone-100 p-3 text-xs">
-                  <span className="text-stone-600 font-medium">Reserved Time Window:</span>
-                  <span className="font-mono font-bold text-amber-900 bg-white px-3 py-1 rounded-lg border border-stone-200">
-                    {startTimeFormatted} – {endTimeFormatted} ({selectedDuration} Hours)
+                <div className="mt-2.5 flex items-center justify-between rounded-xl bg-stone-100 p-2 sm:p-3 text-[10px] sm:text-xs">
+                  <span className="text-stone-600 font-medium">Reserved Window:</span>
+                  <span className="font-mono font-bold text-amber-900 bg-white px-2 py-0.5 sm:px-3 sm:py-1 rounded-lg border border-stone-200">
+                    {startTimeFormatted} – {endTimeFormatted} ({selectedDuration}h)
                   </span>
                 </div>
 
                 {/* Conflict Alert if venue is already booked */}
                 {conflictingBooking && (
-                  <div className="mt-3 rounded-2xl border border-rose-300 bg-rose-50 p-4 text-xs text-rose-800 space-y-1">
-                    <div className="flex items-center gap-2 font-bold text-rose-900">
-                      <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+                  <div className="mt-2.5 rounded-xl sm:rounded-2xl border border-rose-300 bg-rose-50 p-2.5 sm:p-4 text-[10px] sm:text-xs text-rose-800 space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold text-rose-900">
+                      <AlertCircle className="h-3.5 w-3.5 text-rose-600 shrink-0" />
                       <span>Slot Already Booked ({conflictingBooking.reservationCode})</span>
                     </div>
                     <p className="leading-relaxed">
@@ -459,20 +459,20 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
 
               {/* Step 3: Event Purpose & Seating Configuration */}
               <div>
-                <h3 className="font-display text-base font-bold text-stone-900 flex items-center gap-2 border-b border-stone-100 pb-3 mb-3">
-                  <Layers className="h-5 w-5 text-amber-600" />
-                  3. Event Purpose &amp; Layout
+                <h3 className="font-display text-xs sm:text-base font-bold text-stone-900 flex items-center gap-1.5 sm:gap-2 border-b border-stone-100 pb-2 sm:pb-3 mb-2.5 sm:mb-3">
+                  <Layers className="h-3.5 w-3.5 sm:h-5 sm:w-5 text-amber-600 shrink-0" />
+                  <span>3. Event Purpose &amp; Layout</span>
                 </h3>
 
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-2 sm:gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                    <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
                       Event Type / Occasion
                     </label>
                     <select
                       value={eventType}
                       onChange={(e) => setEventType(e.target.value)}
-                      className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3.5 py-2.5 text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
+                      className="w-full rounded-xl border border-stone-300 bg-stone-50 px-2.5 sm:px-3.5 py-1.5 sm:py-2.5 text-[11px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
                     >
                       {EVENT_TYPES.map((t) => (
                         <option key={t.id} value={t.name}>
@@ -483,15 +483,15 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                    <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
                       Expected Guests (Max 25 Pax)
                     </label>
                     <div className="relative">
-                      <Users className="absolute left-3.5 top-2.5 h-4 w-4 text-stone-400" />
+                      <Users className="absolute left-3 top-2 sm:top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-400" />
                       <select
                         value={guestCount}
                         onChange={(e) => setGuestCount(Number(e.target.value))}
-                        className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-10 pr-4 py-2.5 text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
+                        className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-9 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2.5 text-[11px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
                       >
                         {[4, 6, 8, 10, 12, 15, 18, 20, 22, 25].map((n) => (
                           <option key={n} value={n}>
@@ -503,11 +503,11 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                   </div>
                 </div>
 
-                <div className="mt-3">
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                <div className="mt-2.5 sm:mt-3">
+                  <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
                     Preferred Seating Arrangement
                   </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
                     {SEATING_LAYOUTS.map((lay) => {
                       const isSelected = seatingLayout === lay.id;
                       return (
@@ -515,14 +515,14 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                           key={lay.id}
                           type="button"
                           onClick={() => setSeatingLayout(lay.id as any)}
-                          className={`p-2.5 rounded-xl border text-left transition ${
+                          className={`p-2 sm:p-2.5 rounded-xl border text-left transition cursor-pointer ${
                             isSelected
                               ? 'border-amber-500 bg-amber-50 text-amber-950 ring-2 ring-amber-500/20 font-bold'
                               : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100'
                           }`}
                         >
-                          <span className="text-xs font-bold block leading-tight">{lay.name}</span>
-                          <span className="text-[10px] text-stone-500 block mt-0.5">{lay.pax}</span>
+                          <span className="text-[10px] sm:text-xs font-bold block leading-tight">{lay.name}</span>
+                          <span className="text-[8px] sm:text-[10px] text-stone-500 block mt-0.5">{lay.pax}</span>
                         </button>
                       );
                     })}
@@ -532,19 +532,19 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
             </div>
 
             {/* Right Column: Order Summary & Checkout Card */}
-            <div className="space-y-4">
-              <div className="sticky top-20 rounded-3xl border border-stone-200 bg-white p-6 shadow-md space-y-5">
-                <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-                  <h3 className="font-display text-lg font-bold text-stone-900">
+            <div className="space-y-3 sm:space-y-4">
+              <div className="sticky top-20 rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-6 shadow-md space-y-3.5 sm:space-y-5">
+                <div className="flex items-center justify-between border-b border-stone-100 pb-2 sm:pb-3">
+                  <h3 className="font-display text-sm sm:text-lg font-bold text-stone-900">
                     Reservation Summary
                   </h3>
-                  <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-900 uppercase">
+                  <span className="rounded-full bg-amber-100 px-2 py-0.2 sm:px-2.5 sm:py-0.5 text-[8px] sm:text-[10px] font-extrabold text-amber-900 uppercase">
                     Studio Rental
                   </span>
                 </div>
 
                 {/* Schedule Snapshot */}
-                <div className="rounded-2xl bg-stone-50 border border-stone-200/80 p-4 space-y-2 text-xs">
+                <div className="rounded-xl sm:rounded-2xl bg-stone-50 border border-stone-200/80 p-2.5 sm:p-4 space-y-1.5 sm:space-y-2 text-[10px] sm:text-xs">
                   <div className="flex justify-between">
                     <span className="text-stone-500">Date:</span>
                     <span className="font-bold text-stone-900">
@@ -578,7 +578,7 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                 </div>
 
                 {/* Itemized Price Breakdown */}
-                <div className="space-y-2 text-xs border-y border-stone-100 py-3">
+                <div className="space-y-1.5 sm:space-y-2 text-[10px] sm:text-xs border-y border-stone-100 py-2 sm:py-3">
                   <div className="flex justify-between text-stone-700">
                     <span>
                       Studio Base Rental ({selectedDuration} hrs)
@@ -586,62 +586,62 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                     <span className="font-mono font-bold">₱{baseRate.toFixed(2)}</span>
                   </div>
 
-                  <div className="pt-2 border-t border-stone-200 flex justify-between items-baseline">
-                    <span className="font-display font-bold text-sm text-stone-900">Total Amount:</span>
-                    <span className="font-mono text-2xl font-black text-amber-950">
+                  <div className="pt-1.5 sm:pt-2 border-t border-stone-200 flex justify-between items-baseline">
+                    <span className="font-display font-bold text-xs sm:text-sm text-stone-900">Total Amount:</span>
+                    <span className="font-mono text-base sm:text-2xl font-black text-amber-950">
                       ₱{grandTotal.toFixed(2)}
                     </span>
                   </div>
                 </div>
 
                 {/* Payment Option */}
-                <div className="space-y-2">
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider">
                     Payment Preference
                   </label>
-                  <div className="grid grid-cols-3 gap-1.5">
+                  <div className="grid grid-cols-3 gap-1 sm:gap-1.5">
                     <button
                       type="button"
                       onClick={() => setPaymentMethod('gcash')}
-                      className={`p-2 rounded-xl border text-center text-xs font-bold transition flex flex-col items-center gap-1 ${
+                      className={`p-1.5 sm:p-2 rounded-xl border text-center text-[10px] sm:text-xs font-bold transition flex flex-col items-center gap-0.5 sm:gap-1 cursor-pointer ${
                         paymentMethod === 'gcash'
                           ? 'border-blue-500 bg-blue-50 text-blue-900 ring-2 ring-blue-500/20'
                           : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
                       }`}
                     >
-                      <QrCode className="h-4 w-4 text-blue-600" />
+                      <QrCode className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600" />
                       <span>GCash</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setPaymentMethod('cash')}
-                      className={`p-2 rounded-xl border text-center text-xs font-bold transition flex flex-col items-center gap-1 ${
+                      className={`p-1.5 sm:p-2 rounded-xl border text-center text-[10px] sm:text-xs font-bold transition flex flex-col items-center gap-0.5 sm:gap-1 cursor-pointer ${
                         paymentMethod === 'cash'
                           ? 'border-emerald-500 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-500/20'
                           : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
                       }`}
                     >
-                      <DollarSign className="h-4 w-4 text-emerald-600" />
-                      <span>Walk-in Cash</span>
+                      <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600" />
+                      <span>Cash</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setPaymentMethod('card')}
-                      className={`p-2 rounded-xl border text-center text-xs font-bold transition flex flex-col items-center gap-1 ${
+                      className={`p-1.5 sm:p-2 rounded-xl border text-center text-[10px] sm:text-xs font-bold transition flex flex-col items-center gap-0.5 sm:gap-1 cursor-pointer ${
                         paymentMethod === 'card'
                           ? 'border-purple-500 bg-purple-50 text-purple-900 ring-2 ring-purple-500/20'
                           : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
                       }`}
                     >
-                      <CreditCard className="h-4 w-4 text-purple-600" />
+                      <CreditCard className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-purple-600" />
                       <span>Card Tap</span>
                     </button>
                   </div>
 
                   {paymentMethod === 'gcash' && (
-                    <div className="rounded-xl bg-blue-50 border border-blue-200 p-2.5 text-[11px] text-blue-950 space-y-1">
+                    <div className="rounded-xl bg-blue-50 border border-blue-200 p-2 sm:p-2.5 text-[9px] sm:text-[11px] text-blue-950 space-y-0.5">
                       <div className="font-bold flex items-center gap-1">
-                        <QrCode className="h-3.5 w-3.5 text-blue-700" />
+                        <QrCode className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-blue-700" />
                         <span>GCash QR Available on Voucher</span>
                       </div>
                       <p className="text-blue-800">
@@ -656,14 +656,14 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                   <button
                     type="submit"
                     disabled={!!conflictingBooking}
-                    className={`w-full rounded-2xl py-3.5 text-sm font-black transition shadow-md flex items-center justify-center gap-2 ${
+                    className={`w-full rounded-xl sm:rounded-2xl py-2.5 sm:py-3.5 text-xs sm:text-sm font-black transition shadow-md flex items-center justify-center gap-1.5 sm:gap-2 ${
                       conflictingBooking
                         ? 'bg-stone-300 text-stone-500 cursor-not-allowed'
                         : 'bg-amber-500 text-stone-950 hover:bg-amber-400 active:scale-[0.99] cursor-pointer'
                     }`}
                   >
-                    <CheckCircle className="h-4 w-4" />
-                    Reserve Studio for ₱{grandTotal.toFixed(2)}
+                    <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    <span>Reserve Studio for ₱{grandTotal.toFixed(2)}</span>
                   </button>
                 ) : (
                   <button
@@ -676,15 +676,15 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                       });
                       if (onRequireLogin) onRequireLogin();
                     }}
-                    className="w-full rounded-2xl bg-stone-950 py-3.5 text-sm font-extrabold text-amber-400 shadow-md hover:bg-stone-800 active:scale-[0.99] transition flex items-center justify-center gap-2"
+                    className="w-full rounded-xl sm:rounded-2xl bg-stone-950 py-2.5 sm:py-3.5 text-xs sm:text-sm font-extrabold text-amber-400 shadow-md hover:bg-stone-800 active:scale-[0.99] transition flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer"
                   >
-                    <Lock className="h-4 w-4 text-amber-400" />
-                    Sign In to Reserve Studio
+                    <Lock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-400" />
+                    <span>Sign In to Reserve Studio</span>
                   </button>
                 )}
 
-                <div className="flex items-start gap-2 text-[11px] text-stone-500">
-                  <Info className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="flex items-start gap-1.5 text-[9px] sm:text-[11px] text-stone-500">
+                  <Info className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-600 shrink-0 mt-0.5" />
                   <span>
                     Free cancellation up to 24 hours prior to event start. For urgent inquiries call {settings.shop_phone}.
                   </span>

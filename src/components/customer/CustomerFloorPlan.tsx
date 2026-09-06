@@ -51,21 +51,20 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
         onMouseEnter={() => setHoveredTableId(table.id)}
         onMouseLeave={() => setHoveredTableId(null)}
         onClick={() => onSelectTable(table)}
-        className="relative group cursor-pointer select-none transition-all duration-300 transform hover:-translate-y-1.5 focus:outline-none"
+        className="relative group cursor-pointer select-none transition-all duration-300 transform hover:-translate-y-1.5 focus:outline-none w-full max-w-[155px] sm:max-w-[210px] min-w-0"
         style={{
-          minWidth: isExtraLarge ? '210px' : isLarge ? '180px' : isTwoSeater ? '130px' : '150px',
           maxWidth: isExtraLarge ? '230px' : isLarge ? '195px' : isTwoSeater ? '140px' : '165px',
         }}
       >
         {/* Chair Indicators Top */}
-        <div className="absolute -top-3.5 left-0 right-0 flex justify-center gap-4 sm:gap-6 pointer-events-none z-0">
-          <div className={`w-8 sm:w-10 h-3 border-2 rounded-t-full transition-all duration-200 ${
+        <div className="absolute -top-2.5 sm:-top-3.5 left-0 right-0 flex justify-center gap-2 sm:gap-4 md:gap-6 pointer-events-none z-0">
+          <div className={`w-5 sm:w-8 md:w-10 h-2 sm:h-3 border-1.5 sm:border-2 rounded-t-full transition-all duration-200 ${
             isHovered
               ? 'border-amber-400 bg-amber-100 shadow-xs'
               : 'border-stone-300 bg-stone-100/90'
           }`} />
           {!isTwoSeater && (
-            <div className={`w-8 sm:w-10 h-3 border-2 rounded-t-full transition-all duration-200 ${
+            <div className={`w-5 sm:w-8 md:w-10 h-2 sm:h-3 border-1.5 sm:border-2 rounded-t-full transition-all duration-200 ${
               isHovered
                 ? 'border-amber-400 bg-amber-100 shadow-xs'
                 : 'border-stone-300 bg-stone-100/90'
@@ -74,14 +73,14 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
         </div>
 
         {/* Chair Indicators Bottom */}
-        <div className="absolute -bottom-3.5 left-0 right-0 flex justify-center gap-4 sm:gap-6 pointer-events-none z-0">
-          <div className={`w-8 sm:w-10 h-3 border-2 rounded-b-full transition-all duration-200 ${
+        <div className="absolute -bottom-2.5 sm:-bottom-3.5 left-0 right-0 flex justify-center gap-2 sm:gap-4 md:gap-6 pointer-events-none z-0">
+          <div className={`w-5 sm:w-8 md:w-10 h-2 sm:h-3 border-1.5 sm:border-2 rounded-b-full transition-all duration-200 ${
             isHovered
               ? 'border-amber-400 bg-amber-100 shadow-xs'
               : 'border-stone-300 bg-stone-100/90'
           }`} />
           {!isTwoSeater && (
-            <div className={`w-8 sm:w-10 h-3 border-2 rounded-b-full transition-all duration-200 ${
+            <div className={`w-5 sm:w-8 md:w-10 h-2 sm:h-3 border-1.5 sm:border-2 rounded-b-full transition-all duration-200 ${
               isHovered
                 ? 'border-amber-400 bg-amber-100 shadow-xs'
                 : 'border-stone-300 bg-stone-100/90'
@@ -93,24 +92,24 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
         {isLarge && (
           <>
             {/* Left Chairs */}
-            <div className="absolute -left-3.5 top-0 bottom-0 flex flex-col justify-center gap-3 pointer-events-none z-0">
-              <div className={`h-8 sm:h-9 w-3 border-2 rounded-l-full transition-all duration-200 ${
+            <div className="absolute -left-2.5 sm:-left-3.5 top-0 bottom-0 flex flex-col justify-center gap-1.5 sm:gap-3 pointer-events-none z-0">
+              <div className={`h-5 sm:h-8 md:h-9 w-2 sm:w-3 border-1.5 sm:border-2 rounded-l-full transition-all duration-200 ${
                 isHovered ? 'border-amber-400 bg-amber-100' : 'border-stone-300 bg-stone-100/90'
               }`} />
               {isExtraLarge && (
-                <div className={`h-8 sm:h-9 w-3 border-2 rounded-l-full transition-all duration-200 ${
+                <div className={`h-5 sm:h-8 md:h-9 w-2 sm:w-3 border-1.5 sm:border-2 rounded-l-full transition-all duration-200 ${
                   isHovered ? 'border-amber-400 bg-amber-100' : 'border-stone-300 bg-stone-100/90'
                 }`} />
               )}
             </div>
 
             {/* Right Chairs */}
-            <div className="absolute -right-3.5 top-0 bottom-0 flex flex-col justify-center gap-3 pointer-events-none z-0">
-              <div className={`h-8 sm:h-9 w-3 border-2 rounded-r-full transition-all duration-200 ${
+            <div className="absolute -right-2.5 sm:-right-3.5 top-0 bottom-0 flex flex-col justify-center gap-1.5 sm:gap-3 pointer-events-none z-0">
+              <div className={`h-5 sm:h-8 md:h-9 w-2 sm:w-3 border-1.5 sm:border-2 rounded-r-full transition-all duration-200 ${
                 isHovered ? 'border-amber-400 bg-amber-100' : 'border-stone-300 bg-stone-100/90'
               }`} />
               {isExtraLarge && (
-                <div className={`h-8 sm:h-9 w-3 border-2 rounded-r-full transition-all duration-200 ${
+                <div className={`h-5 sm:h-8 md:h-9 w-2 sm:w-3 border-1.5 sm:border-2 rounded-r-full transition-all duration-200 ${
                   isHovered ? 'border-amber-400 bg-amber-100' : 'border-stone-300 bg-stone-100/90'
                 }`} />
               )}
@@ -120,7 +119,7 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
 
         {/* Main Table Surface */}
         <div
-          className={`relative z-10 flex flex-col justify-between rounded-2xl p-4 transition-all duration-200 border-2 shadow-xs ${
+          className={`relative z-10 flex flex-col justify-between rounded-xl sm:rounded-2xl p-2 sm:p-4 transition-all duration-200 border-2 shadow-xs ${
             isSelected
               ? 'bg-amber-100 border-amber-500 shadow-md ring-4 ring-amber-500/20'
               : isHovered
@@ -132,14 +131,14 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
               : 'bg-white border-stone-200 hover:border-amber-400'
           }`}
           style={{
-            minHeight: isExtraLarge ? '145px' : isLarge ? '135px' : isTwoSeater ? '115px' : '125px',
+            minHeight: isExtraLarge ? '125px' : isLarge ? '118px' : isTwoSeater ? '100px' : '108px',
           }}
         >
           {/* Table Header: Number & Capacity */}
           <div className="flex items-center justify-between gap-1">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
               <span
-                className={`grid h-7 w-7 place-items-center rounded-xl text-xs font-black shadow-xs ${
+                className={`grid h-5 w-5 sm:h-7 sm:w-7 place-items-center rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-black shadow-xs shrink-0 ${
                   isSelected || isHovered
                     ? 'bg-amber-500 text-stone-950'
                     : isAircon
@@ -149,13 +148,13 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
               >
                 T{table.tableNumber}
               </span>
-              <span className={`text-[11px] font-bold ${isOccupied ? 'text-stone-200' : 'text-stone-900'}`}>
+              <span className={`text-[10px] sm:text-[11px] font-bold truncate ${isOccupied ? 'text-stone-200' : 'text-stone-900'}`}>
                 Table {table.tableNumber}
               </span>
             </div>
 
             <span
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+              className={`inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold shrink-0 ${
                 isOccupied
                   ? 'bg-stone-800 text-stone-300'
                   : isHovered || isSelected
@@ -163,50 +162,50 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
                   : 'bg-stone-100 text-stone-600'
               }`}
             >
-              <Users className="h-3 w-3" />
+              <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
               {table.capacity}p
             </span>
           </div>
 
           {/* Area & Feature Badge */}
-          <div className="my-1 text-[10px] font-semibold flex items-center justify-between">
+          <div className="my-0.5 sm:my-1 text-[9px] sm:text-[10px] font-semibold flex items-center justify-between gap-1">
             <span
-              className={`px-1.5 py-0.5 rounded ${
+              className={`px-1 sm:px-1.5 py-0.5 rounded text-[8px] sm:text-[10px] shrink-0 ${
                 isAircon
                   ? 'bg-sky-50 text-sky-700 border border-sky-200/60'
                   : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
               }`}
             >
-              {isAircon ? '❄️ AC Room' : '🌿 Garden'}
+              {isAircon ? '❄️ AC' : '🌿 Garden'}
             </span>
 
             {isExtraLarge ? (
-              <span className="text-[9px] text-stone-400 font-medium">Big Group</span>
+              <span className="text-[8px] sm:text-[9px] text-stone-400 font-medium truncate">Big Group</span>
             ) : isTwoSeater ? (
-              <span className="text-[9px] text-stone-400 font-medium">Duo</span>
+              <span className="text-[8px] sm:text-[9px] text-stone-400 font-medium truncate">Duo</span>
             ) : (
-              <span className="text-[9px] text-stone-400 font-medium">Standard</span>
+              <span className="text-[8px] sm:text-[9px] text-stone-400 font-medium truncate">Standard</span>
             )}
           </div>
 
           {/* Status Indicator */}
           <div className="flex items-center justify-between pt-1 border-t border-stone-100/80">
-            <div className="flex items-center gap-1.5 text-[10px] font-bold">
+            <div className="flex items-center gap-1 sm:gap-1.5 text-[9px] sm:text-[10px] font-bold min-w-0">
               <span
-                className={`h-2 w-2 rounded-full animate-pulse ${
+                className={`h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full shrink-0 ${
                   isOccupied
                     ? 'bg-stone-400'
                     : isReserved
-                    ? 'bg-amber-400'
+                    ? 'bg-amber-400 animate-pulse'
                     : 'bg-emerald-500'
                 }`}
               />
-              <span className={isOccupied ? 'text-stone-300' : isReserved ? 'text-amber-800' : 'text-emerald-700'}>
+              <span className={`truncate ${isOccupied ? 'text-stone-300' : isReserved ? 'text-amber-800' : 'text-emerald-700'}`}>
                 {isOccupied ? 'Occupied' : isReserved ? 'Reserved' : 'Available'}
               </span>
             </div>
             
-            <span className="text-[10px] font-extrabold text-amber-600 group-hover:text-amber-700 underline">
+            <span className="text-[9px] sm:text-[10px] font-extrabold text-amber-600 group-hover:text-amber-700 underline shrink-0">
               Book
             </span>
           </div>
@@ -231,13 +230,13 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Main Floor Plan Architectural Stage */}
-      <div className="relative rounded-3xl border-2 border-stone-300 bg-[#fbf9f5] p-5 sm:p-8 shadow-inner overflow-x-auto">
+      <div className="relative rounded-2xl sm:rounded-3xl border-2 border-stone-300 bg-[#fbf9f5] p-2.5 sm:p-5 md:p-8 shadow-inner overflow-x-auto">
         
         {/* Subtle architectural grid pattern background */}
         <div
-          className="absolute inset-0 opacity-[0.03] pointer-events-none rounded-3xl"
+          className="absolute inset-0 opacity-[0.03] pointer-events-none rounded-2xl sm:rounded-3xl"
           style={{
             backgroundImage: `radial-gradient(#000 1px, transparent 1px)`,
             backgroundSize: '16px 16px',
@@ -245,99 +244,99 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
         />
 
         {/* Architectural Legend & Landmarks Bar */}
-        <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 mb-6 pb-4 border-b border-stone-200/90 text-xs">
-          <div className="flex items-center gap-4">
-            <h3 className="text-sm sm:text-base font-extrabold text-stone-900 border-r border-stone-300 pr-4">
+        <div className="relative z-10 flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-3 sm:mb-6 pb-2.5 sm:pb-4 border-b border-stone-200/90 text-xs">
+          <div className="flex items-center gap-2.5 sm:gap-4 flex-wrap">
+            <h3 className="text-xs sm:text-base font-extrabold text-stone-900 border-r border-stone-300 pr-2.5 sm:pr-4">
               All Tables
             </h3>
-            <div className="flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-emerald-100" />
-              <span className="font-bold text-stone-700">Available</span>
+            <div className="flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-100" />
+              <span className="font-bold text-[11px] sm:text-xs text-stone-700">Available</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded-full bg-amber-400 ring-2 ring-amber-100" />
-              <span className="font-bold text-stone-700">Reserved</span>
+            <div className="flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-amber-100" />
+              <span className="font-bold text-[11px] sm:text-xs text-stone-700">Reserved</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded-full bg-stone-900 ring-2 ring-stone-200" />
-              <span className="font-bold text-stone-700">Occupied</span>
+            <div className="flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-stone-900 ring-2 ring-stone-200" />
+              <span className="font-bold text-[11px] sm:text-xs text-stone-700">Occupied</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 text-stone-500 font-medium">
-            <Info className="h-3.5 w-3.5 text-amber-600" />
-            <span>Click any table below to configure date, time &amp; book</span>
+          <div className="flex items-center gap-1.5 text-stone-500 font-medium text-[10px] sm:text-xs">
+            <Info className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-600" />
+            <span>Click any table below to book</span>
           </div>
         </div>
 
         {/* Main Floor Blueprint Container */}
-        <div className="relative z-10 min-w-[700px] space-y-6">
+        <div className="relative z-10 w-full space-y-4 sm:space-y-6">
 
           {/* Divided Dining Rooms Layout */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6">
 
             {/* Area 1: Main Dining Room & Garden (Tables 1 - 4) */}
             {(areaFilter === 'all' || areaFilter === 'normal') && (
-              <div className="rounded-3xl border-2 border-emerald-200/90 bg-emerald-50/30 p-5 space-y-5 transition-all shadow-xs">
+              <div className="rounded-2xl sm:rounded-3xl border-2 border-emerald-200/90 bg-emerald-50/30 p-2.5 sm:p-5 space-y-3 sm:space-y-5 transition-all shadow-xs">
                 {/* Area Header */}
-                <div className="flex items-center justify-between border-b border-emerald-200/80 pb-3">
+                <div className="flex items-center justify-between border-b border-emerald-200/80 pb-2 sm:pb-3">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">🌿</span>
-                      <h4 className="font-display font-extrabold text-stone-900 text-sm sm:text-base">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <span className="text-sm sm:text-base">🌿</span>
+                      <h4 className="font-display font-extrabold text-stone-900 text-xs sm:text-base">
                         Main Dining &amp; Garden View
                       </h4>
                     </div>
-                    <p className="text-[11px] text-stone-600 mt-0.5">
-                      Bright, airy café space with natural daylight, bistro seating, and garden scenery.
+                    <p className="text-[10px] sm:text-[11px] text-stone-600 mt-0.5">
+                      Bright, airy café space with natural daylight and bistro seating.
                     </p>
                   </div>
-                  <span className="rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold px-2.5 py-0.5 shrink-0">
+                  <span className="rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 text-[9px] sm:text-[10px] font-bold px-2 py-0.5 shrink-0">
                     Tables 1 - 4
                   </span>
                 </div>
 
                 {/* Tables Grid */}
-                <div className="grid grid-cols-2 gap-x-4 gap-y-8 py-3 place-items-center">
+                <div className="grid grid-cols-2 gap-x-2 sm:gap-x-4 gap-y-4 sm:gap-y-8 py-2 sm:py-3 place-items-center">
                   {mainDiningTables.map(renderTable)}
                 </div>
 
-                <div className="pt-2 text-center text-[11px] text-emerald-800 font-semibold flex items-center justify-center gap-1.5">
+                <div className="pt-1 text-center text-[10px] sm:text-[11px] text-emerald-800 font-semibold flex items-center justify-center gap-1">
                   <span>🍃</span>
-                  <span>Perfect for casual brunch, friendly catch-ups, and afternoon coffee</span>
+                  <span>Perfect for casual brunch and friendly catch-ups</span>
                 </div>
               </div>
             )}
 
             {/* Area 2: Air-Conditioned Studio Room (Tables 5 - 8) */}
             {(areaFilter === 'all' || areaFilter === 'airconditioned') && (
-              <div className="rounded-3xl border-2 border-sky-200/90 bg-sky-50/30 p-5 space-y-5 transition-all shadow-xs">
+              <div className="rounded-2xl sm:rounded-3xl border-2 border-sky-200/90 bg-sky-50/30 p-2.5 sm:p-5 space-y-3 sm:space-y-5 transition-all shadow-xs">
                 {/* Area Header */}
-                <div className="flex items-center justify-between border-b border-sky-200/80 pb-3">
+                <div className="flex items-center justify-between border-b border-sky-200/80 pb-2 sm:pb-3">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">❄️</span>
-                      <h4 className="font-display font-extrabold text-stone-900 text-sm sm:text-base">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <span className="text-sm sm:text-base">❄️</span>
+                      <h4 className="font-display font-extrabold text-stone-900 text-xs sm:text-base">
                         Air-Conditioned Studio Lounge
                       </h4>
                     </div>
-                    <p className="text-[11px] text-stone-600 mt-0.5">
-                      Cool temperature, quiet ambiance, power outlets, and executive group tables.
+                    <p className="text-[10px] sm:text-[11px] text-stone-600 mt-0.5">
+                      Cool ambiance, quiet workspace, power outlets, and executive tables.
                     </p>
                   </div>
-                  <span className="rounded-full bg-sky-100 text-sky-800 border border-sky-200 text-[10px] font-bold px-2.5 py-0.5 shrink-0">
+                  <span className="rounded-full bg-sky-100 text-sky-800 border border-sky-200 text-[9px] sm:text-[10px] font-bold px-2 py-0.5 shrink-0">
                     Tables 5 - 8
                   </span>
                 </div>
 
                 {/* Tables Grid */}
-                <div className="grid grid-cols-2 gap-x-4 gap-y-8 py-3 place-items-center">
+                <div className="grid grid-cols-2 gap-x-2 sm:gap-x-4 gap-y-4 sm:gap-y-8 py-2 sm:py-3 place-items-center">
                   {airconTables.map(renderTable)}
                 </div>
 
-                <div className="pt-2 text-center text-[11px] text-sky-800 font-semibold flex items-center justify-center gap-1.5">
-                  <Wind className="h-3.5 w-3.5" />
-                  <span>Climate-controlled • Fast Wi-Fi • Dedicated Power Outlets</span>
+                <div className="pt-1 text-center text-[10px] sm:text-[11px] text-sky-800 font-semibold flex items-center justify-center gap-1">
+                  <Wind className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                  <span>Climate-controlled • Fast Wi-Fi • Dedicated Outlets</span>
                 </div>
               </div>
             )}

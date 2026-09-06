@@ -62,7 +62,7 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
     fullName: '',
     username: '',
     employeeId: '',
-    role: 'cashier' as 'cashier' | 'cook' | 'admin',
+    role: 'cashier' as User['role'],
     status: 'active' as 'active' | 'inactive',
     pin: '00000000',
     phone: '',
@@ -768,12 +768,13 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        role: e.target.value as 'cashier' | 'cook' | 'admin',
+                        role: e.target.value as User['role'],
                       })
                     }
                     className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3.5 py-2 text-xs sm:text-sm font-bold text-stone-900 focus:border-amber-500 focus:outline-none"
                   >
                     <option value="cashier">Cashier (POS Register &amp; Floor Plan)</option>
+                    <option value="barista">Barista (Coffee Bar &amp; Drink Station)</option>
                     <option value="cook">Kitchen Cook (Kitchen Tickets &amp; Food Prep)</option>
                     <option value="admin">Admin (Full System Access)</option>
                   </select>

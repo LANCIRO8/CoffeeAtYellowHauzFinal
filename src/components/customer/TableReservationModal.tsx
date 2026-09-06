@@ -150,28 +150,28 @@ export const TableReservationModal: React.FC<TableReservationModalProps> = ({
       <div className="relative w-full max-w-xl rounded-3xl bg-white shadow-2xl border border-stone-200 overflow-hidden my-8">
         
         {/* Modal Header */}
-        <div className={`p-6 border-b ${isAircon ? 'bg-gradient-to-r from-sky-50 via-cyan-50 to-white border-sky-100' : 'bg-gradient-to-r from-amber-50 via-orange-50 to-white border-amber-100'} flex items-start justify-between`}>
-          <div className="flex items-center gap-3.5">
-            <div className={`grid h-12 w-12 place-items-center rounded-2xl font-black text-base shadow-sm ${
-              isAircon ? 'bg-sky-500 text-white ring-4 ring-sky-100' : 'bg-amber-500 text-stone-950 ring-4 ring-amber-100'
+        <div className={`p-4 sm:p-6 border-b ${isAircon ? 'bg-gradient-to-r from-sky-50 via-cyan-50 to-white border-sky-100' : 'bg-gradient-to-r from-amber-50 via-orange-50 to-white border-amber-100'} flex items-start justify-between`}>
+          <div className="flex items-center gap-2.5 sm:gap-3.5">
+            <div className={`grid h-9 w-9 sm:h-12 sm:w-12 place-items-center rounded-xl sm:rounded-2xl font-black text-xs sm:text-base shadow-xs ${
+              isAircon ? 'bg-sky-500 text-white ring-2 sm:ring-4 ring-sky-100' : 'bg-amber-500 text-stone-950 ring-2 sm:ring-4 ring-amber-100'
             }`}>
               T{table.tableNumber}
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="font-display text-xl font-extrabold text-stone-900">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <h2 className="font-display text-sm sm:text-xl font-extrabold text-stone-900 leading-tight">
                   Reserve Table #{table.tableNumber}
                 </h2>
-                <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
+                <span className={`text-[8px] sm:text-[10px] font-extrabold uppercase px-1.5 sm:px-2 py-0.2 sm:py-0.5 rounded-full ${
                   isAircon ? 'bg-sky-100 text-sky-800 border border-sky-200' : 'bg-amber-100 text-amber-800 border border-amber-200'
                 }`}>
                   {isAircon ? '❄️ AC Room' : '🌿 Main Dining'}
                 </span>
               </div>
-              <p className="text-xs text-stone-500 mt-0.5 flex items-center gap-2 font-medium">
+              <p className="text-[10px] sm:text-xs text-stone-500 mt-0.5 flex items-center gap-1.5 sm:gap-2 font-medium">
                 <span>Capacity: Up to {table.capacity} Guests</span>
                 <span>•</span>
-                <span>{isAircon ? 'Cool, quiet study & private lounge' : 'Vibrant cafe & garden view'}</span>
+                <span className="truncate max-w-[170px] sm:max-w-none">{isAircon ? 'Cool, quiet study & lounge' : 'Vibrant cafe & garden view'}</span>
               </p>
             </div>
           </div>
@@ -179,53 +179,53 @@ export const TableReservationModal: React.FC<TableReservationModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition"
+            className="rounded-full p-1.5 sm:p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4 sm:h-5 sm:w-5" />
           </button>
         </div>
 
         {/* Modal Body */}
         {confirmedReservation ? (
           /* Confirmation Success Screen */
-          <div className="p-6 sm:p-8 text-center space-y-5 animate-in zoom-in-95 duration-200">
-            <div className="grid h-16 w-16 place-items-center rounded-full bg-emerald-100 text-emerald-700 mx-auto shadow-inner">
-              <CheckCircle2 className="h-8 w-8" />
+          <div className="p-4 sm:p-8 text-center space-y-4 sm:space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="grid h-12 w-12 sm:h-16 sm:w-16 place-items-center rounded-full bg-emerald-100 text-emerald-700 mx-auto shadow-inner">
+              <CheckCircle2 className="h-6 w-6 sm:h-8 sm:w-8" />
             </div>
 
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-700">
                 Reservation Confirmed
               </span>
-              <h3 className="text-2xl font-bold font-display text-stone-900 mt-1">
+              <h3 className="text-base sm:text-2xl font-bold font-display text-stone-900 mt-0.5 sm:mt-1 leading-tight">
                 We've Saved Table #{table.tableNumber} For You!
               </h3>
-              <p className="text-xs text-stone-600 mt-1">
+              <p className="text-[10px] sm:text-xs text-stone-600 mt-0.5 sm:mt-1">
                 A booking record has been created at Yellow Hauz.
               </p>
 
-              <div className="mt-4 inline-block rounded-2xl bg-amber-50 border border-amber-200 px-6 py-2.5 shadow-xs">
-                <span className="text-[10px] text-stone-500 font-bold uppercase tracking-wider block">
+              <div className="mt-3 sm:mt-4 inline-block rounded-xl sm:rounded-2xl bg-amber-50 border border-amber-200 px-4 sm:px-6 py-2 sm:py-2.5 shadow-xs">
+                <span className="text-[8px] sm:text-[10px] text-stone-500 font-bold uppercase tracking-wider block">
                   Confirmation Code
                 </span>
-                <span className="font-mono text-2xl font-black text-amber-900">
+                <span className="font-mono text-lg sm:text-2xl font-black text-amber-900">
                   {confirmedReservation.reservationCode}
                 </span>
               </div>
             </div>
 
             {/* Summary Details */}
-            <div className="grid grid-cols-2 gap-3 text-left text-xs bg-stone-50 p-4 rounded-2xl border border-stone-200">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 text-left text-[10px] sm:text-xs bg-stone-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-stone-200">
               <div>
-                <span className="text-stone-400 block font-medium">Guest Name:</span>
+                <span className="text-stone-400 block font-medium text-[9px] sm:text-[10px]">Guest Name:</span>
                 <span className="font-bold text-stone-900">{confirmedReservation.customerName}</span>
               </div>
               <div>
-                <span className="text-stone-400 block font-medium">Phone Number:</span>
+                <span className="text-stone-400 block font-medium text-[9px] sm:text-[10px]">Phone Number:</span>
                 <span className="font-bold text-stone-900">{confirmedReservation.contactNumber}</span>
               </div>
               <div>
-                <span className="text-stone-400 block font-medium">Date &amp; Time:</span>
+                <span className="text-stone-400 block font-medium text-[9px] sm:text-[10px]">Date &amp; Time:</span>
                 <span className="font-bold text-stone-900">
                   {new Date(confirmedReservation.reservationAt).toLocaleString('en-PH', {
                     dateStyle: 'medium',
@@ -234,20 +234,20 @@ export const TableReservationModal: React.FC<TableReservationModalProps> = ({
                 </span>
               </div>
               <div>
-                <span className="text-stone-400 block font-medium">Party Size:</span>
+                <span className="text-stone-400 block font-medium text-[9px] sm:text-[10px]">Party Size:</span>
                 <span className="font-bold text-stone-900">
                   {confirmedReservation.guestCount} {confirmedReservation.guestCount === 1 ? 'Guest' : 'Guests'} (Table #{confirmedReservation.tableNumber})
                 </span>
               </div>
               {confirmedReservation.notes && (
-                <div className="col-span-2 pt-2 border-t border-stone-200">
-                  <span className="text-stone-400 block font-medium">Special Request:</span>
+                <div className="col-span-2 pt-1.5 sm:pt-2 border-t border-stone-200">
+                  <span className="text-stone-400 block font-medium text-[9px] sm:text-[10px]">Special Request:</span>
                   <span className="italic text-stone-700">{confirmedReservation.notes}</span>
                 </div>
               )}
             </div>
 
-            <div className="pt-2 flex flex-col sm:flex-row justify-center gap-3">
+            <div className="pt-1 sm:pt-2 flex flex-col sm:flex-row justify-center gap-2 sm:gap-3">
               {onNavigateAccount && (
                 <button
                   type="button"
@@ -255,7 +255,7 @@ export const TableReservationModal: React.FC<TableReservationModalProps> = ({
                     onClose();
                     onNavigateAccount();
                   }}
-                  className="rounded-xl bg-stone-950 px-6 py-3 text-xs font-bold text-amber-400 hover:bg-stone-800 transition"
+                  className="rounded-xl bg-stone-950 px-4 sm:px-6 py-2.5 sm:py-3 text-[11px] sm:text-xs font-bold text-amber-400 hover:bg-stone-800 transition cursor-pointer"
                 >
                   View in My Account
                 </button>
@@ -263,7 +263,7 @@ export const TableReservationModal: React.FC<TableReservationModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-xl bg-amber-500 px-6 py-3 text-xs font-black text-stone-950 hover:bg-amber-400 transition"
+                className="rounded-xl bg-amber-500 px-4 sm:px-6 py-2.5 sm:py-3 text-[11px] sm:text-xs font-black text-stone-950 hover:bg-amber-400 transition cursor-pointer"
               >
                 Done
               </button>
@@ -271,20 +271,20 @@ export const TableReservationModal: React.FC<TableReservationModalProps> = ({
           </div>
         ) : (
           /* Reservation Input Form */
-          <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-5">
+          <form onSubmit={handleSubmit} className="p-4 sm:p-8 space-y-3.5 sm:space-y-5">
             {/* Account Status Badge */}
-            <div className="flex items-center justify-between p-3 rounded-2xl bg-stone-50 border border-stone-200">
-              <div className="flex items-center gap-2.5">
-                <div className={`grid h-8 w-8 place-items-center rounded-xl text-xs font-bold ${
+            <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-stone-50 border border-stone-200">
+              <div className="flex items-center gap-2 sm:gap-2.5">
+                <div className={`grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-lg sm:rounded-xl text-xs font-bold ${
                   activeCustomer ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-200 text-stone-600'
                 }`}>
-                  {activeCustomer ? <ShieldCheck className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                  {activeCustomer ? <ShieldCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <Lock className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
                 </div>
-                <div className="text-xs">
-                  <span className="font-bold text-stone-900 block">
+                <div className="text-[11px] sm:text-xs">
+                  <span className="font-bold text-stone-900 block leading-tight">
                     {activeCustomer ? activeCustomer.fullName : 'Guest Booking (Sign-In Required)'}
                   </span>
-                  <span className="text-stone-500">
+                  <span className="text-[10px] sm:text-xs text-stone-500">
                     {activeCustomer ? activeCustomer.email || activeCustomer.contactNumber : 'Sign in to confirm your table'}
                   </span>
                 </div>
@@ -294,47 +294,47 @@ export const TableReservationModal: React.FC<TableReservationModalProps> = ({
                 <button
                   type="button"
                   onClick={onRequireLogin}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-bold text-stone-950 shadow-xs hover:bg-amber-400 transition shrink-0"
+                  className="inline-flex items-center gap-1 rounded-lg sm:rounded-xl bg-amber-500 px-2.5 py-1 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-bold text-stone-950 shadow-xs hover:bg-amber-400 transition shrink-0 cursor-pointer"
                 >
-                  <LogIn className="h-3.5 w-3.5" />
+                  <LogIn className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                   Sign In
                 </button>
               ) : (
-                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/60 px-2 py-0.5 rounded-md">
+                <span className="text-[9px] sm:text-[11px] font-bold text-emerald-700 bg-emerald-100/60 px-1.5 sm:px-2 py-0.2 sm:py-0.5 rounded-md">
                   Verified
                 </span>
               )}
             </div>
 
             {/* Date & Time Selection */}
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-2.5 sm:gap-3 sm:grid-cols-2">
               <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1 sm:mb-1.5">
                   Reservation Date
                 </label>
                 <div className="relative">
-                  <Calendar className="absolute left-3.5 top-2.5 h-4 w-4 text-stone-400" />
+                  <Calendar className="absolute left-3 top-2 sm:top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-400" />
                   <input
                     type="date"
                     required
                     value={date}
                     min={new Date().toISOString().slice(0, 10)}
                     onChange={(e) => setDate(e.target.value)}
-                    className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-10 pr-3 py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none"
+                    className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-9 sm:pl-10 pr-2.5 sm:pr-3 py-1.5 sm:py-2.5 text-[11px] sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1 sm:mb-1.5">
                   Time Slot
                 </label>
                 <div className="relative">
-                  <Clock className="absolute left-3.5 top-2.5 h-4 w-4 text-stone-400" />
+                  <Clock className="absolute left-3 top-2 sm:top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-400" />
                   <select
                     value={timeSlot}
                     onChange={(e) => setTimeSlot(e.target.value)}
-                    className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-10 pr-3 py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none"
+                    className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-9 sm:pl-10 pr-2.5 sm:pr-3 py-1.5 sm:py-2.5 text-[11px] sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none"
                   >
                     <option value="08:00">08:00 AM (Morning Coffee &amp; Breakfast)</option>
                     <option value="10:00">10:00 AM (Brunch &amp; Pastry)</option>
@@ -349,17 +349,17 @@ export const TableReservationModal: React.FC<TableReservationModalProps> = ({
             </div>
 
             {/* Guest Count & Customer Info */}
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-2.5 sm:gap-3 sm:grid-cols-2">
               <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1 sm:mb-1.5">
                   Number of Guests
                 </label>
                 <div className="relative">
-                  <Users className="absolute left-3.5 top-2.5 h-4 w-4 text-stone-400" />
+                  <Users className="absolute left-3 top-2 sm:top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-400" />
                   <select
                     value={guestCount}
                     onChange={(e) => setGuestCount(Number(e.target.value))}
-                    className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-10 pr-3 py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none"
+                    className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-9 sm:pl-10 pr-2.5 sm:pr-3 py-1.5 sm:py-2.5 text-[11px] sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none"
                   >
                     {Array.from({ length: table.capacity }, (_, i) => i + 1).map((n) => (
                       <option key={n} value={n}>
@@ -371,42 +371,42 @@ export const TableReservationModal: React.FC<TableReservationModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1 sm:mb-1.5">
                   Full Name
                 </label>
                 <div className="relative">
-                  <UserIcon className="absolute left-3.5 top-2.5 h-4 w-4 text-stone-400" />
+                  <UserIcon className="absolute left-3 top-2 sm:top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-400" />
                   <input
                     type="text"
                     required
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     placeholder="e.g. Maria Santos"
-                    className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-10 pr-3 py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none"
+                    className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-9 sm:pl-10 pr-2.5 sm:pr-3 py-1.5 sm:py-2.5 text-[11px] sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none"
                   />
                 </div>
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+              <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1 sm:mb-1.5">
                 Contact Phone Number
               </label>
               <div className="relative">
-                <Phone className="absolute left-3.5 top-2.5 h-4 w-4 text-stone-400" />
+                <Phone className="absolute left-3 top-2 sm:top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-400" />
                 <input
                   type="tel"
                   required
                   value={contactNumber}
                   onChange={(e) => setContactNumber(e.target.value)}
                   placeholder="+63 917 123 4567"
-                  className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-10 pr-3 py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none"
+                  className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-9 sm:pl-10 pr-2.5 sm:pr-3 py-1.5 sm:py-2.5 text-[11px] sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+              <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1 sm:mb-1.5">
                 Special Occasion / Notes (Optional)
               </label>
               <textarea
@@ -414,20 +414,20 @@ export const TableReservationModal: React.FC<TableReservationModalProps> = ({
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="e.g., Birthday celebration, quiet corner for business meeting, high chair requested"
-                className="w-full rounded-xl border border-stone-300 bg-stone-50 p-3 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none"
+                className="w-full rounded-xl border border-stone-300 bg-stone-50 p-2.5 sm:p-3 text-[11px] sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none"
               />
             </div>
 
             {/* Action Buttons */}
-            <div className="pt-2">
+            <div className="pt-1 sm:pt-2">
               {activeCustomer ? (
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full rounded-2xl bg-amber-500 py-3.5 text-sm font-extrabold text-stone-950 shadow-lg shadow-amber-500/20 hover:bg-amber-400 active:scale-[0.99] transition flex items-center justify-center gap-2"
+                  className="w-full rounded-xl sm:rounded-2xl bg-amber-500 py-2.5 sm:py-3.5 text-xs sm:text-sm font-extrabold text-stone-950 shadow-md sm:shadow-lg shadow-amber-500/20 hover:bg-amber-400 active:scale-[0.99] transition flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer"
                 >
-                  <CheckCircle2 className="h-4 w-4" />
-                  {isSubmitting ? 'Confirming Booking...' : `Confirm Reservation for Table #${table.tableNumber}`}
+                  <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span>{isSubmitting ? 'Confirming Booking...' : `Confirm Reservation for Table #${table.tableNumber}`}</span>
                 </button>
               ) : (
                 <button
@@ -440,10 +440,10 @@ export const TableReservationModal: React.FC<TableReservationModalProps> = ({
                     });
                     if (onRequireLogin) onRequireLogin();
                   }}
-                  className="w-full rounded-2xl bg-stone-950 py-3.5 text-sm font-extrabold text-amber-400 shadow-md hover:bg-stone-800 active:scale-[0.99] transition flex items-center justify-center gap-2"
+                  className="w-full rounded-xl sm:rounded-2xl bg-stone-950 py-2.5 sm:py-3.5 text-xs sm:text-sm font-extrabold text-amber-400 shadow-md hover:bg-stone-800 active:scale-[0.99] transition flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer"
                 >
-                  <Lock className="h-4 w-4 text-amber-400" />
-                  Sign In to Confirm Reservation
+                  <Lock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-400" />
+                  <span>Sign In to Confirm Reservation</span>
                 </button>
               )}
             </div>

@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Category,
   MenuItem,
   CartItem,
   Order,
+  OrderItem,
   User,
   Table,
   StoreSettings,
@@ -13,6 +14,7 @@ import { AppStore } from '../../services/store';
 import { useModal } from '../../context/ModalContext';
 import { DiscountModal } from './DiscountModal';
 import { TableSelectModal } from './TableSelectModal';
+import { SwipeableCartItem } from './SwipeableCartItem';
 import {
   Search,
   Plus,
@@ -57,6 +59,10 @@ import {
   PanelRightOpen,
   ChevronLeft,
   ChevronRight,
+  Grid2X2,
+  Square,
+  Grid3X3,
+  LayoutGrid,
 } from 'lucide-react';
 
 interface PosMenuProps {
@@ -84,6 +90,48 @@ export const PosMenu: React.FC<PosMenuProps> = ({
 
   // Collapsible States
   const [isMobileCategoriesOpen, setIsMobileCategoriesOpen] = useState(false);
+
+  // Grid column view mode: 1, 2, 3, 4, or 5 columns (persisted in localStorage)
+  const [gridColumns, setGridColumns] = useState<1 | 2 | 3 | 4 | 5>(() => {
+    try {
+      const saved = localStorage.getItem('yh_pos_grid_columns');
+      if (saved === '1') return 1;
+      if (saved === '2') return 2;
+      if (saved === '3') return 3;
+      if (saved === '4') return 4;
+      if (saved === '5') return 5;
+      return 3;
+    } catch {
+      return 3;
+    }
+  });
+
+  const [isGridModalOpen, setIsGridModalOpen] = useState(false);
+  const gridModalRef = useRef<HTMLDivElement>(null);
+
+  const handleSetGridColumns = (cols: 1 | 2 | 3 | 4 | 5) => {
+    setGridColumns(cols);
+    try {
+      localStorage.setItem('yh_pos_grid_columns', String(cols));
+    } catch (e) {
+      console.error(e);
+    }
+    setIsGridModalOpen(false);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        gridModalRef.current &&
+        !gridModalRef.current.contains(e.target as Node)
+      ) {
+        setIsGridModalOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const [isTicketSidebarOpen, setIsTicketSidebarOpen] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('yellowhauz_pos_ticket_collapsed');
@@ -114,10 +162,11 @@ export const PosMenu: React.FC<PosMenuProps> = ({
   const [selectedTable, setSelectedTable] = useState<number | ''>('');
   const [customerName, setCustomerName] = useState('');
 
-  // Discount & Coupon State
-  const [selectedDiscount, setSelectedDiscount] = useState<Discount | null>(null);
+  // Item-Level Discount & Coupon State
   const [seniorPwdIdNumber, setSeniorPwdIdNumber] = useState<string>('');
   const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
+  const [discountTargetCartId, setDiscountTargetCartId] = useState<string | null>(null);
+  const [isItemSelectModalOpen, setIsItemSelectModalOpen] = useState(false);
 
   // Payment Tender Modal
   const [isTenderModalOpen, setIsTenderModalOpen] = useState(false);
@@ -270,8 +319,12 @@ export const PosMenu: React.FC<PosMenuProps> = ({
       return;
     }
 
-    const existingItem = cart.find((ci) => ci.item.id === item.id);
-    if (existingItem && existingItem.quantity >= (item.quantity ?? 0)) {
+    // Check total quantity of this menu item across all cart items (discounted and undiscounted)
+    const totalInCart = cart
+      .filter((ci) => ci.item.id === item.id)
+      .reduce((sum, ci) => sum + ci.quantity, 0);
+
+    if (totalInCart >= (item.quantity ?? 0)) {
       showAlert({
         title: 'Stock Limit Reached',
         message: `Only ${item.quantity} units of ${item.name} are available in stock.`,
@@ -281,40 +334,68 @@ export const PosMenu: React.FC<PosMenuProps> = ({
     }
 
     setCart((prev) => {
-      const idx = prev.findIndex((ci) => ci.item.id === item.id);
-      if (idx !== -1) {
-        if (prev[idx].quantity >= item.quantity) {
-          return prev;
-        }
+      // Look for an existing cart line for this item that has NO discount applied.
+      // If found, increment its quantity.
+      // If all existing lines have discounts applied, or no line exists, create a new separate line item!
+      const undiscountedIdx = prev.findIndex(
+        (ci) => ci.item.id === item.id && !ci.discount
+      );
+
+      if (undiscountedIdx !== -1) {
         const next = [...prev];
-        next[idx] = { ...next[idx], quantity: next[idx].quantity + 1 };
+        next[undiscountedIdx] = {
+          ...next[undiscountedIdx],
+          quantity: next[undiscountedIdx].quantity + 1,
+        };
         return next;
       }
-      return [...prev, { item, quantity: 1 }];
+
+      const newCartItemId = `ci-${item.id}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      return [
+        ...prev,
+        {
+          id: newCartItemId,
+          cartItemId: newCartItemId,
+          item,
+          quantity: 1,
+          discount: null,
+        },
+      ];
     });
   };
 
-  const updateQuantity = (itemId: number, delta: number) => {
-    const menuItem = menuItems.find((i) => i.id === itemId);
-    const existing = cart.find((ci) => ci.item.id === itemId);
+  const updateQuantity = (cartItemId: string, delta: number) => {
+    const target = cart.find((ci) => (ci.cartItemId || ci.id) === cartItemId);
+    if (!target) return;
 
-    if (delta > 0 && menuItem && existing && existing.quantity + delta > menuItem.quantity) {
-      showAlert({
-        title: 'Insufficient Inventory',
-        message: `Only ${menuItem.quantity} units available in stock.`,
-        type: 'warning',
-      });
-      return;
+    if (delta > 0) {
+      const menuItem = menuItems.find((i) => i.id === target.item.id);
+      const totalInCart = cart
+        .filter((ci) => ci.item.id === target.item.id)
+        .reduce((sum, ci) => sum + ci.quantity, 0);
+
+      if (menuItem && totalInCart + delta > (menuItem.quantity ?? 0)) {
+        showAlert({
+          title: 'Insufficient Inventory',
+          message: `Only ${menuItem.quantity} units available in stock.`,
+          type: 'warning',
+        });
+        return;
+      }
+
+      // If this item already has a discount applied, adding another same item should be separated!
+      if (target.discount) {
+        addToCart(target.item);
+        return;
+      }
     }
 
     setCart((prev) =>
       prev
         .map((ci) => {
-          if (ci.item.id === itemId) {
+          const lineId = ci.cartItemId || ci.id;
+          if (lineId === cartItemId) {
             const nextQty = ci.quantity + delta;
-            if (delta > 0 && menuItem && nextQty > menuItem.quantity) {
-              return ci;
-            }
             return nextQty > 0 ? { ...ci, quantity: nextQty } : null;
           }
           return ci;
@@ -323,13 +404,15 @@ export const PosMenu: React.FC<PosMenuProps> = ({
     );
   };
 
-  const removeItem = (itemId: number) => {
-    setCart((prev) => prev.filter((ci) => ci.item.id !== itemId));
+  const removeItem = (cartItemId: string) => {
+    setCart((prev) =>
+      prev.filter((ci) => (ci.cartItemId || ci.id) !== cartItemId)
+    );
   };
 
   const clearCart = () => {
     setCart([]);
-    setSelectedDiscount(null);
+    setDiscountTargetCartId(null);
     setSeniorPwdIdNumber('');
     setAmountPaidInput('');
   };
@@ -340,15 +423,85 @@ export const PosMenu: React.FC<PosMenuProps> = ({
   }, [cart]);
 
   const discountAmount = useMemo(() => {
-    if (!selectedDiscount) return 0;
-    if (selectedDiscount.type === 'percent') {
-      return (subtotal * selectedDiscount.value) / 100;
-    }
-    return Math.min(subtotal, selectedDiscount.value);
-  }, [selectedDiscount, subtotal]);
+    return cart.reduce((acc, ci) => {
+      if (!ci.discount) return acc;
+      const itemSubtotal = ci.item.price * ci.quantity;
+      if (ci.discount.type === 'percent') {
+        return acc + (itemSubtotal * ci.discount.value) / 100;
+      }
+      return acc + Math.min(itemSubtotal, ci.discount.value);
+    }, 0);
+  }, [cart]);
 
-  const discountPercent =
-    selectedDiscount?.type === 'percent' ? selectedDiscount.value : 0;
+  const discountedItems = useMemo(() => cart.filter((ci) => Boolean(ci.discount)), [cart]);
+
+  const discountPercent = useMemo(() => {
+    if (discountedItems.length === 1 && discountedItems[0].discount?.type === 'percent') {
+      return discountedItems[0].discount.value;
+    }
+    return subtotal > 0 ? Math.round((discountAmount / subtotal) * 100) : 0;
+  }, [discountedItems, subtotal, discountAmount]);
+
+  const discountTargetItem = useMemo(() => {
+    if (!discountTargetCartId) return null;
+    return cart.find((ci) => (ci.cartItemId || ci.id) === discountTargetCartId) || null;
+  }, [cart, discountTargetCartId]);
+
+  const openItemDiscountModal = (ci: CartItem) => {
+    const targetId = ci.cartItemId || ci.id || `ci-${ci.item.id}`;
+    setDiscountTargetCartId(targetId);
+    setIsDiscountModalOpen(true);
+  };
+
+  const handleApplyDiscountToItem = (targetCartId: string, disc: Discount, idNum?: string) => {
+    setCart((prev) =>
+      prev.map((ci) => {
+        const lineId = ci.cartItemId || ci.id;
+        if (lineId === targetCartId) {
+          return {
+            ...ci,
+            discount: disc,
+            discountIdNumber: idNum || ci.discountIdNumber,
+          };
+        }
+        return ci;
+      })
+    );
+    if (idNum) {
+      setSeniorPwdIdNumber(idNum);
+    }
+    setIsDiscountModalOpen(false);
+    setDiscountTargetCartId(null);
+  };
+
+  const handleRemoveDiscountFromItem = (targetCartId: string) => {
+    setCart((prev) =>
+      prev.map((ci) => {
+        const lineId = ci.cartItemId || ci.id;
+        if (lineId === targetCartId) {
+          return {
+            ...ci,
+            discount: null,
+            discountIdNumber: undefined,
+          };
+        }
+        return ci;
+      })
+    );
+    setIsDiscountModalOpen(false);
+    setDiscountTargetCartId(null);
+  };
+
+  const handleClearAllDiscounts = () => {
+    setCart((prev) =>
+      prev.map((ci) => ({
+        ...ci,
+        discount: null,
+        discountIdNumber: undefined,
+      }))
+    );
+    setSeniorPwdIdNumber('');
+  };
 
   const taxableAmount = Math.max(0, subtotal - discountAmount);
   const taxRate = settings.tax_rate;
@@ -445,15 +598,43 @@ export const PosMenu: React.FC<PosMenuProps> = ({
       return;
     }
 
-    const orderItems = cart.map((ci) => ({
-      menuItemId: ci.item.id,
-      name: ci.item.name,
-      quantity: ci.quantity,
-      unitPrice: ci.item.price,
-      totalPrice: ci.item.price * ci.quantity,
-      specialInstructions: ci.specialInstructions,
-      imageUrl: ci.item.imageUrl,
-    }));
+    const orderItems: OrderItem[] = cart.map((ci) => {
+      const itemSubtotal = ci.item.price * ci.quantity;
+      let itemDiscountAmount = 0;
+      if (ci.discount) {
+        if (ci.discount.type === 'percent') {
+          itemDiscountAmount = (itemSubtotal * ci.discount.value) / 100;
+        } else {
+          itemDiscountAmount = Math.min(itemSubtotal, ci.discount.value);
+        }
+      }
+      return {
+        menuItemId: ci.item.id,
+        name: ci.item.name,
+        quantity: ci.quantity,
+        unitPrice: ci.item.price,
+        totalPrice: Math.max(0, itemSubtotal - itemDiscountAmount),
+        specialInstructions: ci.specialInstructions,
+        imageUrl: ci.item.imageUrl,
+        discount: ci.discount
+          ? {
+              discountId: ci.discount.id,
+              discountName: ci.discount.name,
+              discountType: ci.discount.type,
+              discountValue: ci.discount.value,
+              discountAmount: itemDiscountAmount,
+            }
+          : undefined,
+      };
+    });
+
+    const primaryDiscount = discountedItems[0]?.discount;
+    const discountType =
+      discountedItems.length > 0
+        ? primaryDiscount?.isSystem
+          ? primaryDiscount.id
+          : 'item_discounts'
+        : 'none';
 
     const newOrder = AppStore.createOrder({
       channel: 'in_store',
@@ -470,7 +651,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
       taxAmount,
       totalAmount,
       discountAmount,
-      discountType: selectedDiscount ? (selectedDiscount.isSystem ? selectedDiscount.id : 'custom') : 'none',
+      discountType,
       discountPercent,
       amountPaid: paymentMethod === 'cash' ? tenderedNumber : totalAmount,
       changeAmount: paymentMethod === 'cash' ? changeAmount : 0,
@@ -687,8 +868,8 @@ export const PosMenu: React.FC<PosMenuProps> = ({
           {/* Search & Best Sellers Filters */}
           <div className="pb-2.5 sm:pb-3 border-b border-stone-100">
             <div className="flex items-center gap-1.5 sm:gap-3">
-              {/* Mobile Search Icon Toggle / Full Input on Desktop */}
-              {!isMobileSearchOpen && !searchQuery ? (
+              {/* Mobile Search Icon Toggle (collapsed on small screens when empty) */}
+              {!isMobileSearchOpen && !searchQuery && (
                 <button
                   type="button"
                   onClick={() => setIsMobileSearchOpen(true)}
@@ -697,79 +878,238 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                 >
                   <Search className="h-4 w-4" />
                 </button>
-              ) : (
-                <div className="relative flex-1 min-w-0">
-                  <Search className="absolute left-2.5 sm:left-3 top-2 sm:top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search menu items..."
-                    autoFocus={isMobileSearchOpen}
-                    className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-8 sm:pl-9 pr-7 sm:pr-8 py-1.5 sm:py-2 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none"
-                  />
-                  {(searchQuery || isMobileSearchOpen) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSearchQuery('');
-                        setIsMobileSearchOpen(false);
-                      }}
-                      className="absolute right-2 top-2 sm:top-2.5 text-stone-400 hover:text-stone-600"
-                    >
-                      <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    </button>
-                  )}
-                </div>
               )}
 
-              {/* Desktop Always-Visible Search Bar (when mobile toggle is inactive) */}
-              <div className={`hidden sm:block sm:flex-1 min-w-0 ${isMobileSearchOpen || searchQuery ? '!hidden sm:!block' : ''}`}>
-                <div className="relative w-full">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-stone-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search menu items..."
-                    className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-9 pr-8 py-2 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none"
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery('')}
-                      className="absolute right-2.5 top-2.5 text-stone-400 hover:text-stone-600"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
+              {/* Single Unified Search Bar: Always visible on desktop (sm+), expandable on mobile */}
+              <div
+                className={`relative flex-1 min-w-0 ${
+                  isMobileSearchOpen || searchQuery ? 'block' : 'hidden sm:block'
+                }`}
+              >
+                <Search className="absolute left-2.5 sm:left-3 top-2 sm:top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search menu items..."
+                  autoFocus={isMobileSearchOpen}
+                  className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-8 sm:pl-9 pr-7 sm:pr-8 py-1.5 sm:py-2 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none transition-colors"
+                />
+                {(searchQuery || isMobileSearchOpen) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setIsMobileSearchOpen(false);
+                    }}
+                    className="absolute right-2 top-2 sm:top-2.5 text-stone-400 hover:text-stone-600 cursor-pointer p-0.5 rounded-md hover:bg-stone-200/60 transition"
+                    title="Clear search"
+                  >
+                    <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  </button>
+                )}
               </div>
 
-              <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setFilterMode('all')}
-                  className={`px-2.5 sm:px-3 py-1 text-[11px] font-bold rounded-lg transition cursor-pointer ${
-                    filterMode === 'all'
-                      ? 'bg-white text-stone-900 shadow-xs'
-                      : 'text-stone-600 hover:text-stone-900'
-                  }`}
-                >
-                  All
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFilterMode('bestsellers')}
-                  className={`px-2.5 sm:px-3 py-1 text-[11px] font-bold rounded-lg transition flex items-center gap-1 sm:gap-1.5 cursor-pointer ${
-                    filterMode === 'bestsellers'
-                      ? 'bg-amber-500 text-stone-950 font-extrabold shadow-xs'
-                      : 'text-stone-600 hover:text-stone-900'
-                  }`}
-                >
-                  <Sparkles className={`h-3 w-3 ${filterMode === 'bestsellers' ? 'text-stone-950' : 'text-amber-500'}`} />
-                  <span>Best Sellers</span>
-                </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {/* Grid Layout Filter Button */}
+                <div className="relative" ref={gridModalRef}>
+                  <button
+                    type="button"
+                    id="pos-grid-layout-filter-btn"
+                    onClick={() => setIsGridModalOpen((prev) => !prev)}
+                    title="Change Catalog Grid Columns (1 to 5)"
+                    className={`relative flex items-center gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 rounded-xl border transition active:scale-95 cursor-pointer shadow-2xs font-bold text-xs ${
+                      isGridModalOpen
+                        ? 'border-amber-400 bg-amber-50 text-amber-950 ring-2 ring-amber-400/30'
+                        : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50 hover:text-stone-950'
+                    }`}
+                  >
+                    {gridColumns === 1 ? (
+                      <Square className="h-3.5 w-3.5 text-amber-600 stroke-[2.2]" />
+                    ) : gridColumns === 2 ? (
+                      <Grid2X2 className="h-3.5 w-3.5 text-amber-600 stroke-[2.2]" />
+                    ) : (
+                      <Grid3X3 className="h-3.5 w-3.5 text-amber-600 stroke-[2.2]" />
+                    )}
+                    <span className="font-extrabold text-[11px] hidden sm:inline">
+                      {gridColumns} Col
+                    </span>
+                    <ChevronDown className="h-3 w-3 opacity-60" />
+                  </button>
+
+                  {/* Grid Layout Filter Modal on Mobile / Dropdown on Desktop */}
+                  {isGridModalOpen && (
+                    <div
+                      className="fixed inset-0 z-50 flex items-end sm:items-start justify-center sm:justify-end p-4 sm:p-0 bg-stone-950/50 backdrop-blur-xs sm:bg-transparent sm:backdrop-blur-none sm:absolute sm:inset-auto sm:right-0 sm:top-10 sm:top-11"
+                      onClick={(e) => {
+                        if (e.target === e.currentTarget) {
+                          setIsGridModalOpen(false);
+                        }
+                      }}
+                    >
+                      <div
+                        id="pos-grid-layout-filter-modal"
+                        className="w-full max-w-sm sm:w-80 rounded-3xl sm:rounded-2xl border border-stone-200 bg-white p-5 sm:p-3.5 shadow-2xl sm:shadow-xl animate-in fade-in-0 slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200 font-sans"
+                      >
+                        <div className="flex items-center justify-between pb-3 sm:pb-2.5 border-b border-stone-100 mb-3.5 sm:mb-3">
+                          <div className="flex items-center gap-2 sm:gap-1.5 font-black text-sm sm:text-xs text-stone-900">
+                            <LayoutGrid className="h-4 w-4 text-amber-600" />
+                            <span>POS Menu Layout (1–5 Columns)</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setIsGridModalOpen(false)}
+                            className="p-1.5 sm:p-1 rounded-xl sm:rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer"
+                          >
+                            <X className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="text-xs sm:text-[11px] text-stone-500 mb-3.5 sm:mb-2.5 font-medium">
+                          Select catalog density for mobile, tablet, and PC:
+                        </div>
+
+                        <div className="grid grid-cols-5 gap-1.5 sm:gap-1">
+                          {/* 1 Column Option */}
+                          <button
+                            type="button"
+                            id="pos-grid-col-1-btn"
+                            onClick={() => handleSetGridColumns(1)}
+                            className={`flex flex-col items-center justify-center gap-1.5 sm:gap-1 p-2.5 sm:p-2 rounded-2xl sm:rounded-xl border text-center transition cursor-pointer ${
+                              gridColumns === 1
+                                ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
+                                : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
+                            }`}
+                          >
+                            <div className="grid h-7 w-7 sm:h-6 sm:w-6 place-items-center rounded-xl sm:rounded-lg bg-white border border-stone-200 shadow-2xs text-amber-700">
+                              <Square className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
+                            </div>
+                            <div className="text-xs sm:text-[11px] font-bold leading-none">1 Col</div>
+                            {gridColumns === 1 && (
+                              <span className="flex items-center gap-0.5 text-[9px] sm:text-[8px] font-black text-amber-700">
+                                <Check className="h-2.5 w-2.5 sm:h-2 sm:w-2 stroke-[3]" />
+                              </span>
+                            )}
+                          </button>
+
+                          {/* 2 Column Option */}
+                          <button
+                            type="button"
+                            id="pos-grid-col-2-btn"
+                            onClick={() => handleSetGridColumns(2)}
+                            className={`flex flex-col items-center justify-center gap-1.5 sm:gap-1 p-2.5 sm:p-2 rounded-2xl sm:rounded-xl border text-center transition cursor-pointer ${
+                              gridColumns === 2
+                                ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
+                                : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
+                            }`}
+                          >
+                            <div className="grid h-7 w-7 sm:h-6 sm:w-6 place-items-center rounded-xl sm:rounded-lg bg-white border border-stone-200 shadow-2xs text-amber-700">
+                              <Grid2X2 className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
+                            </div>
+                            <div className="text-xs sm:text-[11px] font-bold leading-none">2 Cols</div>
+                            {gridColumns === 2 && (
+                              <span className="flex items-center gap-0.5 text-[9px] sm:text-[8px] font-black text-amber-700">
+                                <Check className="h-2.5 w-2.5 sm:h-2 sm:w-2 stroke-[3]" />
+                              </span>
+                            )}
+                          </button>
+
+                          {/* 3 Column Option */}
+                          <button
+                            type="button"
+                            id="pos-grid-col-3-btn"
+                            onClick={() => handleSetGridColumns(3)}
+                            className={`flex flex-col items-center justify-center gap-1.5 sm:gap-1 p-2.5 sm:p-2 rounded-2xl sm:rounded-xl border text-center transition cursor-pointer ${
+                              gridColumns === 3
+                                ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
+                                : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
+                            }`}
+                          >
+                            <div className="grid h-7 w-7 sm:h-6 sm:w-6 place-items-center rounded-xl sm:rounded-lg bg-white border border-stone-200 shadow-2xs text-amber-700">
+                              <Grid3X3 className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
+                            </div>
+                            <div className="text-xs sm:text-[11px] font-bold leading-none">3 Cols</div>
+                            {gridColumns === 3 && (
+                              <span className="flex items-center gap-0.5 text-[9px] sm:text-[8px] font-black text-amber-700">
+                                <Check className="h-2.5 w-2.5 sm:h-2 sm:w-2 stroke-[3]" />
+                              </span>
+                            )}
+                          </button>
+
+                          {/* 4 Column Option */}
+                          <button
+                            type="button"
+                            id="pos-grid-col-4-btn"
+                            onClick={() => handleSetGridColumns(4)}
+                            className={`flex flex-col items-center justify-center gap-1.5 sm:gap-1 p-2.5 sm:p-2 rounded-2xl sm:rounded-xl border text-center transition cursor-pointer ${
+                              gridColumns === 4
+                                ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
+                                : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
+                            }`}
+                          >
+                            <div className="grid h-7 w-7 sm:h-6 sm:w-6 place-items-center rounded-xl sm:rounded-lg bg-white border border-stone-200 shadow-2xs text-amber-700">
+                              <LayoutGrid className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
+                            </div>
+                            <div className="text-xs sm:text-[11px] font-bold leading-none">4 Cols</div>
+                            {gridColumns === 4 && (
+                              <span className="flex items-center gap-0.5 text-[9px] sm:text-[8px] font-black text-amber-700">
+                                <Check className="h-2.5 w-2.5 sm:h-2 sm:w-2 stroke-[3]" />
+                              </span>
+                            )}
+                          </button>
+
+                          {/* 5 Column Option */}
+                          <button
+                            type="button"
+                            id="pos-grid-col-5-btn"
+                            onClick={() => handleSetGridColumns(5)}
+                            className={`flex flex-col items-center justify-center gap-1.5 sm:gap-1 p-2.5 sm:p-2 rounded-2xl sm:rounded-xl border text-center transition cursor-pointer ${
+                              gridColumns === 5
+                                ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
+                                : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
+                            }`}
+                          >
+                            <div className="grid h-7 w-7 sm:h-6 sm:w-6 place-items-center rounded-xl sm:rounded-lg bg-white border border-stone-200 shadow-2xs text-amber-700 font-black text-[11px] sm:text-[10px]">
+                              5C
+                            </div>
+                            <div className="text-xs sm:text-[11px] font-bold leading-none">5 Cols</div>
+                            {gridColumns === 5 && (
+                              <span className="flex items-center gap-0.5 text-[9px] sm:text-[8px] font-black text-amber-700">
+                                <Check className="h-2.5 w-2.5 sm:h-2 sm:w-2 stroke-[3]" />
+                              </span>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setFilterMode('all')}
+                    className={`px-2.5 sm:px-3 py-1 text-[11px] font-bold rounded-lg transition cursor-pointer ${
+                      filterMode === 'all'
+                        ? 'bg-white text-stone-900 shadow-xs'
+                        : 'text-stone-600 hover:text-stone-900'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterMode('bestsellers')}
+                    className={`px-2.5 sm:px-3 py-1 text-[11px] font-bold rounded-lg transition flex items-center gap-1 sm:gap-1.5 cursor-pointer ${
+                      filterMode === 'bestsellers'
+                        ? 'bg-amber-500 text-stone-950 font-extrabold shadow-xs'
+                        : 'text-stone-600 hover:text-stone-900'
+                    }`}
+                  >
+                    <Sparkles className={`h-3 w-3 ${filterMode === 'bestsellers' ? 'text-stone-950' : 'text-amber-500'}`} />
+                    <span>Best Sellers</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -785,7 +1125,19 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5 sm:gap-3">
+              <div
+                className={`grid gap-2.5 sm:gap-3 ${
+                  gridColumns === 1
+                    ? 'grid-cols-1 max-w-xl mx-auto'
+                    : gridColumns === 2
+                    ? 'grid-cols-2 sm:grid-cols-2 md:grid-cols-2 xl:grid-cols-2'
+                    : gridColumns === 3
+                    ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3'
+                    : gridColumns === 4
+                    ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4'
+                    : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-5'
+                }`}
+              >
                 {filteredItems.map((item) => {
                   const isOutOfStock = (item.quantity ?? 0) <= 0;
                   const isLowStock = !isOutOfStock && (item.quantity ?? 0) <= 5;
@@ -1016,7 +1368,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
         {/* Cart Items List & Payment Controls */}
         <div className="flex flex-col flex-1 overflow-hidden min-h-0">
           {/* Cart Items List */}
-          <div className="flex-1 overflow-y-auto py-2 space-y-2 divide-y divide-stone-100 pr-1 max-h-[350px] lg:max-h-none">
+          <div className="flex-1 overflow-y-auto py-2 space-y-2 pr-1 max-h-[350px] lg:max-h-none">
             {cart.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-4 text-stone-400 text-xs min-h-[140px]">
                 <Sparkles className="h-8 w-8 text-stone-300 mb-1" />
@@ -1024,54 +1376,28 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                 <p className="text-[11px]">Click items from the catalog to add</p>
               </div>
             ) : (
-              cart.map((ci) => (
-                <div key={ci.item.id} className="pt-2 first:pt-0 flex items-center justify-between gap-2">
-                  <div className="flex-1">
-                    <h4 className="text-xs font-bold text-stone-900 leading-tight">{ci.item.name}</h4>
-                    <span className="font-mono text-[11px] text-stone-500">
-                      ₱{ci.item.price.toFixed(2)} × {ci.quantity}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <div className="flex items-center rounded-lg border border-stone-200 bg-stone-50">
-                      <button
-                        onClick={() => updateQuantity(ci.item.id, -1)}
-                        className="p-1 text-stone-600 hover:text-stone-900"
-                      >
-                        <Minus className="h-3 w-3" />
-                      </button>
-                      <span className="w-5 text-center text-xs font-bold text-stone-900">
-                        {ci.quantity}
-                      </span>
-                      <button
-                        onClick={() => updateQuantity(ci.item.id, 1)}
-                        className="p-1 text-stone-600 hover:text-stone-900"
-                      >
-                        <Plus className="h-3 w-3" />
-                      </button>
-                    </div>
-
-                    <span className="w-14 text-right font-mono text-xs font-bold text-stone-900">
-                      ₱{(ci.item.price * ci.quantity).toFixed(2)}
-                    </span>
-
-                    <button
-                      onClick={() => removeItem(ci.item.id)}
-                      className="p-1 text-stone-400 hover:text-rose-600"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))
+              <div className="space-y-2">
+                {cart.map((ci, index) => {
+                  const lineKey = ci.cartItemId || ci.id || `ci-${ci.item.id}-${index}`;
+                  return (
+                    <SwipeableCartItem
+                      key={lineKey}
+                      cartItem={ci}
+                      onUpdateQuantity={(delta) => updateQuantity(lineKey, delta)}
+                      onRemove={() => removeItem(lineKey)}
+                      onOpenDiscount={() => openItemDiscountModal(ci)}
+                      onRemoveDiscount={() => handleRemoveDiscountFromItem(lineKey)}
+                    />
+                  );
+                })}
+              </div>
             )}
           </div>
 
           {/* Side-by-Side: Total Summary Container & Discount Container */}
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-1.5 my-1.5 items-stretch">
             {/* Left Container: Calculation Summary & Total Due */}
-            <div className={`${selectedDiscount ? 'sm:col-span-7' : 'sm:col-span-8'} rounded-xl bg-stone-50 p-2 sm:p-2.5 border border-stone-200/80 flex flex-col justify-between space-y-0.5 text-xs text-stone-600`}>
+            <div className={`${discountedItems.length > 0 ? 'sm:col-span-7' : 'sm:col-span-8'} rounded-xl bg-stone-50 p-2 sm:p-2.5 border border-stone-200/80 flex flex-col justify-between space-y-0.5 text-xs text-stone-600`}>
               <div className="space-y-0.5">
                 <div className="flex justify-between items-center text-[10px] sm:text-[11px]">
                   <span>Subtotal:</span>
@@ -1098,52 +1424,73 @@ export const PosMenu: React.FC<PosMenuProps> = ({
             </div>
 
             {/* Right Container: Discount / Coupon Control Side-by-Side */}
-            <div className={`${selectedDiscount ? 'sm:col-span-5' : 'sm:col-span-4'} flex flex-col`}>
-              {selectedDiscount ? (
-                <div className="h-full rounded-xl border border-emerald-400 bg-emerald-50/90 p-1.5 sm:p-2 flex flex-col justify-between shadow-2xs">
+            <div className={`${discountedItems.length > 0 ? 'sm:col-span-5' : 'sm:col-span-4'} flex flex-col`}>
+              {discountedItems.length > 0 ? (
+                <div className="h-full rounded-2xl border border-emerald-400 bg-emerald-50/90 p-2 flex flex-col justify-between shadow-2xs">
                   <div>
                     <div className="flex items-center justify-between gap-1">
-                      <span className="inline-flex items-center gap-0.5 rounded bg-emerald-600 px-1 py-0.5 text-[8px] font-black text-white">
-                        % DISCOUNT
+                      <span className="inline-flex items-center gap-0.5 rounded bg-emerald-600 px-1.5 py-0.5 text-[8px] font-black text-white uppercase tracking-wider">
+                        % Item Discounts
                       </span>
                       <button
                         type="button"
-                        onClick={() => {
-                          setSelectedDiscount(null);
-                          setSeniorPwdIdNumber('');
-                        }}
-                        title="Remove Discount"
-                        className="rounded p-0.5 text-stone-400 hover:bg-rose-100 hover:text-rose-600 transition"
+                        onClick={handleClearAllDiscounts}
+                        title="Clear all item discounts"
+                        className="rounded p-0.5 text-stone-400 hover:bg-rose-100 hover:text-rose-600 transition cursor-pointer"
                       >
                         <X className="h-3 w-3" />
                       </button>
                     </div>
-                    <div className="mt-0.5 text-[11px] font-bold text-emerald-950 truncate" title={selectedDiscount.name}>
-                      {selectedDiscount.name}
+                    <div className="mt-1 text-[11px] font-bold text-emerald-950 truncate">
+                      {discountedItems.length} of {cart.length} {discountedItems.length === 1 ? 'item' : 'items'} discounted
                     </div>
-                    <div className="text-[9px] text-emerald-700 font-semibold truncate">
+                    <div className="text-[10px] text-emerald-700 font-mono font-bold">
                       -₱{discountAmount.toFixed(2)}
                     </div>
                   </div>
 
                   <button
                     type="button"
-                    onClick={() => setIsDiscountModalOpen(true)}
-                    className="mt-0.5 w-full rounded bg-white border border-emerald-300 py-0.5 text-[9px] font-bold text-emerald-800 hover:bg-emerald-100 transition text-center shadow-2xs"
+                    onClick={() => {
+                      if (cart.length === 1) {
+                        openItemDiscountModal(cart[0]);
+                      } else {
+                        setIsItemSelectModalOpen(true);
+                      }
+                    }}
+                    className="mt-1 w-full rounded-lg bg-white border border-emerald-300 py-1 text-[9px] font-bold text-emerald-800 hover:bg-emerald-100 transition text-center shadow-2xs cursor-pointer"
                   >
-                    Change
+                    Manage / Add
                   </button>
                 </div>
               ) : (
                 <button
                   type="button"
-                  onClick={() => setIsDiscountModalOpen(true)}
-                  className="h-full min-h-[56px] w-full flex flex-col items-center justify-center gap-1 rounded-xl border border-amber-300/80 bg-amber-50 hover:bg-amber-100 hover:border-amber-400 p-1.5 text-center text-amber-900 transition active:scale-98 shadow-2xs group"
+                  onClick={() => {
+                    if (cart.length === 0) {
+                      showAlert({
+                        title: 'Ticket is Empty',
+                        message: 'Please add items to your ticket first.',
+                        type: 'info',
+                      });
+                      return;
+                    }
+                    if (cart.length === 1) {
+                      openItemDiscountModal(cart[0]);
+                    } else {
+                      setIsItemSelectModalOpen(true);
+                    }
+                  }}
+                  className="h-full min-h-[58px] w-full flex flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50/90 hover:bg-amber-100 hover:border-amber-400 p-2 text-center text-amber-950 transition active:scale-98 shadow-2xs group cursor-pointer"
+                  title="Apply discount to an item"
                 >
-                  <div className="grid h-6 w-6 place-items-center rounded-full bg-amber-200/80 group-hover:bg-amber-300 transition text-amber-800">
-                    <Ticket className="h-3.5 w-3.5" />
+                  <div className="grid h-6 w-6 place-items-center rounded-full bg-amber-500 group-hover:bg-amber-400 shadow-2xs transition text-stone-950">
+                    <Ticket className="h-3.5 w-3.5 stroke-[2.5]" />
                   </div>
-                  <span className="text-[11px] font-bold leading-tight">Discount</span>
+                  <div className="flex flex-col items-center leading-none">
+                    <span className="text-[11px] font-extrabold text-amber-950">Item Discount</span>
+                    <span className="text-[9px] font-bold text-amber-700 mt-0.5">Apply to Item</span>
+                  </div>
                 </button>
               )}
             </div>
@@ -1474,22 +1821,95 @@ export const PosMenu: React.FC<PosMenuProps> = ({
         }}
       />
 
-      {/* Discount & Coupon Modal */}
+      {/* Item-Specific Discount & Coupon Modal */}
       <DiscountModal
         isOpen={isDiscountModalOpen}
-        onClose={() => setIsDiscountModalOpen(false)}
+        onClose={() => {
+          setIsDiscountModalOpen(false);
+          setDiscountTargetCartId(null);
+        }}
         subtotal={subtotal}
-        appliedDiscount={selectedDiscount}
-        customIdNumber={seniorPwdIdNumber}
+        appliedDiscount={discountTargetItem?.discount ?? null}
+        customIdNumber={discountTargetItem?.discountIdNumber || seniorPwdIdNumber}
+        targetItemName={discountTargetItem?.item.name}
+        targetItemPrice={discountTargetItem?.item.price}
+        targetItemQuantity={discountTargetItem?.quantity}
         onApplyDiscount={(disc, idNum) => {
-          setSelectedDiscount(disc);
-          if (idNum !== undefined) setSeniorPwdIdNumber(idNum);
+          if (discountTargetCartId !== null) {
+            handleApplyDiscountToItem(discountTargetCartId, disc, idNum);
+          }
         }}
         onRemoveDiscount={() => {
-          setSelectedDiscount(null);
-          setSeniorPwdIdNumber('');
+          if (discountTargetCartId !== null) {
+            handleRemoveDiscountFromItem(discountTargetCartId);
+          }
         }}
       />
+
+      {/* Select Item to Discount Modal (for when user clicks the Item Discount button with multiple items) */}
+      {isItemSelectModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="bg-stone-900 text-white px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="grid h-8 w-8 place-items-center rounded-xl bg-amber-500 text-stone-950 font-bold">
+                  <Ticket className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-base text-white">Select Item to Discount</h3>
+                  <p className="text-xs text-stone-400">Choose which item in ticket to apply discount</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsItemSelectModalOpen(false)}
+                className="rounded-full p-1.5 text-stone-400 hover:bg-stone-800 hover:text-white transition cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto space-y-2">
+              {cart.map((ci, index) => {
+                const lineId = ci.cartItemId || ci.id || `ci-${ci.item.id}-${index}`;
+                return (
+                  <button
+                    key={lineId}
+                    type="button"
+                    onClick={() => {
+                      setIsItemSelectModalOpen(false);
+                      openItemDiscountModal(ci);
+                    }}
+                    className={`w-full flex items-center justify-between p-3 rounded-2xl border text-left transition cursor-pointer ${
+                      ci.discount
+                        ? 'border-emerald-300 bg-emerald-50/50 hover:bg-emerald-50'
+                        : 'border-stone-200 hover:border-amber-400 hover:bg-amber-50/40'
+                    }`}
+                  >
+                  <div>
+                    <div className="font-bold text-xs text-stone-900">{ci.item.name}</div>
+                    <div className="text-[11px] text-stone-500 font-mono">
+                      ₱{ci.item.price.toFixed(2)} × {ci.quantity}
+                    </div>
+                    {ci.discount && (
+                      <span className="inline-block mt-1 text-[10px] font-extrabold text-emerald-800 bg-emerald-100 rounded px-1.5 py-0.5">
+                        🏷️ {ci.discount.name} ({ci.discount.type === 'percent' ? `${ci.discount.value}%` : `₱${ci.discount.value}`})
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 px-2.5 py-1.5 text-xs font-bold transition">
+                      {ci.discount ? 'Change' : 'Discount'}
+                    </span>
+                  </div>
+                </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

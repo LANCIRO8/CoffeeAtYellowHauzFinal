@@ -307,70 +307,53 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
         </button>
 
         {/* Drawer Header */}
-        <div className="flex items-center justify-between border-b border-stone-200 px-5 py-4 bg-stone-50/80">
-          <div className="flex items-center gap-2.5">
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500 text-stone-950 shadow-xs">
-              <ShoppingBag className="h-5 w-5" />
+        <div className="flex items-center justify-between border-b border-stone-200 px-3.5 sm:px-5 py-3 sm:py-4 bg-stone-50/80">
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            <div className="grid h-8 w-8 sm:h-9 sm:w-9 place-items-center rounded-xl bg-amber-500 text-stone-950 shadow-xs shrink-0">
+              <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-display text-base font-bold text-stone-900">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <h3 className="font-display text-sm sm:text-base font-bold text-stone-900">
                   Your Order Bag
                 </h3>
-                <span className="rounded-full bg-amber-200/80 px-2 py-0.5 text-[10px] font-black text-amber-950">
+                <span className="rounded-full bg-amber-200/80 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black text-amber-950">
                   {totalItemCount} {totalItemCount === 1 ? 'item' : 'items'}
                 </span>
               </div>
-              <p className="text-[11px] text-stone-500">
-                Freshly prepared at Yellow Hauz
-              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              id="bag-addons-header-btn"
-              onClick={() => {
-                setAddonsCategoryFilter('all');
-                setIsAddonsModalOpen(true);
-              }}
-              title="Browse Add-ons & Extras"
-              className="flex items-center gap-1.5 rounded-xl border border-amber-400/80 bg-amber-100 hover:bg-amber-200/80 px-2.5 py-1.5 text-xs font-extrabold text-amber-950 transition cursor-pointer shadow-2xs"
-            >
-              <Sparkles className="h-3.5 w-3.5 text-amber-800" />
-              <span>+ Add-ons</span>
-            </button>
-
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={onClose}
               title="Collapse cart"
-              className="flex items-center gap-1 rounded-xl border border-stone-200 bg-white px-2.5 py-1.5 text-xs font-bold text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition cursor-pointer"
+              className="flex items-center gap-1 rounded-xl border border-stone-200 bg-white px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-bold text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition cursor-pointer"
             >
               <span>Collapse</span>
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </button>
           </div>
         </div>
 
         {/* Dual Mode Session Indicator Bar */}
-        <div className="px-5 py-2.5 bg-amber-50/80 border-b border-amber-200/60 flex items-center justify-between text-xs">
+        <div className="px-3.5 sm:px-5 py-2 sm:py-2.5 bg-amber-50/80 border-b border-amber-200/60 flex items-center justify-between text-[11px] sm:text-xs">
           {activeTableBinding ? (
             <div className="flex items-center gap-1.5 text-amber-950 font-bold">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>Dine-In • Table #{activeTableBinding.tableNumber}</span>
-              <span className="text-[10px] text-amber-800 font-normal">
-                ({activeTableBinding.area === 'airconditioned' ? 'AC Room' : 'Main Area'})
-              </span>
             </div>
           ) : (
             <div className="flex items-center gap-1.5 text-stone-700 font-medium">
-              <Globe className="h-3.5 w-3.5 text-amber-600" />
+              <Globe className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-600" />
               <span>Online Order</span>
             </div>
           )}
-          <span className="text-[10px] uppercase font-extrabold text-amber-800 tracking-wider">
-            {activeTableBinding ? 'Direct Kitchen Prep' : 'Advance Booking'}
-          </span>
+          {!activeTableBinding && (
+            <span className="text-[9px] sm:text-[10px] uppercase font-extrabold text-amber-800 tracking-wider">
+              Advance Booking
+            </span>
+          )}
         </div>
 
         {/* Cart Items List */}
@@ -475,19 +458,6 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                         </div>
 
                         <div className="flex items-center gap-1.5">
-                          {/* Quick Item Add-on Button */}
-                          <button
-                            onClick={() => {
-                              setAddonsCategoryFilter(isDrink ? 'drinks' : 'food');
-                              setIsAddonsModalOpen(true);
-                            }}
-                            title={`Add extra add-on for ${ci.item.name}`}
-                            className="inline-flex items-center gap-1 rounded-md bg-stone-100 hover:bg-amber-100 text-stone-600 hover:text-amber-900 px-1.5 py-0.5 text-[10px] font-semibold transition cursor-pointer border border-stone-200/80"
-                          >
-                            <Plus className="h-2.5 w-2.5 text-amber-700" />
-                            <span>Add-on</span>
-                          </button>
-
                           {!ci.specialInstructions && !isEditingNotes && (
                             <button
                               onClick={() => handleStartEditInstructions(ci)}
@@ -542,113 +512,27 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                   </div>
                 );
               })}
-
-              {/* Quick Add-ons Strip inside the Bag */}
-              {popularAddons.length > 0 && (
-                <div className="pt-4 mt-2 border-t border-stone-200/80">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-stone-800">
-                      <Sparkles className="h-3.5 w-3.5 text-amber-600" />
-                      <span>Popular Add-ons</span>
-                    </div>
-                    <button
-                      id="bag-view-all-addons-btn"
-                      onClick={() => {
-                        setAddonsCategoryFilter('all');
-                        setIsAddonsModalOpen(true);
-                      }}
-                      className="text-[11px] font-bold text-amber-700 hover:text-amber-900 hover:underline transition cursor-pointer"
-                    >
-                      + View All ({allAddonItems.length})
-                    </button>
-                  </div>
-
-                  <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-thin">
-                    {popularAddons.map((addon) => {
-                      const qtyInBag = getAddonCartQuantity(addon.id);
-                      const isRecentlyAdded = recentlyAddedAddonId === addon.id;
-
-                      return (
-                        <div
-                          key={addon.id}
-                          className="shrink-0 flex items-center justify-between gap-2 rounded-xl border border-stone-200/90 bg-stone-50/80 hover:bg-amber-50/50 p-1.5 pr-2 transition min-w-[140px] max-w-[170px]"
-                        >
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <div className="h-7 w-7 rounded-lg overflow-hidden shrink-0 bg-stone-200">
-                              <img
-                                src={addon.imageUrl || '/images/latte.webp'}
-                                alt={addon.name}
-                                className="h-full w-full object-cover"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).src = '/images/latte.webp';
-                                }}
-                              />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-[11px] font-bold text-stone-900 truncate leading-tight">
-                                {addon.name}
-                              </p>
-                              <p className="text-[10px] font-mono font-extrabold text-amber-700">
-                                +₱{addon.price.toFixed(0)}
-                              </p>
-                            </div>
-                          </div>
-
-                          {qtyInBag > 0 ? (
-                            <div className="flex items-center rounded-lg bg-amber-100 border border-amber-300 text-amber-950 px-1.5 py-0.5 text-[10px] font-mono font-bold">
-                              <span>{qtyInBag}x</span>
-                              <button
-                                onClick={() => handleAddAddonItem(addon)}
-                                title="Add one more"
-                                className="ml-1 text-amber-900 hover:text-black font-extrabold"
-                              >
-                                +
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => handleAddAddonItem(addon)}
-                              title={`Add ${addon.name} to bag`}
-                              className={`shrink-0 rounded-lg p-1 transition cursor-pointer ${
-                                isRecentlyAdded
-                                  ? 'bg-emerald-500 text-white'
-                                  : 'bg-amber-500 text-stone-950 hover:bg-amber-400 active:scale-95'
-                              }`}
-                            >
-                              {isRecentlyAdded ? (
-                                <Check className="h-3 w-3" />
-                              ) : (
-                                <Plus className="h-3 w-3" />
-                              )}
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
             </>
           )}
         </div>
 
         {/* Footer Calculation & Checkout */}
         {cart.length > 0 && (
-          <div className="border-t border-stone-200 bg-stone-50/90 p-5 space-y-3">
-            <div className="space-y-1.5 text-xs text-stone-600">
+          <div className="border-t border-stone-200 bg-stone-50/90 p-3.5 sm:p-5 space-y-2.5 sm:space-y-3">
+            <div className="space-y-1 sm:space-y-1.5 text-[11px] sm:text-xs text-stone-600">
               <div className="flex justify-between items-center">
                 <span>Subtotal:</span>
                 <span className="font-mono font-bold text-stone-800">
                   ₱{subtotal.toFixed(2)}
                 </span>
               </div>
-              <div className="flex justify-between items-center text-[11px] text-stone-500">
+              <div className="flex justify-between items-center text-[10px] sm:text-[11px] text-stone-500">
                 <span>VAT ({taxRate}% inclusive):</span>
                 <span className="font-mono">₱{taxAmount.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between items-center text-sm font-bold text-stone-900 pt-2 border-t border-stone-200">
+              <div className="flex justify-between items-center text-xs sm:text-sm font-bold text-stone-900 pt-1.5 sm:pt-2 border-t border-stone-200">
                 <span className="font-display">Total Due:</span>
-                <span className="font-mono text-base font-extrabold text-amber-700">
+                <span className="font-mono text-sm sm:text-base font-extrabold text-amber-700">
                   ₱{totalAmount.toFixed(2)}
                 </span>
               </div>
@@ -656,21 +540,21 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
 
             {/* Require Login Banner for Online Orders */}
             {!activeCustomer && !activeTableBinding && (
-              <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-2.5 flex items-center justify-between gap-2 text-stone-800">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="grid h-6 w-6 place-items-center rounded-lg bg-amber-500/20 text-amber-800 shrink-0">
-                    <Lock className="h-3.5 w-3.5" />
+              <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-2 sm:p-2.5 flex items-center justify-between gap-2 text-stone-800">
+                <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                  <div className="grid h-5 w-5 sm:h-6 sm:w-6 place-items-center rounded-lg bg-amber-500/20 text-amber-800 shrink-0">
+                    <Lock className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-stone-900 leading-tight truncate">Login Required</p>
-                    <p className="text-[10px] text-stone-500 truncate">Sign in to checkout online</p>
+                    <p className="text-[11px] sm:text-xs font-bold text-stone-900 leading-tight truncate">Login Required</p>
+                    <p className="text-[9px] sm:text-[10px] text-stone-500 truncate">Sign in to checkout online</p>
                   </div>
                 </div>
                 {onRequireLogin && (
                   <button
                     type="button"
                     onClick={onRequireLogin}
-                    className="shrink-0 rounded-lg bg-amber-500 px-2.5 py-1 text-[11px] font-extrabold text-stone-950 hover:bg-amber-400 transition cursor-pointer"
+                    className="shrink-0 rounded-lg bg-amber-500 px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-extrabold text-stone-950 hover:bg-amber-400 transition cursor-pointer"
                   >
                     Sign In
                   </button>
@@ -678,7 +562,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
               </div>
             )}
 
-            <div className="flex items-center gap-2 pt-1">
+            <div className="flex items-center gap-1.5 sm:gap-2 pt-0.5 sm:pt-1">
               <button
                 id="bag-addons-footer-btn"
                 onClick={() => {
@@ -686,16 +570,16 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                   setIsAddonsModalOpen(true);
                 }}
                 title="Add Add-ons"
-                className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-100/90 hover:bg-amber-200 px-3 py-2.5 text-xs font-extrabold text-amber-950 transition cursor-pointer shadow-2xs"
+                className="flex items-center gap-1 sm:gap-1.5 rounded-xl border border-amber-300 bg-amber-100/90 hover:bg-amber-200 px-2.5 sm:px-3 py-2 sm:py-2.5 text-[11px] sm:text-xs font-extrabold text-amber-950 transition cursor-pointer shadow-2xs"
               >
-                <Sparkles className="h-3.5 w-3.5 text-amber-800" />
+                <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-800" />
                 <span>+ Add-ons</span>
               </button>
 
               <button
                 onClick={onClearCart}
                 title="Clear all items in bag"
-                className="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-xs font-bold text-stone-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition cursor-pointer"
+                className="rounded-xl border border-stone-200 bg-white px-2.5 sm:px-3 py-2 sm:py-2.5 text-[11px] sm:text-xs font-bold text-stone-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition cursor-pointer"
               >
                 Clear
               </button>
@@ -709,17 +593,17 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                   }
                   onProceedToCheckout();
                 }}
-                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-amber-500 py-3 text-xs sm:text-sm font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition active:scale-98 cursor-pointer"
+                className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl bg-amber-500 py-2.5 sm:py-3 text-[11px] sm:text-sm font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition active:scale-98 cursor-pointer"
               >
                 {!activeTableBinding && !activeCustomer ? (
                   <>
-                    <Lock className="h-4 w-4" />
+                    <Lock className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     <span>Log In to Checkout</span>
                   </>
                 ) : (
                   <>
                     <span>Proceed to Checkout</span>
-                    <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   </>
                 )}
               </button>

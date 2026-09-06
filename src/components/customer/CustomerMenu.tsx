@@ -60,6 +60,11 @@ import {
   Share2,
   Bookmark,
   Sparkle,
+  SlidersHorizontal,
+  Menu as MenuIcon,
+  Grid2X2,
+  Square,
+  LayoutGrid,
 } from 'lucide-react';
 
 interface CustomerMenuProps {
@@ -148,6 +153,29 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
   // Track expanded "See more" state per category
   const [expandedCategories, setExpandedCategories] = useState<Record<number, boolean>>({});
 
+  // Grid column view mode: 1 column or 2 columns (persisted in localStorage)
+  const [gridColumns, setGridColumns] = useState<1 | 2>(() => {
+    try {
+      const saved = localStorage.getItem('yh_menu_grid_columns');
+      return saved === '1' ? 1 : 2;
+    } catch {
+      return 2;
+    }
+  });
+
+  const handleSetGridColumns = (cols: 1 | 2) => {
+    setGridColumns(cols);
+    try {
+      localStorage.setItem('yh_menu_grid_columns', String(cols));
+    } catch (e) {
+      console.error(e);
+    }
+    setIsGridModalOpen(false);
+  };
+
+  const [isGridModalOpen, setIsGridModalOpen] = useState(false);
+  const gridModalRef = useRef<HTMLDivElement>(null);
+
   // Instagram-style Item Detail Modal State
   const [selectedDetailItem, setSelectedDetailItem] = useState<MenuItem | null>(null);
   const [likedItemIds, setLikedItemIds] = useState<Record<number, boolean>>({});
@@ -159,8 +187,11 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [hasReadNotifications, setHasReadNotifications] = useState(false);
   const notificationsDropdownRef = useRef<HTMLDivElement>(null);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const filterDropdownRef = useRef<HTMLDivElement>(null);
+  const [isMobileCategoryModalOpen, setIsMobileCategoryModalOpen] = useState(false);
 
-  // Close notifications dropdown on click outside
+  // Close notifications & filter dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
@@ -168,6 +199,18 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
         !notificationsDropdownRef.current.contains(e.target as Node)
       ) {
         setIsNotificationsOpen(false);
+      }
+      if (
+        filterDropdownRef.current &&
+        !filterDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsFilterModalOpen(false);
+      }
+      if (
+        gridModalRef.current &&
+        !gridModalRef.current.contains(e.target as Node)
+      ) {
+        setIsGridModalOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -466,7 +509,6 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
         }
         return [...prev, { item, quantity: 1 }];
       });
-      setInternalIsCartOpen(true);
     }
   };
 
@@ -749,18 +791,18 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
         </div>
 
         {/* Post Content Body */}
-        <div className="flex flex-1 flex-col justify-between p-5 sm:p-6 space-y-4">
+        <div className="flex flex-1 flex-col justify-between p-3.5 sm:p-4.5 space-y-3">
           <div>
-            <h3 className="font-display text-lg sm:text-xl font-extrabold text-stone-900 group-hover:text-amber-700 transition-colors duration-200 line-clamp-1">
+            <h3 className="font-display text-base sm:text-lg font-extrabold text-stone-900 group-hover:text-amber-700 transition-colors duration-200 line-clamp-1">
               {item.name}
             </h3>
-            <p className="mt-2 text-xs sm:text-sm text-stone-600 line-clamp-2 leading-relaxed">
+            <p className="mt-1 text-xs sm:text-sm text-stone-600 line-clamp-2 leading-relaxed">
               {item.description || 'Crafted with premium artisanal ingredients for an unforgettable taste.'}
             </p>
           </div>
 
           {/* Post Action Footer */}
-          <div className="flex items-center justify-between border-t border-stone-100 pt-4">
+          <div className="flex items-center justify-between border-t border-stone-100 pt-3">
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-bold text-stone-400">
                 In Stock: <span className="text-stone-700 font-mono">{item.quantity}</span>
@@ -832,17 +874,121 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
   };
 
   return (
-    <div className="space-y-6 pb-24 max-w-7xl mx-auto">
+    <div className="space-y-2 sm:space-y-3 pb-12 sm:pb-16 max-w-7xl mx-auto">
       {/* Top Header with Expandable Search */}
-      <header className="flex items-center justify-between gap-3 pb-1">
-        <div>
-          <h1 className="mt-1 text-2xl sm:text-3xl font-black text-stone-900 font-display tracking-tight">
+      <header className="flex items-center justify-between gap-2 pb-0">
+        <div className="flex items-center gap-2">
+          <Utensils className="h-5 w-5 sm:h-6 sm:w-6 text-amber-500 shrink-0 stroke-[2.5]" />
+          <h1 className="text-xl sm:text-2xl font-black text-stone-900 font-display tracking-tight">
             Menu
           </h1>
         </div>
 
-        {/* Header Actions: Notifications & Expandable Search */}
+        {/* Header Actions: Grid Layout Filter Modal, Notifications & Expandable Search */}
         <div className="flex items-center gap-2">
+          {/* Grid Layout Filter Button */}
+          <div className="relative" ref={gridModalRef}>
+            <button
+              type="button"
+              id="grid-layout-filter-btn"
+              onClick={() => setIsGridModalOpen((prev) => !prev)}
+              title="Change Grid Columns (1 or 2)"
+              className={`relative flex items-center gap-1.5 px-3 h-10 rounded-2xl border transition active:scale-95 cursor-pointer shadow-2xs font-bold text-xs ${
+                isGridModalOpen
+                  ? 'border-amber-400 bg-amber-50 text-amber-950 ring-2 ring-amber-400/30'
+                  : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-100 hover:text-stone-950'
+              }`}
+            >
+              {gridColumns === 1 ? (
+                <Square className="h-4 w-4 text-amber-600 stroke-[2.2]" />
+              ) : (
+                <Grid2X2 className="h-4 w-4 text-amber-600 stroke-[2.2]" />
+              )}
+              <span className="font-extrabold text-[11px] hidden sm:inline">
+                {gridColumns} Col
+              </span>
+              <ChevronDown className="h-3 w-3 text-stone-400" />
+            </button>
+
+            {/* Grid Layout Filter Modal / Popover */}
+            {isGridModalOpen && (
+              <div
+                id="grid-layout-filter-modal"
+                className="absolute right-0 top-12 z-50 w-64 rounded-2xl border border-stone-200 bg-white p-3.5 shadow-xl animate-in fade-in-0 zoom-in-95 duration-150 font-sans"
+              >
+                <div className="flex items-center justify-between pb-2.5 border-b border-stone-100 mb-3">
+                  <div className="flex items-center gap-1.5 font-black text-xs text-stone-900">
+                    <LayoutGrid className="h-4 w-4 text-amber-600" />
+                    <span>Grid Display Layout</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsGridModalOpen(false)}
+                    className="p-1 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                <div className="text-[11px] text-stone-500 mb-3 font-medium">
+                  Choose your preferred catalog view:
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  {/* 1 Column Option */}
+                  <button
+                    type="button"
+                    id="grid-col-1-btn"
+                    onClick={() => handleSetGridColumns(1)}
+                    className={`flex flex-col items-center justify-center gap-2 p-3 rounded-2xl border text-center transition cursor-pointer ${
+                      gridColumns === 1
+                        ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
+                        : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
+                    }`}
+                  >
+                    <div className="grid h-8 w-8 place-items-center rounded-xl bg-white border border-stone-200 shadow-2xs text-amber-700">
+                      <Square className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold">1 Column</div>
+                      <div className="text-[10px] text-stone-500 font-normal">Full-width view</div>
+                    </div>
+                    {gridColumns === 1 && (
+                      <span className="flex items-center gap-1 text-[10px] font-black text-amber-700">
+                        <Check className="h-3 w-3 stroke-[3]" /> Active
+                      </span>
+                    )}
+                  </button>
+
+                  {/* 2 Column Option */}
+                  <button
+                    type="button"
+                    id="grid-col-2-btn"
+                    onClick={() => handleSetGridColumns(2)}
+                    className={`flex flex-col items-center justify-center gap-2 p-3 rounded-2xl border text-center transition cursor-pointer ${
+                      gridColumns === 2
+                        ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
+                        : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
+                    }`}
+                  >
+                    <div className="grid h-8 w-8 place-items-center rounded-xl bg-white border border-stone-200 shadow-2xs text-amber-700">
+                      <Grid2X2 className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold">2 Columns</div>
+                      <div className="text-[10px] text-stone-500 font-normal">Compact grid</div>
+                    </div>
+                    {gridColumns === 2 && (
+                      <span className="flex items-center gap-1 text-[10px] font-black text-amber-700">
+                        <Check className="h-3 w-3 stroke-[3]" /> Active
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Notification Icon Button */}
           <div className="relative" ref={notificationsDropdownRef}>
             <button
@@ -1003,7 +1149,13 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
               </button>
             </div>
           ) : (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div
+              className={`grid gap-4 sm:gap-6 ${
+                gridColumns === 1
+                  ? 'grid-cols-1 max-w-2xl mx-auto'
+                  : 'grid-cols-2 sm:grid-cols-2 lg:grid-cols-3'
+              }`}
+            >
               {searchResults.map((item) => renderItemPostCard(item))}
             </div>
           )}
@@ -1016,8 +1168,8 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
           {/* ========================================================================= */}
           {selectedType === null && (
             <section className="animate-in fade-in zoom-in-98 duration-300">
-              {/* 50 / 50 Split Layout with rich background imagery */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 min-h-[540px] lg:min-h-[580px]">
+              {/* 50 / 50 Split Layout with no gap and centered titles */}
+              <div className="grid grid-rows-2 md:grid-rows-1 grid-cols-1 md:grid-cols-2 gap-0 h-[calc(100svh-165px)] sm:h-[calc(100svh-125px)] min-h-[300px] max-h-[700px] overflow-hidden rounded-2xl sm:rounded-3xl border-2 border-stone-200">
                 {/* HALF 1: DRINKS */}
                 <div
                   id="split-choice-drinks"
@@ -1025,7 +1177,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                     setSelectedType('drinks');
                     setSelectedCategory(null);
                   }}
-                  className="group relative cursor-pointer overflow-hidden rounded-3xl shadow-xl transition-all duration-500 hover:shadow-2xl hover:scale-[1.01] border-2 border-stone-200 hover:border-amber-400 flex flex-col justify-end p-8 sm:p-10"
+                  className="group relative cursor-pointer overflow-hidden shadow-xs transition-all duration-500 hover:shadow-2xl flex items-center justify-center p-4 sm:p-7 lg:p-10 border-b md:border-b-0 md:border-r border-stone-200/80"
                 >
                   {/* High Quality Background Image with subtle zoom */}
                   <img
@@ -1034,11 +1186,11 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                     className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
                   />
                   {/* Rich Gradient Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-950/60 to-stone-950/30 group-hover:via-stone-950/50 transition-colors duration-300" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-stone-950/90 via-stone-950/60 to-stone-950/40 group-hover:via-stone-950/50 transition-colors duration-300" />
 
-                  {/* Bottom Information */}
-                  <div className="relative z-10">
-                    <h3 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white font-display tracking-tight group-hover:text-amber-300 transition-colors">
+                  {/* Centered Information */}
+                  <div className="relative z-10 text-center flex flex-col items-center justify-center">
+                    <h3 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white font-display tracking-tight group-hover:text-amber-300 transition-colors">
                       Drinks &amp; Coffee
                     </h3>
                   </div>
@@ -1051,7 +1203,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                     setSelectedType('food');
                     setSelectedCategory(null);
                   }}
-                  className="group relative cursor-pointer overflow-hidden rounded-3xl shadow-xl transition-all duration-500 hover:shadow-2xl hover:scale-[1.01] border-2 border-stone-200 hover:border-amber-400 flex flex-col justify-end p-8 sm:p-10"
+                  className="group relative cursor-pointer overflow-hidden shadow-xs transition-all duration-500 hover:shadow-2xl flex items-center justify-center p-4 sm:p-7 lg:p-10"
                 >
                   {/* High Quality Background Image with subtle zoom */}
                   <img
@@ -1060,11 +1212,11 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                     className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
                   />
                   {/* Rich Gradient Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-950/60 to-stone-950/30 group-hover:via-stone-950/50 transition-colors duration-300" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-stone-950/90 via-stone-950/60 to-stone-950/40 group-hover:via-stone-950/50 transition-colors duration-300" />
 
-                  {/* Bottom Information */}
-                  <div className="relative z-10">
-                    <h3 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white font-display tracking-tight group-hover:text-amber-300 transition-colors">
+                  {/* Centered Information */}
+                  <div className="relative z-10 text-center flex flex-col items-center justify-center">
+                    <h3 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white font-display tracking-tight group-hover:text-amber-300 transition-colors">
                       Food &amp; Pastries
                     </h3>
                   </div>
@@ -1077,30 +1229,43 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
           {/* STAGE 2 & 3: SLIDING MULTI-COLUMN LAYOUT */}
           {/* ========================================================================= */}
           {selectedType !== null && (
-            <div className="flex flex-col lg:flex-row gap-5 items-start animate-in fade-in duration-300">
+            <div className="flex flex-col lg:flex-row gap-3 sm:gap-4 items-start animate-in fade-in duration-300">
               {/* ------------------------------------------------------------- */}
-              {/* SIDE NAV: DRINKS / FOOD SWITCH & CATEGORIES LIST BELOW */}
+              {/* MOBILE TRIGGER: OPEN CATEGORY MODAL ON MOBILE SCREENS */}
+              {/* ------------------------------------------------------------- */}
+              <div className="lg:hidden w-full flex items-center justify-between gap-2 p-1 rounded-2xl bg-white border border-stone-200 shadow-xs mb-0.5">
+                <button
+                  type="button"
+                  id="mobile-category-modal-trigger-btn"
+                  onClick={() => setIsMobileCategoryModalOpen(true)}
+                  className="flex-1 flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl bg-stone-50 hover:bg-stone-100 border border-stone-200/80 text-xs font-bold text-stone-900 transition active:scale-[0.98] cursor-pointer"
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <span className="grid h-5 w-5 place-items-center rounded-lg bg-amber-500 text-stone-950 shrink-0">
+                      {selectedType === 'drinks' ? <Coffee className="h-3 w-3" /> : <Utensils className="h-3 w-3" />}
+                    </span>
+                    <span className="font-extrabold text-stone-950 capitalize">{selectedType}</span>
+                    <span className="text-stone-300">•</span>
+                    <span className="truncate text-stone-600 font-semibold text-xs">
+                      {selectedCategory !== null && currentCategoryObj ? currentCategoryObj.name : 'All Categories'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 text-amber-700 bg-amber-100/70 px-1.5 py-0.5 rounded-lg text-[9px] font-black shrink-0">
+                    <span>Change</span>
+                    <ChevronDown className="h-3 w-3" />
+                  </div>
+                </button>
+              </div>
+
+              {/* ------------------------------------------------------------- */}
+              {/* DESKTOP SIDE NAV: DRINKS / FOOD SWITCH & CATEGORIES LIST */}
               {/* ------------------------------------------------------------- */}
               <aside
                 id="type-navbar-column"
-                className="w-full lg:w-auto shrink-0 rounded-3xl border border-stone-200 bg-white/95 backdrop-blur-md p-2.5 shadow-md space-y-3 sticky top-24 lg:top-28 z-30 transition-all duration-200"
+                className="hidden lg:block w-auto shrink-0 rounded-3xl border border-stone-200 bg-white/95 backdrop-blur-md p-2 shadow-md space-y-2 sticky top-20 lg:top-24 z-30 transition-all duration-200"
               >
-                {/* Back to Split Home Button */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedType(null);
-                    setSelectedCategory(null);
-                  }}
-                  className="w-full flex items-center justify-center gap-1.5 rounded-2xl px-3 py-1.5 text-xs font-extrabold text-stone-600 hover:text-stone-950 hover:bg-stone-100 transition cursor-pointer border border-dashed border-stone-200 whitespace-nowrap"
-                  title="Return to initial Drinks and Food split view"
-                >
-                  <ArrowLeft className="h-3.5 w-3.5" />
-                  <span>Main Split</span>
-                </button>
-
                 {/* Drinks & Food Buttons */}
-                <div className="flex flex-row lg:flex-col gap-1.5">
+                <div className="flex flex-col gap-1">
                   {/* Drinks Button */}
                   <button
                     type="button"
@@ -1109,13 +1274,13 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       setSelectedType('drinks');
                       setSelectedCategory(null);
                     }}
-                    className={`inline-flex items-center gap-2 rounded-2xl px-3.5 py-2 text-xs font-black transition-all duration-200 border cursor-pointer whitespace-nowrap w-fit ${
+                    className={`inline-flex items-center gap-2 rounded-2xl px-3 py-1.5 text-xs font-black transition-all duration-200 border cursor-pointer whitespace-nowrap w-fit ${
                       selectedType === 'drinks'
                         ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-md scale-[1.02]'
                         : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
                     }`}
                   >
-                    <Coffee className="h-4 w-4 shrink-0" />
+                    <Coffee className="h-3.5 w-3.5 shrink-0" />
                     <span>Drinks</span>
                   </button>
 
@@ -1127,13 +1292,13 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       setSelectedType('food');
                       setSelectedCategory(null);
                     }}
-                    className={`inline-flex items-center gap-2 rounded-2xl px-3.5 py-2 text-xs font-black transition-all duration-200 border cursor-pointer whitespace-nowrap w-fit ${
+                    className={`inline-flex items-center gap-2 rounded-2xl px-3 py-1.5 text-xs font-black transition-all duration-200 border cursor-pointer whitespace-nowrap w-fit ${
                       selectedType === 'food'
                         ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-md scale-[1.02]'
                         : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
                     }`}
                   >
-                    <Utensils className="h-4 w-4 shrink-0" />
+                    <Utensils className="h-3.5 w-3.5 shrink-0" />
                     <span>Food</span>
                   </button>
                 </div>
@@ -1142,9 +1307,9 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                 {selectedCategory !== null && (
                   <div
                     id="category-navbar-column"
-                    className="pt-2 border-t border-stone-100 animate-in fade-in duration-200"
+                    className="pt-1.5 border-t border-stone-100 animate-in fade-in duration-200"
                   >
-                    <div className="flex flex-row lg:flex-col flex-wrap gap-1.5 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
+                    <div className="flex flex-col flex-wrap gap-1 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
                       {currentCategoriesList.map((cat) => {
                         const isCurrent = selectedCategory === cat.id;
 
@@ -1154,7 +1319,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                             type="button"
                             id={`category-nav-pill-${cat.id}`}
                             onClick={() => setSelectedCategory(cat.id)}
-                            className={`inline-flex items-center gap-1.5 rounded-2xl px-3 py-2 text-xs font-bold transition-all duration-150 border cursor-pointer whitespace-nowrap w-fit ${
+                            className={`inline-flex items-center gap-1.5 rounded-2xl px-2.5 py-1.5 text-xs font-bold transition-all duration-150 border cursor-pointer whitespace-nowrap w-fit ${
                               isCurrent
                                 ? 'bg-amber-500 text-stone-950 border-amber-500 font-black shadow-xs translate-x-0.5'
                                 : 'bg-stone-50 text-stone-800 border-stone-200 hover:bg-stone-100 hover:border-stone-300'
@@ -1173,16 +1338,157 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
               </aside>
 
               {/* ------------------------------------------------------------- */}
+              {/* MOBILE CATEGORY SELECTION MODAL */}
+              {/* ------------------------------------------------------------- */}
+              {isMobileCategoryModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-950/60 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
+                  <div
+                    id="mobile-category-selection-modal"
+                    className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl bg-white p-5 shadow-2xl space-y-4 border border-stone-200 max-h-[85vh] flex flex-col"
+                  >
+                    {/* Modal Header */}
+                    <div className="flex items-center justify-between pb-3 border-b border-stone-100 shrink-0">
+                      <div className="flex items-center gap-2.5">
+                        <span className="grid h-8 w-8 place-items-center rounded-xl bg-amber-500 text-stone-950">
+                          {selectedType === 'drinks' ? <Coffee className="h-4 w-4" /> : <Utensils className="h-4 w-4" />}
+                        </span>
+                        <div>
+                          <h3 className="font-display font-extrabold text-sm text-stone-900">
+                            Select Category
+                          </h3>
+                          <p className="text-[11px] text-stone-500 font-medium capitalize">
+                            {selectedType} menu streams
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsMobileCategoryModalOpen(false)}
+                        className="rounded-xl p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700 transition cursor-pointer"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    </div>
+
+                    {/* Drinks vs Food Switcher Tabs */}
+                    <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-stone-100 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedType('drinks');
+                          setSelectedCategory(null);
+                        }}
+                        className={`flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-black transition cursor-pointer ${
+                          selectedType === 'drinks'
+                            ? 'bg-white text-stone-950 shadow-xs ring-1 ring-stone-200'
+                            : 'text-stone-600 hover:text-stone-900'
+                        }`}
+                      >
+                        <Coffee className="h-4 w-4 text-amber-700" />
+                        <span>Drinks</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedType('food');
+                          setSelectedCategory(null);
+                        }}
+                        className={`flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-black transition cursor-pointer ${
+                          selectedType === 'food'
+                            ? 'bg-white text-stone-950 shadow-xs ring-1 ring-stone-200'
+                            : 'text-stone-600 hover:text-stone-900'
+                        }`}
+                      >
+                        <Utensils className="h-4 w-4 text-orange-700" />
+                        <span>Food</span>
+                      </button>
+                    </div>
+
+                    {/* Category List */}
+                    <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                      {/* All Categories Option */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedCategory(null);
+                          setIsMobileCategoryModalOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between p-3 rounded-2xl border text-left text-xs font-bold transition cursor-pointer ${
+                          selectedCategory === null
+                            ? 'bg-amber-500 border-amber-500 text-stone-950 shadow-xs font-black'
+                            : 'bg-stone-50 border-stone-200 text-stone-800 hover:bg-stone-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className={`grid h-7 w-7 place-items-center rounded-xl ${selectedCategory === null ? 'bg-white/30 text-stone-950' : 'bg-white border border-stone-200 text-stone-700'}`}>
+                            <Layers className="h-3.5 w-3.5" />
+                          </span>
+                          <div>
+                            <div>All {selectedType === 'drinks' ? 'Drinks' : 'Food'} Categories</div>
+                            <div className={`text-[10px] font-normal ${selectedCategory === null ? 'text-stone-900/80' : 'text-stone-400'}`}>
+                              View category overview cards
+                            </div>
+                          </div>
+                        </div>
+                        {selectedCategory === null && <Check className="h-4 w-4 stroke-[3]" />}
+                      </button>
+
+                      {/* Individual Categories */}
+                      {currentCategoriesList.map((cat) => {
+                        const isCurrent = selectedCategory === cat.id;
+                        const count = menuItems.filter((i) => i.categoryId === cat.id && i.isAvailable).length;
+
+                        return (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedCategory(cat.id);
+                              setIsMobileCategoryModalOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between p-3 rounded-2xl border text-left text-xs font-bold transition cursor-pointer ${
+                              isCurrent
+                                ? 'bg-amber-500 border-amber-500 text-stone-950 shadow-xs font-black'
+                                : 'bg-stone-50 border-stone-200 text-stone-800 hover:bg-stone-100'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <span className={`grid h-7 w-7 place-items-center rounded-xl ${isCurrent ? 'bg-white/30 text-stone-950' : 'bg-white border border-stone-200 text-amber-700'}`}>
+                                {renderCategoryIcon(cat.name, selectedType === 'drinks', cat.icon)}
+                              </span>
+                              <span>{cat.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${isCurrent ? 'bg-stone-950 text-amber-400' : 'bg-stone-200/80 text-stone-700'}`}>
+                                {count}
+                              </span>
+                              {isCurrent && <Check className="h-4 w-4 stroke-[3]" />}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ------------------------------------------------------------- */}
               {/* MAIN CONTENT STAGE (CENTER / RIGHT) */}
               {/* ------------------------------------------------------------- */}
-              <main className="flex-1 min-w-0 space-y-6">
+              <main className="flex-1 min-w-0 space-y-4">
                 {/* ----------------------------------------------------------- */}
                 {/* STAGE 2: CATEGORY SELECTION CARDS (WHEN NO CATEGORY SELECTED) */}
                 {/* ----------------------------------------------------------- */}
                 {selectedCategory === null && (
-                  <div className="space-y-5 animate-in fade-in duration-300">
-                    {/* Category Cards Grid - Clean & Aesthetic */}
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  <div className="space-y-3 animate-in fade-in duration-300">
+                    {/* Category Cards Grid - Dynamic 1 or 2 columns */}
+                    <div
+                      className={`grid gap-1.5 sm:gap-2.5 ${
+                        gridColumns === 1
+                          ? 'grid-cols-1 sm:grid-cols-1 max-w-xl mx-auto'
+                          : 'grid-cols-2 sm:grid-cols-2 xl:grid-cols-3'
+                      }`}
+                    >
                       {currentCategoriesList.map((cat) => {
                         const count = menuItems.filter((i) => i.categoryId === cat.id && i.isAvailable).length;
                         const catImg =
@@ -1194,23 +1500,25 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                             key={cat.id}
                             id={`category-card-${cat.id}`}
                             onClick={() => setSelectedCategory(cat.id)}
-                            className="group relative cursor-pointer overflow-hidden rounded-3xl border border-stone-200 bg-white p-3 shadow-xs transition-all duration-300 hover:shadow-xl hover:border-amber-400 hover:-translate-y-1"
+                            className="group relative cursor-pointer overflow-hidden rounded-2xl sm:rounded-3xl border border-stone-200/80 bg-stone-950 shadow-xs transition-all duration-300 hover:shadow-xl hover:border-amber-400 hover:-translate-y-0.5"
                           >
-                            {/* Card Image */}
-                            <div className="relative aspect-16/9 w-full overflow-hidden rounded-2xl bg-stone-100">
+                            {/* Card Image - Seamless Edge-to-Edge */}
+                            <div className="relative aspect-16/10 sm:aspect-16/9 w-full overflow-hidden">
                               <img
                                 src={catImg}
                                 alt={cat.name}
                                 className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-108"
                               />
-                              <div className="absolute inset-0 bg-gradient-to-t from-stone-950/80 via-stone-950/20 to-transparent" />
+                              <div className="absolute inset-0 bg-gradient-to-t from-stone-950/85 via-stone-950/20 to-transparent" />
 
-                              <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-full bg-stone-950/80 backdrop-blur-md px-3.5 py-1.5 text-xs sm:text-sm font-extrabold text-amber-400 shadow-md">
-                                {renderCategoryIcon(cat.name, selectedType === 'drinks', cat.icon)}
-                                <span>{cat.name}</span>
+                              <div className="absolute bottom-2 left-2 sm:bottom-2.5 sm:left-2.5 flex items-center gap-1 sm:gap-1.5 rounded-full bg-stone-950/85 backdrop-blur-md px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs font-extrabold text-amber-400 shadow-md">
+                                <span className="scale-90 sm:scale-100">
+                                  {renderCategoryIcon(cat.name, selectedType === 'drinks', cat.icon)}
+                                </span>
+                                <span className="truncate max-w-[85px] sm:max-w-none">{cat.name}</span>
                               </div>
 
-                              <div className="absolute bottom-3 right-3 font-mono text-xs font-bold text-white bg-stone-900/80 backdrop-blur-md px-2.5 py-1 rounded-xl">
+                              <div className="absolute bottom-2 right-2 sm:bottom-2.5 sm:right-2.5 font-mono text-[9px] sm:text-xs font-bold text-white bg-stone-900/85 backdrop-blur-md px-2 py-0.5 rounded-lg shadow-xs">
                                 {count}
                               </div>
                             </div>
@@ -1225,29 +1533,21 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                 {/* STAGE 3: CATEGORY POSTS VIEW (BEST SELLERS & COLLAPSIBLE OTHER ITEMS) */}
                 {/* ----------------------------------------------------------- */}
                 {selectedCategory !== null && currentCategoryObj && (
-                  <div className="space-y-6 animate-in fade-in duration-300">
+                  <div className="space-y-4 animate-in fade-in duration-300">
                     {/* 1. BEST SELLERS POSTS SECTION */}
-                    <section className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="grid h-6 w-6 place-items-center rounded-lg bg-amber-500 text-stone-950">
-                            <Star className="h-3.5 w-3.5 fill-stone-950 text-stone-950" />
-                          </span>
-                          <h3 className="text-lg sm:text-xl font-black text-stone-900 font-display">
-                            Best Sellers in {currentCategoryObj.name}
-                          </h3>
-                        </div>
-                        <span className="text-xs font-bold text-stone-400">
-                          {bestSellers.length} Featured
-                        </span>
-                      </div>
-
+                    <section className="space-y-3">
                       {bestSellers.length === 0 ? (
-                        <div className="rounded-2xl border border-dashed border-stone-300 p-8 text-center bg-white">
+                        <div className="rounded-2xl border border-dashed border-stone-300 p-6 text-center bg-white">
                           <p className="text-xs text-stone-500">No items available in this category currently.</p>
                         </div>
                       ) : (
-                        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-2">
+                        <div
+                          className={`grid gap-3 sm:gap-4 ${
+                            gridColumns === 1
+                              ? 'grid-cols-1 max-w-xl mx-auto'
+                              : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-2'
+                          }`}
+                        >
                           {bestSellers.map((item) => renderItemPostCard(item, true))}
                         </div>
                       )}
@@ -1255,14 +1555,14 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
 
                     {/* 2. HIDDEN / COLLAPSIBLE OTHER ITEMS ("SEE MORE [CATEGORY]") */}
                     {otherItems.length > 0 && (
-                      <section className="space-y-4 pt-4 border-t border-stone-200">
+                      <section className="space-y-3 pt-3 border-t border-stone-200">
                         {/* The "See More [Category]" Button as requested */}
                         <div className="text-center">
                           <button
                             type="button"
                             id="toggle-see-more-category-btn"
                             onClick={() => toggleCategoryExpanded(selectedCategory)}
-                            className="inline-flex items-center gap-2 rounded-2xl bg-stone-900 hover:bg-stone-800 text-white px-6 py-3 text-xs sm:text-sm font-black shadow-lg transition-all duration-200 active:scale-95 cursor-pointer hover:ring-4 hover:ring-amber-500/20"
+                            className="inline-flex items-center gap-2 rounded-2xl bg-stone-900 hover:bg-stone-800 text-white px-5 py-2.5 text-xs sm:text-sm font-black shadow-md transition-all duration-200 active:scale-95 cursor-pointer hover:ring-4 hover:ring-amber-500/20"
                           >
                             <span>
                               {isCategoryExpanded
@@ -1279,13 +1579,19 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
 
                         {/* Unfolded additional items list */}
                         {isCategoryExpanded && (
-                          <div className="space-y-4 pt-2 animate-in fade-in duration-300">
+                          <div className="space-y-3 pt-1 animate-in fade-in duration-300">
                             <div className="flex items-center gap-2 px-1">
                               <span className="text-xs font-black uppercase tracking-wider text-stone-400">
                                 Additional {currentCategoryObj.name} Selection
                               </span>
                             </div>
-                            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-2">
+                            <div
+                              className={`grid gap-3 sm:gap-4 ${
+                                gridColumns === 1
+                                  ? 'grid-cols-1 max-w-xl mx-auto'
+                                  : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-2'
+                              }`}
+                            >
                               {otherItems.map((item) => renderItemPostCard(item, false))}
                             </div>
                           </div>
@@ -1340,54 +1646,48 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
 
       {/* Checkout Modal */}
       {isCheckoutOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-stone-200 my-8">
-            <div className="flex items-center justify-between border-b border-stone-200 pb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-lg rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-7 shadow-2xl border border-stone-200 my-4 sm:my-8">
+            <div className="flex items-center justify-between border-b border-stone-200 pb-3 sm:pb-4">
               <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700">
+                <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-amber-700">
                   Coffee at Yellow Hauz
                 </span>
-                <h3 className="text-xl font-bold text-stone-900 font-display">
+                <h3 className="text-base sm:text-xl font-bold text-stone-900 font-display">
                   Order Details &amp; Checkout
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsCheckoutOpen(false)}
-                className="rounded-full p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
+                className="rounded-full p-1.5 sm:p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-700 cursor-pointer"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4 sm:h-5 sm:w-5" />
               </button>
             </div>
 
-            <form onSubmit={handlePlaceOrder} className="mt-5 space-y-4">
+            <form onSubmit={handlePlaceOrder} className="mt-3.5 sm:mt-5 space-y-3 sm:space-y-4">
               {activeTableBinding || (orderType === 'dine_in' && selectedTable) ? (
-                <div className="rounded-2xl bg-gradient-to-r from-amber-500/15 via-emerald-500/10 to-amber-500/15 border border-amber-500/40 p-3.5 space-y-1">
+                <div className="rounded-xl sm:rounded-2xl bg-gradient-to-r from-amber-500/15 via-emerald-500/10 to-amber-500/15 border border-amber-500/40 p-2.5 sm:p-3">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 font-extrabold text-amber-950 text-xs">
+                    <div className="flex items-center gap-1.5 font-extrabold text-amber-950 text-[11px] sm:text-xs">
                       <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                      <span>LIVE IN-HOUSE ORDER • TABLE #{activeTableBinding?.tableNumber || selectedTable}</span>
+                      <span>DINE-IN ORDER • TABLE #{activeTableBinding?.tableNumber || selectedTable}</span>
                     </div>
-                    <span className="rounded-full bg-emerald-500/20 text-emerald-800 text-[10px] font-black px-2 py-0.5 uppercase">
-                      Immediate Prep
-                    </span>
                   </div>
-                  <p className="text-[11px] text-stone-600 leading-relaxed">
-                    Order is bound to Table #{activeTableBinding?.tableNumber || selectedTable} ({activeTableBinding?.area === 'airconditioned' ? 'Airconditioned Lounge' : 'Main Dining Area'}). It will be dispatched immediately to the kitchen queue for live prep and served to your table.
-                  </p>
                 </div>
               ) : (
-                <div className="rounded-2xl bg-stone-900 text-white p-3.5 space-y-1 border border-stone-800">
+                <div className="rounded-xl sm:rounded-2xl bg-stone-900 text-white p-3 sm:p-3.5 space-y-1 border border-stone-800">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 font-bold text-amber-300 text-xs">
-                      <Globe className="h-3.5 w-3.5" />
-                      <span>ONLINE EXTERNAL ORDER • ADVANCE BOOKING</span>
+                    <div className="flex items-center gap-1.5 font-bold text-amber-300 text-[11px] sm:text-xs">
+                      <Globe className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                      <span>ONLINE ORDER • ADVANCE BOOKING</span>
                     </div>
-                    <span className="rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5">
+                    <span className="rounded-full bg-amber-500/20 text-amber-300 text-[9px] sm:text-[10px] font-bold px-2 py-0.5">
                       Scheduled
                     </span>
                   </div>
-                  <p className="text-[11px] text-stone-300 leading-relaxed">
+                  <p className="text-[10px] sm:text-[11px] text-stone-300 leading-relaxed">
                     Configure your future arrival date, target time, and party size below so our team prepares your table and orders in advance.
                   </p>
                 </div>
@@ -1396,14 +1696,14 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
               {!activeTableBinding && (
                 <>
                   <div>
-                    <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                    <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
                       Ordering Method
                     </label>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                       <button
                         type="button"
                         onClick={() => setOrderType('dine_in')}
-                        className={`rounded-xl py-2.5 text-xs font-bold border transition cursor-pointer ${
+                        className={`rounded-xl py-2 sm:py-2.5 text-[11px] sm:text-xs font-bold border transition cursor-pointer ${
                           orderType === 'dine_in'
                             ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-xs'
                             : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
@@ -1414,7 +1714,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       <button
                         type="button"
                         onClick={() => setOrderType('take_away')}
-                        className={`rounded-xl py-2.5 text-xs font-bold border transition cursor-pointer ${
+                        className={`rounded-xl py-2 sm:py-2.5 text-[11px] sm:text-xs font-bold border transition cursor-pointer ${
                           orderType === 'take_away'
                             ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-xs'
                             : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
@@ -1425,7 +1725,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       <button
                         type="button"
                         onClick={() => setOrderType('delivery')}
-                        className={`rounded-xl py-2.5 text-xs font-bold border transition cursor-pointer ${
+                        className={`rounded-xl py-2 sm:py-2.5 text-[11px] sm:text-xs font-bold border transition cursor-pointer ${
                           orderType === 'delivery'
                             ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-xs'
                             : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
@@ -1436,9 +1736,9 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-stone-200 bg-stone-50/80 p-3.5 space-y-3">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-stone-900">
-                      <Calendar className="h-4 w-4 text-amber-600" />
+                  <div className="rounded-xl sm:rounded-2xl border border-stone-200 bg-stone-50/80 p-2.5 sm:p-3.5 space-y-2.5 sm:space-y-3">
+                    <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-stone-900">
+                      <Calendar className="h-3.5 w-3.5 text-amber-600" />
                       <span>
                         {orderType === 'dine_in'
                           ? 'Advance Table Booking Schedule'
@@ -1448,9 +1748,9 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="block text-[10px] font-bold text-stone-600 uppercase mb-1">
+                        <label className="block text-[9px] sm:text-[10px] font-bold text-stone-600 uppercase mb-0.5">
                           Date
                         </label>
                         <input
@@ -1459,11 +1759,11 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                           value={bookingDate}
                           onChange={(e) => setBookingDate(e.target.value)}
                           required
-                          className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
+                          className="w-full rounded-xl border border-stone-300 bg-white px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold text-stone-600 uppercase mb-1">
+                        <label className="block text-[9px] sm:text-[10px] font-bold text-stone-600 uppercase mb-0.5">
                           Arrival / Target Time
                         </label>
                         <input
@@ -1471,23 +1771,23 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                           value={arrivalTime}
                           onChange={(e) => setArrivalTime(e.target.value)}
                           required
-                          className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
+                          className="w-full rounded-xl border border-stone-300 bg-white px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
                         />
                       </div>
                     </div>
 
                     {orderType === 'dine_in' && (
-                      <div className="grid grid-cols-2 gap-2.5 pt-1">
+                      <div className="grid grid-cols-2 gap-2 pt-0.5">
                         <div>
-                          <label className="block text-[10px] font-bold text-stone-600 uppercase mb-1">
+                          <label className="block text-[9px] sm:text-[10px] font-bold text-stone-600 uppercase mb-0.5">
                             Party Size (Guests)
                           </label>
                           <div className="flex items-center gap-1">
-                            <Users className="h-3.5 w-3.5 text-stone-400" />
+                            <Users className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-stone-400" />
                             <select
                               value={partySize}
                               onChange={(e) => setPartySize(Number(e.target.value))}
-                              className="w-full rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
+                              className="w-full rounded-xl border border-stone-300 bg-white px-2 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
                             >
                               {[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 16, 20].map((n) => (
                                 <option key={n} value={n}>
@@ -1499,7 +1799,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                         </div>
 
                         <div>
-                          <label className="block text-[10px] font-bold text-stone-600 uppercase mb-1">
+                          <label className="block text-[9px] sm:text-[10px] font-bold text-stone-600 uppercase mb-0.5">
                             Seating Area
                           </label>
                           <select
@@ -1509,7 +1809,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                                 e.target.value as 'indoor_main' | 'airconditioned' | 'outdoor_patio' | 'any'
                               )
                             }
-                            className="w-full rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
+                            className="w-full rounded-xl border border-stone-300 bg-white px-2 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
                           >
                             <option value="indoor_main">Indoor Main Area</option>
                             <option value="airconditioned">AC Lounge Room</option>
@@ -1521,7 +1821,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                     )}
 
                     <div>
-                      <label className="block text-[10px] font-bold text-stone-600 uppercase mb-1">
+                      <label className="block text-[9px] sm:text-[10px] font-bold text-stone-600 uppercase mb-0.5">
                         Special Requests / Notes (Optional)
                       </label>
                       <input
@@ -1529,7 +1829,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                         value={specialRequests}
                         onChange={(e) => setSpecialRequests(e.target.value)}
                         placeholder="e.g. High chair needed, anniversary setup, quiet corner"
-                        className="w-full rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-xs text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none"
+                        className="w-full rounded-xl border border-stone-300 bg-white px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -1537,22 +1837,22 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
               )}
 
               {activeCustomer ? (
-                <div className="flex items-center justify-between rounded-2xl bg-amber-50/70 border border-amber-200/80 p-3.5 text-xs shadow-2xs">
-                  <div className="flex items-center gap-2.5">
-                    <div className="grid h-8 w-8 place-items-center rounded-xl bg-amber-500 text-stone-950 font-bold shrink-0">
-                      <User className="h-4 w-4" />
+                <div className="flex items-center justify-between rounded-xl sm:rounded-2xl bg-amber-50/70 border border-amber-200/80 p-2.5 sm:p-3.5 text-[11px] sm:text-xs shadow-2xs">
+                  <div className="flex items-center gap-2 sm:gap-2.5">
+                    <div className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-xl bg-amber-500 text-stone-950 font-bold shrink-0">
+                      <User className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     </div>
                     <div>
-                      <span className="text-[10px] uppercase font-extrabold text-amber-800 tracking-wider block">
+                      <span className="text-[9px] sm:text-[10px] uppercase font-extrabold text-amber-800 tracking-wider block">
                         Account Verified
                       </span>
-                      <span className="font-bold text-stone-900 text-sm">
+                      <span className="font-bold text-stone-900 text-xs sm:text-sm">
                         {activeCustomer.fullName}
                       </span>
                     </div>
                   </div>
                   {activeCustomer.contactNumber && (
-                    <span className="font-mono text-stone-700 text-xs bg-white/90 px-3 py-1 rounded-xl border border-stone-200 shadow-2xs">
+                    <span className="font-mono text-stone-700 text-[10px] sm:text-xs bg-white/90 px-2 sm:px-3 py-0.5 sm:py-1 rounded-xl border border-stone-200 shadow-2xs">
                       {activeCustomer.contactNumber}
                     </span>
                   )}
@@ -1560,9 +1860,9 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
               ) : activeTableBinding || (orderType === 'dine_in' && selectedTable) ? (
                 null
               ) : (
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-2 sm:gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                    <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
                       Your Name
                     </label>
                     <input
@@ -1571,11 +1871,11 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
                       placeholder="e.g. Juan Dela Cruz"
-                      className="w-full rounded-xl border border-stone-300 bg-stone-50 px-4 py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
+                      className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                    <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
                       Contact Phone
                     </label>
                     <input
@@ -1584,7 +1884,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
                       placeholder="+63 912 345 6789"
-                      className="w-full rounded-xl border border-stone-300 bg-stone-50 px-4 py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
+                      className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -1592,7 +1892,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
 
               {orderType === 'delivery' && (
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                  <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
                     Delivery Address
                   </label>
                   <input
@@ -1601,20 +1901,20 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                     value={deliveryAddress}
                     onChange={(e) => setDeliveryAddress(e.target.value)}
                     placeholder="House/Unit, Street, Barangay, Davao City"
-                    className="w-full rounded-xl border border-stone-300 bg-stone-50 px-4 py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
+                    className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
                   />
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1 sm:mb-1.5">
                   Payment Method
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('cash')}
-                    className={`rounded-xl py-2 text-xs font-bold border transition cursor-pointer ${
+                    className={`rounded-xl py-1.5 sm:py-2 text-[11px] sm:text-xs font-bold border transition cursor-pointer ${
                       paymentMethod === 'cash'
                         ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-2xs'
                         : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
@@ -1625,7 +1925,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('gcash')}
-                    className={`rounded-xl py-2 text-xs font-bold border transition cursor-pointer ${
+                    className={`rounded-xl py-1.5 sm:py-2 text-[11px] sm:text-xs font-bold border transition cursor-pointer ${
                       paymentMethod === 'gcash'
                         ? 'bg-sky-500 text-white border-sky-500 shadow-2xs'
                         : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
@@ -1636,7 +1936,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('card')}
-                    className={`rounded-xl py-2 text-xs font-bold border transition cursor-pointer ${
+                    className={`rounded-xl py-1.5 sm:py-2 text-[11px] sm:text-xs font-bold border transition cursor-pointer ${
                       paymentMethod === 'card'
                         ? 'bg-stone-900 text-white border-stone-900 shadow-2xs'
                         : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
@@ -1647,23 +1947,19 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-amber-50 border border-amber-200/90 p-3 text-xs text-amber-950 space-y-1">
-                <div className="flex items-center gap-1.5 font-bold text-amber-900">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-amber-700" />
-                  <span>
-                    {activeTableBinding
-                      ? 'Live In-House Kitchen Queue'
-                      : 'Advance Order Confirmation'}
-                  </span>
+              {!activeTableBinding && (
+                <div className="rounded-xl sm:rounded-2xl bg-amber-50 border border-amber-200/90 p-2.5 sm:p-3 text-[11px] sm:text-xs text-amber-950 space-y-0.5">
+                  <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-amber-700" />
+                    <span>Advance Order Confirmation</span>
+                  </div>
+                  <p className="text-[10px] sm:text-[11px] text-amber-900/80 leading-relaxed">
+                    Your reservation and advance order will be logged and verified on our POS system for arrival on {bookingDate} at {arrivalTime}.
+                  </p>
                 </div>
-                <p className="text-[11px] text-amber-900/80 leading-relaxed">
-                  {activeTableBinding
-                    ? `Your order will be instantly received by the barista and kitchen team for preparation at Table #${activeTableBinding.tableNumber}.`
-                    : `Your reservation and advance order will be logged and verified on our POS system for arrival on ${bookingDate} at ${arrivalTime}.`}
-                </p>
-              </div>
+              )}
 
-              <div className="rounded-2xl bg-stone-50 p-4 border border-stone-200 text-xs space-y-1.5">
+              <div className="rounded-xl sm:rounded-2xl bg-stone-50 p-3 sm:p-4 border border-stone-200 text-[11px] sm:text-xs space-y-1 sm:space-y-1.5">
                 <div className="flex justify-between text-stone-600">
                   <span>Items count:</span>
                   <span>{totalItemCount} items</span>
@@ -1676,20 +1972,29 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                   <span>VAT ({taxRate}%):</span>
                   <span>₱{taxAmount.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between font-bold text-sm text-stone-900 pt-1.5 border-t border-stone-200">
+                <div className="flex justify-between font-bold text-xs sm:text-sm text-stone-900 pt-1 sm:pt-1.5 border-t border-stone-200">
                   <span>Total Due:</span>
                   <span className="font-mono text-amber-700">₱{totalAmount.toFixed(2)}</span>
                 </div>
               </div>
 
-              <button
-                type="submit"
-                className="w-full rounded-xl bg-amber-500 py-3 text-sm font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition active:scale-98 cursor-pointer"
-              >
-                {activeTableBinding
-                  ? `Place Live In-House Order • ₱${totalAmount.toFixed(2)}`
-                  : `Confirm Advance Booking & Order • ₱${totalAmount.toFixed(2)}`}
-              </button>
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsCheckoutOpen(false)}
+                  className="flex items-center justify-center gap-1 rounded-xl border border-stone-200 bg-white px-4 py-2.5 sm:py-3 text-[11px] sm:text-xs font-bold text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition cursor-pointer shadow-2xs"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>Back</span>
+                </button>
+
+                <button
+                  type="submit"
+                  className="flex-1 rounded-xl bg-amber-500 py-2.5 sm:py-3 text-xs sm:text-sm font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition active:scale-98 cursor-pointer"
+                >
+                  Confirm • ₱{totalAmount.toFixed(2)}
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -1712,25 +2017,25 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
           <div
             id="insta-item-modal-backdrop"
             onClick={() => setSelectedDetailItem(null)}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/80 backdrop-blur-md p-3 sm:p-6 md:p-8 animate-in fade-in duration-200 overflow-y-auto"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/80 backdrop-blur-md p-2 sm:p-6 md:p-8 animate-in fade-in duration-200 overflow-y-auto"
           >
             <div
               id="insta-item-modal-container"
               onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl border border-stone-200/80 my-auto flex flex-col md:flex-row max-h-[90vh]"
+              className="relative w-full max-w-4xl overflow-hidden rounded-2xl sm:rounded-3xl bg-white shadow-2xl border border-stone-200/80 my-auto flex flex-col md:flex-row max-h-[92vh]"
             >
               {/* Top Close Button (Mobile & Desktop) */}
               <button
                 type="button"
                 onClick={() => setSelectedDetailItem(null)}
-                className="absolute top-4 right-4 z-30 grid h-9 w-9 place-items-center rounded-full bg-stone-900/70 backdrop-blur-md text-white hover:bg-stone-900 transition hover:scale-105 active:scale-95 cursor-pointer"
+                className="absolute top-3 right-3 sm:top-4 sm:right-4 z-30 grid h-8 w-8 sm:h-9 sm:w-9 place-items-center rounded-full bg-stone-900/70 backdrop-blur-md text-white hover:bg-stone-900 transition hover:scale-105 active:scale-95 cursor-pointer"
                 title="Close"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4 sm:h-5 sm:w-5" />
               </button>
 
-              {/* LEFT / TOP: High-Res Square / Cinematic Photo Section */}
-              <div className="relative w-full md:w-1/2 bg-stone-950 flex items-center justify-center overflow-hidden min-h-[300px] md:min-h-[480px]">
+              {/* LEFT / TOP: High-Res Square / Cinematic Photo Section with Badges, Actions, and Price */}
+              <div className="relative w-full md:w-1/2 bg-stone-950 flex items-center justify-center overflow-hidden h-[220px] sm:h-[280px] md:h-auto md:min-h-[440px] shrink-0">
                 <img
                   src={item.imageUrl || '/01_Hearts_Latte_Art.jpg'}
                   alt={item.name}
@@ -1741,154 +2046,100 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                 />
 
                 {/* Subtle gradient vignette */}
-                <div className="absolute inset-0 bg-gradient-to-t from-stone-950/60 via-transparent to-stone-950/20 pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-t from-stone-950/80 via-transparent to-stone-950/40 pointer-events-none" />
 
-                {/* Star / Best Seller Badge floating on image */}
-                <div className="absolute top-4 left-4 flex flex-wrap gap-2 z-10 pointer-events-none">
+                {/* Top Left Badges: Best Seller, Temperature & Stock */}
+                <div className="absolute top-3 left-3 sm:top-4 sm:left-4 flex flex-wrap items-center gap-1.5 z-10">
                   {item.isBestSeller && (
-                    <span className="flex items-center gap-1 rounded-full bg-amber-500 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-stone-950 shadow-lg">
-                      <Star className="h-3.5 w-3.5 fill-stone-950 text-stone-950" />
+                    <span className="flex items-center gap-1 rounded-full bg-amber-500 px-2.5 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-stone-950 shadow-md">
+                      <Star className="h-3 w-3 fill-stone-950 text-stone-950" />
                       <span>Best Seller</span>
                     </span>
                   )}
-                  <span className="rounded-full bg-stone-900/80 backdrop-blur-md px-3 py-1 text-[11px] font-bold text-white shadow-md">
-                    {item.temperature || 'Signature Prep'}
+                  {item.temperature && (
+                    <span className="rounded-full bg-stone-900/85 backdrop-blur-md px-2.5 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-[11px] font-bold text-white shadow-md capitalize">
+                      {item.temperature}
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1 rounded-full bg-stone-900/85 backdrop-blur-md px-2.5 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-[11px] font-bold text-emerald-400 shadow-md">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {item.quantity > 0 ? `In Stock (${item.quantity})` : 'Available'}
                   </span>
                 </div>
 
-                {/* Floating Bottom Left: Price Pill */}
-                <div className="absolute bottom-4 left-4 z-10 rounded-2xl bg-stone-900/90 backdrop-blur-md px-4 py-2 text-white border border-white/10 shadow-xl">
-                  <span className="text-[10px] uppercase font-black text-amber-400 tracking-wider block">Price</span>
-                  <span className="font-mono text-2xl font-black text-white">
+                {/* Floating Bottom Left: Compact Price Pill */}
+                <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 z-10 rounded-xl bg-stone-900/90 backdrop-blur-md px-3 py-1 sm:px-3.5 sm:py-1.5 text-white border border-white/10 shadow-lg">
+                  <span className="font-mono text-sm sm:text-base font-black text-amber-400">
                     ₱{item.price.toFixed(2)}
                   </span>
                 </div>
+
+                {/* Floating Bottom Right: Like, Share, Bookmark Actions on Image */}
+                <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 z-10 flex items-center gap-1 sm:gap-1.5 bg-stone-900/85 backdrop-blur-md px-2 py-1 rounded-xl border border-white/10 shadow-lg">
+                  {/* Like Button */}
+                  <button
+                    type="button"
+                    onClick={(e) => toggleItemLike(item.id, e)}
+                    className="p-1 text-stone-300 hover:text-red-400 transition cursor-pointer active:scale-90"
+                    title={isLiked ? 'Liked' : 'Like'}
+                  >
+                    <Heart
+                      className={`h-4 w-4 sm:h-4.5 sm:w-4.5 ${
+                        isLiked ? 'fill-red-500 text-red-500' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {/* Share Button */}
+                  <button
+                    type="button"
+                    onClick={(e) => handleShareItem(item, e)}
+                    className="p-1 text-stone-300 hover:text-white transition cursor-pointer relative active:scale-90"
+                    title="Share link"
+                  >
+                    <Share2 className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+                    {isCopied && (
+                      <span className="absolute -top-7 right-0 rounded-md bg-stone-900 px-2 py-0.5 text-[10px] font-bold text-white whitespace-nowrap animate-in fade-in zoom-in duration-150">
+                        Copied!
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Bookmark Button */}
+                  <button
+                    type="button"
+                    onClick={(e) => toggleItemSave(item.id, e)}
+                    className="p-1 text-stone-300 hover:text-amber-400 transition cursor-pointer active:scale-90"
+                    title={isSaved ? 'Saved to favorites' : 'Save to favorites'}
+                  >
+                    <Bookmark
+                      className={`h-4 w-4 sm:h-4.5 sm:w-4.5 ${
+                        isSaved ? 'fill-amber-500 text-amber-500' : ''
+                      }`}
+                    />
+                  </button>
+                </div>
               </div>
 
-              {/* RIGHT: Instagram-Style Editorial Feed Body */}
-              <div className="flex flex-1 flex-col justify-between p-6 sm:p-7 md:p-8 bg-white overflow-y-auto max-h-[55vh] md:max-h-[90vh]">
-                <div className="space-y-5">
-                  {/* Insta Post Author / Cafe Header */}
-                  <div className="flex items-center justify-between border-b border-stone-100 pb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="grid h-10 w-10 place-items-center rounded-full bg-amber-500 text-stone-950 font-black text-sm shadow-md ring-2 ring-amber-400/50">
-                        YH
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-extrabold text-stone-900 text-sm">
-                            coffeeatyellowhauz
-                          </span>
-                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                          <span className="text-xs font-bold text-amber-700">Official Menu</span>
-                        </div>
-                        <span className="text-[11px] font-medium text-stone-400">
-                          {itemCategory?.name || 'Artisanal Cafe'} • Davao City
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Title & Description (Caption Style) */}
-                  <div className="space-y-3">
-                    <h2 className="font-display text-2xl sm:text-3xl font-black text-stone-900 tracking-tight leading-snug">
+              {/* RIGHT: Editorial Body */}
+              <div className="flex flex-1 flex-col justify-between p-4 sm:p-6 md:p-8 bg-white overflow-y-auto max-h-[50vh] md:max-h-[90vh]">
+                <div className="space-y-3 sm:space-y-4">
+                  {/* Title & Clean Description */}
+                  <div className="space-y-1.5 sm:space-y-2">
+                    <h2 className="font-display text-lg sm:text-2xl md:text-3xl font-black text-stone-900 tracking-tight leading-snug">
                       {item.name}
                     </h2>
 
-                    <div className="text-xs sm:text-sm text-stone-700 leading-relaxed bg-stone-50/80 rounded-2xl p-4 border border-stone-100 space-y-2">
-                      <p>
-                        <span className="font-bold text-stone-900 mr-2">coffeeatyellowhauz</span>
-                        {item.description || 'Crafted with premium artisanal ingredients, freshly prepared in our cafe kitchen for an unforgettable taste.'}
-                      </p>
-                      <div className="pt-2 flex flex-wrap gap-1.5 text-[11px] font-semibold text-amber-800">
-                        <span>#YellowHauz</span>
-                        <span>#{itemCategory?.name.replace(/[^a-zA-Z0-9]/g, '') || 'SpecialtyCafe'}</span>
-                        <span>#CoffeeLovers</span>
-                        <span>#DavaoEats</span>
-                        {item.isBestSeller && <span>#BestSeller</span>}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Instagram Action Icons Row */}
-                  <div className="flex items-center justify-between pt-1 pb-2 border-b border-stone-100">
-                    <div className="flex items-center gap-4">
-                      {/* Like */}
-                      <button
-                        type="button"
-                        onClick={(e) => toggleItemLike(item.id, e)}
-                        className="group flex items-center gap-1.5 text-stone-700 hover:text-red-500 transition cursor-pointer"
-                        title={isLiked ? 'Liked' : 'Like'}
-                      >
-                        <Heart
-                          className={`h-6 w-6 transition-transform group-hover:scale-110 active:scale-90 ${
-                            isLiked ? 'fill-red-500 text-red-500' : ''
-                          }`}
-                        />
-                        <span className="font-mono text-xs font-bold text-stone-600">
-                          {isLiked ? 'Liked' : 'Like'}
-                        </span>
-                      </button>
-
-                      {/* Share */}
-                      <button
-                        type="button"
-                        onClick={(e) => handleShareItem(item, e)}
-                        className="group flex items-center gap-1.5 text-stone-700 hover:text-stone-950 transition cursor-pointer relative"
-                        title="Share link"
-                      >
-                        <Share2 className="h-6 w-6 transition-transform group-hover:scale-110 active:scale-90" />
-                        <span className="text-xs font-bold text-stone-600">Share</span>
-                        {isCopied && (
-                          <span className="absolute -top-7 left-0 rounded-md bg-stone-900 px-2 py-0.5 text-[10px] font-bold text-white whitespace-nowrap animate-in fade-in zoom-in duration-150">
-                            Copied link!
-                          </span>
-                        )}
-                      </button>
-                    </div>
-
-                    {/* Bookmark / Save */}
-                    <button
-                      type="button"
-                      onClick={(e) => toggleItemSave(item.id, e)}
-                      className="text-stone-700 hover:text-amber-600 transition cursor-pointer"
-                      title={isSaved ? 'Saved to favorites' : 'Save to favorites'}
-                    >
-                      <Bookmark
-                        className={`h-6 w-6 transition-transform hover:scale-110 active:scale-90 ${
-                          isSaved ? 'fill-amber-500 text-amber-500' : ''
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  {/* Attributes & Preparation Details */}
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div className="rounded-2xl bg-stone-50 p-3 border border-stone-200/80">
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 block">
-                        Serving Type
-                      </span>
-                      <span className="font-bold text-stone-800 capitalize mt-0.5 block">
-                        {item.temperature || 'Fresh Preparation'}
-                      </span>
-                    </div>
-
-                    <div className="rounded-2xl bg-stone-50 p-3 border border-stone-200/80">
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 block">
-                        Availability
-                      </span>
-                      <span className="font-bold text-emerald-700 mt-0.5 flex items-center gap-1">
-                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                        {item.quantity > 0 ? `In Stock (${item.quantity})` : 'Available'}
-                      </span>
-                    </div>
+                    <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
+                      {item.description || 'Crafted with premium artisanal ingredients, freshly prepared in our cafe kitchen for an unforgettable taste.'}
+                    </p>
                   </div>
 
                   {/* Optional Special Instructions in Modal */}
                   {inCartQty > 0 && (
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-bold uppercase tracking-wider text-stone-500 block">
-                        Special Instructions for Barista / Kitchen:
+                    <div className="space-y-1 pt-1">
+                      <label className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-stone-500 block">
+                        Special Instructions:
                       </label>
                       <input
                         type="text"
@@ -1898,45 +2149,45 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                           handleUpdateItemInstructions(item.id, e.target.value);
                         }}
                         placeholder="e.g., Less sugar, extra ice, oat milk preference..."
-                        className="w-full rounded-xl border border-stone-300 px-3.5 py-2 text-xs text-stone-800 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none"
+                        className="w-full rounded-xl border border-stone-300 px-3 py-1.5 text-xs text-stone-800 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none"
                       />
                     </div>
                   )}
                 </div>
 
                 {/* MODAL FOOTER: Add to Bag or Quantity Stepper */}
-                <div className="pt-6 mt-6 border-t border-stone-100 space-y-3">
+                <div className="pt-3 sm:pt-4 mt-3 sm:mt-4 border-t border-stone-100 space-y-2">
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] font-black uppercase tracking-wider text-stone-400 block">
+                      <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-stone-400 block">
                         Order Total
                       </span>
-                      <span className="font-mono text-xl font-black text-stone-900">
+                      <span className="font-mono text-base sm:text-xl font-black text-stone-900">
                         ₱{((inCartQty > 0 ? inCartQty : 1) * item.price).toFixed(2)}
                       </span>
                     </div>
 
                     {inCartQty > 0 ? (
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-2 rounded-2xl bg-stone-100 p-1.5 border border-stone-200">
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <div className="flex items-center gap-1 sm:gap-2 rounded-xl bg-stone-100 p-1 sm:p-1.5 border border-stone-200">
                           <button
                             type="button"
                             onClick={() => handleUpdateQuantity(item.id, -1)}
-                            className="grid h-9 w-9 place-items-center rounded-xl bg-white text-stone-700 shadow-xs hover:bg-stone-200 transition active:scale-90 cursor-pointer"
+                            className="grid h-7 w-7 sm:h-9 sm:w-9 place-items-center rounded-lg sm:rounded-xl bg-white text-stone-700 shadow-xs hover:bg-stone-200 transition active:scale-90 cursor-pointer"
                             title="Reduce quantity"
                           >
-                            <Minus className="h-4 w-4" />
+                            <Minus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           </button>
-                          <span className="px-3 font-mono text-sm font-black text-stone-900">
+                          <span className="px-1.5 sm:px-3 font-mono text-xs sm:text-sm font-black text-stone-900">
                             {inCartQty}
                           </span>
                           <button
                             type="button"
                             onClick={() => handleUpdateQuantity(item.id, 1)}
-                            className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500 text-stone-950 shadow-xs hover:bg-amber-400 transition active:scale-90 cursor-pointer"
+                            className="grid h-7 w-7 sm:h-9 sm:w-9 place-items-center rounded-lg sm:rounded-xl bg-amber-500 text-stone-950 shadow-xs hover:bg-amber-400 transition active:scale-90 cursor-pointer"
                             title="Increase quantity"
                           >
-                            <Plus className="h-4 w-4" />
+                            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           </button>
                         </div>
 
@@ -1950,19 +2201,20 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                               setInternalIsCartOpen(true);
                             }
                           }}
-                          className="rounded-2xl bg-stone-900 hover:bg-stone-800 text-white px-5 py-3 text-xs font-black shadow-lg transition active:scale-95 cursor-pointer flex items-center gap-1.5"
+                          className="rounded-xl sm:rounded-2xl bg-stone-900 hover:bg-stone-800 text-white px-3.5 py-2 sm:px-5 sm:py-3 text-[11px] sm:text-xs font-black shadow-md transition active:scale-95 cursor-pointer flex items-center gap-1 sm:gap-1.5"
                         >
-                          <ShoppingBag className="h-4 w-4 text-amber-400" />
+                          <ShoppingBag className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-400" />
                           <span>View Bag</span>
                         </button>
                       </div>
                     ) : (
                       <button
                         type="button"
+                        id="modal-add-to-bag-button"
                         onClick={() => {
                           handleAddToCart(item);
                         }}
-                        className={`inline-flex items-center gap-2 rounded-2xl px-7 py-3.5 text-xs sm:text-sm font-black transition-all duration-200 active:scale-95 cursor-pointer shadow-lg ${
+                        className={`inline-flex items-center gap-1.5 sm:gap-2 rounded-xl sm:rounded-2xl px-4 py-2.5 sm:px-7 sm:py-3.5 text-xs sm:text-sm font-black transition-all duration-200 active:scale-95 cursor-pointer shadow-md ${
                           isJustAdded
                             ? 'bg-emerald-600 text-white scale-105'
                             : 'bg-amber-500 text-stone-950 hover:bg-amber-400 hover:shadow-amber-500/20'
@@ -1970,12 +2222,12 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       >
                         {isJustAdded ? (
                           <>
-                            <Check className="h-5 w-5 stroke-[3]" />
+                            <Check className="h-4 w-4 sm:h-5 sm:w-5 stroke-[3]" />
                             <span>Added to Bag!</span>
                           </>
                         ) : (
                           <>
-                            <Plus className="h-5 w-5 stroke-[2.5]" />
+                            <Plus className="h-4 w-4 sm:h-5 sm:w-5 stroke-[2.5]" />
                             <span>Add to Bag • ₱{item.price.toFixed(2)}</span>
                           </>
                         )}

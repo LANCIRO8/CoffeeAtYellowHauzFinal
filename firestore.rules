@@ -39,6 +39,11 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Refill suggestions and inventory requests
+    match /refill_requests/{requestId} {
+      allow read, write: if true;
+    }
+
     // Fallback rule
     match /{document=**} {
       allow read, write: if true;

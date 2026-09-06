@@ -22,51 +22,58 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
 }) => {
   return (
     <div className="space-y-12 pb-16">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden rounded-3xl bg-stone-900 text-white shadow-xl">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-amber-500/20 via-stone-900/40 to-transparent pointer-events-none" />
+      {/* Hero Section - Yellow/Amber Theme & Mobile Viewport Fit */}
+      <section className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-amber-500 border border-amber-600/20 text-stone-950 shadow-md">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-amber-300/30 via-transparent to-black/5 pointer-events-none" />
 
-        <div className="relative grid gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[1.1fr_.9fr] lg:items-center lg:gap-8 lg:px-8">
+        <div className="relative grid gap-3 sm:gap-6 px-3.5 py-3.5 sm:px-6 sm:py-8 lg:grid-cols-[1.1fr_.9fr] lg:items-center lg:gap-8 lg:px-8">
           <div>
-            <span className="inline-flex items-center gap-2 rounded-full bg-amber-500/20 border border-amber-500/30 px-3.5 py-1.5 text-xs font-extrabold uppercase tracking-widest text-amber-400">
-              <Sparkles className="h-3.5 w-3.5" />
-              Established 2007 • Davao City
-            </span>
-            <h1 className="mt-5 font-display text-3xl font-extrabold leading-[1.15] sm:text-5xl text-stone-50">
-              Coffee at Yellow Hauz
-            </h1>
-            <p className="mt-4 max-w-lg text-sm sm:text-base leading-relaxed text-stone-300">
+            <div className="flex items-center gap-3">
+              <div className="relative h-12 w-12 sm:h-16 sm:w-16 overflow-hidden rounded-2xl bg-amber-400 border-2 border-stone-950/20 shadow-md shrink-0">
+                <img
+                  src="/images/Coffeatyellowhauz_logo.jpg"
+                  alt="Coffee at Yellow Hauz Logo"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div>
+                <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-xs font-black uppercase tracking-widest text-stone-950">
+                  <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-stone-950" />
+                  Established 2007 • Davao City
+                </span>
+                <h1 className="mt-0.5 font-display text-2xl sm:text-4xl lg:text-5xl font-black leading-tight sm:leading-[1.15] text-stone-950">
+                  Coffee at Yellow Hauz
+                </h1>
+              </div>
+            </div>
+            <p className="mt-2.5 sm:mt-3.5 max-w-lg text-xs sm:text-base leading-snug sm:leading-relaxed text-stone-900 font-medium">
               From our famous slow-crisped pork adobo flakes to freshly pulled artisan lattes, homemade cheesecakes, and specialty brews. Order ahead or reserve your table.
             </p>
 
-            <div className="mt-8 flex flex-row items-center gap-2.5 sm:gap-3.5">
+            <div className="mt-3 sm:mt-6 flex flex-row items-center gap-2.5 sm:gap-3.5">
               <button
                 id="hero-order-online-btn"
                 onClick={onNavigateMenu}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-amber-500 px-6 text-xs sm:text-sm font-extrabold text-stone-950 shadow-lg shadow-amber-500/20 hover:bg-amber-400 transition transform active:scale-95 whitespace-nowrap"
+                className="inline-flex h-10 sm:h-12 items-center justify-center gap-2 rounded-xl bg-stone-950 px-5 sm:px-6 text-xs sm:text-sm font-extrabold text-amber-400 shadow-md hover:bg-stone-900 transition transform active:scale-95 whitespace-nowrap cursor-pointer"
               >
-                <ShoppingBag className="h-4 w-4 shrink-0" />
+                <ShoppingBag className="h-4 w-4 shrink-0 text-amber-400" />
                 <span>Order Online</span>
               </button>
             </div>
 
-            <div className="mt-8 flex items-center gap-6 text-xs text-stone-400">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-amber-400" />
-                <span>Locally Sourced Ingredients</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-amber-400" />
+            <div className="mt-3 sm:mt-6 flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-6 text-[11px] sm:text-xs text-stone-900 font-bold">
+              <div className="flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-950 shrink-0" />
                 <span>Open 7:00 AM - 10:00 PM</span>
               </div>
             </div>
           </div>
 
           {/* Hero Collage: 1 Hot Coffee, 1 Place, 1 Cold Drink, 1 Food */}
-          <div className="grid grid-cols-2 gap-3.5 sm:gap-4">
-            <div className="space-y-3.5">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3.5">
+            <div className="space-y-2 sm:space-y-3.5">
               {/* 1. Hot Coffee */}
-              <div className="group relative aspect-square overflow-hidden rounded-2xl bg-stone-800 border border-stone-800 shadow-md">
+              <div className="group relative aspect-square sm:aspect-square overflow-hidden rounded-xl sm:rounded-2xl bg-amber-100/60 border border-amber-200/80 shadow-xs">
                 <img
                   src="/images/01_Hearts_Latte_Art.jpg"
                   alt="Hot Coffee & Latte Art"
@@ -75,13 +82,13 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
                     (e.target as HTMLImageElement).src = '/images/latte.webp';
                   }}
                 />
-                <div className="absolute bottom-2 left-2 rounded-md bg-stone-950/70 backdrop-blur-xs px-2 py-0.5 text-[9px] font-bold text-amber-300">
+                <div className="absolute bottom-1.5 left-1.5 sm:bottom-2 sm:left-2 rounded-md bg-stone-950/75 backdrop-blur-xs px-1.5 py-0.5 sm:px-2 sm:py-0.5 text-[8px] sm:text-[9px] font-bold text-amber-300">
                   Artisan Hot Coffee
                 </div>
               </div>
 
               {/* 2. The Place */}
-              <div className="group relative aspect-4/3 overflow-hidden rounded-2xl bg-stone-800 border border-stone-800 shadow-md">
+              <div className="group relative aspect-4/3 overflow-hidden rounded-xl sm:rounded-2xl bg-amber-100/60 border border-amber-200/80 shadow-xs">
                 <img
                   src="/images/18_Main_Counter_Interior.webp"
                   alt="Yellow Hauz Café Interior"
@@ -90,15 +97,15 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
                     (e.target as HTMLImageElement).src = '/images/20_Seating_Area.webp';
                   }}
                 />
-                <div className="absolute bottom-2 left-2 rounded-md bg-stone-950/70 backdrop-blur-xs px-2 py-0.5 text-[9px] font-bold text-amber-300">
+                <div className="absolute bottom-1.5 left-1.5 sm:bottom-2 sm:left-2 rounded-md bg-stone-950/75 backdrop-blur-xs px-1.5 py-0.5 sm:px-2 sm:py-0.5 text-[8px] sm:text-[9px] font-bold text-amber-300">
                   Cozy Café Spaces
                 </div>
               </div>
             </div>
 
-            <div className="space-y-3.5 pt-6">
+            <div className="space-y-2 sm:space-y-3.5 pt-2 sm:pt-6">
               {/* 3. Cold Drink */}
-              <div className="group relative aspect-4/3 overflow-hidden rounded-2xl bg-stone-800 border border-stone-800 shadow-md">
+              <div className="group relative aspect-4/3 overflow-hidden rounded-xl sm:rounded-2xl bg-amber-100/60 border border-amber-200/80 shadow-xs">
                 <img
                   src="/images/08_Cold_Brew.jpg"
                   alt="Iced Cold Brew & Chilled Drinks"
@@ -107,13 +114,13 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
                     (e.target as HTMLImageElement).src = '/images/icelatte.webp';
                   }}
                 />
-                <div className="absolute bottom-2 left-2 rounded-md bg-stone-950/70 backdrop-blur-xs px-2 py-0.5 text-[9px] font-bold text-amber-300">
+                <div className="absolute bottom-1.5 left-1.5 sm:bottom-2 sm:left-2 rounded-md bg-stone-950/75 backdrop-blur-xs px-1.5 py-0.5 sm:px-2 sm:py-0.5 text-[8px] sm:text-[9px] font-bold text-amber-300">
                   Chilled Drinks &amp; Cold Brew
                 </div>
               </div>
 
               {/* 4. Food */}
-              <div className="group relative aspect-square overflow-hidden rounded-2xl bg-stone-800 border border-stone-800 shadow-md">
+              <div className="group relative aspect-square sm:aspect-square overflow-hidden rounded-xl sm:rounded-2xl bg-amber-100/60 border border-amber-200/80 shadow-xs">
                 <img
                   src="/images/grilledgarliccheese.webp"
                   alt="Fresh Gourmet Food & Pastries"
@@ -122,7 +129,7 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
                     (e.target as HTMLImageElement).src = '/images/blueberrycheesecake.webp';
                   }}
                 />
-                <div className="absolute bottom-2 left-2 rounded-md bg-stone-950/70 backdrop-blur-xs px-2 py-0.5 text-[9px] font-bold text-amber-300">
+                <div className="absolute bottom-1.5 left-1.5 sm:bottom-2 sm:left-2 rounded-md bg-stone-950/75 backdrop-blur-xs px-1.5 py-0.5 sm:px-2 sm:py-0.5 text-[8px] sm:text-[9px] font-bold text-amber-300">
                   Handcrafted Food &amp; Pastries
                 </div>
               </div>
@@ -188,18 +195,11 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
                 <Sparkles className="h-3.5 w-3.5" />
                 Exclusive Venue Space
               </span>
-              <span className="rounded-full bg-stone-800 border border-stone-700 px-3 py-1 text-xs font-bold text-amber-300">
-                Only 1 Studio Place on Premises
-              </span>
             </div>
 
             <h2 className="font-display text-2xl sm:text-4xl font-extrabold text-white leading-tight">
               Host Your Next Event at The Yellow Hauz Private Studio
             </h2>
-
-            <p className="text-xs sm:text-sm text-stone-300 leading-relaxed max-w-xl">
-              Ideal for private meetings, creative workshops, birthdays, study reviews, and intimate celebrations. Equipped with fiber Wi-Fi, split air-con, sound system, and HD presentation setup.
-            </p>
 
             <div className="flex flex-wrap items-baseline gap-3 pt-1">
               <div className="inline-flex items-baseline gap-2 rounded-2xl bg-amber-500/10 border border-amber-500/30 px-4 py-2">

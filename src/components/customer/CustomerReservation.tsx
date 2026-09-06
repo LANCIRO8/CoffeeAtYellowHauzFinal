@@ -37,32 +37,32 @@ export const CustomerReservation: React.FC<CustomerReservationProps> = ({
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-16">
       {/* Header & Section Chooser (Side-by-side Layout) */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-stone-200/80 pb-5">
-        <div className="space-y-1 max-w-xl">
-          <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-stone-900">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 sm:gap-4 border-b border-stone-200/80 pb-3.5 sm:pb-5">
+        <div className="space-y-0.5 sm:space-y-1 max-w-xl">
+          <h1 className="font-display text-lg sm:text-3xl font-extrabold text-stone-900 leading-tight">
             Reservations
           </h1>
-          <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
+          <p className="text-[10px] sm:text-sm text-stone-600 leading-relaxed">
             Choose between reserving a dine-in table on our interactive cafe floor plan or booking our exclusive on-site private studio space.
           </p>
         </div>
 
         {/* Inline Type Selector */}
         <div className="shrink-0">
-          <div className="inline-flex rounded-2xl bg-stone-200/80 p-1.5 border border-stone-300 shadow-inner w-full sm:w-auto">
+          <div className="inline-flex rounded-xl sm:rounded-2xl bg-stone-200/80 p-1 sm:p-1.5 border border-stone-300 shadow-inner w-full sm:w-auto">
             <button
               type="button"
               onClick={() => {
                 setActiveReservationType('tables');
                 setConfirmedReservation(null);
               }}
-              className={`py-2.5 px-4 rounded-xl text-xs sm:text-sm font-extrabold transition-all flex items-center justify-center gap-2 whitespace-nowrap ${
+              className={`flex-1 sm:flex-initial py-1.5 px-2.5 sm:py-2.5 sm:px-4 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap cursor-pointer ${
                 activeReservationType === 'tables'
                   ? 'bg-stone-950 text-amber-400 shadow-md'
                   : 'text-stone-700 hover:text-stone-950 hover:bg-stone-100/60'
               }`}
             >
-              <UtensilsCrossed className="h-4 w-4" />
+              <UtensilsCrossed className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span>Dine-in Tables</span>
             </button>
 
@@ -72,13 +72,13 @@ export const CustomerReservation: React.FC<CustomerReservationProps> = ({
                 setActiveReservationType('venue');
                 setConfirmedReservation(null);
               }}
-              className={`py-2.5 px-4 rounded-xl text-xs sm:text-sm font-extrabold transition-all flex items-center justify-center gap-2 whitespace-nowrap ${
+              className={`flex-1 sm:flex-initial py-1.5 px-2.5 sm:py-2.5 sm:px-4 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap cursor-pointer ${
                 activeReservationType === 'venue'
                   ? 'bg-amber-500 text-stone-950 shadow-md ring-1 ring-amber-600/30'
                   : 'text-stone-700 hover:text-stone-950 hover:bg-stone-100/60'
               }`}
             >
-              <Building className="h-4 w-4" />
+              <Building className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span>Private Studio Venue</span>
             </button>
           </div>

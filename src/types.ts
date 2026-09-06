@@ -4,7 +4,7 @@ export interface User {
   username: string;
   fullName: string;
   name?: string;
-  role: 'cashier' | 'admin' | 'cook';
+  role: 'cashier' | 'admin' | 'cook' | 'barista';
   status: 'active' | 'inactive';
   pin?: string;
   phone?: string;
@@ -103,6 +103,13 @@ export interface OrderItem {
   specialInstructions?: string;
   imageUrl?: string;
   selectedVariant?: { name: string; price?: number } | string;
+  discount?: {
+    discountId: string;
+    discountName: string;
+    discountType: 'percent' | 'fixed';
+    discountValue: number;
+    discountAmount: number;
+  };
 }
 
 export interface AdvanceBookingDetails {
@@ -121,6 +128,12 @@ export interface TableBinding {
   autoBound?: boolean;
   assignedByCashier?: string;
   assignedAt?: string;
+}
+
+export interface GuestOrderRecord {
+  orderId: number;
+  tableNumber: number | null;
+  createdAt: string;
 }
 
 export type TableRequestType = 'new_table' | 'change_table';
@@ -196,6 +209,20 @@ export interface Order {
   cancelNotes?: string;
   returnedToCashierAt?: string;
   returnReason?: string;
+  cancellationRequested?: boolean;
+  cancellationRequestedAt?: string;
+  cancellationReason?: string;
+  cancellationNotes?: string;
+  cancellationRejectedAt?: string;
+  cancellationRejectReason?: string;
+  baristaStatus?: 'pending' | 'to_prep' | 'processing' | 'ready';
+  baristaStartedAt?: string;
+  baristaCompletedAt?: string;
+  baristaCompletedBy?: string;
+  cookStatus?: 'pending' | 'to_prep' | 'processing' | 'ready';
+  cookStartedAt?: string;
+  cookCompletedAt?: string;
+  cookCompletedBy?: string;
 }
 
 export interface TimeBasedMenu {
@@ -227,9 +254,13 @@ export interface ChatIntent {
 }
 
 export interface CartItem {
+  id?: string;
+  cartItemId?: string;
   item: MenuItem;
   quantity: number;
   specialInstructions?: string;
+  discount?: Discount | null;
+  discountIdNumber?: string;
 }
 
 export interface Discount {
@@ -242,4 +273,50 @@ export interface Discount {
   isSystem?: boolean;
   requiresId?: boolean;
 }
+
+export type RefillRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+export type RefillUrgency = 'low' | 'normal' | 'high' | 'urgent';
+export type RefillStation = 'bar' | 'kitchen' | 'counter' | 'general';
+
+export interface RefillRequest {
+  id: string;
+  source?: 'catalog' | 'custom';
+  menuItemId?: number | null;
+  categoryId?: number;
+  itemName: string;
+  categoryName?: string;
+  station: RefillStation;
+  unit: string;
+  currentStock: number;
+  suggestedQuantity: number;
+  finalQuantity?: number;
+  urgency: RefillUrgency;
+  notes?: string;
+  status: RefillRequestStatus;
+  requestedBy: {
+    id: number;
+    name: string;
+    role: 'cashier' | 'cook' | 'barista' | 'admin';
+    employeeId?: string;
+  };
+  createdAt: string;
+  reviewedBy?: {
+    id: number;
+    name: string;
+    role: string;
+  };
+  reviewedAt?: string;
+  adminNotes?: string;
+}
+
+export type StaffTabType =
+  | 'dashboard'
+  | 'pos'
+  | 'tables'
+  | 'tickets'
+  | 'reports'
+  | 'analytics'
+  | 'inventory'
+  | 'settings'
+  | 'refills';
 

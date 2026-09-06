@@ -25,7 +25,55 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  BarChart3,
+  SlidersHorizontal,
+  X,
 } from 'lucide-react';
+
+export interface LedgerVisibleColumns {
+  receipt: boolean;
+  cashier: boolean;
+  channel: boolean;
+  date: boolean;
+  guest: boolean;
+  payment: boolean;
+  subtotal: boolean;
+  tax: boolean;
+  total: boolean;
+  action: boolean;
+}
+
+const DEFAULT_LEDGER_COLUMNS: LedgerVisibleColumns = {
+  receipt: true,
+  cashier: true,
+  channel: true,
+  date: true,
+  guest: true,
+  payment: true,
+  subtotal: true,
+  tax: true,
+  total: true,
+  action: true,
+};
+
+interface LedgerColumnConfig {
+  key: keyof LedgerVisibleColumns;
+  label: string;
+  description: string;
+}
+
+const LEDGER_COLUMNS: LedgerColumnConfig[] = [
+  { key: 'receipt', label: 'Receipt #', description: 'Unique order identifier' },
+  { key: 'cashier', label: 'Cashier / Staff', description: 'Serving staff or cashier member' },
+  { key: 'channel', label: 'Channel', description: 'In-store POS or Online storefront' },
+  { key: 'date', label: 'Date / Time', description: 'Order creation timestamp' },
+  { key: 'guest', label: 'Guest & Type', description: 'Customer name & order type' },
+  { key: 'payment', label: 'Payment', description: 'Settlement method (Cash, Card, GCash)' },
+  { key: 'subtotal', label: 'Subtotal', description: 'Order gross amount before tax' },
+  { key: 'tax', label: 'VAT', description: 'Official value-added tax component' },
+  { key: 'total', label: 'Total', description: 'Final settled payment total' },
+  { key: 'action', label: 'Action', description: 'View full receipt breakdown' },
+];
 
 interface SalesReportsProps {
   settings: StoreSettings;
@@ -55,6 +103,88 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
 
   const todayStr = useMemo(() => formatDateForInput(new Date()), []);
 
+  // Filter Modal & Column Filter Modal states
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
+  const [isColumnFilterModalOpen, setIsColumnFilterModalOpen] = useState<boolean>(false);
+
+  // Column Visibility State with local storage persistence
+  const [visibleColumns, setVisibleColumns] = useState<LedgerVisibleColumns>(() => {
+    try {
+      const saved = localStorage.getItem('yh_ledger_visible_cols_v1');
+      if (saved) {
+        return { ...DEFAULT_LEDGER_COLUMNS, ...JSON.parse(saved) };
+      }
+    } catch {
+      // fallback
+    }
+    return DEFAULT_LEDGER_COLUMNS;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('yh_ledger_visible_cols_v1', JSON.stringify(visibleColumns));
+    } catch {
+      // ignore
+    }
+  }, [visibleColumns]);
+
+  const visibleColumnCount = useMemo(() => {
+    return Object.values(visibleColumns).filter(Boolean).length;
+  }, [visibleColumns]);
+
+  const toggleColumn = (key: keyof LedgerVisibleColumns) => {
+    setVisibleColumns((prev) => {
+      const activeCount = Object.values(prev).filter(Boolean).length;
+      if (prev[key] && activeCount <= 1) {
+        return prev;
+      }
+      return { ...prev, [key]: !prev[key] };
+    });
+  };
+
+  const handleApplyColumnPreset = (preset: 'minimal' | 'financial' | 'all') => {
+    if (preset === 'minimal') {
+      setVisibleColumns({
+        receipt: true,
+        cashier: false,
+        channel: false,
+        date: true,
+        guest: false,
+        payment: false,
+        subtotal: false,
+        tax: false,
+        total: true,
+        action: true,
+      });
+    } else if (preset === 'financial') {
+      setVisibleColumns({
+        receipt: true,
+        cashier: false,
+        channel: false,
+        date: false,
+        guest: false,
+        payment: true,
+        subtotal: true,
+        tax: true,
+        total: true,
+        action: true,
+      });
+    } else {
+      setVisibleColumns({
+        receipt: true,
+        cashier: true,
+        channel: true,
+        date: true,
+        guest: true,
+        payment: true,
+        subtotal: true,
+        tax: true,
+        total: true,
+        action: true,
+      });
+    }
+  };
+
   // Date Filter States
   const [datePreset, setDatePreset] = useState<DatePreset>('today');
   const [startDate, setStartDate] = useState<string>(todayStr);
@@ -64,6 +194,27 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
   const [channelFilter, setChannelFilter] = useState<'all' | 'in_store' | 'online'>('all');
   const [filterType, setFilterType] = useState<'all' | 'dine_in' | 'take_away' | 'delivery'>('all');
   const [cashierFilter, setCashierFilter] = useState<string>('all');
+
+  // Count active filters modifying from default
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (datePreset !== 'today') count++;
+    if (channelFilter !== 'all') count++;
+    if (cashierFilter !== 'all') count++;
+    if (filterType !== 'all') count++;
+    return count;
+  }, [datePreset, channelFilter, cashierFilter, filterType]);
+
+  const isFilterModified = activeFilterCount > 0;
+
+  const handleResetFilters = () => {
+    setDatePreset('today');
+    setStartDate(todayStr);
+    setEndDate(todayStr);
+    setChannelFilter('all');
+    setCashierFilter('all');
+    setFilterType('all');
+  };
 
   // Table Column Sorting State
   type SortField =
@@ -452,272 +603,193 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
   };
 
   return (
-    <div className="space-y-6 pb-16">
+    <div className="space-y-3 sm:space-y-4 pb-12">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 pb-5">
-        <div>
-          <h2 className="font-display text-2xl font-extrabold text-stone-900">
-            Sales Reports
-          </h2>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 border-b border-stone-200 pb-3 sm:pb-4">
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          <BarChart3 className="h-5 w-5 sm:h-6 sm:w-6 text-black shrink-0" />
+          <div>
+            <h2 className="font-display text-lg sm:text-2xl font-extrabold text-stone-900 leading-tight">
+              Sales Reports
+            </h2>
+            <p className="text-[10px] sm:text-xs text-stone-500">
+              Overview of revenue, VAT collections, and transaction history
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Single Button for Period, Channel, and Staff Modal Filters */}
+          <button
+            type="button"
+            id="open-sales-filter-modal-btn"
+            onClick={() => setIsFilterModalOpen(true)}
+            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 sm:px-3.5 sm:py-2 text-[11px] sm:text-xs font-bold transition cursor-pointer shadow-2xs ${
+              isFilterModified
+                ? 'border-amber-500 bg-amber-50 text-amber-950 ring-1 ring-amber-500/30'
+                : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
+            }`}
+          >
+            <Filter className={`h-3.5 w-3.5 ${isFilterModified ? 'text-amber-600' : 'text-stone-500'}`} />
+            <span>Filters</span>
+            {isFilterModified && (
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[9px] font-black text-stone-950">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+
           <button
             onClick={handleExportCSV}
             disabled={filteredOrders.length === 0}
-            className="flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3.5 py-2 text-xs font-bold text-stone-700 shadow-2xs hover:bg-stone-50 disabled:opacity-50 transition"
+            className="flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-2.5 py-1.5 sm:px-3.5 sm:py-2 text-[11px] sm:text-xs font-bold text-stone-700 shadow-2xs hover:bg-stone-50 disabled:opacity-50 transition cursor-pointer"
           >
-            <Download className="h-4 w-4 text-stone-600" />
-            Export CSV
+            <Download className="h-3.5 w-3.5 text-stone-600" />
+            <span className="hidden xs:inline">Export CSV</span>
+            <span className="xs:hidden">CSV</span>
           </button>
           <button
             onClick={() => window.print()}
-            className="flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-xs font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition"
+            className="flex items-center gap-1.5 sm:gap-2 rounded-xl bg-amber-500 px-3 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition cursor-pointer"
           >
-            <Printer className="h-4 w-4" />
-            Print Report
+            <Printer className="h-3.5 w-3.5" />
+            <span>Print</span>
           </button>
         </div>
       </div>
 
-      {/* Date Filter & Range Selector Panel */}
-      <div className="rounded-2xl border border-stone-200/90 bg-white p-4 shadow-xs space-y-3">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          {/* Preset Buttons */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs font-bold text-stone-500 mr-1 flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5 text-stone-400" />
-              Period:
-            </span>
-
-            {(
-              [
-                { id: 'today', label: 'Today' },
-                { id: 'yesterday', label: 'Yesterday' },
-                { id: 'week', label: 'Last 7 Days' },
-                { id: 'month', label: 'Last 30 Days' },
-                { id: 'custom', label: 'Custom Date' },
-                { id: 'all', label: 'All Time' },
-              ] as const
-            ).map((preset) => {
-              const isActive = datePreset === preset.id;
-              return (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => {
-                    setDatePreset(preset.id);
-                  }}
-                  className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
-                    isActive
-                      ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
-                      : 'bg-stone-100 text-stone-600 hover:bg-stone-200/70'
-                  }`}
-                >
-                  {preset.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Active Period Badge */}
-          <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-200/80 text-xs self-start lg:self-auto">
-            <span className="text-stone-500 font-medium">Viewing:</span>
-            <span className="font-bold text-stone-900">{periodLabel}</span>
-            {datePreset !== 'today' && (
-              <button
-                onClick={() => {
-                  setDatePreset('today');
-                  setStartDate(todayStr);
-                  setEndDate(todayStr);
-                }}
-                className="ml-1.5 text-amber-700 hover:text-amber-900 font-bold underline text-[11px] flex items-center gap-1"
-                title="Reset to Today"
-              >
-                <RotateCcw className="h-3 w-3" />
-                Reset
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Custom Date Pickers (Shown when 'custom' is active or always available for quick adjustments) */}
-        {datePreset === 'custom' && (
-          <div className="pt-3 border-t border-stone-100 flex flex-wrap items-center gap-3 bg-amber-50/40 p-3 rounded-xl border border-amber-100">
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-bold text-stone-700">From Date:</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-xs font-semibold text-stone-900 focus:border-amber-500 focus:outline-none shadow-2xs"
-              />
-            </div>
-
-            <ArrowRight className="h-3.5 w-3.5 text-stone-400 hidden sm:block" />
-
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-bold text-stone-700">To Date:</label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-xs font-semibold text-stone-900 focus:border-amber-500 focus:outline-none shadow-2xs"
-              />
-            </div>
-
-            {/* Quick single-day shortcut */}
-            <div className="flex items-center gap-1.5 sm:ml-auto">
-              <button
-                type="button"
-                onClick={() => {
-                  setEndDate(startDate);
-                }}
-                className="rounded-lg bg-white border border-stone-200 px-2.5 py-1 text-[11px] font-bold text-stone-700 hover:bg-stone-50"
-              >
-                Single Day Only
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setStartDate(todayStr);
-                  setEndDate(todayStr);
-                }}
-                className="rounded-lg bg-white border border-stone-200 px-2.5 py-1 text-[11px] font-bold text-stone-700 hover:bg-stone-50"
-              >
-                Set to Today
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Channel & Cashier Filter Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-stone-100 p-2 border border-stone-200">
-        <div className="flex flex-wrap items-center gap-1.5">
+      {/* Active Filter Chips Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 rounded-2xl bg-stone-100/90 p-2 sm:p-2.5 border border-stone-200 text-[10px] sm:text-xs">
+        <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
           <button
-            onClick={() => setChannelFilter('all')}
-            className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${
-              channelFilter === 'all'
-                ? 'bg-white text-stone-900 shadow-xs'
-                : 'text-stone-600 hover:text-stone-900'
-            }`}
+            type="button"
+            onClick={() => setIsFilterModalOpen(true)}
+            className="inline-flex items-center gap-1 rounded-lg bg-white px-2 py-1 font-bold text-stone-700 border border-stone-200 shadow-2xs hover:bg-stone-50 cursor-pointer"
           >
-            <Layers className="h-3.5 w-3.5 text-stone-500" />
-            All Channels ({filteredOrders.length})
+            <Clock className="h-3 w-3 text-stone-400" />
+            <span className="text-stone-500">Period:</span>
+            <span className="text-stone-900 font-extrabold">{periodLabel}</span>
           </button>
-          <button
-            onClick={() => setChannelFilter('in_store')}
-            className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${
-              channelFilter === 'in_store'
-                ? 'bg-white text-amber-900 shadow-xs'
-                : 'text-stone-600 hover:text-stone-900'
-            }`}
-          >
-            <Store className="h-3.5 w-3.5 text-amber-600" />
-            On-the-Place ({inStoreCompleted.length} • ₱{inStoreRevenue.toFixed(2)})
-          </button>
-          <button
-            onClick={() => setChannelFilter('online')}
-            className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${
-              channelFilter === 'online'
-                ? 'bg-white text-indigo-900 shadow-xs'
-                : 'text-stone-600 hover:text-stone-900'
-            }`}
-          >
-            <Globe className="h-3.5 w-3.5 text-indigo-600" />
-            Online Orders ({onlineCompleted.length} • ₱{onlineRevenue.toFixed(2)})
-          </button>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Cashier Filter Dropdown */}
-          <div className="flex items-center gap-1.5 bg-white border border-stone-200 rounded-xl px-2.5 py-1 shadow-2xs">
-            <UserCheck className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-            <span className="text-[11px] font-bold text-stone-500">Cashier:</span>
-            <select
-              value={cashierFilter}
-              onChange={(e) => setCashierFilter(e.target.value)}
-              className="text-xs font-bold text-stone-900 bg-transparent focus:outline-none cursor-pointer pr-1"
+          {channelFilter !== 'all' && (
+            <button
+              type="button"
+              onClick={() => setIsFilterModalOpen(true)}
+              className="inline-flex items-center gap-1 rounded-lg bg-white px-2 py-1 font-bold text-stone-700 border border-stone-200 shadow-2xs hover:bg-stone-50 cursor-pointer"
             >
-              <option value="all">All Cashiers / Servers</option>
-              {cashierOptions.map((c) => (
-                <option key={c.name} value={c.name}>
-                  {c.name} {c.role === 'admin' ? '(Admin)' : c.role === 'cashier' ? '(Cashier)' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
+              {channelFilter === 'online' ? (
+                <Globe className="h-3 w-3 text-indigo-600" />
+              ) : (
+                <Store className="h-3 w-3 text-amber-600" />
+              )}
+              <span className="text-stone-500">Channel:</span>
+              <span className="text-stone-900 font-extrabold capitalize">
+                {channelFilter === 'online' ? 'Online' : 'In-Store'}
+              </span>
+            </button>
+          )}
 
-          {/* Dining Type filter */}
-          <div className="flex items-center gap-1">
-            {(['all', 'dine_in', 'take_away', 'delivery'] as const).map((type) => (
-              <button
-                key={type}
-                onClick={() => setFilterType(type)}
-                className={`rounded-lg px-2.5 py-1 text-[11px] font-bold capitalize transition ${
-                  filterType === type
-                    ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
-                    : 'bg-white text-stone-600 hover:bg-stone-50'
-                }`}
-              >
-                {type.replace('_', ' ')}
-              </button>
-            ))}
-          </div>
+          {cashierFilter !== 'all' && (
+            <button
+              type="button"
+              onClick={() => setIsFilterModalOpen(true)}
+              className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 font-bold text-amber-900 border border-amber-200 shadow-2xs hover:bg-amber-100 cursor-pointer"
+            >
+              <UserCheck className="h-3 w-3 text-amber-700" />
+              <span className="text-stone-500">Staff:</span>
+              <span className="font-extrabold">{cashierFilter}</span>
+            </button>
+          )}
+
+          {filterType !== 'all' && (
+            <button
+              type="button"
+              onClick={() => setIsFilterModalOpen(true)}
+              className="inline-flex items-center gap-1 rounded-lg bg-white px-2 py-1 font-bold text-stone-700 border border-stone-200 shadow-2xs hover:bg-stone-50 cursor-pointer"
+            >
+              <span className="text-stone-500">Type:</span>
+              <span className="text-stone-900 font-extrabold capitalize">
+                {filterType.replace('_', ' ')}
+              </span>
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5 ml-auto">
+          {isFilterModified && (
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] sm:text-[11px] font-bold text-stone-500 hover:text-stone-900 hover:bg-stone-200/70 transition cursor-pointer"
+            >
+              <RotateCcw className="h-3 w-3" />
+              <span>Reset</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setIsFilterModalOpen(true)}
+            className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold text-amber-800 hover:underline px-1 py-0.5 cursor-pointer"
+          >
+            Edit Filters
+          </button>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">
-            Revenue {cashierFilter !== 'all' ? `(${cashierFilter})` : `(${channelFilter.replace('_', ' ')})`}
+      {/* KPI Cards - fits in one row on mobile (grid-cols-3) */}
+      <div className="grid grid-cols-3 gap-1.5 sm:gap-3 lg:gap-4">
+        <div className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-2 sm:p-4 lg:p-5 shadow-2xs">
+          <span className="block text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-stone-500 truncate">
+            Revenue
           </span>
-          <div className="mt-2 font-display text-2xl font-extrabold text-amber-900 font-mono">
+          <div className="mt-0.5 sm:mt-2 font-display text-xs sm:text-xl lg:text-2xl font-extrabold text-amber-900 font-mono truncate">
             ₱{netRevenue.toFixed(2)}
           </div>
-          <p className="mt-1 text-[11px] text-stone-500">
-            From {filteredOrders.length} settled orders in period
+          <p className="mt-0.5 sm:mt-1 text-[8px] sm:text-[11px] text-stone-400 truncate hidden xs:block">
+            {filteredOrders.length} settled {filteredOrders.length === 1 ? 'order' : 'orders'}
           </p>
         </div>
 
-        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">
-            TAX
+        <div className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-2.5 sm:p-4 lg:p-5 shadow-2xs">
+          <span className="block text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-stone-500 truncate">
+            TAX (VAT)
           </span>
-          <div className="mt-2 font-display text-2xl font-extrabold text-stone-900 font-mono">
+          <div className="mt-0.5 sm:mt-2 font-display text-xs sm:text-xl lg:text-2xl font-extrabold text-stone-900 font-mono truncate">
             ₱{totalTax.toFixed(2)}
           </div>
-          <p className="mt-1 text-[11px] text-stone-500">Official sales tax collection</p>
+          <p className="mt-0.5 sm:mt-1 text-[8px] sm:text-[11px] text-stone-400 truncate hidden xs:block">
+            Official sales tax
+          </p>
         </div>
 
-        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">
-            Discounts Granted
+        <div className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-2.5 sm:p-4 lg:p-5 shadow-2xs">
+          <span className="block text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-stone-500 truncate">
+            Discounts
           </span>
-          <div className="mt-2 font-display text-2xl font-extrabold text-emerald-700 font-mono">
+          <div className="mt-0.5 sm:mt-2 font-display text-xs sm:text-xl lg:text-2xl font-extrabold text-emerald-700 font-mono truncate">
             ₱{totalDiscounts.toFixed(2)}
           </div>
-          <p className="mt-1 text-[11px] text-stone-500">Senior, PWD &amp; Promotional</p>
+          <p className="mt-0.5 sm:mt-1 text-[8px] sm:text-[11px] text-stone-400 truncate hidden xs:block">
+            Senior / PWD / Promo
+          </p>
         </div>
       </div>
 
       {/* Transaction History Table */}
-      <div className="rounded-3xl border border-stone-200 bg-white overflow-hidden shadow-xs">
-        <div className="p-5 border-b border-stone-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white overflow-hidden shadow-xs">
+        <div className="p-3 sm:p-4 border-b border-stone-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
           <div>
-            <h3 className="font-display text-base font-bold text-stone-900">
-              Completed Transactions Ledger
+            <h3 className="font-display text-sm sm:text-base font-bold text-stone-900">
+              Transactions Ledger
             </h3>
-            <p className="text-xs text-stone-500 mt-0.5">
+            <p className="text-[10px] sm:text-xs text-stone-500 mt-0.5">
               Filtered for <span className="font-semibold text-stone-800">{periodLabel}</span>
               {cashierFilter !== 'all' && (
-                <span className="ml-1.5 inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+                <span className="ml-1.5 inline-flex items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold text-amber-900">
                   <UserCheck className="h-3 w-3" /> Cashier: {cashierFilter}
                   <button
                     onClick={() => setCashierFilter('all')}
-                    className="ml-1 hover:text-amber-950 font-black"
+                    className="ml-1 hover:text-amber-950 font-black cursor-pointer"
                   >
                     ×
                   </button>
@@ -726,8 +798,23 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
-            <div className="flex items-center gap-2 text-xs text-stone-500">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            {/* Column Filter Modal Button */}
+            <button
+              type="button"
+              id="ledger-column-filter-btn"
+              onClick={() => setIsColumnFilterModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-2.5 py-1 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-bold text-stone-700 shadow-2xs hover:bg-stone-50 hover:text-stone-900 transition cursor-pointer"
+              title="Filter visible table columns"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5 text-stone-500" />
+              <span>Columns</span>
+              <span className="rounded-md bg-stone-100 px-1.5 py-0.2 font-mono text-[9px] sm:text-[10px] font-bold text-stone-700">
+                {visibleColumnCount}/{LEDGER_COLUMNS.length}
+              </span>
+            </button>
+
+            <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-stone-500">
               <label htmlFor="ledger-page-size-top" className="font-bold text-stone-600 hidden md:inline">
                 Per page:
               </label>
@@ -738,7 +825,7 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
                   setPageSize(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="rounded-xl border border-stone-200 bg-stone-50 px-2.5 py-1 text-xs font-bold text-stone-800 focus:border-amber-500 focus:outline-hidden"
+                className="rounded-xl border border-stone-200 bg-stone-50 px-2 py-1 text-[10px] sm:text-xs font-bold text-stone-800 focus:border-amber-500 focus:outline-hidden"
               >
                 <option value={10}>10 rows</option>
                 <option value={15}>15 rows</option>
@@ -748,224 +835,245 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
               </select>
             </div>
 
-            <span className="text-xs font-mono font-bold bg-stone-100 px-2.5 py-1 rounded-lg text-stone-600">
+            <span className="text-[10px] sm:text-xs font-mono font-bold bg-stone-100 px-2 py-1 rounded-lg text-stone-600">
               {filteredOrders.length} {filteredOrders.length === 1 ? 'record' : 'records'}
             </span>
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-stone-50 border-b border-stone-200 text-stone-500 font-bold uppercase text-[10px]">
+          <table className="w-full text-left text-[11px] sm:text-xs">
+            <thead className="bg-stone-50 border-b border-stone-200 text-stone-500 font-bold uppercase text-[9px] sm:text-[10px]">
               <tr>
                 {/* Receipt # */}
-                <th
-                  onClick={() => handleSort('receipt')}
-                  className="px-5 py-3 cursor-pointer select-none group transition hover:bg-stone-100/80"
-                  title="Sort by Receipt Number"
-                >
-                  <div className="inline-flex items-center gap-1.5">
-                    <span className={sortField === 'receipt' ? 'text-amber-900 font-extrabold' : 'text-stone-600 group-hover:text-stone-900'}>
-                      Receipt #
-                    </span>
-                    {sortField === 'receipt' ? (
-                      sortDirection === 'asc' ? (
-                        <ArrowUp className="h-3 w-3 text-amber-600 font-bold" />
+                {visibleColumns.receipt && (
+                  <th
+                    onClick={() => handleSort('receipt')}
+                    className="px-3 sm:px-4 py-2.5 sm:py-3 cursor-pointer select-none group transition hover:bg-stone-100/80"
+                    title="Sort by Receipt Number"
+                  >
+                    <div className="inline-flex items-center gap-1.5">
+                      <span className={sortField === 'receipt' ? 'text-amber-900 font-extrabold' : 'text-stone-600 group-hover:text-stone-900'}>
+                        Receipt #
+                      </span>
+                      {sortField === 'receipt' ? (
+                        sortDirection === 'asc' ? (
+                          <ArrowUp className="h-3 w-3 text-amber-600 font-bold" />
+                        ) : (
+                          <ArrowDown className="h-3 w-3 text-amber-600 font-bold" />
+                        )
                       ) : (
-                        <ArrowDown className="h-3 w-3 text-amber-600 font-bold" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="h-3 w-3 text-stone-300 opacity-60 group-hover:opacity-100 group-hover:text-stone-500 transition-opacity" />
-                    )}
-                  </div>
-                </th>
+                        <ArrowUpDown className="h-3 w-3 text-stone-300 opacity-60 group-hover:opacity-100 group-hover:text-stone-500 transition-opacity" />
+                      )}
+                    </div>
+                  </th>
+                )}
 
                 {/* Cashier / Staff */}
-                <th
-                  onClick={() => handleSort('cashier')}
-                  className="px-5 py-3 cursor-pointer select-none group transition hover:bg-stone-100/80"
-                  title="Sort by Cashier / Staff Name"
-                >
-                  <div className="inline-flex items-center gap-1.5">
-                    <span className={sortField === 'cashier' ? 'text-amber-900 font-extrabold' : 'text-stone-600 group-hover:text-stone-900'}>
-                      Cashier / Staff
-                    </span>
-                    {sortField === 'cashier' ? (
-                      sortDirection === 'asc' ? (
-                        <ArrowUp className="h-3 w-3 text-amber-600 font-bold" />
+                {visibleColumns.cashier && (
+                  <th
+                    onClick={() => handleSort('cashier')}
+                    className="px-3 sm:px-4 py-2.5 sm:py-3 cursor-pointer select-none group transition hover:bg-stone-100/80"
+                    title="Sort by Cashier / Staff Name"
+                  >
+                    <div className="inline-flex items-center gap-1.5">
+                      <span className={sortField === 'cashier' ? 'text-amber-900 font-extrabold' : 'text-stone-600 group-hover:text-stone-900'}>
+                        Cashier / Staff
+                      </span>
+                      {sortField === 'cashier' ? (
+                        sortDirection === 'asc' ? (
+                          <ArrowUp className="h-3 w-3 text-amber-600 font-bold" />
+                        ) : (
+                          <ArrowDown className="h-3 w-3 text-amber-600 font-bold" />
+                        )
                       ) : (
-                        <ArrowDown className="h-3 w-3 text-amber-600 font-bold" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="h-3 w-3 text-stone-300 opacity-60 group-hover:opacity-100 group-hover:text-stone-500 transition-opacity" />
-                    )}
-                  </div>
-                </th>
+                        <ArrowUpDown className="h-3 w-3 text-stone-300 opacity-60 group-hover:opacity-100 group-hover:text-stone-500 transition-opacity" />
+                      )}
+                    </div>
+                  </th>
+                )}
 
                 {/* Channel */}
-                <th
-                  onClick={() => handleSort('channel')}
-                  className="px-5 py-3 cursor-pointer select-none group transition hover:bg-stone-100/80"
-                  title="Sort by Channel"
-                >
-                  <div className="inline-flex items-center gap-1.5">
-                    <span className={sortField === 'channel' ? 'text-amber-900 font-extrabold' : 'text-stone-600 group-hover:text-stone-900'}>
-                      Channel
-                    </span>
-                    {sortField === 'channel' ? (
-                      sortDirection === 'asc' ? (
-                        <ArrowUp className="h-3 w-3 text-amber-600 font-bold" />
+                {visibleColumns.channel && (
+                  <th
+                    onClick={() => handleSort('channel')}
+                    className="px-3 sm:px-4 py-2.5 sm:py-3 cursor-pointer select-none group transition hover:bg-stone-100/80"
+                    title="Sort by Channel"
+                  >
+                    <div className="inline-flex items-center gap-1.5">
+                      <span className={sortField === 'channel' ? 'text-amber-900 font-extrabold' : 'text-stone-600 group-hover:text-stone-900'}>
+                        Channel
+                      </span>
+                      {sortField === 'channel' ? (
+                        sortDirection === 'asc' ? (
+                          <ArrowUp className="h-3 w-3 text-amber-600 font-bold" />
+                        ) : (
+                          <ArrowDown className="h-3 w-3 text-amber-600 font-bold" />
+                        )
                       ) : (
-                        <ArrowDown className="h-3 w-3 text-amber-600 font-bold" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="h-3 w-3 text-stone-300 opacity-60 group-hover:opacity-100 group-hover:text-stone-500 transition-opacity" />
-                    )}
-                  </div>
-                </th>
+                        <ArrowUpDown className="h-3 w-3 text-stone-300 opacity-60 group-hover:opacity-100 group-hover:text-stone-500 transition-opacity" />
+                      )}
+                    </div>
+                  </th>
+                )}
 
                 {/* Date / Time */}
-                <th
-                  onClick={() => handleSort('date')}
-                  className="px-5 py-3 cursor-pointer select-none group transition hover:bg-stone-100/80"
-                  title="Sort by Date / Time"
-                >
-                  <div className="inline-flex items-center gap-1.5">
-                    <span className={sortField === 'date' ? 'text-amber-900 font-extrabold' : 'text-stone-600 group-hover:text-stone-900'}>
-                      Date / Time
-                    </span>
-                    {sortField === 'date' ? (
-                      sortDirection === 'asc' ? (
-                        <ArrowUp className="h-3 w-3 text-amber-600 font-bold" />
+                {visibleColumns.date && (
+                  <th
+                    onClick={() => handleSort('date')}
+                    className="px-3 sm:px-4 py-2.5 sm:py-3 cursor-pointer select-none group transition hover:bg-stone-100/80"
+                    title="Sort by Date / Time"
+                  >
+                    <div className="inline-flex items-center gap-1.5">
+                      <span className={sortField === 'date' ? 'text-amber-900 font-extrabold' : 'text-stone-600 group-hover:text-stone-900'}>
+                        Date / Time
+                      </span>
+                      {sortField === 'date' ? (
+                        sortDirection === 'asc' ? (
+                          <ArrowUp className="h-3 w-3 text-amber-600 font-bold" />
+                        ) : (
+                          <ArrowDown className="h-3 w-3 text-amber-600 font-bold" />
+                        )
                       ) : (
-                        <ArrowDown className="h-3 w-3 text-amber-600 font-bold" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="h-3 w-3 text-stone-300 opacity-60 group-hover:opacity-100 group-hover:text-stone-500 transition-opacity" />
-                    )}
-                  </div>
-                </th>
+                        <ArrowUpDown className="h-3 w-3 text-stone-300 opacity-60 group-hover:opacity-100 group-hover:text-stone-500 transition-opacity" />
+                      )}
+                    </div>
+                  </th>
+                )}
 
                 {/* Guest & Type */}
-                <th
-                  onClick={() => handleSort('guest')}
-                  className="px-5 py-3 cursor-pointer select-none group transition hover:bg-stone-100/80"
-                  title="Sort by Guest & Order Type"
-                >
-                  <div className="inline-flex items-center gap-1.5">
-                    <span className={sortField === 'guest' ? 'text-amber-900 font-extrabold' : 'text-stone-600 group-hover:text-stone-900'}>
-                      Guest &amp; Type
-                    </span>
-                    {sortField === 'guest' ? (
-                      sortDirection === 'asc' ? (
-                        <ArrowUp className="h-3 w-3 text-amber-600 font-bold" />
+                {visibleColumns.guest && (
+                  <th
+                    onClick={() => handleSort('guest')}
+                    className="px-3 sm:px-4 py-2.5 sm:py-3 cursor-pointer select-none group transition hover:bg-stone-100/80"
+                    title="Sort by Guest & Order Type"
+                  >
+                    <div className="inline-flex items-center gap-1.5">
+                      <span className={sortField === 'guest' ? 'text-amber-900 font-extrabold' : 'text-stone-600 group-hover:text-stone-900'}>
+                        Guest &amp; Type
+                      </span>
+                      {sortField === 'guest' ? (
+                        sortDirection === 'asc' ? (
+                          <ArrowUp className="h-3 w-3 text-amber-600 font-bold" />
+                        ) : (
+                          <ArrowDown className="h-3 w-3 text-amber-600 font-bold" />
+                        )
                       ) : (
-                        <ArrowDown className="h-3 w-3 text-amber-600 font-bold" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="h-3 w-3 text-stone-300 opacity-60 group-hover:opacity-100 group-hover:text-stone-500 transition-opacity" />
-                    )}
-                  </div>
-                </th>
+                        <ArrowUpDown className="h-3 w-3 text-stone-300 opacity-60 group-hover:opacity-100 group-hover:text-stone-500 transition-opacity" />
+                      )}
+                    </div>
+                  </th>
+                )}
 
                 {/* Payment */}
-                <th
-                  onClick={() => handleSort('payment')}
-                  className="px-5 py-3 cursor-pointer select-none group transition hover:bg-stone-100/80"
-                  title="Sort by Payment Method"
-                >
-                  <div className="inline-flex items-center gap-1.5">
-                    <span className={sortField === 'payment' ? 'text-amber-900 font-extrabold' : 'text-stone-600 group-hover:text-stone-900'}>
-                      Payment
-                    </span>
-                    {sortField === 'payment' ? (
-                      sortDirection === 'asc' ? (
-                        <ArrowUp className="h-3 w-3 text-amber-600 font-bold" />
+                {visibleColumns.payment && (
+                  <th
+                    onClick={() => handleSort('payment')}
+                    className="px-3 sm:px-4 py-2.5 sm:py-3 cursor-pointer select-none group transition hover:bg-stone-100/80"
+                    title="Sort by Payment Method"
+                  >
+                    <div className="inline-flex items-center gap-1.5">
+                      <span className={sortField === 'payment' ? 'text-amber-900 font-extrabold' : 'text-stone-600 group-hover:text-stone-900'}>
+                        Payment
+                      </span>
+                      {sortField === 'payment' ? (
+                        sortDirection === 'asc' ? (
+                          <ArrowUp className="h-3 w-3 text-amber-600 font-bold" />
+                        ) : (
+                          <ArrowDown className="h-3 w-3 text-amber-600 font-bold" />
+                        )
                       ) : (
-                        <ArrowDown className="h-3 w-3 text-amber-600 font-bold" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="h-3 w-3 text-stone-300 opacity-60 group-hover:opacity-100 group-hover:text-stone-500 transition-opacity" />
-                    )}
-                  </div>
-                </th>
+                        <ArrowUpDown className="h-3 w-3 text-stone-300 opacity-60 group-hover:opacity-100 group-hover:text-stone-500 transition-opacity" />
+                      )}
+                    </div>
+                  </th>
+                )}
 
                 {/* Subtotal */}
-                <th
-                  onClick={() => handleSort('subtotal')}
-                  className="px-5 py-3 text-right cursor-pointer select-none group transition hover:bg-stone-100/80"
-                  title="Sort by Subtotal Amount"
-                >
-                  <div className="inline-flex items-center justify-end w-full gap-1.5">
-                    <span className={sortField === 'subtotal' ? 'text-amber-900 font-extrabold' : 'text-stone-600 group-hover:text-stone-900'}>
-                      Subtotal
-                    </span>
-                    {sortField === 'subtotal' ? (
-                      sortDirection === 'asc' ? (
-                        <ArrowUp className="h-3 w-3 text-amber-600 font-bold" />
+                {visibleColumns.subtotal && (
+                  <th
+                    onClick={() => handleSort('subtotal')}
+                    className="px-3 sm:px-4 py-2.5 sm:py-3 text-right cursor-pointer select-none group transition hover:bg-stone-100/80"
+                    title="Sort by Subtotal Amount"
+                  >
+                    <div className="inline-flex items-center justify-end w-full gap-1.5">
+                      <span className={sortField === 'subtotal' ? 'text-amber-900 font-extrabold' : 'text-stone-600 group-hover:text-stone-900'}>
+                        Subtotal
+                      </span>
+                      {sortField === 'subtotal' ? (
+                        sortDirection === 'asc' ? (
+                          <ArrowUp className="h-3 w-3 text-amber-600 font-bold" />
+                        ) : (
+                          <ArrowDown className="h-3 w-3 text-amber-600 font-bold" />
+                        )
                       ) : (
-                        <ArrowDown className="h-3 w-3 text-amber-600 font-bold" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="h-3 w-3 text-stone-300 opacity-60 group-hover:opacity-100 group-hover:text-stone-500 transition-opacity" />
-                    )}
-                  </div>
-                </th>
+                        <ArrowUpDown className="h-3 w-3 text-stone-300 opacity-60 group-hover:opacity-100 group-hover:text-stone-500 transition-opacity" />
+                      )}
+                    </div>
+                  </th>
+                )}
 
                 {/* VAT */}
-                <th
-                  onClick={() => handleSort('tax')}
-                  className="px-5 py-3 text-right cursor-pointer select-none group transition hover:bg-stone-100/80"
-                  title="Sort by VAT Tax Amount"
-                >
-                  <div className="inline-flex items-center justify-end w-full gap-1.5">
-                    <span className={sortField === 'tax' ? 'text-amber-900 font-extrabold' : 'text-stone-600 group-hover:text-stone-900'}>
-                      VAT
-                    </span>
-                    {sortField === 'tax' ? (
-                      sortDirection === 'asc' ? (
-                        <ArrowUp className="h-3 w-3 text-amber-600 font-bold" />
+                {visibleColumns.tax && (
+                  <th
+                    onClick={() => handleSort('tax')}
+                    className="px-3 sm:px-4 py-2.5 sm:py-3 text-right cursor-pointer select-none group transition hover:bg-stone-100/80"
+                    title="Sort by VAT Tax Amount"
+                  >
+                    <div className="inline-flex items-center justify-end w-full gap-1.5">
+                      <span className={sortField === 'tax' ? 'text-amber-900 font-extrabold' : 'text-stone-600 group-hover:text-stone-900'}>
+                        VAT
+                      </span>
+                      {sortField === 'tax' ? (
+                        sortDirection === 'asc' ? (
+                          <ArrowUp className="h-3 w-3 text-amber-600 font-bold" />
+                        ) : (
+                          <ArrowDown className="h-3 w-3 text-amber-600 font-bold" />
+                        )
                       ) : (
-                        <ArrowDown className="h-3 w-3 text-amber-600 font-bold" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="h-3 w-3 text-stone-300 opacity-60 group-hover:opacity-100 group-hover:text-stone-500 transition-opacity" />
-                    )}
-                  </div>
-                </th>
+                        <ArrowUpDown className="h-3 w-3 text-stone-300 opacity-60 group-hover:opacity-100 group-hover:text-stone-500 transition-opacity" />
+                      )}
+                    </div>
+                  </th>
+                )}
 
                 {/* Total */}
-                <th
-                  onClick={() => handleSort('total')}
-                  className="px-5 py-3 text-right cursor-pointer select-none group transition hover:bg-stone-100/80"
-                  title="Sort by Total Net Amount"
-                >
-                  <div className="inline-flex items-center justify-end w-full gap-1.5">
-                    <span className={sortField === 'total' ? 'text-amber-900 font-extrabold' : 'text-stone-600 group-hover:text-stone-900'}>
-                      Total
-                    </span>
-                    {sortField === 'total' ? (
-                      sortDirection === 'asc' ? (
-                        <ArrowUp className="h-3 w-3 text-amber-600 font-bold" />
+                {visibleColumns.total && (
+                  <th
+                    onClick={() => handleSort('total')}
+                    className="px-3 sm:px-4 py-2.5 sm:py-3 text-right cursor-pointer select-none group transition hover:bg-stone-100/80"
+                    title="Sort by Total Net Amount"
+                  >
+                    <div className="inline-flex items-center justify-end w-full gap-1.5">
+                      <span className={sortField === 'total' ? 'text-amber-900 font-extrabold' : 'text-stone-600 group-hover:text-stone-900'}>
+                        Total
+                      </span>
+                      {sortField === 'total' ? (
+                        sortDirection === 'asc' ? (
+                          <ArrowUp className="h-3 w-3 text-amber-600 font-bold" />
+                        ) : (
+                          <ArrowDown className="h-3 w-3 text-amber-600 font-bold" />
+                        )
                       ) : (
-                        <ArrowDown className="h-3 w-3 text-amber-600 font-bold" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="h-3 w-3 text-stone-300 opacity-60 group-hover:opacity-100 group-hover:text-stone-500 transition-opacity" />
-                    )}
-                  </div>
-                </th>
+                        <ArrowUpDown className="h-3 w-3 text-stone-300 opacity-60 group-hover:opacity-100 group-hover:text-stone-500 transition-opacity" />
+                      )}
+                    </div>
+                  </th>
+                )}
 
-                <th className="px-5 py-3 text-center text-stone-400">Action</th>
+                {/* Action */}
+                {visibleColumns.action && (
+                  <th className="px-3 sm:px-4 py-2.5 sm:py-3 text-center text-stone-400">Action</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 font-medium">
               {paginatedOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-5 py-12 text-center text-stone-400">
-                    <Calendar className="h-8 w-8 mx-auto mb-2 text-stone-300" />
-                    <p className="font-bold text-stone-600">No transactions found</p>
-                    <p className="text-[11px] text-stone-400 mt-0.5">
+                  <td colSpan={visibleColumnCount} className="px-4 py-10 sm:py-12 text-center text-stone-400">
+                    <Calendar className="h-7 w-7 sm:h-8 sm:w-8 mx-auto mb-2 text-stone-300" />
+                    <p className="font-bold text-stone-600 text-xs sm:text-sm">No transactions found</p>
+                    <p className="text-[10px] sm:text-[11px] text-stone-400 mt-0.5">
                       No settled orders found for the selected filter criteria ({periodLabel}).
                     </p>
                   </td>
@@ -979,84 +1087,125 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
 
                   return (
                     <tr key={ord.id} className="hover:bg-stone-50/70 transition">
-                      <td className="px-5 py-3.5 font-mono font-bold text-stone-900">{ord.orderNumber}</td>
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-1.5 font-bold text-stone-900">
-                          {isOnlineCashier ? (
-                            <Globe className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
-                          ) : (
-                            <UserCheck className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                          )}
-                          <span className="truncate max-w-[140px]">{ord.cashierName || 'Staff Member'}</span>
-                        </div>
-                        {ord.cashierId && (
-                          <div className="text-[10px] text-stone-400 font-mono">
-                            ID #{ord.cashierId}
+                      {/* Receipt */}
+                      {visibleColumns.receipt && (
+                        <td className="px-3 sm:px-4 py-2.5 sm:py-3 font-mono font-bold text-stone-900 text-[11px] sm:text-xs">
+                          {ord.orderNumber}
+                        </td>
+                      )}
+
+                      {/* Cashier / Staff */}
+                      {visibleColumns.cashier && (
+                        <td className="px-3 sm:px-4 py-2.5 sm:py-3">
+                          <div className="flex items-center gap-1.5 font-bold text-stone-900 text-[11px] sm:text-xs">
+                            {isOnlineCashier ? (
+                              <Globe className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-indigo-600 shrink-0" />
+                            ) : (
+                              <UserCheck className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-600 shrink-0" />
+                            )}
+                            <span className="truncate max-w-[120px] sm:max-w-[140px]">{ord.cashierName || 'Staff Member'}</span>
                           </div>
-                        )}
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-extrabold uppercase ${
-                            isOnline
-                              ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                              : 'bg-amber-50 text-amber-800 border border-amber-200'
-                          }`}
-                        >
-                          {isOnline ? (
-                            <>
-                              <Globe className="h-3 w-3" />
-                              Online
-                            </>
-                          ) : (
-                            <>
-                              <Store className="h-3 w-3" />
-                              In-Store
-                            </>
+                          {ord.cashierId && (
+                            <div className="text-[9px] sm:text-[10px] text-stone-400 font-mono">
+                              ID #{ord.cashierId}
+                            </div>
                           )}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5 text-stone-600">
-                        <div className="font-semibold text-stone-800">
-                          {orderDate.toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })}
-                        </div>
-                        <div className="text-[10px] text-stone-400 font-mono">
-                          {orderDate.toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <div className="font-bold text-stone-900">{ord.customerName}</div>
-                        <div className="text-[10px] text-stone-400 uppercase">
-                          {ord.orderType.replace('_', ' ')} {ord.tableNumber ? `(T#${ord.tableNumber})` : ''}
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5 uppercase text-stone-700 font-bold">
-                        {ord.paymentMethod}
-                      </td>
-                      <td className="px-5 py-3.5 text-right font-mono text-stone-600">
-                        ₱{ord.subtotal.toFixed(2)}
-                      </td>
-                      <td className="px-5 py-3.5 text-right font-mono text-stone-600">
-                        ₱{ord.taxAmount.toFixed(2)}
-                      </td>
-                      <td className="px-5 py-3.5 text-right font-mono font-bold text-stone-900">
-                        ₱{ord.totalAmount.toFixed(2)}
-                      </td>
-                      <td className="px-5 py-3.5 text-center">
-                        <button
-                          onClick={() => onViewReceipt(ord)}
-                          className="rounded-lg bg-stone-100 hover:bg-stone-200 px-2.5 py-1 text-[11px] font-bold text-stone-800 transition"
-                        >
-                          Receipt
-                        </button>
-                      </td>
+                        </td>
+                      )}
+
+                      {/* Channel */}
+                      {visibleColumns.channel && (
+                        <td className="px-3 sm:px-4 py-2.5 sm:py-3">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-md px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-extrabold uppercase ${
+                              isOnline
+                                ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                : 'bg-amber-50 text-amber-800 border border-amber-200'
+                            }`}
+                          >
+                            {isOnline ? (
+                              <>
+                                <Globe className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                                Online
+                              </>
+                            ) : (
+                              <>
+                                <Store className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                                In-Store
+                              </>
+                            )}
+                          </span>
+                        </td>
+                      )}
+
+                      {/* Date / Time */}
+                      {visibleColumns.date && (
+                        <td className="px-3 sm:px-4 py-2.5 sm:py-3 text-stone-600">
+                          <div className="font-semibold text-stone-800 text-[10px] sm:text-xs">
+                            {orderDate.toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })}
+                          </div>
+                          <div className="text-[9px] sm:text-[10px] text-stone-400 font-mono">
+                            {orderDate.toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </div>
+                        </td>
+                      )}
+
+                      {/* Guest & Type */}
+                      {visibleColumns.guest && (
+                        <td className="px-3 sm:px-4 py-2.5 sm:py-3">
+                          <div className="font-bold text-stone-900 text-[11px] sm:text-xs">{ord.customerName}</div>
+                          <div className="text-[9px] sm:text-[10px] text-stone-400 uppercase">
+                            {ord.orderType.replace('_', ' ')} {ord.tableNumber ? `(T#${ord.tableNumber})` : ''}
+                          </div>
+                        </td>
+                      )}
+
+                      {/* Payment */}
+                      {visibleColumns.payment && (
+                        <td className="px-3 sm:px-4 py-2.5 sm:py-3 uppercase text-stone-700 font-bold text-[10px] sm:text-xs">
+                          {ord.paymentMethod}
+                        </td>
+                      )}
+
+                      {/* Subtotal */}
+                      {visibleColumns.subtotal && (
+                        <td className="px-3 sm:px-4 py-2.5 sm:py-3 text-right font-mono text-stone-600 text-[11px] sm:text-xs">
+                          ₱{ord.subtotal.toFixed(2)}
+                        </td>
+                      )}
+
+                      {/* VAT */}
+                      {visibleColumns.tax && (
+                        <td className="px-3 sm:px-4 py-2.5 sm:py-3 text-right font-mono text-stone-600 text-[11px] sm:text-xs">
+                          ₱{ord.taxAmount.toFixed(2)}
+                        </td>
+                      )}
+
+                      {/* Total */}
+                      {visibleColumns.total && (
+                        <td className="px-3 sm:px-4 py-2.5 sm:py-3 text-right font-mono font-bold text-stone-900 text-[11px] sm:text-xs">
+                          ₱{ord.totalAmount.toFixed(2)}
+                        </td>
+                      )}
+
+                      {/* Action */}
+                      {visibleColumns.action && (
+                        <td className="px-3 sm:px-4 py-2.5 sm:py-3 text-center">
+                          <button
+                            onClick={() => onViewReceipt(ord)}
+                            className="rounded-lg bg-stone-100 hover:bg-stone-200 px-2 py-1 text-[10px] sm:text-[11px] font-bold text-stone-800 transition cursor-pointer"
+                          >
+                            Receipt
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })
@@ -1067,8 +1216,8 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
 
         {/* Pagination Controls Footer */}
         {sortedOrders.length > 0 && (
-          <div className="border-t border-stone-200 bg-stone-50/70 px-5 py-3.5 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-3 text-xs text-stone-500">
+          <div className="border-t border-stone-200 bg-stone-50/70 px-3 sm:px-5 py-2.5 sm:py-3.5 flex flex-col md:flex-row items-center justify-between gap-2.5 sm:gap-4">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[10px] sm:text-xs text-stone-500">
               <div>
                 Showing <span className="font-bold text-stone-800">{startRecord}</span> to{' '}
                 <span className="font-bold text-stone-800">{endRecord}</span> of{' '}
@@ -1081,7 +1230,7 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
                 )}
               </div>
 
-              <div className="h-3.5 w-px bg-stone-200 hidden sm:block" />
+              <div className="h-3 w-px bg-stone-200 hidden sm:block" />
 
               <div className="flex items-center gap-1.5">
                 <span className="font-semibold text-stone-600">Per page:</span>
@@ -1091,7 +1240,7 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
                     setPageSize(Number(e.target.value));
                     setCurrentPage(1);
                   }}
-                  className="rounded-lg border border-stone-200 bg-white px-2 py-0.5 text-xs font-bold text-stone-800 shadow-2xs focus:border-amber-500 focus:outline-hidden"
+                  className="rounded-lg border border-stone-200 bg-white px-1.5 py-0.5 text-[10px] sm:text-xs font-bold text-stone-800 shadow-2xs focus:border-amber-500 focus:outline-hidden"
                 >
                   <option value={10}>10 rows</option>
                   <option value={15}>15 rows</option>
@@ -1110,9 +1259,9 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
                 disabled={safeCurrentPage === 1}
                 onClick={() => setCurrentPage(1)}
                 title="First Page"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-600 transition hover:bg-stone-100 hover:text-stone-900 disabled:opacity-40 disabled:pointer-events-none shadow-2xs"
+                className="inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-600 transition hover:bg-stone-100 hover:text-stone-900 disabled:opacity-40 disabled:pointer-events-none shadow-2xs cursor-pointer"
               >
-                <ChevronsLeft className="h-4 w-4" />
+                <ChevronsLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
 
               {/* Previous Page */}
@@ -1121,20 +1270,20 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
                 disabled={safeCurrentPage === 1}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 title="Previous Page"
-                className="inline-flex h-8 items-center gap-1 rounded-xl border border-stone-200 bg-white px-2.5 text-xs font-bold text-stone-700 transition hover:bg-stone-100 hover:text-stone-900 disabled:opacity-40 disabled:pointer-events-none shadow-2xs"
+                className="inline-flex h-7 sm:h-8 items-center gap-1 rounded-xl border border-stone-200 bg-white px-2 sm:px-2.5 text-[10px] sm:text-xs font-bold text-stone-700 transition hover:bg-stone-100 hover:text-stone-900 disabled:opacity-40 disabled:pointer-events-none shadow-2xs cursor-pointer"
               >
-                <ChevronLeft className="h-3.5 w-3.5" />
+                <ChevronLeft className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 <span className="hidden sm:inline">Prev</span>
               </button>
 
               {/* Page Number Buttons */}
-              <div className="flex items-center gap-1 mx-1">
+              <div className="flex items-center gap-1 mx-0.5 sm:mx-1">
                 {paginationRange.map((item, idx) => {
                   if (typeof item === 'string') {
                     return (
                       <span
                         key={`ellipsis-${idx}`}
-                        className="px-1.5 text-xs font-bold text-stone-400 select-none"
+                        className="px-1 text-[10px] sm:text-xs font-bold text-stone-400 select-none"
                       >
                         …
                       </span>
@@ -1146,7 +1295,7 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
                       key={`page-${item}`}
                       type="button"
                       onClick={() => setCurrentPage(item)}
-                      className={`inline-flex h-8 min-w-[32px] items-center justify-center rounded-xl px-2 text-xs font-extrabold transition shadow-2xs ${
+                      className={`inline-flex h-7 sm:h-8 min-w-[28px] sm:min-w-[32px] items-center justify-center rounded-xl px-1.5 sm:px-2 text-[10px] sm:text-xs font-extrabold transition shadow-2xs cursor-pointer ${
                         isActive
                           ? 'bg-amber-500 text-stone-950 font-black ring-2 ring-amber-500/20'
                           : 'border border-stone-200 bg-white text-stone-700 hover:bg-stone-100 hover:text-stone-900'
@@ -1164,10 +1313,10 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
                 disabled={safeCurrentPage === totalPages}
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 title="Next Page"
-                className="inline-flex h-8 items-center gap-1 rounded-xl border border-stone-200 bg-white px-2.5 text-xs font-bold text-stone-700 transition hover:bg-stone-100 hover:text-stone-900 disabled:opacity-40 disabled:pointer-events-none shadow-2xs"
+                className="inline-flex h-7 sm:h-8 items-center gap-1 rounded-xl border border-stone-200 bg-white px-2 sm:px-2.5 text-[10px] sm:text-xs font-bold text-stone-700 transition hover:bg-stone-100 hover:text-stone-900 disabled:opacity-40 disabled:pointer-events-none shadow-2xs cursor-pointer"
               >
                 <span className="hidden sm:inline">Next</span>
-                <ChevronRight className="h-3.5 w-3.5" />
+                <ChevronRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
               </button>
 
               {/* Last Page */}
@@ -1176,14 +1325,367 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
                 disabled={safeCurrentPage === totalPages}
                 onClick={() => setCurrentPage(totalPages)}
                 title="Last Page"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-600 transition hover:bg-stone-100 hover:text-stone-900 disabled:opacity-40 disabled:pointer-events-none shadow-2xs"
+                className="inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-600 transition hover:bg-stone-100 hover:text-stone-900 disabled:opacity-40 disabled:pointer-events-none shadow-2xs cursor-pointer"
               >
-                <ChevronsRight className="h-4 w-4" />
+                <ChevronsRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
             </div>
           </div>
         )}
       </div>
+
+      {/* ========================================================================= */}
+      {/* 1. SALES REPORT FILTERS MODAL (Period, Channel, Staff, Dining Type)       */}
+      {/* ========================================================================= */}
+      {isFilterModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/60 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-150">
+          <div
+            className="w-full max-w-xl rounded-2xl sm:rounded-3xl border border-stone-200 bg-white shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-stone-200 px-4 sm:px-6 py-3.5 bg-stone-50/70">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 text-amber-900">
+                  <Filter className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="font-display text-sm sm:text-base font-extrabold text-stone-900">
+                    Sales Report Filters
+                  </h3>
+                  <p className="text-[10px] sm:text-xs text-stone-500">
+                    Select period, sales channel, staff member, and dining type
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsFilterModalOpen(false)}
+                className="rounded-xl p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700 transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
+              {/* Section 1: Period / Date Preset */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-amber-600" />
+                  Date Period:
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                  {(
+                    [
+                      { id: 'today', label: 'Today' },
+                      { id: 'yesterday', label: 'Yesterday' },
+                      { id: 'week', label: 'Last 7 Days' },
+                      { id: 'month', label: 'Last 30 Days' },
+                      { id: 'custom', label: 'Custom Date' },
+                      { id: 'all', label: 'All Time' },
+                    ] as const
+                  ).map((preset) => {
+                    const isActive = datePreset === preset.id;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => setDatePreset(preset.id)}
+                        className={`rounded-xl px-2.5 py-2 text-xs font-bold transition text-center cursor-pointer border ${
+                          isActive
+                            ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-2xs'
+                            : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Custom Date Pickers */}
+                {datePreset === 'custom' && (
+                  <div className="mt-2.5 p-3 rounded-xl bg-amber-50/50 border border-amber-200/80 space-y-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] font-bold text-stone-600 mb-1">
+                          From Date:
+                        </label>
+                        <input
+                          type="date"
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
+                          className="w-full rounded-xl border border-stone-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-stone-900 focus:border-amber-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-stone-600 mb-1">
+                          To Date:
+                        </label>
+                        <input
+                          type="date"
+                          value={endDate}
+                          onChange={(e) => setEndDate(e.target.value)}
+                          className="w-full rounded-xl border border-stone-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-stone-900 focus:border-amber-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-end gap-1.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setEndDate(startDate)}
+                        className="rounded-lg bg-white border border-stone-200 px-2 py-1 text-[10px] font-bold text-stone-700 hover:bg-stone-100 cursor-pointer"
+                      >
+                        Single Day Only
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStartDate(todayStr);
+                          setEndDate(todayStr);
+                        }}
+                        className="rounded-lg bg-white border border-stone-200 px-2 py-1 text-[10px] font-bold text-stone-700 hover:bg-stone-100 cursor-pointer"
+                      >
+                        Set to Today
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Section 2: Channel */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1.5">
+                  <Layers className="h-3.5 w-3.5 text-amber-600" />
+                  Sales Channel:
+                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setChannelFilter('all')}
+                    className={`rounded-xl px-2 py-2 text-xs font-bold text-center transition cursor-pointer border ${
+                      channelFilter === 'all'
+                        ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-2xs'
+                        : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                    }`}
+                  >
+                    All Channels
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChannelFilter('in_store')}
+                    className={`rounded-xl px-2 py-2 text-xs font-bold text-center transition cursor-pointer border flex items-center justify-center gap-1 ${
+                      channelFilter === 'in_store'
+                        ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-2xs'
+                        : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                    }`}
+                  >
+                    <Store className="h-3.5 w-3.5" />
+                    In-Store
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChannelFilter('online')}
+                    className={`rounded-xl px-2 py-2 text-xs font-bold text-center transition cursor-pointer border flex items-center justify-center gap-1 ${
+                      channelFilter === 'online'
+                        ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-2xs'
+                        : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                    }`}
+                  >
+                    <Globe className="h-3.5 w-3.5" />
+                    Online
+                  </button>
+                </div>
+              </div>
+
+              {/* Section 3: Cashier / Staff Filter */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1.5">
+                  <UserCheck className="h-3.5 w-3.5 text-amber-600" />
+                  Staff / Cashier:
+                </label>
+                <select
+                  value={cashierFilter}
+                  onChange={(e) => setCashierFilter(e.target.value)}
+                  className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs font-bold text-stone-900 focus:border-amber-500 focus:outline-none cursor-pointer"
+                >
+                  <option value="all">All Cashiers / Servers</option>
+                  {cashierOptions.map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.name} {c.role === 'admin' ? '(Admin)' : c.role === 'cashier' ? '(Cashier)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Section 4: Dining Type */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                  Dining Type:
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  {(['all', 'dine_in', 'take_away', 'delivery'] as const).map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setFilterType(type)}
+                      className={`rounded-xl px-2 py-2 text-xs font-bold capitalize text-center transition cursor-pointer border ${
+                        filterType === type
+                          ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-2xs'
+                          : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                      }`}
+                    >
+                      {type === 'all' ? 'All Types' : type.replace('_', ' ')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="border-t border-stone-200 px-4 sm:px-6 py-3 bg-stone-50/70 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-xs font-bold text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+              >
+                <RotateCcw className="h-3.5 w-3.5 text-stone-500" />
+                <span>Reset to Defaults</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsFilterModalOpen(false)}
+                className="rounded-xl bg-amber-500 px-5 py-1.5 text-xs font-black text-stone-950 shadow-md hover:bg-amber-400 transition cursor-pointer"
+              >
+                Apply Filters
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 2. TRANSACTIONS LEDGER COLUMN VISIBILITY MODAL                            */}
+      {/* ========================================================================= */}
+      {isColumnFilterModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/60 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-150">
+          <div
+            className="w-full max-w-lg rounded-2xl sm:rounded-3xl border border-stone-200 bg-white shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-stone-200 px-4 sm:px-6 py-3.5 bg-stone-50/70">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 text-amber-900">
+                  <SlidersHorizontal className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="font-display text-sm sm:text-base font-extrabold text-stone-900">
+                    Transactions Ledger Columns
+                  </h3>
+                  <p className="text-[10px] sm:text-xs text-stone-500">
+                    Choose which columns appear in the transactions ledger ({visibleColumnCount} of {LEDGER_COLUMNS.length} visible)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsColumnFilterModalOpen(false)}
+                className="rounded-xl p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700 transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
+              {/* Quick presets */}
+              <div>
+                <span className="block text-[11px] font-bold text-stone-500 uppercase tracking-wider mb-2">
+                  Quick Presets:
+                </span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleApplyColumnPreset('all')}
+                    className={`rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer border ${
+                      visibleColumnCount === LEDGER_COLUMNS.length
+                        ? 'bg-amber-500 text-stone-950 border-amber-500 font-extrabold'
+                        : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                    }`}
+                  >
+                    All Columns (10/10)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyColumnPreset('financial')}
+                    className="rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 px-3 py-1.5 text-xs font-bold text-stone-700 transition cursor-pointer"
+                  >
+                    Financial Focus
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyColumnPreset('minimal')}
+                    className="rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 px-3 py-1.5 text-xs font-bold text-stone-700 transition cursor-pointer"
+                  >
+                    Minimal View
+                  </button>
+                </div>
+              </div>
+
+              {/* Column checkboxes */}
+              <div className="divide-y divide-stone-100 rounded-2xl border border-stone-200/90 overflow-hidden">
+                {LEDGER_COLUMNS.map((col) => {
+                  const isChecked = visibleColumns[col.key];
+                  return (
+                    <label
+                      key={col.key}
+                      className="flex items-center justify-between p-2.5 sm:p-3 hover:bg-stone-50/80 cursor-pointer transition select-none"
+                    >
+                      <div className="pr-3">
+                        <div className="text-xs sm:text-sm font-bold text-stone-900">{col.label}</div>
+                        <div className="text-[10px] sm:text-[11px] text-stone-400">{col.description}</div>
+                      </div>
+                      <div
+                        onClick={(e) => {
+                          e.preventDefault();
+                          toggleColumn(col.key);
+                        }}
+                        className={`h-5 w-5 rounded-md border flex items-center justify-center transition ${
+                          isChecked
+                            ? 'bg-amber-500 border-amber-600 text-stone-950 shadow-2xs'
+                            : 'border-stone-300 bg-white'
+                        }`}
+                      >
+                        {isChecked && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="border-t border-stone-200 px-4 sm:px-6 py-3 bg-stone-50/70 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => handleApplyColumnPreset('all')}
+                className="rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-xs font-bold text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+              >
+                Show All Columns
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsColumnFilterModalOpen(false)}
+                className="rounded-xl bg-amber-500 px-5 py-1.5 text-xs font-black text-stone-950 shadow-md hover:bg-amber-400 transition cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -15,6 +15,8 @@ import {
   Sparkles,
   CheckCircle2,
   SlidersHorizontal,
+  PackagePlus,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface LowStockNotificationModalProps {
@@ -71,10 +73,35 @@ export const LowStockNotificationModal: React.FC<LowStockNotificationModalProps>
 
   const handleQuickRestock = async (item: MenuItem, amount: number) => {
     if (!isAdmin) {
+      // Staff refill request - Requires Admin Confirmation
+      const cat = categories.find((c) => c.id === item.categoryId);
+      const staffRole = activeStaff?.role || 'cashier';
+      const staffName = activeStaff?.name || 'Staff Member';
+
+      AppStore.createRefillRequest({
+        source: 'catalog',
+        menuItemId: item.id,
+        itemName: item.name,
+        categoryId: item.categoryId,
+        categoryName: cat?.name || 'Category',
+        station: staffRole === 'barista' ? 'bar' : staffRole === 'cook' ? 'kitchen' : 'bar',
+        unit: 'pcs',
+        currentStock: item.quantity ?? 0,
+        suggestedQuantity: amount,
+        urgency: (item.quantity ?? 0) <= 0 ? 'urgent' : 'high',
+        notes: `Quick refill requested via Low Stock Alerts by ${staffName} (${staffRole})`,
+        requestedBy: {
+          id: activeStaff?.id || 99,
+          name: staffName,
+          role: staffRole,
+          employeeId: activeStaff?.employeeId || `${staffRole.toUpperCase().slice(0, 3)}-01`,
+        },
+      });
+
       showAlert({
-        title: 'Admin Permission Required',
-        message: 'Only administrators have authorization to restock inventory levels.',
-        type: 'warning',
+        title: 'Refill Request Submitted!',
+        message: `Submitted request for +${amount} unit(s) of "${item.name}". Awaiting Admin confirmation to officially add the stock to the system.`,
+        type: 'success',
       });
       return;
     }
@@ -98,7 +125,7 @@ export const LowStockNotificationModal: React.FC<LowStockNotificationModalProps>
     if (!isAdmin) {
       showAlert({
         title: 'Admin Permission Required',
-        message: 'Only administrators have authorization to restock inventory levels.',
+        message: 'Custom direct restock is reserved for Administrators. Staff can use the "+10" refill request button.',
         type: 'warning',
       });
       return;
@@ -129,21 +156,65 @@ export const LowStockNotificationModal: React.FC<LowStockNotificationModalProps>
   const handleBatchRestockAll = async () => {
     if (lowStockItems.length === 0) return;
 
-    const confirmed = await showConfirm({
-      title: 'Restock All Low Items?',
-      message: `This will automatically add +15 units of stock to all ${lowStockItems.length} low-stock and out-of-stock items and mark them available.`,
-      type: 'warning',
-      confirmText: `Add +15 to ${lowStockItems.length} Items`,
-      cancelText: 'Cancel',
-    });
-
-    if (confirmed) {
-      const count = AppStore.batchRestockLowStock(5, 15);
-      showAlert({
-        title: 'Batch Restock Complete',
-        message: `Successfully added +15 units to ${count} low-stock items!`,
-        type: 'success',
+    if (isAdmin) {
+      const confirmed = await showConfirm({
+        title: 'Restock All Low Items?',
+        message: `This will automatically add +15 units of stock to all ${lowStockItems.length} low-stock and out-of-stock items and mark them available.`,
+        type: 'warning',
+        confirmText: `Add +15 to ${lowStockItems.length} Items`,
+        cancelText: 'Cancel',
       });
+
+      if (confirmed) {
+        const count = AppStore.batchRestockLowStock(5, 15);
+        showAlert({
+          title: 'Batch Restock Complete',
+          message: `Successfully added +15 units to ${count} low-stock items!`,
+          type: 'success',
+        });
+      }
+    } else {
+      const confirmed = await showConfirm({
+        title: 'Submit Refills for All Low Items?',
+        message: `This will submit refill requests (+15 units each) for all ${lowStockItems.length} low-stock items for Admin confirmation.`,
+        type: 'info',
+        confirmText: `Request Refill for ${lowStockItems.length} Items`,
+        cancelText: 'Cancel',
+      });
+
+      if (confirmed) {
+        const staffRole = activeStaff?.role || 'cashier';
+        const staffName = activeStaff?.name || 'Staff Member';
+
+        lowStockItems.forEach((item) => {
+          const cat = categories.find((c) => c.id === item.categoryId);
+          AppStore.createRefillRequest({
+            source: 'catalog',
+            menuItemId: item.id,
+            itemName: item.name,
+            categoryId: item.categoryId,
+            categoryName: cat?.name || 'Category',
+            station: staffRole === 'barista' ? 'bar' : staffRole === 'cook' ? 'kitchen' : 'bar',
+            unit: 'pcs',
+            currentStock: item.quantity ?? 0,
+            suggestedQuantity: 15,
+            urgency: (item.quantity ?? 0) <= 0 ? 'urgent' : 'high',
+            notes: `Batch refill request submitted by ${staffName} (${staffRole})`,
+            requestedBy: {
+              id: activeStaff?.id || 99,
+              name: staffName,
+              role: staffRole,
+              employeeId: activeStaff?.employeeId || `${staffRole.toUpperCase().slice(0, 3)}-01`,
+            },
+          });
+        });
+
+        showAlert({
+          title: 'Refill Requests Submitted',
+          message: `Submitted refill requests for ${lowStockItems.length} items. Awaiting Admin confirmation to officially add the stock to the system.`,
+          type: 'success',
+        });
+      }
     }
   };
 
@@ -387,10 +458,16 @@ export const LowStockNotificationModal: React.FC<LowStockNotificationModalProps>
                       </button>
                     </div>
                   ) : (
-                    <div className="self-end sm:self-center">
-                      <span className="rounded-lg bg-stone-100 border border-stone-200 px-2 py-1 text-[10px] font-bold text-stone-500">
-                        Restock restricted to Admin
-                      </span>
+                    <div className="flex items-center gap-1.5 self-end sm:self-center">
+                      <button
+                        type="button"
+                        onClick={() => handleQuickRestock(item, 10)}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 border border-amber-300 px-2.5 py-1 text-xs font-bold text-amber-950 shadow-2xs transition cursor-pointer"
+                        title="Request refill (+10 units) - Needs Admin Confirmation"
+                      >
+                        <PackagePlus className="h-3.5 w-3.5 text-amber-800" />
+                        <span>Request Refill (+10)</span>
+                      </button>
                     </div>
                   )}
                 </div>
@@ -400,8 +477,23 @@ export const LowStockNotificationModal: React.FC<LowStockNotificationModalProps>
         </div>
 
         {/* Footer Actions */}
-        <div className="border-t border-stone-200 bg-stone-50 px-4 py-2.5 sm:px-5 flex items-center justify-end gap-2 text-xs">
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+        <div className="border-t border-stone-200 bg-stone-50 px-4 py-2.5 sm:px-5 flex flex-wrap items-center justify-between gap-2 text-xs">
+          {lowStockItems.length > 0 && (
+            <button
+              type="button"
+              onClick={handleBatchRestockAll}
+              className="flex items-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 px-3 py-1.5 text-xs font-extrabold text-stone-950 shadow-xs transition cursor-pointer"
+            >
+              <PackagePlus className="h-3.5 w-3.5" />
+              <span>
+                {isAdmin
+                  ? `Batch Restock All (${lowStockItems.length} items)`
+                  : `Request Refills for All Low Items (${lowStockItems.length})`}
+              </span>
+            </button>
+          )}
+
+          <div className="flex items-center gap-2 ml-auto">
             {onNavigateToInventory && activeStaff?.role === 'admin' && (
               <button
                 type="button"
