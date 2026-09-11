@@ -143,11 +143,15 @@ export const TableManagement: React.FC<TableManagementProps> = ({
   // New table form state
   const [newTableForm, setNewTableForm] = useState<{
     tableNumber: number;
+    name: string;
+    setup: string;
     capacity: number;
     area: 'normal' | 'airconditioned';
     status: Table['status'];
   }>({
     tableNumber: 1,
+    name: '',
+    setup: '',
     capacity: 4,
     area: 'normal',
     status: 'available',
@@ -157,11 +161,15 @@ export const TableManagement: React.FC<TableManagementProps> = ({
   const [isEditingTable, setIsEditingTable] = useState(false);
   const [editTableForm, setEditTableForm] = useState<{
     tableNumber: number;
+    name: string;
+    setup: string;
     capacity: number;
     area: 'normal' | 'airconditioned';
     status: Table['status'];
   }>({
     tableNumber: 1,
+    name: '',
+    setup: '',
     capacity: 4,
     area: 'normal',
     status: 'available',
@@ -170,11 +178,15 @@ export const TableManagement: React.FC<TableManagementProps> = ({
   // Dedicated Edit Table Modal form state
   const [editModalForm, setEditModalForm] = useState<{
     tableNumber: number;
+    name: string;
+    setup: string;
     capacity: number;
     area: 'normal' | 'airconditioned';
     status: Table['status'];
   }>({
     tableNumber: 1,
+    name: '',
+    setup: '',
     capacity: 4,
     area: 'normal',
     status: 'available',
@@ -274,6 +286,8 @@ export const TableManagement: React.FC<TableManagementProps> = ({
     const highestNum = tables.length ? Math.max(...tables.map((t) => t.tableNumber)) : 0;
     setNewTableForm({
       tableNumber: highestNum + 1,
+      name: `Table ${highestNum + 1}`,
+      setup: '',
       capacity: 4,
       area: areaFilter !== 'all' ? areaFilter : 'normal',
       status: 'available',
@@ -305,6 +319,10 @@ export const TableManagement: React.FC<TableManagementProps> = ({
 
     const created = AppStore.addTable({
       tableNumber: tableNum,
+      name: newTableForm.name.trim() || `Table ${tableNum}`,
+      setup: newTableForm.setup.trim() || undefined,
+      description: newTableForm.setup.trim() || undefined,
+      areaName: newTableForm.name.trim() || (newTableForm.area === 'airconditioned' ? 'Air-Con' : 'Non-A/C'),
       capacity: Number(newTableForm.capacity) || 4,
       area: newTableForm.area,
       status: newTableForm.status,
@@ -316,7 +334,7 @@ export const TableManagement: React.FC<TableManagementProps> = ({
     showAlert({
       title: 'Table Added Successfully',
       message: `Table #${created.tableNumber} (${created.capacity} seats, ${
-        created.area === 'airconditioned' ? 'Airconditioned Room' : 'Normal / Main Area'
+        created.area === 'airconditioned' ? 'Air-Con' : 'Non-A/C'
       }) has been added to the floor plan.`,
       type: 'success',
     });
@@ -368,6 +386,8 @@ export const TableManagement: React.FC<TableManagementProps> = ({
     setTableToEdit(table);
     setEditModalForm({
       tableNumber: table.tableNumber,
+      name: table.name || '',
+      setup: table.setup || table.description || '',
       capacity: table.capacity,
       area: table.area,
       status: table.status,
@@ -400,6 +420,10 @@ export const TableManagement: React.FC<TableManagementProps> = ({
 
     const updated = AppStore.updateTable(tableToEdit.id, {
       tableNumber: tableNum,
+      name: editModalForm.name.trim() || `Table ${tableNum}`,
+      setup: editModalForm.setup.trim() || undefined,
+      description: editModalForm.setup.trim() || undefined,
+      areaName: editModalForm.name.trim() || (editModalForm.area === 'airconditioned' ? 'Air-Con' : 'Non-A/C'),
       capacity: Number(editModalForm.capacity) || 4,
       area: editModalForm.area,
       status: editModalForm.status,
@@ -423,6 +447,8 @@ export const TableManagement: React.FC<TableManagementProps> = ({
   const handleStartEditingTable = (table: Table) => {
     setEditTableForm({
       tableNumber: table.tableNumber,
+      name: table.name || '',
+      setup: table.setup || table.description || '',
       capacity: table.capacity,
       area: table.area,
       status: table.status,
@@ -453,6 +479,10 @@ export const TableManagement: React.FC<TableManagementProps> = ({
 
     const updated = AppStore.updateTable(table.id, {
       tableNumber: tableNum,
+      name: editTableForm.name.trim() || `Table ${tableNum}`,
+      setup: editTableForm.setup.trim() || undefined,
+      description: editTableForm.setup.trim() || undefined,
+      areaName: editTableForm.name.trim() || (editTableForm.area === 'airconditioned' ? 'Air-Con' : 'Non-A/C'),
       capacity: Number(editTableForm.capacity) || 4,
       area: editTableForm.area,
       status: editTableForm.status,
@@ -767,24 +797,38 @@ export const TableManagement: React.FC<TableManagementProps> = ({
             </div>
           </div>
 
-          {/* Center Info if Reserved or Occupied */}
+          {/* Center Info: Name, Setup, and status info */}
           <div className="my-auto py-0.5 sm:py-2">
+            <div className="mb-0.5 sm:mb-1">
+              <h4 className={`font-serif text-[11px] sm:text-base font-bold leading-tight truncate ${isOccupied ? 'text-white' : 'text-stone-900'}`}>
+                {table.name || `Table ${table.tableNumber}`}
+              </h4>
+              {table.setup && (
+                <p className={`text-[8px] sm:text-[11px] font-medium truncate ${isOccupied ? 'text-stone-300' : 'text-stone-600'}`}>
+                  {table.setup}
+                </p>
+              )}
+            </div>
+
             {isReserved && (
-              <div className="space-y-0.5">
-                <h4 className="font-serif text-[10px] sm:text-base md:text-lg font-bold text-stone-900 leading-tight truncate">
+              <div className="space-y-0.5 pt-0.5 border-t border-amber-200/60">
+                <span className="text-[9px] sm:text-xs font-bold text-amber-900 leading-tight truncate block">
                   {activeRes?.customerName || 'Reserved Guest'}
-                </h4>
+                </span>
                 <p className="text-[8px] sm:text-xs text-stone-700 font-medium">
                   {activeRes?.guestCount || table.capacity} Guests
+                  {activeRes?.reservationAt
+                    ? ` • ${new Date(activeRes.reservationAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                    : ''}
                 </p>
               </div>
             )}
 
             {isOccupied && (
-              <div className="space-y-0.5">
-                <h4 className="font-serif text-[10px] sm:text-base md:text-lg font-bold text-white leading-tight truncate">
-                  Guest
-                </h4>
+              <div className="space-y-0.5 pt-0.5 border-t border-stone-800">
+                <span className="text-[9px] sm:text-xs font-bold text-amber-400 leading-tight truncate block">
+                  Occupied
+                </span>
                 <p className="text-[8px] sm:text-xs text-stone-400 font-medium">
                   {table.capacity} Guests
                 </p>
@@ -792,7 +836,7 @@ export const TableManagement: React.FC<TableManagementProps> = ({
             )}
 
             {isCleaning && (
-              <div className="space-y-0.5">
+              <div className="space-y-0.5 pt-0.5 border-t border-sky-200">
                 <h4 className="font-serif text-[9px] sm:text-sm font-bold text-sky-900 leading-tight">
                   Being Sanitized
                 </h4>
@@ -802,8 +846,9 @@ export const TableManagement: React.FC<TableManagementProps> = ({
 
             {!isReserved && !isOccupied && !isCleaning && (
               <div className="space-y-0.5">
-                <p className="text-[8px] sm:text-xs text-stone-500 font-medium">
-                  {table.capacity} Seats Available
+                <p className="text-[8px] sm:text-xs text-stone-500 font-medium truncate">
+                  <span className="sm:hidden">{table.capacity} Seats</span>
+                  <span className="hidden sm:inline">{table.capacity} Seats Available</span>
                 </p>
               </div>
             )}
@@ -821,7 +866,7 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                   : 'bg-stone-50 border border-stone-200 text-stone-600'
               }`}
             >
-              {table.area === 'airconditioned' ? 'AC' : 'NORMAL'}
+              {table.area === 'airconditioned' ? 'Air-Con' : 'Non-A/C'}
             </span>
 
             {/* Status Tag */}
@@ -842,6 +887,27 @@ export const TableManagement: React.FC<TableManagementProps> = ({
         </div>
       </div>
     );
+  };
+
+  const handleResetToOfficial = async () => {
+    const confirmed = await showConfirm({
+      title: 'Reset to Official Tables?',
+      message:
+        'This will reset the layout to the 10 official Yellow Hauz tables (Table 1: 1st aircon to Table 10: window). Active reservations will be preserved.',
+      type: 'warning',
+      confirmText: 'Reset Tables',
+      cancelText: 'Cancel',
+    });
+
+    if (confirmed) {
+      AppStore.resetToOfficialTables();
+      refreshData();
+      showAlert({
+        title: 'Official Tables Restored',
+        message: 'Loaded 10 official Yellow Hauz tables and areas.',
+        type: 'success',
+      });
+    }
   };
 
   return (
@@ -987,8 +1053,18 @@ export const TableManagement: React.FC<TableManagementProps> = ({
           </div>
         </div>
 
-        {/* Right Actions: Add Table & New Booking */}
+        {/* Right Actions: Reset Tables, Add Table & New Booking */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={handleResetToOfficial}
+            title="Reset to 10 Official Yellow Hauz Tables"
+            className="inline-flex items-center justify-center gap-1 sm:gap-1.5 rounded-xl border border-stone-300 bg-white px-2 sm:px-3 py-2 text-xs font-bold text-stone-700 hover:bg-stone-50 hover:text-stone-900 transition active:scale-95 shadow-2xs cursor-pointer"
+          >
+            <RefreshCw className="h-3.5 w-3.5 text-stone-500 shrink-0" />
+            <span className="hidden sm:inline">Official Tables</span>
+          </button>
+
           <button
             type="button"
             onClick={handleOpenAddTableModal}
@@ -1013,25 +1089,26 @@ export const TableManagement: React.FC<TableManagementProps> = ({
 
       {/* LIVE CASHIER VERIFICATION: PENDING CUSTOMER TABLE REQUESTS */}
       {pendingRequests.length > 0 ? (
-        <div className="rounded-3xl border-2 border-amber-400 bg-gradient-to-br from-amber-500/10 via-amber-50/70 to-white p-5 sm:p-6 shadow-md space-y-4 animate-in fade-in duration-200">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200/80 pb-3">
-            <div className="flex items-center gap-3">
-              <div className="relative grid h-10 w-10 place-items-center rounded-2xl bg-amber-500 text-stone-950 font-black shadow-xs">
-                <Bell className="h-5 w-5 animate-bounce" />
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-600 text-[10px] font-black text-white">
+        <div className="rounded-2xl sm:rounded-3xl border sm:border-2 border-amber-400 bg-gradient-to-br from-amber-500/10 via-amber-50/70 to-white p-3 sm:p-6 shadow-md space-y-2.5 sm:space-y-4 animate-in fade-in duration-200">
+          <div className="flex items-center justify-between gap-2 sm:gap-3 border-b border-amber-200/80 pb-2 sm:pb-3">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className="relative grid h-7 w-7 sm:h-10 sm:w-10 place-items-center rounded-xl sm:rounded-2xl bg-amber-500 text-stone-950 font-black shadow-xs shrink-0">
+                <Bell className="h-3.5 w-3.5 sm:h-5 sm:w-5 animate-bounce" />
+                <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 sm:h-4 sm:w-4 items-center justify-center rounded-full bg-rose-600 text-[8px] sm:text-[10px] font-black text-white">
                   {pendingRequests.length}
                 </span>
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-base sm:text-lg font-black text-stone-950 font-display">
-                    Pending Customer Table Requests ({pendingRequests.length})
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <h2 className="text-xs sm:text-lg font-black text-stone-950 font-display truncate">
+                    <span className="sm:hidden">Requests</span>
+                    <span className="hidden sm:inline">Pending Customer Table Requests</span> ({pendingRequests.length})
                   </h2>
-                  <span className="rounded-full bg-amber-200/90 px-2 py-0.5 text-[10px] font-black text-amber-950 animate-pulse">
+                  <span className="hidden sm:inline-block rounded-full bg-amber-200/90 px-2 py-0.5 text-[10px] font-black text-amber-950 animate-pulse shrink-0">
                     Cashier Action Required
                   </span>
                 </div>
-                <p className="text-xs text-stone-600">
+                <p className="hidden sm:block text-xs text-stone-600">
                   Customers are selecting or changing tables. Click Approve to assign their table in real-time.
                 </p>
               </div>
@@ -1041,18 +1118,19 @@ export const TableManagement: React.FC<TableManagementProps> = ({
               type="button"
               onClick={() => setIsHistoryOpen(!isHistoryOpen)}
               title="Table Logs"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-white px-2.5 sm:px-3 py-1.5 text-xs font-bold text-stone-800 hover:bg-amber-100 transition cursor-pointer shadow-2xs"
+              className="inline-flex items-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl border border-amber-300 bg-white px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-bold text-stone-800 hover:bg-amber-100 transition cursor-pointer shadow-2xs shrink-0"
             >
-              <Clock className="h-3.5 w-3.5 text-amber-700 shrink-0" />
+              <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-700 shrink-0" />
               <span className="hidden sm:inline">{isHistoryOpen ? 'Hide Logs' : 'Table Logs'}</span>
-              <span className="rounded-full bg-amber-100 px-1.5 py-0.2 text-[10px] font-black text-amber-900">
+              <span className="sm:hidden">{isHistoryOpen ? 'Hide' : 'Logs'}</span>
+              <span className="rounded-full bg-amber-100 px-1.5 py-0.2 text-[9px] sm:text-[10px] font-black text-amber-900">
                 {resolvedRequests.length}
               </span>
             </button>
           </div>
 
           {/* Pending Request Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-4">
             {pendingRequests.map((req) => {
               const targetTable = tables.find((t) => t.tableNumber === req.requestedTableNumber);
               const isTargetAvailable = targetTable?.status === 'available';
@@ -1060,66 +1138,65 @@ export const TableManagement: React.FC<TableManagementProps> = ({
               return (
                 <div
                   key={req.id}
-                  className="relative flex flex-col justify-between rounded-2xl border-2 border-amber-300/90 bg-white p-4.5 shadow-sm space-y-3"
+                  className="relative flex flex-col justify-between rounded-xl sm:rounded-2xl border sm:border-2 border-amber-300/90 bg-white p-3 sm:p-4.5 shadow-sm space-y-2.5 sm:space-y-3"
                 >
-                  <div className="space-y-2">
+                  <div className="space-y-1.5 sm:space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-black tracking-wide uppercase ${
+                        className={`rounded-full px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black tracking-wide uppercase ${
                           req.type === 'change_table'
                             ? 'bg-purple-100 text-purple-900 border border-purple-200'
                             : 'bg-emerald-100 text-emerald-900 border border-emerald-200'
                         }`}
                       >
-                        {req.type === 'change_table' ? 'Table Change Request' : 'New Table Seating'}
+                        {req.type === 'change_table' ? 'Table Change' : 'New Seating'}
                       </span>
-                      <span className="text-[10px] font-mono font-bold text-stone-400">
+                      <span className="text-[9px] sm:text-[10px] font-mono font-bold text-stone-400">
                         {new Date(req.createdAt).toLocaleTimeString([], {
                           hour: '2-digit',
                           minute: '2-digit',
-                          second: '2-digit',
                         })}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      <div className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-500 text-stone-950 font-black font-mono text-xl shadow-xs">
+                    <div className="flex items-center gap-2.5 sm:gap-3">
+                      <div className="grid h-9 w-9 sm:h-12 sm:w-12 place-items-center rounded-xl sm:rounded-2xl bg-amber-500 text-stone-950 font-black font-mono text-base sm:text-xl shadow-xs shrink-0">
                         #{req.requestedTableNumber}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-1.5 font-bold text-stone-950 text-sm">
-                          <UserIcon className="h-3.5 w-3.5 text-stone-400" />
-                          <span>{req.customerName}</span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1 sm:gap-1.5 font-bold text-stone-950 text-xs sm:text-sm truncate">
+                          <UserIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-stone-400 shrink-0" />
+                          <span className="truncate">{req.customerName}</span>
                         </div>
                         {req.customerPhone && (
-                          <div className="flex items-center gap-1 text-[11px] text-stone-500">
-                            <Phone className="h-3 w-3" />
-                            <span>{req.customerPhone}</span>
+                          <div className="flex items-center gap-1 text-[10px] sm:text-[11px] text-stone-500 truncate">
+                            <Phone className="h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0" />
+                            <span className="truncate">{req.customerPhone}</span>
                           </div>
                         )}
-                        <p className="text-[11px] text-stone-600 font-medium">
-                          {req.area === 'airconditioned' ? 'Airconditioned Room' : 'Main Dining Area'} •{' '}
+                        <p className="text-[10px] sm:text-[11px] text-stone-600 font-medium truncate">
+                          {req.area === 'airconditioned' ? 'Air-Con' : 'Non-A/C'} •{' '}
                           {req.capacity || 4} Seats
                         </p>
                       </div>
                     </div>
 
                     {req.currentTableNumber && (
-                      <div className="flex items-center gap-1.5 rounded-xl bg-purple-50 border border-purple-200 p-2 text-xs font-bold text-purple-900">
-                        <span>Current Table: #{req.currentTableNumber}</span>
-                        <ArrowRight className="h-3 w-3" />
-                        <span>New Target: #{req.requestedTableNumber}</span>
+                      <div className="flex items-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl bg-purple-50 border border-purple-200 p-1.5 sm:p-2 text-[10px] sm:text-xs font-bold text-purple-900">
+                        <span>Current: #{req.currentTableNumber}</span>
+                        <ArrowRight className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                        <span>Target: #{req.requestedTableNumber}</span>
                       </div>
                     )}
 
                     {req.notes && (
-                      <p className="rounded-xl bg-stone-50 border border-stone-200/80 p-2 text-[11px] text-stone-700 italic">
+                      <p className="rounded-lg sm:rounded-xl bg-stone-50 border border-stone-200/80 p-1.5 sm:p-2 text-[10px] sm:text-[11px] text-stone-700 italic line-clamp-2">
                         "{req.notes}"
                       </p>
                     )}
 
-                    <div className="flex items-center justify-between text-[11px] pt-1 border-t border-stone-100">
-                      <span className="text-stone-500">Table Status:</span>
+                    <div className="flex items-center justify-between text-[10px] sm:text-[11px] pt-1 border-t border-stone-100">
+                      <span className="text-stone-500">Status:</span>
                       <span
                         className={`font-black ${
                           isTargetAvailable ? 'text-emerald-600' : 'text-amber-700'
@@ -1131,21 +1208,24 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                   </div>
 
                   {/* Cashier Action Buttons */}
-                  <div className="flex items-center gap-2 pt-2 border-t border-stone-100">
+                  <div className="flex items-center gap-1.5 sm:gap-2 pt-1.5 sm:pt-2 border-t border-stone-100">
                     <button
                       type="button"
                       onClick={() => handleApproveTableRequest(req)}
-                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white hover:bg-emerald-500 transition shadow-xs cursor-pointer active:scale-95"
+                      className="flex-1 flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl bg-emerald-600 px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs font-black text-white hover:bg-emerald-500 transition shadow-xs cursor-pointer active:scale-95"
                     >
-                      <Check className="h-4 w-4 stroke-[3]" />
-                      <span>Approve Table</span>
+                      <Check className="h-3.5 w-3.5 stroke-[3]" />
+                      <span>
+                        <span className="sm:hidden">Approve</span>
+                        <span className="hidden sm:inline">Approve Table</span>
+                      </span>
                     </button>
                     <button
                       type="button"
                       onClick={() => handleOpenDeclineModal(req)}
-                      className="flex items-center justify-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 transition cursor-pointer active:scale-95"
+                      className="flex items-center justify-center gap-1 rounded-lg sm:rounded-xl border border-rose-200 bg-rose-50 px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold text-rose-700 hover:bg-rose-100 transition cursor-pointer active:scale-95"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3.5 w-3.5" />
                       <span>Decline</span>
                     </button>
                   </div>
@@ -1155,13 +1235,14 @@ export const TableManagement: React.FC<TableManagementProps> = ({
           </div>
         </div>
       ) : (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-stone-100/90 border border-stone-200 px-4 py-2.5 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-bold text-stone-800">
-              Table Confirmation
+        <div className="flex items-center justify-between gap-2 sm:gap-3 rounded-xl sm:rounded-2xl bg-stone-100/90 border border-stone-200 px-3 sm:px-4 py-1.5 sm:py-2.5 text-[10px] sm:text-xs">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+            <span className="flex h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <span className="font-bold text-stone-800 text-[10px] sm:text-xs truncate">
+              <span className="sm:hidden">Table Status</span>
+              <span className="hidden sm:inline">Table Confirmation</span>
             </span>
-            <span className="text-stone-500 hidden sm:inline">
+            <span className="text-stone-500 hidden sm:inline truncate">
               • Cashier on duty: {getEffectiveCashier().fullName}
             </span>
           </div>
@@ -1170,11 +1251,12 @@ export const TableManagement: React.FC<TableManagementProps> = ({
               type="button"
               onClick={() => setIsHistoryOpen(!isHistoryOpen)}
               title="Table Logs"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-2.5 sm:px-3 py-1.5 text-xs font-bold text-stone-700 hover:bg-stone-50 hover:text-stone-900 transition shadow-2xs cursor-pointer active:scale-95"
+              className="inline-flex items-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl border border-stone-200 bg-white px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-bold text-stone-700 hover:bg-stone-50 hover:text-stone-900 transition shadow-2xs cursor-pointer active:scale-95 shrink-0"
             >
-              <Clock className="h-3.5 w-3.5 text-stone-500 shrink-0" />
+              <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-stone-500 shrink-0" />
               <span className="hidden sm:inline">{isHistoryOpen ? 'Hide Logs' : 'Table Logs'}</span>
-              <span className="rounded-full bg-stone-100 px-1.5 py-0.2 text-[10px] font-black text-stone-700">
+              <span className="sm:hidden">Logs</span>
+              <span className="rounded-full bg-stone-100 px-1.5 py-0.2 text-[9px] sm:text-[10px] font-black text-stone-700">
                 {resolvedRequests.length}
               </span>
             </button>
@@ -1289,71 +1371,42 @@ export const TableManagement: React.FC<TableManagementProps> = ({
 
       {/* Interactive Table & Reservation Details Modal */}
       {selectedTableForDetails && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 border border-stone-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-lg rounded-2xl sm:rounded-3xl bg-white p-3.5 sm:p-6 shadow-2xl space-y-3 sm:space-y-5 animate-in zoom-in-95 duration-200 border border-stone-200 max-h-[92vh] overflow-y-auto">
             {/* Modal Header */}
-            <div className="flex items-start justify-between border-b border-stone-100 pb-4">
-              <div className="flex items-center gap-3">
-                <div
-                  className={`grid h-12 w-12 place-items-center rounded-2xl text-base font-black shadow-xs ${
-                    selectedTableForDetails.status === 'reserved'
-                      ? 'bg-amber-300 text-stone-950'
-                      : selectedTableForDetails.status === 'occupied'
-                      ? 'bg-stone-900 text-amber-400'
-                      : selectedTableForDetails.status === 'cleaning'
-                      ? 'bg-sky-200 text-sky-950'
-                      : 'bg-stone-100 text-stone-800'
-                  }`}
-                >
-                  T{selectedTableForDetails.tableNumber}
+            <div className="flex items-start justify-between border-b border-stone-100 pb-2.5 sm:pb-4">
+              <div>
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                  <h3 className="font-display text-base sm:text-xl font-extrabold text-stone-900">
+                    Table #{selectedTableForDetails.tableNumber}{selectedTableForDetails.name ? ` • ${selectedTableForDetails.name}` : ''}
+                  </h3>
+                  <span className="rounded-full bg-stone-100 px-2 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-bold text-stone-600 uppercase">
+                    {selectedTableForDetails.area === 'airconditioned'
+                      ? '❄️ Air-Con'
+                      : '🌿 Non-A/C'}
+                  </span>
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-display text-lg sm:text-xl font-extrabold text-stone-900">
-                      Table #{selectedTableForDetails.tableNumber}
-                    </h3>
-                    <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-[10px] font-bold text-stone-600 uppercase">
-                      {selectedTableForDetails.area === 'airconditioned'
-                        ? '❄️ Airconditioned Room'
-                        : '🌿 Normal / Main Dining'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-stone-500 mt-0.5">
-                    {selectedTableForDetails.capacity} Guests Seating Capacity
-                  </p>
-                </div>
+                <p className="text-[11px] sm:text-xs text-stone-500 mt-0.5 font-medium flex items-center gap-2">
+                  <span>{selectedTableForDetails.capacity} Seats</span>
+                  {selectedTableForDetails.setup && (
+                    <>
+                      <span>•</span>
+                      <span className="font-semibold text-stone-700">{selectedTableForDetails.setup}</span>
+                    </>
+                  )}
+                </p>
               </div>
 
               <div className="flex items-center gap-1">
-                {!isEditingTable && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => handleStartEditingTable(selectedTableForDetails)}
-                      title="Edit Table Configuration"
-                      className="rounded-full p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-700 transition"
-                    >
-                      <Edit3 className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteTable(selectedTableForDetails)}
-                      title="Delete Table"
-                      className="rounded-full p-2 text-stone-400 hover:bg-rose-50 hover:text-rose-600 transition"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </>
-                )}
                 <button
                   type="button"
                   onClick={() => {
                     setSelectedTableForDetails(null);
                     setIsEditingTable(false);
                   }}
-                  className="rounded-full p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-700 transition"
+                  className="rounded-full p-1 sm:p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-700 transition"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-4 w-4 sm:h-5 sm:w-5" />
                 </button>
               </div>
             </div>
@@ -1407,6 +1460,33 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-stone-700 block mb-1">Table Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 1st aircon, Center, Kolin"
+                      value={editTableForm.name}
+                      onChange={(e) =>
+                        setEditTableForm({ ...editTableForm, name: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-stone-900 focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-stone-700 block mb-1">Setup / Furniture</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 3 tables, 10 high chairs"
+                      value={editTableForm.setup}
+                      onChange={(e) =>
+                        setEditTableForm({ ...editTableForm, setup: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-stone-900 focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <label className="font-bold text-stone-700 block mb-1">Dining Area</label>
                   <div className="grid grid-cols-2 gap-2">
@@ -1419,7 +1499,7 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                           : 'border-stone-200 bg-white text-stone-600'
                       }`}
                     >
-                      🌿 Main / Normal
+                      🌿 Non-A/C
                     </button>
                     <button
                       type="button"
@@ -1432,7 +1512,7 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                           : 'border-stone-200 bg-white text-stone-600'
                       }`}
                     >
-                      ❄️ Airconditioned
+                      ❄️ Air-Con
                     </button>
                   </div>
                 </div>
@@ -1818,23 +1898,21 @@ export const TableManagement: React.FC<TableManagementProps> = ({
             })()}
 
             {/* Admin Table Configuration Quick Actions in Details Modal */}
-            <div className="flex items-center justify-between pt-3 border-t border-stone-200 text-xs">
+            <div className="flex items-center justify-between pt-2.5 sm:pt-3 border-t border-stone-200 text-xs">
               <button
                 type="button"
                 onClick={() => handleOpenEditModal(selectedTableForDetails)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-stone-300 bg-stone-50 px-3.5 py-2 font-bold text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition active:scale-95"
+                className="inline-flex items-center rounded-xl border border-stone-300 bg-stone-50 px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition active:scale-95 cursor-pointer"
               >
-                <Edit3 className="h-3.5 w-3.5 text-stone-600" />
-                <span>Edit Table Settings</span>
+                <span>Edit</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleDeleteTable(selectedTableForDetails)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/80 px-3.5 py-2 font-bold text-rose-700 hover:bg-rose-100 transition active:scale-95"
+                className="inline-flex items-center rounded-xl border border-rose-200 bg-rose-50/80 px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold text-rose-700 hover:bg-rose-100 transition active:scale-95 cursor-pointer"
               >
-                <Trash2 className="h-3.5 w-3.5" />
-                <span>Delete Table</span>
+                <span>Delete</span>
               </button>
             </div>
           </div>
@@ -1978,36 +2056,35 @@ export const TableManagement: React.FC<TableManagementProps> = ({
 
       {/* Add New Table Modal */}
       {isAddTableModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl space-y-4 border border-stone-200 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-amber-500 text-stone-950 font-black">
-                  <Plus className="h-5 w-5 stroke-[2.5]" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/60 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-md rounded-2xl sm:rounded-3xl bg-white p-3.5 sm:p-6 shadow-2xl space-y-3 sm:space-y-4 border border-stone-200 animate-in zoom-in-95 duration-150 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-2.5 sm:pb-3">
+              <div className="flex items-center gap-2 sm:gap-2.5">
+                <div className="grid h-7 w-7 sm:h-10 sm:w-10 place-items-center rounded-lg sm:rounded-xl bg-amber-500 text-stone-950 font-black shrink-0">
+                  <Plus className="h-3.5 w-3.5 sm:h-5 sm:w-5 stroke-[2.5]" />
                 </div>
                 <div>
-                  <h3 className="font-display text-lg font-extrabold text-stone-900">
+                  <h3 className="font-display text-sm sm:text-lg font-extrabold text-stone-900">
                     Add New Table
                   </h3>
-                  <p className="text-xs text-stone-500">Configure table layout for floor plan</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsAddTableModalOpen(false)}
-                className="rounded-full p-1.5 text-stone-400 hover:bg-stone-100 transition"
+                className="rounded-full p-1 sm:p-1.5 text-stone-400 hover:bg-stone-100 transition"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4 sm:h-5 sm:w-5" />
               </button>
             </div>
 
-            <form onSubmit={handleAddTableSubmit} className="space-y-4 text-xs">
+            <form onSubmit={handleAddTableSubmit} className="space-y-2.5 sm:space-y-4 text-xs">
               <div>
-                <label className="font-bold text-stone-700 block mb-1">
+                <label className="font-bold text-stone-700 block mb-1 text-[11px] sm:text-xs">
                   Table Number *
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-2.5 font-bold text-stone-400">
+                  <span className="absolute left-2.5 sm:left-3 top-1.5 sm:top-2 font-bold text-stone-400 text-xs sm:text-sm">
                     Table #
                   </span>
                   <input
@@ -2022,25 +2099,53 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                         tableNumber: parseInt(e.target.value) || 1,
                       })
                     }
-                    className="w-full rounded-xl border border-stone-300 bg-white py-2 pl-18 pr-3 text-sm font-bold text-stone-900 focus:border-amber-500 focus:outline-none"
+                    className="w-full rounded-xl border border-stone-300 bg-white py-1.5 sm:py-2 pl-14 sm:pl-16 pr-3 text-xs sm:text-sm font-bold text-stone-900 focus:border-amber-500 focus:outline-none"
                   />
                 </div>
-                <p className="text-[11px] text-stone-400 mt-1">
-                  Suggested sequential number is Table #{newTableForm.tableNumber}
-                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                <div>
+                  <label className="font-bold text-stone-700 block mb-1 text-[11px] sm:text-xs">
+                    Table Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 1st aircon, Kolin, Center"
+                    value={newTableForm.name}
+                    onChange={(e) =>
+                      setNewTableForm({ ...newTableForm, name: e.target.value })
+                    }
+                    className="w-full rounded-xl border border-stone-300 bg-white py-1.5 sm:py-2 px-3 text-xs sm:text-sm font-medium text-stone-900 focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-stone-700 block mb-1 text-[11px] sm:text-xs">
+                    Setup / Furniture
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 3 tables, 10 high chairs"
+                    value={newTableForm.setup}
+                    onChange={(e) =>
+                      setNewTableForm({ ...newTableForm, setup: e.target.value })
+                    }
+                    className="w-full rounded-xl border border-stone-300 bg-white py-1.5 sm:py-2 px-3 text-xs sm:text-sm font-medium text-stone-900 focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
               </div>
 
               <div>
-                <label className="font-bold text-stone-700 block mb-1.5">
+                <label className="font-bold text-stone-700 block mb-1 text-[11px] sm:text-xs">
                   Seating Capacity *
                 </label>
-                <div className="grid grid-cols-4 gap-1.5 mb-2">
+                <div className="grid grid-cols-4 gap-1 sm:gap-1.5 mb-1.5 sm:mb-2">
                   {[2, 4, 6, 8].map((cap) => (
                     <button
                       key={cap}
                       type="button"
                       onClick={() => setNewTableForm({ ...newTableForm, capacity: cap })}
-                      className={`py-2 rounded-xl text-xs font-bold border transition ${
+                      className={`py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold border transition ${
                         newTableForm.capacity === cap
                           ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-xs'
                           : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
@@ -2050,8 +2155,8 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                     </button>
                   ))}
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-stone-500">Custom count:</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] sm:text-[11px] text-stone-500">Custom:</span>
                   <input
                     type="number"
                     min={1}
@@ -2063,33 +2168,30 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                         capacity: parseInt(e.target.value) || 1,
                       })
                     }
-                    className="w-24 rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-xs font-bold text-stone-900 focus:border-amber-500 focus:outline-none"
+                    className="w-16 sm:w-20 rounded-lg sm:rounded-xl border border-stone-300 bg-white px-2 py-1 text-[11px] sm:text-xs font-bold text-stone-900 focus:border-amber-500 focus:outline-none"
                   />
-                  <span className="text-[11px] text-stone-500">seats</span>
+                  <span className="text-[10px] sm:text-[11px] text-stone-500">seats</span>
                 </div>
               </div>
 
               <div>
-                <label className="font-bold text-stone-700 block mb-1.5">
+                <label className="font-bold text-stone-700 block mb-1 text-[11px] sm:text-xs">
                   Dining Area *
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                   <button
                     type="button"
                     onClick={() => setNewTableForm({ ...newTableForm, area: 'normal' })}
-                    className={`p-3 rounded-2xl border text-left transition flex items-center gap-2.5 ${
+                    className={`p-2 sm:p-2.5 rounded-xl sm:rounded-2xl border text-left transition flex items-center gap-2 ${
                       newTableForm.area === 'normal'
                         ? 'border-amber-500 bg-amber-50/70 ring-2 ring-amber-500/20'
                         : 'border-stone-200 bg-stone-50 hover:bg-stone-100'
                     }`}
                   >
-                    <span className="text-xl">🌿</span>
-                    <div>
-                      <span className="font-bold text-stone-900 block text-xs">
-                        Main Dining
-                      </span>
-                      <span className="text-[10px] text-stone-500">Standard / Normal</span>
-                    </div>
+                    <span className="text-base sm:text-lg">🌿</span>
+                    <span className="font-bold text-stone-900 block text-[11px] sm:text-xs">
+                      Non-A/C
+                    </span>
                   </button>
 
                   <button
@@ -2097,35 +2199,32 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                     onClick={() =>
                       setNewTableForm({ ...newTableForm, area: 'airconditioned' })
                     }
-                    className={`p-3 rounded-2xl border text-left transition flex items-center gap-2.5 ${
+                    className={`p-2 sm:p-2.5 rounded-xl sm:rounded-2xl border text-left transition flex items-center gap-2 ${
                       newTableForm.area === 'airconditioned'
                         ? 'border-sky-500 bg-sky-50/70 ring-2 ring-sky-500/20'
                         : 'border-stone-200 bg-stone-50 hover:bg-stone-100'
                     }`}
                   >
-                    <span className="text-xl">❄️</span>
-                    <div>
-                      <span className="font-bold text-stone-900 block text-xs">
-                        AC Room
-                      </span>
-                      <span className="text-[10px] text-stone-500">Airconditioned</span>
-                    </div>
+                    <span className="text-base sm:text-lg">❄️</span>
+                    <span className="font-bold text-stone-900 block text-[11px] sm:text-xs">
+                      Air-Con
+                    </span>
                   </button>
                 </div>
               </div>
 
               <div>
-                <label className="font-bold text-stone-700 block mb-1.5">
+                <label className="font-bold text-stone-700 block mb-1 text-[11px] sm:text-xs">
                   Initial Status
                 </label>
-                <div className="grid grid-cols-4 gap-1.5 rounded-2xl bg-stone-100 p-1">
+                <div className="grid grid-cols-4 gap-1 sm:gap-1.5 rounded-xl sm:rounded-2xl bg-stone-100 p-1">
                   {(['available', 'occupied', 'reserved', 'cleaning'] as Table['status'][]).map(
                     (st) => (
                       <button
                         key={st}
                         type="button"
                         onClick={() => setNewTableForm({ ...newTableForm, status: st })}
-                        className={`rounded-xl py-1.5 text-xs font-bold capitalize transition ${
+                        className={`rounded-lg sm:rounded-xl py-1 sm:py-1.5 text-[10px] sm:text-xs font-bold capitalize transition ${
                           newTableForm.status === st
                             ? st === 'available'
                               ? 'bg-emerald-600 text-white shadow-xs'
@@ -2144,19 +2243,19 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center justify-end gap-2 pt-3 border-t border-stone-100">
+              <div className="mt-3 sm:mt-4 flex items-center justify-end gap-1.5 sm:gap-2 pt-2.5 sm:pt-3 border-t border-stone-100">
                 <button
                   type="button"
                   onClick={() => setIsAddTableModalOpen(false)}
-                  className="rounded-xl border border-stone-200 px-4 py-2 font-bold text-stone-600 hover:bg-stone-50 transition"
+                  className="rounded-xl border border-stone-200 px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold text-stone-600 hover:bg-stone-50 transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-amber-500 px-4 py-2 font-extrabold text-stone-950 hover:bg-amber-400 transition shadow-xs"
+                  className="rounded-xl bg-amber-500 px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-extrabold text-stone-950 hover:bg-amber-400 transition shadow-xs cursor-pointer"
                 >
-                  Create &amp; Place Table
+                  Create Table
                 </button>
               </div>
             </form>
@@ -2166,19 +2265,18 @@ export const TableManagement: React.FC<TableManagementProps> = ({
 
       {/* Edit Table Modal */}
       {isEditTableModalOpen && tableToEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl space-y-4 border border-stone-200 animate-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/60 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-md rounded-2xl sm:rounded-3xl bg-white p-3.5 sm:p-6 shadow-2xl space-y-3 sm:space-y-4 border border-stone-200 animate-in zoom-in-95 duration-150 max-h-[92vh] overflow-y-auto">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-amber-500 text-stone-950 font-black">
-                  <Edit3 className="h-5 w-5 stroke-[2.5]" />
+            <div className="flex items-center justify-between border-b border-stone-100 pb-2.5 sm:pb-3">
+              <div className="flex items-center gap-2 sm:gap-2.5">
+                <div className="grid h-7 w-7 sm:h-10 sm:w-10 place-items-center rounded-lg sm:rounded-xl bg-amber-500 text-stone-950 font-black shrink-0">
+                  <Edit3 className="h-3.5 w-3.5 sm:h-5 sm:w-5 stroke-[2.5]" />
                 </div>
                 <div>
-                  <h3 className="font-display text-lg font-extrabold text-stone-900">
+                  <h3 className="font-display text-sm sm:text-lg font-extrabold text-stone-900">
                     Edit Table #{tableToEdit.tableNumber}
                   </h3>
-                  <p className="text-xs text-stone-500">Update table number, seating, area &amp; status</p>
                 </div>
               </div>
               <button
@@ -2187,26 +2285,23 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                   setIsEditTableModalOpen(false);
                   setTableToEdit(null);
                 }}
-                className="rounded-full p-1.5 text-stone-400 hover:bg-stone-100 transition"
+                className="rounded-full p-1 sm:p-1.5 text-stone-400 hover:bg-stone-100 transition"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4 sm:h-5 sm:w-5" />
               </button>
             </div>
 
             {/* Visual Mini Preview of the Table */}
-            <div className="rounded-2xl border border-stone-200/80 bg-stone-50 p-4 flex flex-col items-center justify-center">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 mb-3">
-                Floor Plan Table Preview
-              </span>
-              <div className="relative py-2 px-6">
+            <div className="rounded-xl sm:rounded-2xl border border-stone-200/80 bg-stone-50 p-2 sm:p-3 flex flex-col items-center justify-center">
+              <div className="relative py-1 sm:py-2 px-4 sm:px-6">
                 {/* Top chairs */}
-                <div className="flex justify-center gap-4 mb-1">
-                  <div className="w-8 h-2.5 border-2 border-stone-300 bg-white rounded-t-full" />
-                  <div className="w-8 h-2.5 border-2 border-stone-300 bg-white rounded-t-full" />
+                <div className="flex justify-center gap-3 sm:gap-4 mb-1">
+                  <div className="w-6 sm:w-8 h-2 sm:h-2.5 border sm:border-2 border-stone-300 bg-white rounded-t-full" />
+                  <div className="w-6 sm:w-8 h-2 sm:h-2.5 border sm:border-2 border-stone-300 bg-white rounded-t-full" />
                 </div>
                 {/* Table shape */}
                 <div
-                  className={`px-6 py-3 rounded-2xl border-2 flex items-center justify-center gap-2 shadow-xs transition-all ${
+                  className={`px-4 sm:px-6 py-1.5 sm:py-3 rounded-xl sm:rounded-2xl border sm:border-2 flex items-center justify-center gap-1.5 sm:gap-2 shadow-xs transition-all ${
                     editModalForm.status === 'reserved'
                       ? 'bg-amber-100/90 border-amber-300 text-stone-950'
                       : editModalForm.status === 'occupied'
@@ -2216,32 +2311,32 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                       : 'bg-white border-stone-200 text-stone-900'
                   }`}
                 >
-                  <span className="font-black text-sm">Table #{editModalForm.tableNumber}</span>
-                  <span className="text-[11px] opacity-70">({editModalForm.capacity} seats)</span>
+                  <span className="font-black text-xs sm:text-sm">Table #{editModalForm.tableNumber}</span>
+                  <span className="text-[10px] sm:text-[11px] opacity-70">({editModalForm.capacity} seats)</span>
                 </div>
                 {/* Bottom chairs */}
-                <div className="flex justify-center gap-4 mt-1">
-                  <div className="w-8 h-2.5 border-2 border-stone-300 bg-white rounded-b-full" />
-                  <div className="w-8 h-2.5 border-2 border-stone-300 bg-white rounded-b-full" />
+                <div className="flex justify-center gap-3 sm:gap-4 mt-1">
+                  <div className="w-6 sm:w-8 h-2 sm:h-2.5 border sm:border-2 border-stone-300 bg-white rounded-b-full" />
+                  <div className="w-6 sm:w-8 h-2 sm:h-2.5 border sm:border-2 border-stone-300 bg-white rounded-b-full" />
                 </div>
                 {/* Side chairs if 6+ */}
                 {editModalForm.capacity >= 6 && (
                   <>
-                    <div className="absolute left-1 top-1/2 -translate-y-1/2 h-8 w-2 border-2 border-stone-300 bg-white rounded-l-full" />
-                    <div className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-2 border-2 border-stone-300 bg-white rounded-r-full" />
+                    <div className="absolute left-1 top-1/2 -translate-y-1/2 h-6 sm:h-8 w-1.5 sm:w-2 border sm:border-2 border-stone-300 bg-white rounded-l-full" />
+                    <div className="absolute right-1 top-1/2 -translate-y-1/2 h-6 sm:h-8 w-1.5 sm:w-2 border sm:border-2 border-stone-300 bg-white rounded-r-full" />
                   </>
                 )}
               </div>
             </div>
 
-            <form onSubmit={handleSaveEditModalSubmit} className="space-y-4 text-xs">
+            <form onSubmit={handleSaveEditModalSubmit} className="space-y-2.5 sm:space-y-4 text-xs">
               {/* Table Number */}
               <div>
-                <label className="font-bold text-stone-700 block mb-1">
+                <label className="font-bold text-stone-700 block mb-1 text-[11px] sm:text-xs">
                   Table Number *
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-2.5 font-bold text-stone-400">
+                  <span className="absolute left-2.5 sm:left-3 top-1.5 sm:top-2 font-bold text-stone-400 text-xs sm:text-sm">
                     Table #
                   </span>
                   <input
@@ -2256,23 +2351,55 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                         tableNumber: parseInt(e.target.value) || 1,
                       })
                     }
-                    className="w-full rounded-xl border border-stone-300 bg-white py-2 pl-18 pr-3 text-sm font-bold text-stone-900 focus:border-amber-500 focus:outline-none"
+                    className="w-full rounded-xl border border-stone-300 bg-white py-1.5 sm:py-2 pl-14 sm:pl-16 pr-3 text-xs sm:text-sm font-bold text-stone-900 focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Table Name & Setup */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                <div>
+                  <label className="font-bold text-stone-700 block mb-1 text-[11px] sm:text-xs">
+                    Table Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 1st aircon, Kolin, Center"
+                    value={editModalForm.name}
+                    onChange={(e) =>
+                      setEditModalForm({ ...editModalForm, name: e.target.value })
+                    }
+                    className="w-full rounded-xl border border-stone-300 bg-white py-1.5 sm:py-2 px-3 text-xs sm:text-sm font-medium text-stone-900 focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-stone-700 block mb-1 text-[11px] sm:text-xs">
+                    Setup / Furniture
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 3 tables, 10 high chairs"
+                    value={editModalForm.setup}
+                    onChange={(e) =>
+                      setEditModalForm({ ...editModalForm, setup: e.target.value })
+                    }
+                    className="w-full rounded-xl border border-stone-300 bg-white py-1.5 sm:py-2 px-3 text-xs sm:text-sm font-medium text-stone-900 focus:border-amber-500 focus:outline-none"
                   />
                 </div>
               </div>
 
               {/* Seating Capacity */}
               <div>
-                <label className="font-bold text-stone-700 block mb-1.5">
+                <label className="font-bold text-stone-700 block mb-1 text-[11px] sm:text-xs">
                   Seating Capacity *
                 </label>
-                <div className="grid grid-cols-4 gap-1.5 mb-2">
+                <div className="grid grid-cols-4 gap-1 sm:gap-1.5 mb-1.5 sm:mb-2">
                   {[2, 4, 6, 8].map((cap) => (
                     <button
                       key={cap}
                       type="button"
                       onClick={() => setEditModalForm({ ...editModalForm, capacity: cap })}
-                      className={`py-2 rounded-xl text-xs font-bold border transition ${
+                      className={`py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold border transition ${
                         editModalForm.capacity === cap
                           ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-xs'
                           : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
@@ -2282,8 +2409,8 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                     </button>
                   ))}
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-stone-500">Custom capacity:</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] sm:text-[11px] text-stone-500">Custom:</span>
                   <input
                     type="number"
                     min={1}
@@ -2295,34 +2422,31 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                         capacity: parseInt(e.target.value) || 1,
                       })
                     }
-                    className="w-24 rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-xs font-bold text-stone-900 focus:border-amber-500 focus:outline-none"
+                    className="w-16 sm:w-20 rounded-lg sm:rounded-xl border border-stone-300 bg-white px-2 py-1 text-[11px] sm:text-xs font-bold text-stone-900 focus:border-amber-500 focus:outline-none"
                   />
-                  <span className="text-[11px] text-stone-500">seats</span>
+                  <span className="text-[10px] sm:text-[11px] text-stone-500">seats</span>
                 </div>
               </div>
 
               {/* Dining Area */}
               <div>
-                <label className="font-bold text-stone-700 block mb-1.5">
+                <label className="font-bold text-stone-700 block mb-1 text-[11px] sm:text-xs">
                   Dining Area *
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                   <button
                     type="button"
                     onClick={() => setEditModalForm({ ...editModalForm, area: 'normal' })}
-                    className={`p-3 rounded-2xl border text-left transition flex items-center gap-2.5 ${
+                    className={`p-2 sm:p-2.5 rounded-xl sm:rounded-2xl border text-left transition flex items-center gap-2 ${
                       editModalForm.area === 'normal'
                         ? 'border-amber-500 bg-amber-50/70 ring-2 ring-amber-500/20'
                         : 'border-stone-200 bg-stone-50 hover:bg-stone-100'
                     }`}
                   >
-                    <span className="text-xl">🌿</span>
-                    <div>
-                      <span className="font-bold text-stone-900 block text-xs">
-                        Main Dining
-                      </span>
-                      <span className="text-[10px] text-stone-500">Standard / Normal</span>
-                    </div>
+                    <span className="text-base sm:text-lg">🌿</span>
+                    <span className="font-bold text-stone-900 block text-[11px] sm:text-xs">
+                      Non-A/C
+                    </span>
                   </button>
 
                   <button
@@ -2330,36 +2454,33 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                     onClick={() =>
                       setEditModalForm({ ...editModalForm, area: 'airconditioned' })
                     }
-                    className={`p-3 rounded-2xl border text-left transition flex items-center gap-2.5 ${
+                    className={`p-2 sm:p-2.5 rounded-xl sm:rounded-2xl border text-left transition flex items-center gap-2 ${
                       editModalForm.area === 'airconditioned'
                         ? 'border-sky-500 bg-sky-50/70 ring-2 ring-sky-500/20'
                         : 'border-stone-200 bg-stone-50 hover:bg-stone-100'
                     }`}
                   >
-                    <span className="text-xl">❄️</span>
-                    <div>
-                      <span className="font-bold text-stone-900 block text-xs">
-                        AC Studio Lounge
-                      </span>
-                      <span className="text-[10px] text-stone-500">Airconditioned</span>
-                    </div>
+                    <span className="text-base sm:text-lg">❄️</span>
+                    <span className="font-bold text-stone-900 block text-[11px] sm:text-xs">
+                      Air-Con
+                    </span>
                   </button>
                 </div>
               </div>
 
               {/* Status */}
               <div>
-                <label className="font-bold text-stone-700 block mb-1.5">
+                <label className="font-bold text-stone-700 block mb-1 text-[11px] sm:text-xs">
                   Table Status
                 </label>
-                <div className="grid grid-cols-4 gap-1.5 rounded-2xl bg-stone-100 p-1">
+                <div className="grid grid-cols-4 gap-1 sm:gap-1.5 rounded-xl sm:rounded-2xl bg-stone-100 p-1">
                   {(['available', 'occupied', 'reserved', 'cleaning'] as Table['status'][]).map(
                     (st) => (
                       <button
                         key={st}
                         type="button"
                         onClick={() => setEditModalForm({ ...editModalForm, status: st })}
-                        className={`rounded-xl py-1.5 text-xs font-bold capitalize transition ${
+                        className={`rounded-lg sm:rounded-xl py-1 sm:py-1.5 text-[10px] sm:text-xs font-bold capitalize transition ${
                           editModalForm.status === st
                             ? st === 'available'
                               ? 'bg-emerald-600 text-white shadow-xs'
@@ -2379,32 +2500,31 @@ export const TableManagement: React.FC<TableManagementProps> = ({
               </div>
 
               {/* Modal Actions */}
-              <div className="mt-4 flex items-center justify-between pt-3 border-t border-stone-100">
+              <div className="mt-3 sm:mt-4 flex items-center justify-between pt-2.5 sm:pt-3 border-t border-stone-100">
                 <button
                   type="button"
                   onClick={() => handleDeleteTable(tableToEdit)}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/70 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 transition"
+                  className="inline-flex items-center rounded-xl border border-rose-200 bg-rose-50/70 px-2.5 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold text-rose-700 hover:bg-rose-100 transition cursor-pointer"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  <span>Delete Table</span>
+                  <span>Delete</span>
                 </button>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2">
                   <button
                     type="button"
                     onClick={() => {
                       setIsEditTableModalOpen(false);
                       setTableToEdit(null);
                     }}
-                    className="rounded-xl border border-stone-200 px-4 py-2 font-bold text-stone-600 hover:bg-stone-50 transition"
+                    className="rounded-xl border border-stone-200 px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold text-stone-600 hover:bg-stone-50 transition cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="rounded-xl bg-amber-500 px-4 py-2 font-extrabold text-stone-950 hover:bg-amber-400 transition shadow-xs"
+                    className="rounded-xl bg-amber-500 px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-extrabold text-stone-950 hover:bg-amber-400 transition shadow-xs cursor-pointer"
                   >
-                    Save Changes
+                    Save
                   </button>
                 </div>
               </div>

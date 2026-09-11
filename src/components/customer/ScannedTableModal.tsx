@@ -204,7 +204,7 @@ export const ScannedTableModal: React.FC<ScannedTableModalProps> = ({
               <div className="flex items-center justify-between text-stone-600">
                 <span className="font-medium">Area / Section:</span>
                 <span className="font-bold text-stone-800">
-                  {targetTable?.area === 'airconditioned' ? 'Airconditioned Room' : 'Main Dining Area'}
+                  {targetTable?.area === 'airconditioned' ? 'Air-Con' : 'Non-A/C'}
                 </span>
               </div>
               {isSwitchingTable && activeBinding && (
@@ -320,21 +320,21 @@ export const ScannedTableModal: React.FC<ScannedTableModalProps> = ({
               </div>
 
               <h2 className="text-sm sm:text-lg font-black text-stone-950 font-display mt-0.5">
-                You have chosen Table #{scannedTableNumber}
+                Table #{scannedTableNumber}{targetTable?.name ? ` • ${targetTable.name}` : ''}
               </h2>
 
               {/* Area & Capacity Pill Row */}
-              <div className="flex items-center justify-center gap-1.5 mt-1 sm:mt-1.5">
+              <div className="flex items-center justify-center gap-1.5 mt-1 sm:mt-1.5 flex-wrap">
                 <span className="inline-flex items-center gap-1 rounded-lg sm:rounded-xl bg-white/90 border border-stone-200/80 px-2 py-0.5 text-[10px] sm:text-[11px] font-bold text-stone-700 shadow-2xs">
                   {targetTable?.area === 'airconditioned' ? (
                     <>
                       <Wind className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-sky-600" />
-                      <span>Airconditioned Room</span>
+                      <span>Air-Con</span>
                     </>
                   ) : (
                     <>
                       <MapPin className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-700" />
-                      <span>Main Dining Area</span>
+                      <span>Non-A/C</span>
                     </>
                   )}
                 </span>
@@ -342,6 +342,11 @@ export const ScannedTableModal: React.FC<ScannedTableModalProps> = ({
                   <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-stone-500" />
                   <span>Up to {targetTable?.capacity || 4} Guests</span>
                 </span>
+                {targetTable?.setup && (
+                  <span className="inline-flex items-center gap-1 rounded-lg sm:rounded-xl bg-amber-50 border border-amber-200/80 px-2 py-0.5 text-[10px] sm:text-[11px] font-bold text-amber-900 shadow-2xs">
+                    <span>{targetTable.setup}</span>
+                  </span>
+                )}
               </div>
 
               {isSwitchingTable && activeBinding && (

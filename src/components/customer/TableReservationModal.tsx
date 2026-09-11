@@ -160,18 +160,22 @@ export const TableReservationModal: React.FC<TableReservationModalProps> = ({
             <div>
               <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                 <h2 className="font-display text-sm sm:text-xl font-extrabold text-stone-900 leading-tight">
-                  Reserve Table #{table.tableNumber}
+                  Reserve Table #{table.tableNumber}{table.name ? ` • ${table.name}` : ''}
                 </h2>
                 <span className={`text-[8px] sm:text-[10px] font-extrabold uppercase px-1.5 sm:px-2 py-0.2 sm:py-0.5 rounded-full ${
                   isAircon ? 'bg-sky-100 text-sky-800 border border-sky-200' : 'bg-amber-100 text-amber-800 border border-amber-200'
                 }`}>
-                  {isAircon ? '❄️ AC Room' : '🌿 Main Dining'}
+                  {isAircon ? '❄️ Air-Con' : '🌿 Non-A/C'}
                 </span>
               </div>
               <p className="text-[10px] sm:text-xs text-stone-500 mt-0.5 flex items-center gap-1.5 sm:gap-2 font-medium">
                 <span>Capacity: Up to {table.capacity} Guests</span>
-                <span>•</span>
-                <span className="truncate max-w-[170px] sm:max-w-none">{isAircon ? 'Cool, quiet study & lounge' : 'Vibrant cafe & garden view'}</span>
+                {table.setup && (
+                  <>
+                    <span>•</span>
+                    <span className="truncate max-w-[190px] sm:max-w-none text-stone-700 font-semibold">{table.setup}</span>
+                  </>
+                )}
               </p>
             </div>
           </div>

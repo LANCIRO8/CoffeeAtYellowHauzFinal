@@ -7,6 +7,7 @@ import {
   CustomerAccount,
   StoreSettings,
   TableBinding,
+  Table,
   AdvanceBookingDetails,
 } from '../../types';
 import { AppStore } from '../../services/store';
@@ -39,15 +40,10 @@ import {
   Leaf,
   CookingPot,
   CupSoda,
-  Calendar,
-  Clock,
   Users,
   MapPin,
-  Globe,
-  CheckCircle2,
   QrCode,
   Info,
-  User,
   ChevronDown,
   ChevronUp,
   ChevronLeft,
@@ -89,6 +85,7 @@ interface CustomerMenuProps {
   onUpdateItemInstructions?: (itemId: number, text: string) => void;
   isCheckoutOpen?: boolean;
   onSetCheckoutOpen?: (open: boolean) => void;
+  onBack?: () => void;
 }
 
 // Background images for split view & category aesthetic (High quality drinks and food closeups)
@@ -140,6 +137,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
   onUpdateItemInstructions: externalOnUpdateItemInstructions,
   isCheckoutOpen: externalIsCheckoutOpen,
   onSetCheckoutOpen: externalOnSetCheckoutOpen,
+  onBack,
 }) => {
   const { showAlert, showConfirm } = useModal();
 
@@ -153,17 +151,21 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
   // Track expanded "See more" state per category
   const [expandedCategories, setExpandedCategories] = useState<Record<number, boolean>>({});
 
-  // Grid column view mode: 1 column or 2 columns (persisted in localStorage)
-  const [gridColumns, setGridColumns] = useState<1 | 2>(() => {
+  // Grid column view mode: 1, 2, 3, 4, 5 columns (persisted in localStorage)
+  const [gridColumns, setGridColumns] = useState<1 | 2 | 3 | 4 | 5>(() => {
     try {
       const saved = localStorage.getItem('yh_menu_grid_columns');
-      return saved === '1' ? 1 : 2;
+      const parsed = Number(saved);
+      if ([1, 2, 3, 4, 5].includes(parsed)) {
+        return parsed as 1 | 2 | 3 | 4 | 5;
+      }
+      return 2;
     } catch {
       return 2;
     }
   });
 
-  const handleSetGridColumns = (cols: 1 | 2) => {
+  const handleSetGridColumns = (cols: 1 | 2 | 3 | 4 | 5) => {
     setGridColumns(cols);
     try {
       localStorage.setItem('yh_menu_grid_columns', String(cols));
@@ -173,33 +175,112 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
     setIsGridModalOpen(false);
   };
 
+  const getSearchGridClass = () => {
+    switch (gridColumns) {
+      case 1:
+        return 'grid-cols-1 max-w-2xl mx-auto';
+      case 2:
+        return 'grid-cols-1 sm:grid-cols-2';
+      case 3:
+        return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3';
+      case 4:
+        return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4';
+      case 5:
+        return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5';
+      default:
+        return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3';
+    }
+  };
+
+  const getCategoryGridClass = () => {
+    switch (gridColumns) {
+      case 1:
+        return 'grid-cols-1 sm:grid-cols-1 max-w-xl mx-auto';
+      case 2:
+        return 'grid-cols-2 sm:grid-cols-2 xl:grid-cols-2';
+      case 3:
+        return 'grid-cols-2 sm:grid-cols-3 xl:grid-cols-3';
+      case 4:
+        return 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4';
+      case 5:
+        return 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5';
+      default:
+        return 'grid-cols-2 sm:grid-cols-3 xl:grid-cols-3';
+    }
+  };
+
+  const getItemPostsGridClass = () => {
+    switch (gridColumns) {
+      case 1:
+        return 'grid-cols-1 max-w-xl mx-auto';
+      case 2:
+        return 'grid-cols-1 sm:grid-cols-2';
+      case 3:
+        return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
+      case 4:
+        return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4';
+      case 5:
+        return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5';
+      default:
+        return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
+    }
+  };
+
   const [isGridModalOpen, setIsGridModalOpen] = useState(false);
   const gridModalRef = useRef<HTMLDivElement>(null);
 
   // Instagram-style Item Detail Modal State
   const [selectedDetailItem, setSelectedDetailItem] = useState<MenuItem | null>(null);
-  const [likedItemIds, setLikedItemIds] = useState<Record<number, boolean>>({});
-  const [savedItemIds, setSavedItemIds] = useState<Record<number, boolean>>({});
+  const [likedItemIds, setLikedItemIds] = useState<Record<number, boolean>>(() => {
+    const ids = AppStore.getCustomerLikes(activeCustomer?.id);
+    const map: Record<number, boolean> = {};
+    ids.forEach((id) => {
+      map[id] = true;
+    });
+    return map;
+  });
+  const [savedItemIds, setSavedItemIds] = useState<Record<number, boolean>>(() => {
+    const ids = AppStore.getCustomerFavorites(activeCustomer?.id);
+    const map: Record<number, boolean> = {};
+    ids.forEach((id) => {
+      map[id] = true;
+    });
+    return map;
+  });
   const [shareToastItemId, setShareToastItemId] = useState<number | null>(null);
+
+  // Sync favorites & likes with AppStore and active customer account
+  useEffect(() => {
+    const syncFavsAndLikes = () => {
+      const likes = AppStore.getCustomerLikes(activeCustomer?.id);
+      const lMap: Record<number, boolean> = {};
+      likes.forEach((id) => {
+        lMap[id] = true;
+      });
+      setLikedItemIds(lMap);
+
+      const favs = AppStore.getCustomerFavorites(activeCustomer?.id);
+      const fMap: Record<number, boolean> = {};
+      favs.forEach((id) => {
+        fMap[id] = true;
+      });
+      setSavedItemIds(fMap);
+    };
+
+    syncFavsAndLikes();
+    const unsub = AppStore.subscribe(syncFavsAndLikes);
+    return () => unsub();
+  }, [activeCustomer?.id]);
   const [modalSpecialInstructions, setModalSpecialInstructions] = useState('');
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [hasReadNotifications, setHasReadNotifications] = useState(false);
-  const notificationsDropdownRef = useRef<HTMLDivElement>(null);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const filterDropdownRef = useRef<HTMLDivElement>(null);
   const [isMobileCategoryModalOpen, setIsMobileCategoryModalOpen] = useState(false);
 
-  // Close notifications & filter dropdown on click outside
+  // Close filter dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (
-        notificationsDropdownRef.current &&
-        !notificationsDropdownRef.current.contains(e.target as Node)
-      ) {
-        setIsNotificationsOpen(false);
-      }
       if (
         filterDropdownRef.current &&
         !filterDropdownRef.current.contains(e.target as Node)
@@ -217,71 +298,21 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Notifications list (Dynamic alerts + store updates)
-  const menuNotifications = useMemo(() => {
-    const list: Array<{
-      id: string;
-      title: string;
-      message: string;
-      time: string;
-      type: 'order' | 'promo' | 'table' | 'info';
-    }> = [];
-
-    if (activeTableBinding) {
-      list.push({
-        id: 'table-active',
-        title: `Seated at Table #${activeTableBinding.tableNumber}`,
-        message: `Your session is active in the ${activeTableBinding.area === 'airconditioned' ? 'Air-Conditioned Room' : 'Main Dining Area'}. Orders are delivered right to your table.`,
-        time: 'Active Now',
-        type: 'table',
-      });
-    }
-
-    if (activeCustomer) {
-      list.push({
-        id: 'customer-points',
-        title: `Welcome, ${activeCustomer.fullName || 'Customer'}!`,
-        message: `You have ${activeCustomer.loyaltyPoints || 0} reward points available for perks and discounts.`,
-        time: 'Today',
-        type: 'info',
-      });
-    }
-
-    list.push(
-      {
-        id: 'promo-roast',
-        title: 'Featured Single Origin',
-        message: 'Try our freshly roasted Benguet Arabica pour-over & creamy Sea Salt Latte.',
-        time: 'Just now',
-        type: 'promo',
-      },
-      {
-        id: 'promo-pastry',
-        title: 'Fresh Bakes from the Oven',
-        message: 'Pair your coffee with freshly baked pastries, waffles, and savory brunch plates.',
-        time: '1h ago',
-        type: 'promo',
-      }
-    );
-
-    return list;
-  }, [activeTableBinding, activeCustomer]);
-
-  const hasUnread = !hasReadNotifications && menuNotifications.length > 0;
-
   const toggleItemLike = (itemId: number, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    const res = AppStore.toggleCustomerLike(itemId, activeCustomer?.id);
     setLikedItemIds((prev) => ({
       ...prev,
-      [itemId]: !prev[itemId],
+      [itemId]: res.isLiked,
     }));
   };
 
   const toggleItemSave = (itemId: number, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    const res = AppStore.toggleCustomerFavorite(itemId, activeCustomer?.id);
     setSavedItemIds((prev) => ({
       ...prev,
-      [itemId]: !prev[itemId],
+      [itemId]: res.isFavorite,
     }));
   };
 
@@ -330,8 +361,17 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
   const [customerPhone, setCustomerPhone] = useState(activeCustomer?.contactNumber || '');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
-  const [selectedTable, setSelectedTable] = useState<number | ''>(
-    activeTableBinding ? activeTableBinding.tableNumber : ''
+  // Table management & Floor plan state
+  const [tables, setTables] = useState<Table[]>(() => AppStore.getTables());
+  useEffect(() => {
+    const unsub = AppStore.subscribe(() => {
+      setTables(AppStore.getTables());
+    });
+    return unsub;
+  }, []);
+
+  const [selectedTable, setSelectedTable] = useState<number | 'auto' | ''>(
+    activeTableBinding ? activeTableBinding.tableNumber : 1
   );
 
   // Advance Booking Parameters (for External Online Customers)
@@ -594,7 +634,16 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
   // Submit Order with Unified Dual-Mode Engine
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    const isLiveInHouse = Boolean(activeTableBinding || (orderType === 'dine_in' && selectedTable));
+
+    // Resolve table selection for dine-in
+    let effectiveTable = selectedTable;
+    if (orderType === 'dine_in' && !effectiveTable && !activeTableBinding) {
+      effectiveTable = 1;
+      setSelectedTable(1);
+    }
+
+    const hasSpecificTable = Boolean(activeTableBinding || (effectiveTable && effectiveTable !== 'auto'));
+    const isLiveInHouse = Boolean(activeTableBinding || (orderType === 'dine_in' && hasSpecificTable));
 
     if (!isLiveInHouse && !activeCustomer) {
       showAlert({
@@ -606,25 +655,16 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
       return;
     }
 
-    if (orderType === 'dine_in' && !selectedTable && !activeTableBinding) {
-      showAlert({
-        title: 'Table Required',
-        message: 'Please select a dining table or specify advance reservation parameters.',
-        type: 'warning',
-      });
-      return;
-    }
-
     const finalTableNum = activeTableBinding
       ? activeTableBinding.tableNumber
-      : selectedTable
-      ? Number(selectedTable)
+      : effectiveTable && effectiveTable !== 'auto'
+      ? Number(effectiveTable)
       : null;
 
     const finalTableId = activeTableBinding
       ? activeTableBinding.tableId
-      : selectedTable
-      ? Number(selectedTable)
+      : effectiveTable && effectiveTable !== 'auto'
+      ? Number(effectiveTable)
       : null;
 
     const finalCustomerName = activeCustomer?.fullName?.trim()
@@ -642,18 +682,18 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
       : '';
 
     const paymentLabel = paymentMethod === 'cash' ? 'Cash' : paymentMethod === 'gcash' ? 'GCash QR' : 'Card';
-    const targetDestination = isLiveInHouse
-      ? `Table #${finalTableNum}`
+    const targetDestination = finalTableNum
+      ? `Dine-In • Table #${finalTableNum}`
       : orderType === 'delivery'
       ? `Delivery (${deliveryAddress.trim() || 'Address Specified'})`
       : orderType === 'take_away'
       ? 'Takeaway / Store Pick-up'
-      : `Advance Dine-In Booking (${bookingDate} at ${arrivalTime})`;
+      : `Advance Dine-In Booking (${bookingDate} at ${arrivalTime} • Seat on arrival)`;
 
     const confirmMessage = `Please review your order details before submitting:\n\n• Items: ${totalItemCount} item(s)\n• Total Amount: ₱${totalAmount.toFixed(2)}\n• Destination: ${targetDestination}\n• Payment: ${paymentLabel}\n\nWould you like to place this order now?`;
 
     const userConfirmed = await showConfirm({
-      title: isLiveInHouse ? 'Confirm Table Order' : 'Confirm Order Placement',
+      title: finalTableNum ? `Confirm Dine-In Table #${finalTableNum}` : 'Confirm Order Placement',
       message: confirmMessage,
       type: 'info',
       confirmText: 'Yes, Place Order',
@@ -687,8 +727,8 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
     const newOrder = AppStore.createOrder({
       channel: 'online',
       orderClassification: isLiveInHouse ? 'live_in_house' : 'advance_booking',
-      tableId: isLiveInHouse ? finalTableId : null,
-      tableNumber: isLiveInHouse ? finalTableNum : null,
+      tableId: finalTableId,
+      tableNumber: finalTableNum,
       advanceBooking: advanceBookingData,
       scheduledFor: !isLiveInHouse ? `${bookingDate} ${arrivalTime}` : undefined,
       guestCount: !isLiveInHouse ? Number(partySize) || 2 : undefined,
@@ -709,7 +749,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
       changeAmount: 0,
       status: 'to_confirm',
       cashierId: 1,
-      cashierName: isLiveInHouse ? 'Table QR Self-Order' : 'Online Advance Booking',
+      cashierName: finalTableNum ? `Table #${finalTableNum} Order` : 'Online Advance Booking',
       items: orderItems,
     });
 
@@ -725,6 +765,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
     const inCartQty = inCartItem?.quantity || 0;
     const isJustAdded = addedItemAnimationId === item.id;
     const isLiked = Boolean(likedItemIds[item.id]);
+    const isSaved = Boolean(savedItemIds[item.id]);
 
     return (
       <article
@@ -768,19 +809,39 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
             </span>
           </div>
 
-          {/* Quick Like Button (Instagram Style) */}
-          <button
-            type="button"
-            onClick={(e) => toggleItemLike(item.id, e)}
-            className="absolute top-3 right-3 z-10 grid h-8 w-8 place-items-center rounded-full bg-stone-900/70 backdrop-blur-md text-white transition hover:scale-110 active:scale-90"
-            title={isLiked ? 'Unlike' : 'Like'}
+          {/* Quick Actions: Like & Favorite Bookmark */}
+          <div
+            className="absolute top-3 right-3 z-10 flex items-center gap-1 rounded-full bg-stone-900/75 backdrop-blur-md p-1 border border-white/10 shadow-md"
+            onClick={(e) => e.stopPropagation()}
           >
-            <Heart
-              className={`h-4 w-4 transition-colors ${
-                isLiked ? 'fill-red-500 text-red-500' : 'text-white'
-              }`}
-            />
-          </button>
+            {/* Like Button */}
+            <button
+              type="button"
+              onClick={(e) => toggleItemLike(item.id, e)}
+              className="grid h-7 w-7 place-items-center rounded-full text-white transition hover:scale-110 active:scale-90 cursor-pointer"
+              title={isLiked ? 'Liked' : 'Like'}
+            >
+              <Heart
+                className={`h-3.5 w-3.5 transition-colors ${
+                  isLiked ? 'fill-red-500 text-red-500' : 'text-white hover:text-red-300'
+                }`}
+              />
+            </button>
+
+            {/* Favorite / Bookmark Button */}
+            <button
+              type="button"
+              onClick={(e) => toggleItemSave(item.id, e)}
+              className="grid h-7 w-7 place-items-center rounded-full text-white transition hover:scale-110 active:scale-90 cursor-pointer"
+              title={isSaved ? 'In Favorites' : 'Add to Favorites'}
+            >
+              <Bookmark
+                className={`h-3.5 w-3.5 transition-colors ${
+                  isSaved ? 'fill-amber-400 text-amber-400' : 'text-white hover:text-amber-300'
+                }`}
+              />
+            </button>
+          </div>
 
           {/* Floating Price Pill */}
           <div className="absolute bottom-3 right-3 rounded-2xl bg-stone-950/90 backdrop-blur-sm px-3.5 py-1.5 shadow-lg border border-white/10">
@@ -878,196 +939,56 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
       {/* Top Header with Expandable Search */}
       <header className="flex items-center justify-between gap-2 pb-0">
         <div className="flex items-center gap-2">
-          <Utensils className="h-5 w-5 sm:h-6 sm:w-6 text-amber-500 shrink-0 stroke-[2.5]" />
+          <Utensils className="h-5 w-5 sm:h-6 sm:w-6 text-black shrink-0 stroke-[2.5]" />
           <h1 className="text-xl sm:text-2xl font-black text-stone-900 font-display tracking-tight">
             Menu
           </h1>
         </div>
 
-        {/* Header Actions: Grid Layout Filter Modal, Notifications & Expandable Search */}
+        {/* Header Actions: Table Indicator & Expandable Search */}
         <div className="flex items-center gap-2">
-          {/* Grid Layout Filter Button */}
-          <div className="relative" ref={gridModalRef}>
-            <button
-              type="button"
-              id="grid-layout-filter-btn"
-              onClick={() => setIsGridModalOpen((prev) => !prev)}
-              title="Change Grid Columns (1 or 2)"
-              className={`relative flex items-center gap-1.5 px-3 h-10 rounded-2xl border transition active:scale-95 cursor-pointer shadow-2xs font-bold text-xs ${
-                isGridModalOpen
-                  ? 'border-amber-400 bg-amber-50 text-amber-950 ring-2 ring-amber-400/30'
-                  : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-100 hover:text-stone-950'
-              }`}
-            >
-              {gridColumns === 1 ? (
-                <Square className="h-4 w-4 text-amber-600 stroke-[2.2]" />
-              ) : (
-                <Grid2X2 className="h-4 w-4 text-amber-600 stroke-[2.2]" />
-              )}
-              <span className="font-extrabold text-[11px] hidden sm:inline">
-                {gridColumns} Col
-              </span>
-              <ChevronDown className="h-3 w-3 text-stone-400" />
-            </button>
-
-            {/* Grid Layout Filter Modal / Popover */}
-            {isGridModalOpen && (
-              <div
-                id="grid-layout-filter-modal"
-                className="absolute right-0 top-12 z-50 w-64 rounded-2xl border border-stone-200 bg-white p-3.5 shadow-xl animate-in fade-in-0 zoom-in-95 duration-150 font-sans"
-              >
-                <div className="flex items-center justify-between pb-2.5 border-b border-stone-100 mb-3">
-                  <div className="flex items-center gap-1.5 font-black text-xs text-stone-900">
-                    <LayoutGrid className="h-4 w-4 text-amber-600" />
-                    <span>Grid Display Layout</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsGridModalOpen(false)}
-                    className="p-1 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-
-                <div className="text-[11px] text-stone-500 mb-3 font-medium">
-                  Choose your preferred catalog view:
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  {/* 1 Column Option */}
-                  <button
-                    type="button"
-                    id="grid-col-1-btn"
-                    onClick={() => handleSetGridColumns(1)}
-                    className={`flex flex-col items-center justify-center gap-2 p-3 rounded-2xl border text-center transition cursor-pointer ${
-                      gridColumns === 1
-                        ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
-                        : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
-                    }`}
-                  >
-                    <div className="grid h-8 w-8 place-items-center rounded-xl bg-white border border-stone-200 shadow-2xs text-amber-700">
-                      <Square className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold">1 Column</div>
-                      <div className="text-[10px] text-stone-500 font-normal">Full-width view</div>
-                    </div>
-                    {gridColumns === 1 && (
-                      <span className="flex items-center gap-1 text-[10px] font-black text-amber-700">
-                        <Check className="h-3 w-3 stroke-[3]" /> Active
-                      </span>
-                    )}
-                  </button>
-
-                  {/* 2 Column Option */}
-                  <button
-                    type="button"
-                    id="grid-col-2-btn"
-                    onClick={() => handleSetGridColumns(2)}
-                    className={`flex flex-col items-center justify-center gap-2 p-3 rounded-2xl border text-center transition cursor-pointer ${
-                      gridColumns === 2
-                        ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
-                        : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
-                    }`}
-                  >
-                    <div className="grid h-8 w-8 place-items-center rounded-xl bg-white border border-stone-200 shadow-2xs text-amber-700">
-                      <Grid2X2 className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold">2 Columns</div>
-                      <div className="text-[10px] text-stone-500 font-normal">Compact grid</div>
-                    </div>
-                    {gridColumns === 2 && (
-                      <span className="flex items-center gap-1 text-[10px] font-black text-amber-700">
-                        <Check className="h-3 w-3 stroke-[3]" /> Active
-                      </span>
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Notification Icon Button */}
-          <div className="relative" ref={notificationsDropdownRef}>
-            <button
-              type="button"
-              id="menu-notifications-btn"
-              onClick={() => {
-                setIsNotificationsOpen((prev) => !prev);
-                if (!isNotificationsOpen) {
-                  setHasReadNotifications(true);
-                }
-              }}
-              title="Notifications & Updates"
-              className={`relative grid h-10 w-10 place-items-center rounded-2xl border transition active:scale-95 cursor-pointer shadow-2xs ${
-                isNotificationsOpen
-                  ? 'border-amber-400 bg-amber-50 text-amber-950 ring-2 ring-amber-400/30'
-                  : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-100 hover:text-stone-950'
-              }`}
-            >
-              <Bell className="h-4 w-4 stroke-[2.2]" />
-              {hasUnread && (
-                <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500 border border-white"></span>
-                </span>
-              )}
-            </button>
-
-            {/* Notifications Popover Dropdown */}
-            {isNotificationsOpen && (
-              <div
-                id="menu-notifications-popover"
-                className="absolute right-0 sm:right-0 top-12 z-50 w-72 sm:w-80 rounded-2xl border border-stone-200 bg-white p-3 shadow-xl animate-in fade-in-0 zoom-in-95 duration-150 font-sans"
-              >
-                <div className="flex items-center justify-between pb-2 border-b border-stone-100 mb-2">
-                  <div className="flex items-center gap-1.5 font-bold text-xs text-stone-900">
-                    <Bell className="h-3.5 w-3.5 text-amber-600" />
-                    <span>Notifications & Updates</span>
-                  </div>
-                  <span className="text-[10px] text-stone-400 font-bold">
-                    {menuNotifications.length} updates
-                  </span>
-                </div>
-
-                <div className="max-h-64 overflow-y-auto space-y-2 no-scrollbar">
-                  {menuNotifications.map((notif) => (
-                    <div
-                      key={notif.id}
-                      className="rounded-xl border border-stone-100 bg-stone-50/70 p-2.5 text-xs hover:bg-stone-50 transition"
-                    >
-                      <div className="flex items-start justify-between gap-1">
-                        <span className="font-bold text-stone-900 text-[11px] flex items-center gap-1">
-                          {notif.type === 'table' && <Utensils className="h-3 w-3 text-amber-600 shrink-0" />}
-                          {notif.type === 'promo' && <Sparkles className="h-3 w-3 text-amber-500 shrink-0" />}
-                          {notif.type === 'info' && <Coffee className="h-3 w-3 text-amber-700 shrink-0" />}
-                          <span>{notif.title}</span>
-                        </span>
-                        <span className="text-[9px] text-stone-400 shrink-0">{notif.time}</span>
-                      </div>
-                      <p className="text-[11px] text-stone-600 mt-1 leading-relaxed">
-                        {notif.message}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          {/* Table Indicator / Table Selector Button */}
+          <button
+            type="button"
+            id="menu-table-quick-btn"
+            onClick={() => setIsTableSelectorModalOpen(true)}
+            title={
+              activeTableBinding
+                ? `Active Session: Table #${activeTableBinding.tableNumber} (${activeTableBinding.area === 'airconditioned' ? 'Air-Con' : 'Indoor'})`
+                : selectedTable && selectedTable !== 'auto'
+                ? `Selected Dine-In Table #${selectedTable}`
+                : 'Select Table Number'
+            }
+            className={`relative flex items-center gap-1.5 px-2.5 sm:px-3 h-10 rounded-2xl border transition active:scale-95 cursor-pointer shadow-2xs font-bold text-xs ${
+              activeTableBinding
+                ? 'border-emerald-500/80 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/20'
+                : selectedTable && selectedTable !== 'auto'
+                ? 'border-amber-400 bg-amber-50 text-amber-950 ring-2 ring-amber-400/30'
+                : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-100 hover:text-stone-950'
+            }`}
+          >
+            <Utensils className="h-4 w-4 text-amber-600 stroke-[2.2]" />
+            <span className="font-extrabold text-[11px]">
+              {activeTableBinding
+                ? `T#${activeTableBinding.tableNumber}`
+                : selectedTable && selectedTable !== 'auto'
+                ? `T#${selectedTable}`
+                : 'Table'}
+            </span>
+          </button>
 
           {/* Expandable Search Bar (Icon button that expands on click) */}
           <div
             className={`flex items-center transition-all duration-300 ease-out ${
               isSearchExpanded || searchQuery
-                ? 'w-64 sm:w-80'
+                ? 'w-40 sm:w-72 md:w-80'
                 : 'w-10'
             }`}
           >
             {isSearchExpanded || searchQuery ? (
               <div className="relative w-full flex items-center">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" />
+                {/* Search icon hidden on mobile when extended to maximize input space */}
+                <Search className="hidden sm:block absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" />
                 <input
                   ref={searchInputRef}
                   type="text"
@@ -1078,9 +999,9 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       setIsSearchExpanded(false);
                     }
                   }}
-                  placeholder="Search drinks, coffee, food..."
+                  placeholder="Search..."
                   autoFocus
-                  className="w-full rounded-2xl border border-stone-300 bg-white pl-9 pr-8 py-2 text-xs text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none shadow-xs"
+                  className="w-full rounded-2xl border border-stone-300 bg-white pl-3 sm:pl-9 pr-7 sm:pr-8 py-2 text-xs text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none shadow-xs"
                 />
                 <button
                   type="button"
@@ -1088,7 +1009,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                     setSearchQuery('');
                     setIsSearchExpanded(false);
                   }}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 transition cursor-pointer"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 transition cursor-pointer"
                   title="Close search"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -1150,11 +1071,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
             </div>
           ) : (
             <div
-              className={`grid gap-4 sm:gap-6 ${
-                gridColumns === 1
-                  ? 'grid-cols-1 max-w-2xl mx-auto'
-                  : 'grid-cols-2 sm:grid-cols-2 lg:grid-cols-3'
-              }`}
+              className={`grid gap-4 sm:gap-6 ${getSearchGridClass()}`}
             >
               {searchResults.map((item) => renderItemPostCard(item))}
             </div>
@@ -1233,19 +1150,38 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
               {/* ------------------------------------------------------------- */}
               {/* MOBILE TRIGGER: OPEN CATEGORY MODAL ON MOBILE SCREENS */}
               {/* ------------------------------------------------------------- */}
-              <div className="lg:hidden w-full flex items-center justify-between gap-2 p-1 rounded-2xl bg-white border border-stone-200 shadow-xs mb-0.5">
+              <div className="lg:hidden w-full flex items-center justify-between gap-1.5 p-1 rounded-2xl bg-white border border-stone-200 shadow-xs mb-0.5">
+                <button
+                  type="button"
+                  id="mobile-back-above-categories-btn"
+                  onClick={() => {
+                    if (selectedCategory !== null) {
+                      setSelectedCategory(null);
+                    } else if (selectedType !== null) {
+                      setSelectedType(null);
+                    } else if (onBack) {
+                      onBack();
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold transition active:scale-95 cursor-pointer shrink-0"
+                  title="Back"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5 stroke-[2.5]" />
+                  <span>Back</span>
+                </button>
+
                 <button
                   type="button"
                   id="mobile-category-modal-trigger-btn"
                   onClick={() => setIsMobileCategoryModalOpen(true)}
-                  className="flex-1 flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl bg-stone-50 hover:bg-stone-100 border border-stone-200/80 text-xs font-bold text-stone-900 transition active:scale-[0.98] cursor-pointer"
+                  className="flex-1 min-w-0 flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-xl bg-stone-50 hover:bg-stone-100 border border-stone-200/80 text-xs font-bold text-stone-900 transition active:scale-[0.98] cursor-pointer"
                 >
-                  <div className="flex items-center gap-2 truncate">
+                  <div className="flex items-center gap-1.5 truncate">
                     <span className="grid h-5 w-5 place-items-center rounded-lg bg-amber-500 text-stone-950 shrink-0">
                       {selectedType === 'drinks' ? <Coffee className="h-3 w-3" /> : <Utensils className="h-3 w-3" />}
                     </span>
-                    <span className="font-extrabold text-stone-950 capitalize">{selectedType}</span>
-                    <span className="text-stone-300">•</span>
+                    <span className="font-extrabold text-stone-950 capitalize shrink-0">{selectedType}</span>
+                    <span className="text-stone-300 shrink-0">•</span>
                     <span className="truncate text-stone-600 font-semibold text-xs">
                       {selectedCategory !== null && currentCategoryObj ? currentCategoryObj.name : 'All Categories'}
                     </span>
@@ -1255,6 +1191,79 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                     <ChevronDown className="h-3 w-3" />
                   </div>
                 </button>
+
+                {/* Column Layout Filter Button in Categories Filter (Hidden on mobile phones, available on tablet) */}
+                <div className="hidden md:block relative shrink-0" ref={gridModalRef}>
+                  <button
+                    type="button"
+                    id="grid-layout-filter-btn"
+                    onClick={() => setIsGridModalOpen((prev) => !prev)}
+                    title={`Layout: ${gridColumns} column${gridColumns > 1 ? 's' : ''}. Tap to change.`}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs ${
+                      isGridModalOpen
+                        ? 'border-amber-400 bg-amber-50 text-amber-950 ring-2 ring-amber-400/30'
+                        : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100 hover:text-stone-950'
+                    }`}
+                  >
+                    {gridColumns === 1 ? (
+                      <Square className="h-3.5 w-3.5 text-amber-600 stroke-[2.2]" />
+                    ) : (
+                      <Grid2X2 className="h-3.5 w-3.5 text-amber-600 stroke-[2.2]" />
+                    )}
+                    <span className="font-extrabold text-[11px]">{gridColumns} Col</span>
+                    <ChevronDown className="h-3 w-3 text-stone-400" />
+                  </button>
+
+                  {/* Grid Layout Filter Modal / Popover */}
+                  {isGridModalOpen && (
+                    <div
+                      id="grid-layout-filter-modal"
+                      className="absolute right-0 top-11 z-50 w-72 rounded-2xl border border-stone-200 bg-white p-3.5 shadow-xl animate-in fade-in-0 zoom-in-95 duration-150 font-sans"
+                    >
+                      <div className="flex items-center justify-between pb-2.5 border-b border-stone-100 mb-3">
+                        <div className="flex items-center gap-1.5 font-black text-xs text-stone-900">
+                          <LayoutGrid className="h-4 w-4 text-amber-600" />
+                          <span>Grid Display Layout</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsGridModalOpen(false)}
+                          className="p-1 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="text-[11px] text-stone-500 mb-3 font-medium">
+                        Choose your preferred catalog view:
+                      </div>
+
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {([1, 2, 3, 4, 5] as const).map((col) => (
+                          <button
+                            key={col}
+                            type="button"
+                            id={`grid-col-${col}-btn`}
+                            onClick={() => handleSetGridColumns(col)}
+                            className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl border text-center transition cursor-pointer ${
+                              gridColumns === col
+                                ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
+                                : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
+                            }`}
+                          >
+                            <div className="text-xs font-bold">{col}</div>
+                            <div className="text-[9px] text-stone-500">Col</div>
+                            {gridColumns === col && (
+                              <span className="flex items-center gap-0.5 text-[9px] font-black text-amber-700">
+                                <Check className="h-2.5 w-2.5 stroke-[3]" />
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* ------------------------------------------------------------- */}
@@ -1262,10 +1271,30 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
               {/* ------------------------------------------------------------- */}
               <aside
                 id="type-navbar-column"
-                className="hidden lg:block w-auto shrink-0 rounded-3xl border border-stone-200 bg-white/95 backdrop-blur-md p-2 shadow-md space-y-2 sticky top-20 lg:top-24 z-30 transition-all duration-200"
+                className="hidden lg:block w-48 shrink-0 rounded-3xl border border-stone-200 bg-white/95 backdrop-blur-md p-2 shadow-md space-y-2 sticky top-20 lg:top-24 z-30 transition-all duration-200"
               >
+                {/* Back Button Above Categories in Desktop Sidebar */}
+                <button
+                  type="button"
+                  id="desktop-sidebar-back-btn"
+                  onClick={() => {
+                    if (selectedCategory !== null) {
+                      setSelectedCategory(null);
+                    } else if (selectedType !== null) {
+                      setSelectedType(null);
+                    } else if (onBack) {
+                      onBack();
+                    }
+                  }}
+                  className="flex items-center gap-1.5 rounded-2xl px-2.5 py-1.5 text-xs font-bold text-stone-600 hover:text-stone-950 hover:bg-stone-100 border border-stone-200/60 hover:border-stone-300 transition cursor-pointer w-full mb-0.5"
+                  title="Back"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5 stroke-[2.5]" />
+                  <span>Back</span>
+                </button>
+
                 {/* Drinks & Food Buttons */}
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1 w-full">
                   {/* Drinks Button */}
                   <button
                     type="button"
@@ -1274,9 +1303,9 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       setSelectedType('drinks');
                       setSelectedCategory(null);
                     }}
-                    className={`inline-flex items-center gap-2 rounded-2xl px-3 py-1.5 text-xs font-black transition-all duration-200 border cursor-pointer whitespace-nowrap w-fit ${
+                    className={`flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-black transition-all duration-200 border cursor-pointer whitespace-nowrap w-full ${
                       selectedType === 'drinks'
-                        ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-md scale-[1.02]'
+                        ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-md scale-[1.01]'
                         : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
                     }`}
                   >
@@ -1292,9 +1321,9 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       setSelectedType('food');
                       setSelectedCategory(null);
                     }}
-                    className={`inline-flex items-center gap-2 rounded-2xl px-3 py-1.5 text-xs font-black transition-all duration-200 border cursor-pointer whitespace-nowrap w-fit ${
+                    className={`flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-black transition-all duration-200 border cursor-pointer whitespace-nowrap w-full ${
                       selectedType === 'food'
-                        ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-md scale-[1.02]'
+                        ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-md scale-[1.01]'
                         : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
                     }`}
                   >
@@ -1307,9 +1336,9 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                 {selectedCategory !== null && (
                   <div
                     id="category-navbar-column"
-                    className="pt-1.5 border-t border-stone-100 animate-in fade-in duration-200"
+                    className="pt-1.5 border-t border-stone-100 animate-in fade-in duration-200 w-full"
                   >
-                    <div className="flex flex-col flex-wrap gap-1 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
+                    <div className="flex flex-col gap-1 max-h-[calc(100vh-340px)] overflow-y-auto pr-1 w-full">
                       {currentCategoriesList.map((cat) => {
                         const isCurrent = selectedCategory === cat.id;
 
@@ -1319,22 +1348,49 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                             type="button"
                             id={`category-nav-pill-${cat.id}`}
                             onClick={() => setSelectedCategory(cat.id)}
-                            className={`inline-flex items-center gap-1.5 rounded-2xl px-2.5 py-1.5 text-xs font-bold transition-all duration-150 border cursor-pointer whitespace-nowrap w-fit ${
+                            className={`flex items-center gap-2 rounded-2xl px-2.5 py-1.5 text-xs font-bold transition-all duration-150 border cursor-pointer whitespace-nowrap w-full text-left ${
                               isCurrent
-                                ? 'bg-amber-500 text-stone-950 border-amber-500 font-black shadow-xs translate-x-0.5'
+                                ? 'bg-amber-500 text-stone-950 border-amber-500 font-black shadow-xs'
                                 : 'bg-stone-50 text-stone-800 border-stone-200 hover:bg-stone-100 hover:border-stone-300'
                             }`}
                           >
-                            <span className={isCurrent ? 'text-stone-950' : 'text-amber-700'}>
+                            <span className={`shrink-0 ${isCurrent ? 'text-stone-950' : 'text-amber-700'}`}>
                               {renderCategoryIcon(cat.name, selectedType === 'drinks', cat.icon)}
                             </span>
-                            <span>{cat.name}</span>
+                            <span className="truncate">{cat.name}</span>
                           </button>
                         );
                       })}
                     </div>
                   </div>
                 )}
+
+                {/* Column Layout Filter for Desktop Sidebar */}
+                <div className="pt-2 border-t border-stone-100">
+                  <div className="flex items-center justify-between text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1.5 px-1">
+                    <span>Columns</span>
+                    <span className="text-amber-700 font-black">{gridColumns} Col</span>
+                  </div>
+                  <div className="grid grid-cols-5 gap-1 bg-stone-100 p-1 rounded-2xl border border-stone-200/60">
+                    {([1, 2, 3, 4, 5] as const).map((cols) => (
+                      <button
+                        key={cols}
+                        type="button"
+                        id={`desktop-grid-col-${cols}-btn`}
+                        onClick={() => handleSetGridColumns(cols)}
+                        className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl text-xs font-bold transition cursor-pointer ${
+                          gridColumns === cols
+                            ? 'bg-white text-stone-950 shadow-xs font-black ring-1 ring-stone-200'
+                            : 'text-stone-600 hover:text-stone-950'
+                        }`}
+                        title={`${cols} Column${cols > 1 ? 's' : ''} Grid`}
+                      >
+                        <span className="text-[11px] font-black">{cols}</span>
+                        <span className="text-[8px] text-stone-500 font-medium">Col</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </aside>
 
               {/* ------------------------------------------------------------- */}
@@ -1468,6 +1524,45 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                         );
                       })}
                     </div>
+
+                    {/* Column Layout Filter inside Category Selection Modal */}
+                    <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200 shrink-0">
+                      <div className="flex items-center justify-between text-[11px] font-black text-stone-700 mb-2">
+                        <span className="flex items-center gap-1.5">
+                          <LayoutGrid className="h-3.5 w-3.5 text-amber-600" />
+                          <span>Catalog Columns</span>
+                        </span>
+                        <span className="text-[10px] text-amber-700 font-extrabold">{gridColumns} Column View</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          id="modal-grid-col-1-btn"
+                          onClick={() => handleSetGridColumns(1)}
+                          className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                            gridColumns === 1
+                              ? 'bg-amber-500 text-stone-950 font-black shadow-xs'
+                              : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-100'
+                          }`}
+                        >
+                          <Square className="h-3.5 w-3.5" />
+                          <span>1 Column</span>
+                        </button>
+                        <button
+                          type="button"
+                          id="modal-grid-col-2-btn"
+                          onClick={() => handleSetGridColumns(2)}
+                          className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                            gridColumns === 2
+                              ? 'bg-amber-500 text-stone-950 font-black shadow-xs'
+                              : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-100'
+                          }`}
+                        >
+                          <Grid2X2 className="h-3.5 w-3.5" />
+                          <span>2 Columns</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1481,13 +1576,9 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                 {/* ----------------------------------------------------------- */}
                 {selectedCategory === null && (
                   <div className="space-y-3 animate-in fade-in duration-300">
-                    {/* Category Cards Grid - Dynamic 1 or 2 columns */}
+                    {/* Category Cards Grid - Dynamic 1, 2, 3, 4, 5 columns */}
                     <div
-                      className={`grid gap-1.5 sm:gap-2.5 ${
-                        gridColumns === 1
-                          ? 'grid-cols-1 sm:grid-cols-1 max-w-xl mx-auto'
-                          : 'grid-cols-2 sm:grid-cols-2 xl:grid-cols-3'
-                      }`}
+                      className={`grid gap-1.5 sm:gap-2.5 ${getCategoryGridClass()}`}
                     >
                       {currentCategoriesList.map((cat) => {
                         const count = menuItems.filter((i) => i.categoryId === cat.id && i.isAvailable).length;
@@ -1542,11 +1633,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                         </div>
                       ) : (
                         <div
-                          className={`grid gap-3 sm:gap-4 ${
-                            gridColumns === 1
-                              ? 'grid-cols-1 max-w-xl mx-auto'
-                              : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-2'
-                          }`}
+                          className={`grid gap-3 sm:gap-4 ${getItemPostsGridClass()}`}
                         >
                           {bestSellers.map((item) => renderItemPostCard(item, true))}
                         </div>
@@ -1586,11 +1673,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                               </span>
                             </div>
                             <div
-                              className={`grid gap-3 sm:gap-4 ${
-                                gridColumns === 1
-                                  ? 'grid-cols-1 max-w-xl mx-auto'
-                                  : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-2'
-                              }`}
+                              className={`grid gap-3 sm:gap-4 ${getItemPostsGridClass()}`}
                             >
                               {otherItems.map((item) => renderItemPostCard(item, false))}
                             </div>
@@ -1646,75 +1729,70 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
 
       {/* Checkout Modal */}
       {isCheckoutOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
-          <div className="w-full max-w-lg rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-7 shadow-2xl border border-stone-200 my-4 sm:my-8">
-            <div className="flex items-center justify-between border-b border-stone-200 pb-3 sm:pb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2.5 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-lg rounded-2xl sm:rounded-3xl bg-white p-3.5 sm:p-7 shadow-2xl border border-stone-200 my-2 sm:my-8 max-h-[94vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-stone-200 pb-2.5 sm:pb-4">
               <div>
-                <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-amber-700">
-                  Coffee at Yellow Hauz
-                </span>
-                <h3 className="text-base sm:text-xl font-bold text-stone-900 font-display">
-                  Order Details &amp; Checkout
+                <h3 className="text-sm sm:text-xl font-bold text-stone-900 font-display">
+                  <span className="sm:hidden">Checkout</span>
+                  <span className="hidden sm:inline">Order Details &amp; Checkout</span>
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsCheckoutOpen(false)}
-                className="rounded-full p-1.5 sm:p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-700 cursor-pointer"
+                className="rounded-full p-1 sm:p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-700 cursor-pointer"
               >
                 <X className="h-4 w-4 sm:h-5 sm:w-5" />
               </button>
             </div>
 
-            <form onSubmit={handlePlaceOrder} className="mt-3.5 sm:mt-5 space-y-3 sm:space-y-4">
-              {activeTableBinding || (orderType === 'dine_in' && selectedTable) ? (
-                <div className="rounded-xl sm:rounded-2xl bg-gradient-to-r from-amber-500/15 via-emerald-500/10 to-amber-500/15 border border-amber-500/40 p-2.5 sm:p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 font-extrabold text-amber-950 text-[11px] sm:text-xs">
-                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                      <span>DINE-IN ORDER • TABLE #{activeTableBinding?.tableNumber || selectedTable}</span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-xl sm:rounded-2xl bg-stone-900 text-white p-3 sm:p-3.5 space-y-1 border border-stone-800">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 font-bold text-amber-300 text-[11px] sm:text-xs">
-                      <Globe className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                      <span>ONLINE ORDER • ADVANCE BOOKING</span>
-                    </div>
-                    <span className="rounded-full bg-amber-500/20 text-amber-300 text-[9px] sm:text-[10px] font-bold px-2 py-0.5">
-                      Scheduled
+            <form onSubmit={handlePlaceOrder} className="mt-2.5 sm:mt-5 space-y-2.5 sm:space-y-4">
+              {activeTableBinding ? (
+                <div className="rounded-xl sm:rounded-2xl bg-gradient-to-r from-amber-500/15 via-emerald-500/10 to-amber-500/15 border border-amber-500/40 p-2 sm:p-3 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-extrabold text-amber-950 text-[10px] sm:text-xs">
+                    <span className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>DINE-IN • TABLE #{activeTableBinding.tableNumber}</span>
+                    <span className="text-[10px] text-stone-600 font-medium">
+                      ({tables.find((t) => t.tableNumber === activeTableBinding.tableNumber)?.name || 'In-House Dining'})
                     </span>
                   </div>
-                  <p className="text-[10px] sm:text-[11px] text-stone-300 leading-relaxed">
-                    Configure your future arrival date, target time, and party size below so our team prepares your table and orders in advance.
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setIsTableSelectorModalOpen(true)}
+                    className="text-[10px] font-bold text-amber-800 hover:text-amber-950 underline cursor-pointer"
+                  >
+                    Change Table
+                  </button>
                 </div>
-              )}
+              ) : null}
 
               {!activeTableBinding && (
                 <>
                   <div>
-                    <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                    <label className="block text-[9px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
                       Ordering Method
                     </label>
-                    <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                    <div className="grid grid-cols-3 gap-1 sm:gap-2">
                       <button
                         type="button"
-                        onClick={() => setOrderType('dine_in')}
-                        className={`rounded-xl py-2 sm:py-2.5 text-[11px] sm:text-xs font-bold border transition cursor-pointer ${
+                        onClick={() => {
+                          setOrderType('dine_in');
+                          if (!selectedTable) setSelectedTable(1);
+                        }}
+                        className={`rounded-lg sm:rounded-xl py-1.5 sm:py-2.5 text-[10px] sm:text-xs font-bold border transition cursor-pointer ${
                           orderType === 'dine_in'
                             ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-xs'
                             : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
                         }`}
                       >
-                        🍽️ Table Booking
+                        <span className="sm:hidden">🍽️ Dine In</span>
+                        <span className="hidden sm:inline">🍽️ Table Booking</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => setOrderType('take_away')}
-                        className={`rounded-xl py-2 sm:py-2.5 text-[11px] sm:text-xs font-bold border transition cursor-pointer ${
+                        className={`rounded-lg sm:rounded-xl py-1.5 sm:py-2.5 text-[10px] sm:text-xs font-bold border transition cursor-pointer ${
                           orderType === 'take_away'
                             ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-xs'
                             : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
@@ -1725,7 +1803,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       <button
                         type="button"
                         onClick={() => setOrderType('delivery')}
-                        className={`rounded-xl py-2 sm:py-2.5 text-[11px] sm:text-xs font-bold border transition cursor-pointer ${
+                        className={`rounded-lg sm:rounded-xl py-1.5 sm:py-2.5 text-[10px] sm:text-xs font-bold border transition cursor-pointer ${
                           orderType === 'delivery'
                             ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-xs'
                             : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
@@ -1736,21 +1814,125 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                     </div>
                   </div>
 
-                  <div className="rounded-xl sm:rounded-2xl border border-stone-200 bg-stone-50/80 p-2.5 sm:p-3.5 space-y-2.5 sm:space-y-3">
-                    <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-stone-900">
-                      <Calendar className="h-3.5 w-3.5 text-amber-600" />
-                      <span>
-                        {orderType === 'dine_in'
-                          ? 'Advance Table Booking Schedule'
-                          : orderType === 'take_away'
-                          ? 'Scheduled Pickup Time'
-                          : 'Target Delivery Schedule'}
-                      </span>
-                    </div>
+                  {orderType === 'dine_in' && (
+                    <div className="rounded-xl sm:rounded-2xl border border-amber-300/90 bg-amber-50/70 p-2.5 sm:p-3.5 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-1.5 text-[9px] sm:text-xs font-bold text-stone-900 uppercase tracking-wider">
+                          <Utensils className="h-3.5 w-3.5 text-amber-700" />
+                          <span>Select Table Number</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setIsTableSelectorModalOpen(true)}
+                          className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 hover:text-amber-950 underline cursor-pointer"
+                        >
+                          <MapPin className="h-3 w-3 text-amber-600" />
+                          <span>Floor Map</span>
+                        </button>
+                      </div>
 
-                    <div className="grid grid-cols-2 gap-2">
+                      {/* Quick Table Grid (Tables 1 - 10) */}
+                      <div className="grid grid-cols-5 gap-1 sm:gap-1.5">
+                        {tables.slice(0, 10).map((t) => {
+                          const isSelected = selectedTable === t.tableNumber;
+                          return (
+                            <button
+                              key={t.id}
+                              type="button"
+                              id={`checkout-table-pill-${t.tableNumber}`}
+                              onClick={() => {
+                                setSelectedTable(t.tableNumber);
+                                setSeatingPreference(t.area === 'airconditioned' ? 'airconditioned' : 'indoor_main');
+                              }}
+                              className={`flex flex-col items-center justify-center p-1.5 rounded-lg sm:rounded-xl border transition cursor-pointer text-center ${
+                                isSelected
+                                  ? 'bg-amber-500 text-stone-950 border-amber-600 font-black shadow-xs ring-2 ring-amber-500/40'
+                                  : 'bg-white border-stone-200 text-stone-700 hover:border-amber-300 hover:bg-amber-50/50'
+                              }`}
+                            >
+                              <span className="text-[11px] sm:text-xs font-black font-mono">T#{t.tableNumber}</span>
+                              <span className="text-[8px] sm:text-[9px] truncate max-w-full leading-tight text-stone-600">
+                                {t.name || `Table ${t.tableNumber}`}
+                              </span>
+                              <span
+                                className={`text-[7px] sm:text-[8px] uppercase font-bold mt-0.5 px-1 rounded-xs ${
+                                  t.area === 'airconditioned' ? 'bg-sky-100 text-sky-800' : 'bg-stone-100 text-stone-600'
+                                }`}
+                              >
+                                {t.area === 'airconditioned' ? 'A/C' : 'Main'}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Dropdown Selector & Auto-Assign Switch */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-0.5">
+                        <button
+                          type="button"
+                          id="checkout-table-auto-pill"
+                          onClick={() => setSelectedTable('auto')}
+                          className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg sm:rounded-xl border text-[10px] sm:text-xs font-bold transition cursor-pointer ${
+                            selectedTable === 'auto'
+                              ? 'bg-amber-500 text-stone-950 border-amber-600 font-black shadow-xs ring-2 ring-amber-500/40'
+                              : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
+                          }`}
+                        >
+                          <Sparkles className="h-3 w-3 text-amber-700" />
+                          <span>✨ Auto-Assign on Arrival</span>
+                        </button>
+
+                        <select
+                          id="checkout-table-dropdown"
+                          value={selectedTable}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const parsed = val === 'auto' ? 'auto' : val ? Number(val) : '';
+                            setSelectedTable(parsed);
+                            if (typeof parsed === 'number') {
+                              const matched = tables.find((t) => t.tableNumber === parsed);
+                              if (matched) {
+                                setSeatingPreference(matched.area === 'airconditioned' ? 'airconditioned' : 'indoor_main');
+                              }
+                            }
+                          }}
+                          className="w-full rounded-lg sm:rounded-xl border border-stone-300 bg-white px-2 py-1.5 text-[10px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
+                        >
+                          <option value="auto">✨ Auto-Assign Table (First Available)</option>
+                          {tables.map((t) => (
+                            <option key={t.id} value={t.tableNumber}>
+                              Table #{t.tableNumber} — {t.name || t.areaName} ({t.area === 'airconditioned' ? 'Air-Con' : 'Indoor Main'}, {t.capacity} Pax)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Active Selection Indicator */}
+                      <div className="flex items-center justify-between text-[10px] sm:text-[11px] bg-white rounded-lg p-1.5 sm:p-2 border border-amber-200/80">
+                        <div className="flex items-center gap-1.5 text-stone-800">
+                          <Check className="h-3.5 w-3.5 text-emerald-600 font-bold shrink-0" />
+                          <span>
+                            Selected:{' '}
+                            <strong className="text-amber-900 font-black">
+                              {selectedTable === 'auto'
+                                ? 'Auto-Assign upon arrival'
+                                : `Table #${selectedTable} (${tables.find((t) => t.tableNumber === selectedTable)?.name || 'Dine-In'})`}
+                            </strong>
+                          </span>
+                        </div>
+                        <span className="text-[9px] text-stone-500 hidden sm:inline">
+                          {selectedTable === 'auto'
+                            ? 'Staff will assign first available table'
+                            : `${tables.find((t) => t.tableNumber === selectedTable)?.area === 'airconditioned' ? 'Air-Conditioned' : 'Indoor Main'} • ${tables.find((t) => t.tableNumber === selectedTable)?.capacity || 4} Guests`}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="rounded-xl sm:rounded-2xl border border-stone-200 bg-stone-50/80 p-2 sm:p-3.5 space-y-2 sm:space-y-3">
+                    <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                       <div>
-                        <label className="block text-[9px] sm:text-[10px] font-bold text-stone-600 uppercase mb-0.5">
+                        <label className="block text-[8px] sm:text-[10px] font-bold text-stone-600 uppercase mb-0.5">
                           Date
                         </label>
                         <input
@@ -1759,35 +1941,37 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                           value={bookingDate}
                           onChange={(e) => setBookingDate(e.target.value)}
                           required
-                          className="w-full rounded-xl border border-stone-300 bg-white px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
+                          className="w-full rounded-lg sm:rounded-xl border border-stone-300 bg-white px-2 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
                         />
                       </div>
                       <div>
-                        <label className="block text-[9px] sm:text-[10px] font-bold text-stone-600 uppercase mb-0.5">
-                          Arrival / Target Time
+                        <label className="block text-[8px] sm:text-[10px] font-bold text-stone-600 uppercase mb-0.5">
+                          <span className="sm:hidden">Time</span>
+                          <span className="hidden sm:inline">Arrival / Target Time</span>
                         </label>
                         <input
                           type="time"
                           value={arrivalTime}
                           onChange={(e) => setArrivalTime(e.target.value)}
                           required
-                          className="w-full rounded-xl border border-stone-300 bg-white px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
+                          className="w-full rounded-lg sm:rounded-xl border border-stone-300 bg-white px-2 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
                         />
                       </div>
                     </div>
 
                     {orderType === 'dine_in' && (
-                      <div className="grid grid-cols-2 gap-2 pt-0.5">
+                      <div className="grid grid-cols-2 gap-1.5 sm:gap-2 pt-0.5">
                         <div>
-                          <label className="block text-[9px] sm:text-[10px] font-bold text-stone-600 uppercase mb-0.5">
-                            Party Size (Guests)
+                          <label className="block text-[8px] sm:text-[10px] font-bold text-stone-600 uppercase mb-0.5">
+                            <span className="sm:hidden">Guests</span>
+                            <span className="hidden sm:inline">Party Size (Guests)</span>
                           </label>
                           <div className="flex items-center gap-1">
-                            <Users className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-stone-400" />
+                            <Users className="h-3 w-3 text-stone-400 shrink-0" />
                             <select
                               value={partySize}
                               onChange={(e) => setPartySize(Number(e.target.value))}
-                              className="w-full rounded-xl border border-stone-300 bg-white px-2 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
+                              className="w-full rounded-lg sm:rounded-xl border border-stone-300 bg-white px-1.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
                             >
                               {[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 16, 20].map((n) => (
                                 <option key={n} value={n}>
@@ -1799,7 +1983,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                         </div>
 
                         <div>
-                          <label className="block text-[9px] sm:text-[10px] font-bold text-stone-600 uppercase mb-0.5">
+                          <label className="block text-[8px] sm:text-[10px] font-bold text-stone-600 uppercase mb-0.5">
                             Seating Area
                           </label>
                           <select
@@ -1809,61 +1993,39 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                                 e.target.value as 'indoor_main' | 'airconditioned' | 'outdoor_patio' | 'any'
                               )
                             }
-                            className="w-full rounded-xl border border-stone-300 bg-white px-2 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
+                            className="w-full rounded-lg sm:rounded-xl border border-stone-300 bg-white px-1.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
                           >
-                            <option value="indoor_main">Indoor Main Area</option>
-                            <option value="airconditioned">AC Lounge Room</option>
-                            <option value="outdoor_patio">Al Fresco Patio</option>
-                            <option value="any">Any Available</option>
+                            <option value="indoor_main">Indoor Main</option>
+                            <option value="airconditioned">Air-Con</option>
+                            <option value="outdoor_patio">Al Fresco</option>
+                            <option value="any">Any Area</option>
                           </select>
                         </div>
                       </div>
                     )}
 
                     <div>
-                      <label className="block text-[9px] sm:text-[10px] font-bold text-stone-600 uppercase mb-0.5">
-                        Special Requests / Notes (Optional)
+                      <label className="block text-[8px] sm:text-[10px] font-bold text-stone-600 uppercase mb-0.5">
+                        <span className="sm:hidden">Notes (Optional)</span>
+                        <span className="hidden sm:inline">Special Requests / Notes (Optional)</span>
                       </label>
                       <input
                         type="text"
                         value={specialRequests}
                         onChange={(e) => setSpecialRequests(e.target.value)}
-                        placeholder="e.g. High chair needed, anniversary setup, quiet corner"
-                        className="w-full rounded-xl border border-stone-300 bg-white px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none"
+                        placeholder="e.g. High chair, quiet corner"
+                        className="w-full rounded-lg sm:rounded-xl border border-stone-300 bg-white px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none"
                       />
                     </div>
                   </div>
                 </>
               )}
 
-              {activeCustomer ? (
-                <div className="flex items-center justify-between rounded-xl sm:rounded-2xl bg-amber-50/70 border border-amber-200/80 p-2.5 sm:p-3.5 text-[11px] sm:text-xs shadow-2xs">
-                  <div className="flex items-center gap-2 sm:gap-2.5">
-                    <div className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-xl bg-amber-500 text-stone-950 font-bold shrink-0">
-                      <User className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    </div>
-                    <div>
-                      <span className="text-[9px] sm:text-[10px] uppercase font-extrabold text-amber-800 tracking-wider block">
-                        Account Verified
-                      </span>
-                      <span className="font-bold text-stone-900 text-xs sm:text-sm">
-                        {activeCustomer.fullName}
-                      </span>
-                    </div>
-                  </div>
-                  {activeCustomer.contactNumber && (
-                    <span className="font-mono text-stone-700 text-[10px] sm:text-xs bg-white/90 px-2 sm:px-3 py-0.5 sm:py-1 rounded-xl border border-stone-200 shadow-2xs">
-                      {activeCustomer.contactNumber}
-                    </span>
-                  )}
-                </div>
-              ) : activeTableBinding || (orderType === 'dine_in' && selectedTable) ? (
-                null
-              ) : (
+              {!activeCustomer && !activeTableBinding && !(orderType === 'dine_in' && selectedTable) && (
                 <div className="grid gap-2 sm:gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                      Your Name
+                    <label className="block text-[9px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                      Name
                     </label>
                     <input
                       type="text"
@@ -1871,12 +2033,12 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
                       placeholder="e.g. Juan Dela Cruz"
-                      className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
+                      className="w-full rounded-lg sm:rounded-xl border border-stone-300 bg-stone-50 px-2.5 sm:px-4 py-1.5 sm:py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                      Contact Phone
+                    <label className="block text-[9px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                      Phone
                     </label>
                     <input
                       type="tel"
@@ -1884,7 +2046,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
                       placeholder="+63 912 345 6789"
-                      className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
+                      className="w-full rounded-lg sm:rounded-xl border border-stone-300 bg-stone-50 px-2.5 sm:px-4 py-1.5 sm:py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -1892,7 +2054,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
 
               {orderType === 'delivery' && (
                 <div>
-                  <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                  <label className="block text-[9px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
                     Delivery Address
                   </label>
                   <input
@@ -1901,42 +2063,42 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                     value={deliveryAddress}
                     onChange={(e) => setDeliveryAddress(e.target.value)}
                     placeholder="House/Unit, Street, Barangay, Davao City"
-                    className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
+                    className="w-full rounded-lg sm:rounded-xl border border-stone-300 bg-stone-50 px-2.5 sm:px-4 py-1.5 sm:py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
                   />
                 </div>
               )}
 
               <div>
-                <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1 sm:mb-1.5">
+                <label className="block text-[9px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1 sm:mb-1.5">
                   Payment Method
                 </label>
-                <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                <div className="grid grid-cols-3 gap-1 sm:gap-2">
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('cash')}
-                    className={`rounded-xl py-1.5 sm:py-2 text-[11px] sm:text-xs font-bold border transition cursor-pointer ${
+                    className={`rounded-lg sm:rounded-xl py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold border transition cursor-pointer ${
                       paymentMethod === 'cash'
                         ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-2xs'
                         : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
                     }`}
                   >
-                    💵 {activeTableBinding ? 'Cash / Counter' : 'Cash'}
+                    💵 Cash
                   </button>
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('gcash')}
-                    className={`rounded-xl py-1.5 sm:py-2 text-[11px] sm:text-xs font-bold border transition cursor-pointer ${
+                    className={`rounded-lg sm:rounded-xl py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold border transition cursor-pointer ${
                       paymentMethod === 'gcash'
                         ? 'bg-sky-500 text-white border-sky-500 shadow-2xs'
                         : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
                     }`}
                   >
-                    📱 GCash QR
+                    📱 GCash
                   </button>
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('card')}
-                    className={`rounded-xl py-1.5 sm:py-2 text-[11px] sm:text-xs font-bold border transition cursor-pointer ${
+                    className={`rounded-lg sm:rounded-xl py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold border transition cursor-pointer ${
                       paymentMethod === 'card'
                         ? 'bg-stone-900 text-white border-stone-900 shadow-2xs'
                         : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
@@ -1947,22 +2109,10 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                 </div>
               </div>
 
-              {!activeTableBinding && (
-                <div className="rounded-xl sm:rounded-2xl bg-amber-50 border border-amber-200/90 p-2.5 sm:p-3 text-[11px] sm:text-xs text-amber-950 space-y-0.5">
-                  <div className="flex items-center gap-1.5 font-bold text-amber-900">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-amber-700" />
-                    <span>Advance Order Confirmation</span>
-                  </div>
-                  <p className="text-[10px] sm:text-[11px] text-amber-900/80 leading-relaxed">
-                    Your reservation and advance order will be logged and verified on our POS system for arrival on {bookingDate} at {arrivalTime}.
-                  </p>
-                </div>
-              )}
-
-              <div className="rounded-xl sm:rounded-2xl bg-stone-50 p-3 sm:p-4 border border-stone-200 text-[11px] sm:text-xs space-y-1 sm:space-y-1.5">
+              <div className="rounded-xl sm:rounded-2xl bg-stone-50 p-2.5 sm:p-4 border border-stone-200 text-[10px] sm:text-xs space-y-1 sm:space-y-1.5">
                 <div className="flex justify-between text-stone-600">
-                  <span>Items count:</span>
-                  <span>{totalItemCount} items</span>
+                  <span>Items:</span>
+                  <span>{totalItemCount}</span>
                 </div>
                 <div className="flex justify-between text-stone-600">
                   <span>Subtotal:</span>
@@ -1973,24 +2123,24 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                   <span>₱{taxAmount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between font-bold text-xs sm:text-sm text-stone-900 pt-1 sm:pt-1.5 border-t border-stone-200">
-                  <span>Total Due:</span>
+                  <span>Total:</span>
                   <span className="font-mono text-amber-700">₱{totalAmount.toFixed(2)}</span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-1">
+              <div className="flex items-center gap-2 pt-0.5 sm:pt-1">
                 <button
                   type="button"
                   onClick={() => setIsCheckoutOpen(false)}
-                  className="flex items-center justify-center gap-1 rounded-xl border border-stone-200 bg-white px-4 py-2.5 sm:py-3 text-[11px] sm:text-xs font-bold text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition cursor-pointer shadow-2xs"
+                  className="flex items-center justify-center gap-1 rounded-xl border border-stone-200 bg-white px-3 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-bold text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition cursor-pointer shadow-2xs"
                 >
-                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <ArrowLeft className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                   <span>Back</span>
                 </button>
 
                 <button
                   type="submit"
-                  className="flex-1 rounded-xl bg-amber-500 py-2.5 sm:py-3 text-xs sm:text-sm font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition active:scale-98 cursor-pointer"
+                  className="flex-1 rounded-xl bg-amber-500 py-2 sm:py-3 text-xs sm:text-sm font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition active:scale-98 cursor-pointer"
                 >
                   Confirm • ₱{totalAmount.toFixed(2)}
                 </button>

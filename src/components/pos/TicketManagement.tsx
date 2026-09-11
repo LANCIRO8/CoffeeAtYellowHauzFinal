@@ -81,7 +81,7 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
 
   const [orders, setOrders] = useState<Order[]>(() => AppStore.getOrders());
   const [channelTab, setChannelTab] = useState<ChannelTab>('all');
-  const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [stationFilter, setStationFilter] = useState<'all' | 'barista' | 'kitchen'>('all');
   const [statusFilters, setStatusFilters] = useState<string[]>(['all']);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
@@ -171,9 +171,6 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
     }
   });
 
-  const [isGridModalOpen, setIsGridModalOpen] = useState(false);
-  const gridModalRef = useRef<HTMLDivElement>(null);
-
   const handleSetGridColumns = (cols: 1 | 2 | 3 | 4) => {
     setGridColumns(cols);
     try {
@@ -181,22 +178,7 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
     } catch (e) {
       console.error(e);
     }
-    setIsGridModalOpen(false);
   };
-
-  // Close grid modal on click outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        gridModalRef.current &&
-        !gridModalRef.current.contains(e.target as Node)
-      ) {
-        setIsGridModalOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   // Real-time ticker to update live customer wait times every second
   useEffect(() => {
@@ -1412,280 +1394,69 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
               </>
             )}
           </h2>
-          <p className="text-xs text-stone-600 mt-0.5">
-            {isBarista
-              ? 'Brew and prepare drinks • Kitchen handles food orders'
-              : isCook
-              ? 'Cook kitchen dishes • Barista handles drink orders'
-              : 'Monitor, confirm, and fulfill orders across Bar and Kitchen stations'}
-          </p>
+          {(isBarista || isCook) && (
+            <p className="text-xs text-stone-600 mt-0.5">
+              {isBarista
+                ? 'Brew and prepare drinks • Kitchen handles food orders'
+                : 'Cook kitchen dishes • Barista handles drink orders'}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-          {/* Station Filter for Cashier & Admin */}
-          {(isCashier || isAdmin) && (
-            <div className="flex items-center rounded-xl border border-stone-200 bg-stone-100 p-0.5 text-xs font-bold shadow-2xs">
-              <button
-                type="button"
-                id="station-filter-all"
-                onClick={() => setStationFilter('all')}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                  stationFilter === 'all'
-                    ? 'bg-white text-stone-950 shadow-xs'
-                    : 'text-stone-600 hover:text-stone-900'
-                }`}
-              >
-                All
-              </button>
-              <button
-                type="button"
-                id="station-filter-barista"
-                onClick={() => setStationFilter('barista')}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                  stationFilter === 'barista'
-                    ? 'bg-amber-600 text-white shadow-xs'
-                    : 'text-stone-600 hover:text-stone-900'
-                }`}
-              >
-                <Coffee className="h-3 w-3" />
-                <span>Bar</span>
-              </button>
-              <button
-                type="button"
-                id="station-filter-kitchen"
-                onClick={() => setStationFilter('kitchen')}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                  stationFilter === 'kitchen'
-                    ? 'bg-orange-600 text-white shadow-xs'
-                    : 'text-stone-600 hover:text-stone-900'
-                }`}
-              >
-                <ChefHat className="h-3 w-3" />
-                <span>Kitchen</span>
-              </button>
-            </div>
-          )}
-          {/* Grid Layout Filter Button */}
-          <div className="relative" ref={gridModalRef}>
-            <button
-              type="button"
-              id="staff-grid-layout-filter-btn"
-              onClick={() => setIsGridModalOpen((prev) => !prev)}
-              title="Change Ticket Grid Columns (1 to 4)"
-              className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition active:scale-95 cursor-pointer shadow-2xs font-extrabold text-xs ${
-                isGridModalOpen
-                  ? 'border-amber-500 bg-amber-100 text-stone-950 ring-2 ring-amber-500/40'
-                  : 'border-stone-300 bg-white text-stone-950 hover:bg-stone-100 hover:border-stone-400'
-              }`}
-            >
-              {gridColumns === 1 ? (
-                <Square className="h-3.5 w-3.5 text-stone-950 stroke-[2.5]" />
-              ) : gridColumns === 2 ? (
-                <Grid2X2 className="h-3.5 w-3.5 text-stone-950 stroke-[2.5]" />
-              ) : gridColumns === 3 ? (
-                <Grid3X3 className="h-3.5 w-3.5 text-stone-950 stroke-[2.5]" />
-              ) : (
-                <LayoutGrid className="h-3.5 w-3.5 text-stone-950 stroke-[2.5]" />
-              )}
-              <span className="font-black text-[11px] hidden sm:inline text-stone-950">
-                {gridColumns} Col
-              </span>
-              <ChevronDown className="h-3.5 w-3.5 text-stone-800 stroke-[2.2] ml-0.5" />
-            </button>
-
-            {/* Grid Layout Filter Modal on Mobile / Dropdown on Desktop */}
-            {isGridModalOpen && (
-              <div
-                className="fixed inset-0 z-50 flex items-end sm:items-start justify-center sm:justify-end p-4 sm:p-0 bg-stone-950/50 backdrop-blur-xs sm:bg-transparent sm:backdrop-blur-none sm:absolute sm:inset-auto sm:right-0 sm:top-11"
-                onClick={(e) => {
-                  if (e.target === e.currentTarget) {
-                    setIsGridModalOpen(false);
-                  }
-                }}
-              >
-                <div
-                  id="staff-grid-layout-filter-modal"
-                  className="w-full max-w-sm sm:w-80 rounded-3xl sm:rounded-2xl border border-stone-200 bg-white p-5 sm:p-3.5 shadow-2xl sm:shadow-xl animate-in fade-in-0 slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200 font-sans"
-                >
-                  <div className="flex items-center justify-between pb-3 sm:pb-2.5 border-b border-stone-100 mb-3.5 sm:mb-3">
-                    <div className="flex items-center gap-2 sm:gap-1.5 font-black text-sm sm:text-xs text-stone-900">
-                      <LayoutGrid className="h-4 w-4 text-amber-600" />
-                      <span>Ticket Grid Layout (1–4 Columns)</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsGridModalOpen(false)}
-                      className="p-1.5 sm:p-1 rounded-xl sm:rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer"
-                    >
-                      <X className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                    </button>
-                  </div>
-
-                  <div className="text-xs sm:text-[11px] text-stone-500 mb-3.5 sm:mb-2.5 font-medium">
-                    Choose your preferred ticket card view for tablet &amp; PC:
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-2 sm:gap-1.5">
-                    {/* 1 Column Option */}
-                    <button
-                      type="button"
-                      id="staff-grid-col-1-btn"
-                      onClick={() => handleSetGridColumns(1)}
-                      className={`flex flex-col items-center justify-center gap-1.5 sm:gap-1 p-2.5 sm:p-2 rounded-2xl sm:rounded-xl border text-center transition cursor-pointer ${
-                        gridColumns === 1
-                          ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
-                          : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
-                      }`}
-                    >
-                      <div className="grid h-7 w-7 sm:h-6 sm:w-6 place-items-center rounded-xl sm:rounded-lg bg-white border border-stone-200 shadow-2xs text-amber-700">
-                        <Square className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
-                      </div>
-                      <div className="text-xs sm:text-[11px] font-bold leading-none">1 Col</div>
-                      {gridColumns === 1 && (
-                        <span className="flex items-center gap-0.5 text-[9px] sm:text-[8px] font-black text-amber-700">
-                          <Check className="h-2.5 w-2.5 sm:h-2 sm:w-2 stroke-[3]" />
-                        </span>
-                      )}
-                    </button>
-
-                    {/* 2 Column Option */}
-                    <button
-                      type="button"
-                      id="staff-grid-col-2-btn"
-                      onClick={() => handleSetGridColumns(2)}
-                      className={`flex flex-col items-center justify-center gap-1.5 sm:gap-1 p-2.5 sm:p-2 rounded-2xl sm:rounded-xl border text-center transition cursor-pointer ${
-                        gridColumns === 2
-                          ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
-                          : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
-                      }`}
-                    >
-                      <div className="grid h-7 w-7 sm:h-6 sm:w-6 place-items-center rounded-xl sm:rounded-lg bg-white border border-stone-200 shadow-2xs text-amber-700">
-                        <Grid2X2 className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
-                      </div>
-                      <div className="text-xs sm:text-[11px] font-bold leading-none">2 Cols</div>
-                      {gridColumns === 2 && (
-                        <span className="flex items-center gap-0.5 text-[9px] sm:text-[8px] font-black text-amber-700">
-                          <Check className="h-2.5 w-2.5 sm:h-2 sm:w-2 stroke-[3]" />
-                        </span>
-                      )}
-                    </button>
-
-                    {/* 3 Column Option */}
-                    <button
-                      type="button"
-                      id="staff-grid-col-3-btn"
-                      onClick={() => handleSetGridColumns(3)}
-                      className={`flex flex-col items-center justify-center gap-1.5 sm:gap-1 p-2.5 sm:p-2 rounded-2xl sm:rounded-xl border text-center transition cursor-pointer ${
-                        gridColumns === 3
-                          ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
-                          : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
-                      }`}
-                    >
-                      <div className="grid h-7 w-7 sm:h-6 sm:w-6 place-items-center rounded-xl sm:rounded-lg bg-white border border-stone-200 shadow-2xs text-amber-700">
-                        <Grid3X3 className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
-                      </div>
-                      <div className="text-xs sm:text-[11px] font-bold leading-none">3 Cols</div>
-                      {gridColumns === 3 && (
-                        <span className="flex items-center gap-0.5 text-[9px] sm:text-[8px] font-black text-amber-700">
-                          <Check className="h-2.5 w-2.5 sm:h-2 sm:w-2 stroke-[3]" />
-                        </span>
-                      )}
-                    </button>
-
-                    {/* 4 Column Option */}
-                    <button
-                      type="button"
-                      id="staff-grid-col-4-btn"
-                      onClick={() => handleSetGridColumns(4)}
-                      className={`flex flex-col items-center justify-center gap-1.5 sm:gap-1 p-2.5 sm:p-2 rounded-2xl sm:rounded-xl border text-center transition cursor-pointer ${
-                        gridColumns === 4
-                          ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
-                          : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
-                      }`}
-                    >
-                      <div className="grid h-7 w-7 sm:h-6 sm:w-6 place-items-center rounded-xl sm:rounded-lg bg-white border border-stone-200 shadow-2xs text-amber-700">
-                        <LayoutGrid className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
-                      </div>
-                      <div className="text-xs sm:text-[11px] font-bold leading-none">4 Cols</div>
-                      {gridColumns === 4 && (
-                        <span className="flex items-center gap-0.5 text-[9px] sm:text-[8px] font-black text-amber-700">
-                          <Check className="h-2.5 w-2.5 sm:h-2 sm:w-2 stroke-[3]" />
-                        </span>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Channel Filter Modal Trigger Button */}
+          {/* Combined Filter Button (Station, Channel & Grid Layout) */}
           <button
             id="ticket-channel-filter-btn"
             type="button"
-            onClick={() => setIsChannelModalOpen(true)}
+            onClick={() => setIsFilterModalOpen(true)}
             className={`flex items-center gap-2 rounded-xl px-3.5 py-1.5 border text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs ${
-              channelTab === 'in_store'
+              channelTab !== 'all' || stationFilter !== 'all'
                 ? 'border-amber-400 bg-amber-50/90 text-amber-950 hover:bg-amber-100 ring-1 ring-amber-400/40'
-                : channelTab === 'online'
-                ? 'border-indigo-400 bg-indigo-50/90 text-indigo-950 hover:bg-indigo-100 ring-1 ring-indigo-400/40'
-                : channelTab === 'split'
-                ? 'border-stone-800 bg-stone-900 text-white hover:bg-stone-800 ring-1 ring-stone-950'
-                : 'border-stone-200 bg-white text-stone-800 hover:bg-stone-50'
+                : 'border-stone-300 bg-white text-stone-800 hover:bg-stone-50 hover:border-stone-400'
             }`}
-            title="Filter by Channel & Layout"
+            title="Filter Orders: Station, Channel & Grid Layout"
           >
             <SlidersHorizontal
               className={`h-3.5 w-3.5 ${
-                channelTab === 'in_store'
+                channelTab !== 'all' || stationFilter !== 'all'
                   ? 'text-amber-700'
-                  : channelTab === 'online'
-                  ? 'text-indigo-600'
-                  : channelTab === 'split'
-                  ? 'text-amber-400'
                   : 'text-stone-500'
               }`}
             />
             <div className="flex items-center gap-1.5">
-              {channelTab === 'all' && (
-                <>
-                  <Layers className="h-3.5 w-3.5 text-stone-600" />
-                  <span>Dine-in & Online</span>
-                  <span className="rounded-full bg-stone-100 px-1.5 py-0.2 text-[10px] font-black text-stone-800 border border-stone-200">
-                    {orders.length}
-                  </span>
-                </>
+              <span className="font-extrabold text-stone-900">Filter &amp; View</span>
+
+              {/* Station Badge (if filtered) */}
+              {(isCashier || isAdmin) && stationFilter !== 'all' && (
+                <span className="rounded-md bg-amber-200/90 px-1.5 py-0.2 text-[10px] font-black text-amber-950 uppercase">
+                  {stationFilter === 'barista' ? 'Bar' : 'Kitchen'}
+                </span>
               )}
+
+              {/* Channel Badge */}
               {channelTab === 'in_store' && (
-                <>
-                  <Store className="h-3.5 w-3.5 text-amber-700" />
-                  <span className="font-black text-amber-950">In-Store</span>
-                  <span className="rounded-full bg-amber-200/90 px-1.5 py-0.2 text-[10px] font-black text-amber-950">
-                    {inStoreOrdersAll.length}
-                  </span>
-                </>
+                <span className="rounded-md bg-amber-200/90 px-1.5 py-0.2 text-[10px] font-black text-amber-950">
+                  In-Store ({inStoreOrdersAll.length})
+                </span>
               )}
               {channelTab === 'online' && (
-                <>
-                  <Globe className="h-3.5 w-3.5 text-indigo-700" />
-                  <span className="font-black text-indigo-950">Online</span>
-                  <span className="rounded-full bg-indigo-200/90 px-1.5 py-0.2 text-[10px] font-black text-indigo-950">
-                    {onlineOrdersAll.length}
-                  </span>
+                <span className="inline-flex items-center gap-1 rounded-md bg-indigo-100 px-1.5 py-0.2 text-[10px] font-black text-indigo-950">
+                  Online ({onlineOrdersAll.length})
                   {pendingConfirmCount > 0 && (
-                    <span className="flex h-2 w-2 relative">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-                    </span>
+                    <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse"></span>
                   )}
-                </>
+                </span>
               )}
               {channelTab === 'split' && (
-                <>
-                  <Columns className="h-3.5 w-3.5 text-amber-400" />
-                  <span className="font-black text-white">Split View</span>
-                </>
+                <span className="rounded-md bg-stone-900 px-1.5 py-0.2 text-[10px] font-black text-amber-400">
+                  Split
+                </span>
               )}
+
+              {/* Column Badge */}
+              <span className="rounded-md bg-stone-100 border border-stone-200 px-1.5 py-0.2 text-[10px] font-bold text-stone-700 hidden sm:inline">
+                {gridColumns} Col
+              </span>
             </div>
             <ChevronDown className="h-3.5 w-3.5 opacity-60 ml-0.5" />
           </button>
@@ -2944,197 +2715,358 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
         </div>
       )}
 
-      {/* Channel Filter Modal */}
-      {isChannelModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-xs animate-in fade-in duration-150">
+      {/* Unified Filter & Layout Settings Modal */}
+      {isFilterModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsFilterModalOpen(false);
+          }}
+        >
           <div
             id="channel-filter-modal"
-            className="w-full max-w-md rounded-2xl bg-white p-5 sm:p-6 shadow-2xl space-y-4 border border-stone-200"
+            className="w-full max-w-lg rounded-3xl bg-white p-5 sm:p-6 shadow-2xl space-y-4 border border-stone-200 max-h-[90vh] overflow-y-auto"
           >
             {/* Header */}
             <div className="flex items-center justify-between border-b border-stone-100 pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/15 text-amber-900 border border-amber-500/20">
-                  <Layers className="h-5 w-5 text-amber-700" />
+                  <SlidersHorizontal className="h-5 w-5 text-amber-700" />
                 </div>
                 <div>
                   <h3 className="font-display text-base font-bold text-stone-900">
-                    Filter by Channel & Layout
+                    Filter &amp; View Settings
                   </h3>
                   <p className="text-xs text-stone-500 font-medium">
-                    Select order source stream or multi-column layout
+                    Configure station focus, order channels, and grid layout
                   </p>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => setIsChannelModalOpen(false)}
+                onClick={() => setIsFilterModalOpen(false)}
                 className="rounded-xl p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700 transition cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Channel Options */}
-            <div className="space-y-2.5">
-              {/* Dine-in & Online Option */}
-              <button
-                type="button"
-                onClick={() => {
-                  setChannelTab('all');
-                  setIsChannelModalOpen(false);
-                }}
-                className={`flex w-full items-center justify-between rounded-xl p-3.5 text-left text-xs font-bold transition cursor-pointer border ${
-                  channelTab === 'all'
-                    ? 'border-stone-950 bg-stone-950 text-white shadow-xs'
-                    : 'border-stone-200 bg-stone-50/70 text-stone-800 hover:bg-stone-100 hover:border-stone-300'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`flex h-5 w-5 items-center justify-center rounded-md border ${
-                    channelTab === 'all' ? 'bg-amber-400 border-amber-400 text-stone-950' : 'border-stone-300 bg-white'
-                  }`}>
-                    {channelTab === 'all' && <Check className="h-3.5 w-3.5 stroke-[3]" />}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Layers className={`h-4 w-4 ${channelTab === 'all' ? 'text-amber-400' : 'text-stone-600'}`} />
-                      <span className="font-extrabold text-sm">Dine-in & Online</span>
-                    </div>
-                    <p className={`text-[11px] font-normal mt-0.5 ${channelTab === 'all' ? 'text-stone-300' : 'text-stone-500'}`}>
-                      Combined feed of in-store and online customer orders
-                    </p>
-                  </div>
+            {/* Section 1: Station Focus (Cashier & Admin) */}
+            {(isCashier || isAdmin) && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-stone-600">
+                    Station Focus
+                  </span>
+                  <span className="text-[11px] text-stone-400">Preparation department</span>
                 </div>
-                <span className={`rounded-full px-2.5 py-0.5 text-xs font-black shrink-0 ${
-                  channelTab === 'all' ? 'bg-white/20 text-white' : 'bg-stone-200 text-stone-800'
-                }`}>
-                  {orders.length}
-                </span>
-              </button>
 
-              {/* In-Store Option */}
-              <button
-                type="button"
-                onClick={() => {
-                  setChannelTab('in_store');
-                  setIsChannelModalOpen(false);
-                }}
-                className={`flex w-full items-center justify-between rounded-xl p-3.5 text-left text-xs font-bold transition cursor-pointer border ${
-                  channelTab === 'in_store'
-                    ? 'border-amber-500 bg-amber-50/90 text-amber-950 shadow-xs ring-1 ring-amber-400'
-                    : 'border-stone-200 bg-stone-50/70 text-stone-800 hover:bg-stone-100 hover:border-stone-300'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`flex h-5 w-5 items-center justify-center rounded-md border ${
-                    channelTab === 'in_store' ? 'bg-amber-500 border-amber-500 text-stone-950' : 'border-stone-300 bg-white'
-                  }`}>
-                    {channelTab === 'in_store' && <Check className="h-3.5 w-3.5 stroke-[3]" />}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Store className="h-4 w-4 text-amber-700" />
-                      <span className="font-extrabold text-sm">In-Store (On-the-Place)</span>
-                    </div>
-                    <p className={`text-[11px] font-normal mt-0.5 ${channelTab === 'in_store' ? 'text-amber-900/80' : 'text-stone-500'}`}>
-                      Counter walk-ins, dine-in tables, and direct takeaway
-                    </p>
-                  </div>
-                </div>
-                <span className={`rounded-full px-2.5 py-0.5 text-xs font-black shrink-0 ${
-                  channelTab === 'in_store' ? 'bg-amber-200 text-amber-950' : 'bg-amber-100 text-amber-900'
-                }`}>
-                  {inStoreOrdersAll.length}
-                </span>
-              </button>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStationFilter('all')}
+                    className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-2 text-xs font-bold transition border cursor-pointer ${
+                      stationFilter === 'all'
+                        ? 'border-stone-950 bg-stone-950 text-white shadow-xs'
+                        : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100'
+                    }`}
+                  >
+                    {stationFilter === 'all' && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                    <span>All Stations</span>
+                  </button>
 
-              {/* Online Orders Option */}
-              <button
-                type="button"
-                onClick={() => {
-                  setChannelTab('online');
-                  setIsChannelModalOpen(false);
-                }}
-                className={`flex w-full items-center justify-between rounded-xl p-3.5 text-left text-xs font-bold transition cursor-pointer border ${
-                  channelTab === 'online'
-                    ? 'border-indigo-500 bg-indigo-50/90 text-indigo-950 shadow-xs ring-1 ring-indigo-400'
-                    : 'border-stone-200 bg-stone-50/70 text-stone-800 hover:bg-stone-100 hover:border-stone-300'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`flex h-5 w-5 items-center justify-center rounded-md border ${
-                    channelTab === 'online' ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-stone-300 bg-white'
-                  }`}>
-                    {channelTab === 'online' && <Check className="h-3.5 w-3.5 stroke-[3]" />}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Globe className="h-4 w-4 text-indigo-600" />
-                      <span className="font-extrabold text-sm">Online Orders</span>
-                      {pendingConfirmCount > 0 && (
-                        <span className="rounded-full bg-rose-500 px-1.5 py-0.2 text-[10px] font-black text-white">
-                          {pendingConfirmCount} new
-                        </span>
-                      )}
-                    </div>
-                    <p className={`text-[11px] font-normal mt-0.5 ${channelTab === 'online' ? 'text-indigo-900/80' : 'text-stone-500'}`}>
-                      Orders placed via customer mobile web ordering menu
-                    </p>
-                  </div>
-                </div>
-                <span className={`rounded-full px-2.5 py-0.5 text-xs font-black shrink-0 ${
-                  channelTab === 'online' ? 'bg-indigo-200 text-indigo-950' : 'bg-indigo-100 text-indigo-900'
-                }`}>
-                  {onlineOrdersAll.length}
-                </span>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => setStationFilter('barista')}
+                    className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-2 text-xs font-bold transition border cursor-pointer ${
+                      stationFilter === 'barista'
+                        ? 'border-amber-600 bg-amber-600 text-white shadow-xs'
+                        : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100'
+                    }`}
+                  >
+                    <Coffee className="h-3.5 w-3.5" />
+                    <span>Bar</span>
+                    {stationFilter === 'barista' && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                  </button>
 
-              {/* Split View Option */}
-              <button
-                type="button"
-                onClick={() => {
-                  setChannelTab('split');
-                  setIsChannelModalOpen(false);
-                }}
-                className={`flex w-full items-center justify-between rounded-xl p-3.5 text-left text-xs font-bold transition cursor-pointer border ${
-                  channelTab === 'split'
-                    ? 'border-stone-900 bg-stone-900 text-white shadow-xs'
-                    : 'border-stone-200 bg-stone-50/70 text-stone-800 hover:bg-stone-100 hover:border-stone-300'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`flex h-5 w-5 items-center justify-center rounded-md border ${
-                    channelTab === 'split' ? 'bg-amber-400 border-amber-400 text-stone-950' : 'border-stone-300 bg-white'
-                  }`}>
-                    {channelTab === 'split' && <Check className="h-3.5 w-3.5 stroke-[3]" />}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Columns className={`h-4 w-4 ${channelTab === 'split' ? 'text-amber-400' : 'text-stone-700'}`} />
-                      <span className="font-extrabold text-sm">Dual Split View</span>
-                    </div>
-                    <p className={`text-[11px] font-normal mt-0.5 ${channelTab === 'split' ? 'text-stone-300' : 'text-stone-500'}`}>
-                      Side-by-side synchronized workflow boards for In-Store and Online
-                    </p>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setStationFilter('kitchen')}
+                    className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-2 text-xs font-bold transition border cursor-pointer ${
+                      stationFilter === 'kitchen'
+                        ? 'border-orange-600 bg-orange-600 text-white shadow-xs'
+                        : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100'
+                    }`}
+                  >
+                    <ChefHat className="h-3.5 w-3.5" />
+                    <span>Kitchen</span>
+                    {stationFilter === 'kitchen' && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                  </button>
                 </div>
-                <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider shrink-0 ${
-                  channelTab === 'split' ? 'bg-amber-400 text-stone-950' : 'bg-stone-200 text-stone-800'
-                }`}>
-                  Side-by-Side
+              </div>
+            )}
+
+            {/* Section 2: Order Channel Streams */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-stone-600">
+                  Order Source Stream
                 </span>
-              </button>
+                <span className="text-[11px] text-stone-400">Origin channel</span>
+              </div>
+
+              <div className="space-y-2">
+                {/* Dine-in & Online */}
+                <button
+                  type="button"
+                  onClick={() => setChannelTab('all')}
+                  className={`flex w-full items-center justify-between rounded-xl p-3 text-left text-xs font-bold transition cursor-pointer border ${
+                    channelTab === 'all'
+                      ? 'border-stone-950 bg-stone-950 text-white shadow-xs'
+                      : 'border-stone-200 bg-stone-50/70 text-stone-800 hover:bg-stone-100 hover:border-stone-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`flex h-5 w-5 items-center justify-center rounded-md border ${
+                        channelTab === 'all'
+                          ? 'bg-amber-400 border-amber-400 text-stone-950'
+                          : 'border-stone-300 bg-white'
+                      }`}
+                    >
+                      {channelTab === 'all' && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Layers
+                          className={`h-4 w-4 ${
+                            channelTab === 'all' ? 'text-amber-400' : 'text-stone-600'
+                          }`}
+                        />
+                        <span className="font-extrabold text-sm">Dine-in &amp; Online</span>
+                      </div>
+                      <p
+                        className={`text-[11px] font-normal mt-0.5 ${
+                          channelTab === 'all' ? 'text-stone-300' : 'text-stone-500'
+                        }`}
+                      >
+                        Combined feed of in-store and online customer orders
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-black shrink-0 ${
+                      channelTab === 'all' ? 'bg-white/20 text-white' : 'bg-stone-200 text-stone-800'
+                    }`}
+                  >
+                    {orders.length}
+                  </span>
+                </button>
+
+                {/* In-Store */}
+                <button
+                  type="button"
+                  onClick={() => setChannelTab('in_store')}
+                  className={`flex w-full items-center justify-between rounded-xl p-3 text-left text-xs font-bold transition cursor-pointer border ${
+                    channelTab === 'in_store'
+                      ? 'border-amber-500 bg-amber-50/90 text-amber-950 shadow-xs ring-1 ring-amber-400'
+                      : 'border-stone-200 bg-stone-50/70 text-stone-800 hover:bg-stone-100 hover:border-stone-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`flex h-5 w-5 items-center justify-center rounded-md border ${
+                        channelTab === 'in_store'
+                          ? 'bg-amber-500 border-amber-500 text-stone-950'
+                          : 'border-stone-300 bg-white'
+                      }`}
+                    >
+                      {channelTab === 'in_store' && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Store className="h-4 w-4 text-amber-700" />
+                        <span className="font-extrabold text-sm">In-Store (On-the-Place)</span>
+                      </div>
+                      <p
+                        className={`text-[11px] font-normal mt-0.5 ${
+                          channelTab === 'in_store' ? 'text-amber-900/80' : 'text-stone-500'
+                        }`}
+                      >
+                        Counter walk-ins, dine-in tables, and direct takeaway
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-black shrink-0 ${
+                      channelTab === 'in_store'
+                        ? 'bg-amber-200 text-amber-950'
+                        : 'bg-amber-100 text-amber-900'
+                    }`}
+                  >
+                    {inStoreOrdersAll.length}
+                  </span>
+                </button>
+
+                {/* Online Orders */}
+                <button
+                  type="button"
+                  onClick={() => setChannelTab('online')}
+                  className={`flex w-full items-center justify-between rounded-xl p-3 text-left text-xs font-bold transition cursor-pointer border ${
+                    channelTab === 'online'
+                      ? 'border-indigo-500 bg-indigo-50/90 text-indigo-950 shadow-xs ring-1 ring-indigo-400'
+                      : 'border-stone-200 bg-stone-50/70 text-stone-800 hover:bg-stone-100 hover:border-stone-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`flex h-5 w-5 items-center justify-center rounded-md border ${
+                        channelTab === 'online'
+                          ? 'bg-indigo-600 border-indigo-600 text-white'
+                          : 'border-stone-300 bg-white'
+                      }`}
+                    >
+                      {channelTab === 'online' && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Globe className="h-4 w-4 text-indigo-600" />
+                        <span className="font-extrabold text-sm">Online Orders</span>
+                        {pendingConfirmCount > 0 && (
+                          <span className="rounded-full bg-rose-500 px-1.5 py-0.2 text-[10px] font-black text-white">
+                            {pendingConfirmCount} new
+                          </span>
+                        )}
+                      </div>
+                      <p
+                        className={`text-[11px] font-normal mt-0.5 ${
+                          channelTab === 'online' ? 'text-indigo-900/80' : 'text-stone-500'
+                        }`}
+                      >
+                        Orders placed via customer mobile web ordering menu
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-black shrink-0 ${
+                      channelTab === 'online'
+                        ? 'bg-indigo-200 text-indigo-950'
+                        : 'bg-indigo-100 text-indigo-900'
+                    }`}
+                  >
+                    {onlineOrdersAll.length}
+                  </span>
+                </button>
+
+                {/* Split View */}
+                <button
+                  type="button"
+                  onClick={() => setChannelTab('split')}
+                  className={`flex w-full items-center justify-between rounded-xl p-3 text-left text-xs font-bold transition cursor-pointer border ${
+                    channelTab === 'split'
+                      ? 'border-stone-900 bg-stone-900 text-white shadow-xs'
+                      : 'border-stone-200 bg-stone-50/70 text-stone-800 hover:bg-stone-100 hover:border-stone-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`flex h-5 w-5 items-center justify-center rounded-md border ${
+                        channelTab === 'split'
+                          ? 'bg-amber-400 border-amber-400 text-stone-950'
+                          : 'border-stone-300 bg-white'
+                      }`}
+                    >
+                      {channelTab === 'split' && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Columns
+                          className={`h-4 w-4 ${
+                            channelTab === 'split' ? 'text-amber-400' : 'text-stone-700'
+                          }`}
+                        />
+                        <span className="font-extrabold text-sm">Dual Split View</span>
+                      </div>
+                      <p
+                        className={`text-[11px] font-normal mt-0.5 ${
+                          channelTab === 'split' ? 'text-stone-300' : 'text-stone-500'
+                        }`}
+                      >
+                        Side-by-side synchronized workflow boards for In-Store and Online
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider shrink-0 ${
+                      channelTab === 'split'
+                        ? 'bg-amber-400 text-stone-950'
+                        : 'bg-stone-200 text-stone-800'
+                    }`}
+                  >
+                    Side-by-Side
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Section 3: Grid Layout Columns */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-stone-600">
+                  Ticket Grid Layout
+                </span>
+                <span className="text-[11px] text-stone-400">Card columns across screen</span>
+              </div>
+
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { cols: 1 as const, label: '1 Col', Icon: Square },
+                  { cols: 2 as const, label: '2 Cols', Icon: Grid2X2 },
+                  { cols: 3 as const, label: '3 Cols', Icon: Grid3X3 },
+                  { cols: 4 as const, label: '4 Cols', Icon: LayoutGrid },
+                ].map(({ cols, label, Icon }) => (
+                  <button
+                    key={cols}
+                    type="button"
+                    onClick={() => handleSetGridColumns(cols)}
+                    className={`flex flex-col items-center justify-center gap-1.5 p-2.5 rounded-xl border text-center transition cursor-pointer ${
+                      gridColumns === cols
+                        ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
+                        : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
+                    }`}
+                  >
+                    <div className="grid h-7 w-7 place-items-center rounded-lg bg-white border border-stone-200 shadow-2xs text-amber-700">
+                      <Icon className="h-3.5 w-3.5" />
+                    </div>
+                    <div className="text-xs font-bold leading-none">{label}</div>
+                    {gridColumns === cols && (
+                      <span className="flex items-center gap-0.5 text-[9px] font-black text-amber-700">
+                        <Check className="h-2.5 w-2.5 stroke-[3]" />
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end pt-3 border-t border-stone-100">
+            <div className="flex items-center justify-between pt-3 border-t border-stone-100">
               <button
                 type="button"
-                onClick={() => setIsChannelModalOpen(false)}
-                className="rounded-xl bg-stone-950 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 transition cursor-pointer shadow-xs"
+                onClick={() => {
+                  setStationFilter('all');
+                  setChannelTab('all');
+                }}
+                className="text-xs font-bold text-stone-500 hover:text-stone-800 transition cursor-pointer"
               >
-                Close
+                Reset Filters
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsFilterModalOpen(false)}
+                className="rounded-xl bg-stone-950 px-6 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition cursor-pointer shadow-xs active:scale-95"
+              >
+                Done
               </button>
             </div>
           </div>

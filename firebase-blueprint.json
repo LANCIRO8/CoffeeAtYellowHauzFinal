@@ -1,0 +1,225 @@
+{
+  "entities": {
+    "Category": {
+      "title": "Category",
+      "description": "Menu category definition",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique category identifier" },
+        "name": { "type": "string", "description": "Category name", "maxLength": 100 },
+        "icon": { "type": "string", "description": "Icon identifier" },
+        "order": { "type": "number", "description": "Display sort order" },
+        "color": { "type": "string", "description": "Badge color code" }
+      },
+      "required": ["id", "name"]
+    },
+    "MenuItem": {
+      "title": "MenuItem",
+      "description": "Food, beverage, or pastry item on the café menu",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique item ID" },
+        "name": { "type": "string", "description": "Item name", "maxLength": 120 },
+        "category": { "type": "string", "description": "Category reference" },
+        "price": { "type": "number", "description": "Price in PHP" },
+        "stock": { "type": "number", "description": "Current stock count" },
+        "description": { "type": "string", "description": "Product description", "maxLength": 500 },
+        "image": { "type": "string", "description": "Image path or URL" },
+        "isAvailable": { "type": "boolean", "description": "Availability flag" },
+        "isChefSpecial": { "type": "boolean", "description": "Chef special flag" },
+        "isBestSeller": { "type": "boolean", "description": "Bestseller badge" },
+        "prepTime": { "type": "number", "description": "Preparation time in minutes" }
+      },
+      "required": ["id", "name", "category", "price"]
+    },
+    "Table": {
+      "title": "Table",
+      "description": "Café dining table or seating unit",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Table identifier" },
+        "number": { "type": "string", "description": "Table label or number" },
+        "capacity": { "type": "number", "description": "Seating capacity" },
+        "status": { "type": "string", "description": "Current status", "enum": ["available", "occupied", "reserved", "cleaning"] },
+        "zone": { "type": "string", "description": "Dining area zone" },
+        "posX": { "type": "number", "description": "Floor plan X coordinate" },
+        "posY": { "type": "number", "description": "Floor plan Y coordinate" }
+      },
+      "required": ["id", "number", "capacity", "status"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer dining, takeout, or online order",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique order ID" },
+        "orderNumber": { "type": "string", "description": "Friendly order tracking code" },
+        "orderType": { "type": "string", "description": "dine_in, takeout, or delivery", "enum": ["dine_in", "takeout", "delivery"] },
+        "tableNumber": { "type": "string", "description": "Associated table number" },
+        "status": { "type": "string", "description": "Order lifecycle state", "enum": ["pending", "confirmed", "preparing", "ready", "completed", "cancelled"] },
+        "paymentStatus": { "type": "string", "description": "Payment state", "enum": ["unpaid", "paid", "refunded"] },
+        "items": { "type": "array", "description": "Line items in order" },
+        "subtotal": { "type": "number", "description": "Subtotal before tax/discount" },
+        "tax": { "type": "number", "description": "Tax amount" },
+        "total": { "type": "number", "description": "Grand total in PHP" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" }
+      },
+      "required": ["id", "orderNumber", "status", "total"]
+    },
+    "Reservation": {
+      "title": "Reservation",
+      "description": "Table reservation booked by customer or staff",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Reservation ID" },
+        "customerName": { "type": "string", "description": "Customer full name", "maxLength": 100 },
+        "customerPhone": { "type": "string", "description": "Contact phone number" },
+        "customerEmail": { "type": "string", "description": "Contact email address" },
+        "guestCount": { "type": "number", "description": "Party size" },
+        "date": { "type": "string", "description": "Reservation date YYYY-MM-DD" },
+        "time": { "type": "string", "description": "Reservation time HH:MM" },
+        "status": { "type": "string", "description": "Reservation status", "enum": ["pending", "confirmed", "seated", "completed", "cancelled", "no_show"] },
+        "tableNumber": { "type": "string", "description": "Assigned table number" },
+        "createdAt": { "type": "string", "description": "Booking timestamp" }
+      },
+      "required": ["id", "customerName", "guestCount", "date", "time", "status"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Registered customer or rewards member",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Customer identifier" },
+        "name": { "type": "string", "description": "Customer name", "maxLength": 100 },
+        "email": { "type": "string", "description": "Customer email" },
+        "phone": { "type": "string", "description": "Customer phone" },
+        "membershipTier": { "type": "string", "description": "Tier name" },
+        "points": { "type": "number", "description": "Loyalty points" },
+        "createdAt": { "type": "string", "description": "Sign-up timestamp" }
+      },
+      "required": ["id", "name"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Staff account with POS role permissions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Staff user ID" },
+        "name": { "type": "string", "description": "Staff name", "maxLength": 100 },
+        "email": { "type": "string", "description": "Staff email" },
+        "role": { "type": "string", "description": "Staff role", "enum": ["admin", "cashier", "barista", "cook"] },
+        "pin": { "type": "string", "description": "POS lock PIN" },
+        "createdAt": { "type": "string", "description": "Account creation timestamp" }
+      },
+      "required": ["id", "name", "role"]
+    },
+    "Setting": {
+      "title": "Setting",
+      "description": "Café store configuration and operational parameters",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Setting key or document ID" },
+        "storeName": { "type": "string", "description": "Store display name" },
+        "address": { "type": "string", "description": "Physical address" },
+        "phone": { "type": "string", "description": "Contact number" },
+        "taxRate": { "type": "number", "description": "Tax percentage rate" },
+        "serviceChargeRate": { "type": "number", "description": "Service charge percentage" },
+        "currency": { "type": "string", "description": "Currency code" }
+      },
+      "required": ["id", "storeName"]
+    },
+    "RefillRequest": {
+      "title": "RefillRequest",
+      "description": "Staff supply refill suggestion awaiting admin confirmation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Request identifier" },
+        "itemId": { "type": "string", "description": "Optional linked menu item ID" },
+        "itemName": { "type": "string", "description": "Name of the supply or item to refill", "maxLength": 150 },
+        "suggestedQuantity": { "type": "number", "description": "Suggested refill quantity" },
+        "finalQuantity": { "type": "number", "description": "Officially confirmed refill quantity" },
+        "unit": { "type": "string", "description": "Unit of measurement" },
+        "urgency": { "type": "string", "description": "Urgency rating", "enum": ["low", "normal", "high", "urgent"] },
+        "station": { "type": "string", "description": "Prep station", "enum": ["bar", "kitchen", "counter", "general"] },
+        "status": { "type": "string", "description": "Request status", "enum": ["pending", "approved", "rejected", "cancelled"] },
+        "notes": { "type": "string", "description": "Requester notes", "maxLength": 500 },
+        "adminNotes": { "type": "string", "description": "Admin notes", "maxLength": 500 },
+        "createdAt": { "type": "string", "description": "Submission timestamp" }
+      },
+      "required": ["id", "itemName", "suggestedQuantity", "status"]
+    },
+    "Discount": {
+      "title": "Discount",
+      "description": "Promotional or statutory discount rate (e.g. Senior/PWD)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Discount ID" },
+        "name": { "type": "string", "description": "Discount title" },
+        "type": { "type": "string", "description": "Percentage or fixed", "enum": ["percentage", "fixed"] },
+        "value": { "type": "number", "description": "Discount value" },
+        "code": { "type": "string", "description": "Promo code" },
+        "isActive": { "type": "boolean", "description": "Is active flag" }
+      },
+      "required": ["id", "name", "type", "value"]
+    },
+    "TableRequest": {
+      "title": "TableRequest",
+      "description": "Customer table call/assistance request (water, bill, service)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Request ID" },
+        "tableNumber": { "type": "string", "description": "Table calling for service" },
+        "type": { "type": "string", "description": "Service type", "enum": ["water", "bill", "service", "clean"] },
+        "status": { "type": "string", "description": "Request status", "enum": ["pending", "acknowledged", "resolved"] },
+        "createdAt": { "type": "string", "description": "Request timestamp" }
+      },
+      "required": ["id", "tableNumber", "type", "status"]
+    }
+  },
+  "firestore": {
+    "/categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/Category" },
+      "description": "Café menu categories"
+    },
+    "/menu_items/{itemId}": {
+      "schema": { "$ref": "#/entities/MenuItem" },
+      "description": "Food and beverage menu items"
+    },
+    "/tables/{tableId}": {
+      "schema": { "$ref": "#/entities/Table" },
+      "description": "Dining tables and floor layout"
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Customer and POS dining/takeout orders"
+    },
+    "/reservations/{reservationId}": {
+      "schema": { "$ref": "#/entities/Reservation" },
+      "description": "Table reservations"
+    },
+    "/customers/{customerId}": {
+      "schema": { "$ref": "#/entities/Customer" },
+      "description": "Registered customers and member profiles"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Staff user accounts and credentials"
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/Setting" },
+      "description": "Store preferences and operational config"
+    },
+    "/refill_requests/{requestId}": {
+      "schema": { "$ref": "#/entities/RefillRequest" },
+      "description": "Staff inventory refill requests"
+    },
+    "/discounts/{discountId}": {
+      "schema": { "$ref": "#/entities/Discount" },
+      "description": "Promotional discounts and coupons"
+    },
+    "/table_requests/{requestId}": {
+      "schema": { "$ref": "#/entities/TableRequest" },
+      "description": "Table service and waiter call requests"
+    }
+  }
+}

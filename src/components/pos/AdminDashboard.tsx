@@ -637,25 +637,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       )}
 
       {/* 2. Top Executive KPI Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* Metric 1: Total Gross Revenue */}
         <div
           id="kpi-gross-revenue"
-          className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-5 shadow-xs hover:border-amber-400 transition"
+          className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3 sm:p-5 shadow-xs hover:border-amber-400 transition"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider">Gross Sales</span>
-            <div className="rounded-xl sm:rounded-2xl bg-amber-500/10 p-2 sm:p-2.5 text-amber-700">
-              <DollarSign className="h-4 w-4 sm:h-5 sm:w-5" />
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[9px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider truncate">Gross Sales</span>
+            <div className="rounded-lg sm:rounded-2xl bg-amber-500/10 p-1.5 sm:p-2.5 text-amber-700 shrink-0">
+              <DollarSign className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
             </div>
           </div>
           <div className="mt-2 sm:mt-3">
-            <div className="font-display text-lg sm:text-2xl lg:text-3xl font-extrabold text-stone-900 tracking-tight">
+            <div className="font-display text-base sm:text-2xl lg:text-3xl font-extrabold text-stone-900 tracking-tight truncate">
               ₱{totalGrossRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-            <div className="mt-1.5 sm:mt-2 flex items-center justify-between text-[10px] sm:text-xs text-stone-500">
-              <span>Subtotal: ₱{totalNetSubtotal.toFixed(2)}</span>
-              <span className="font-semibold text-stone-700">VAT: ₱{totalVatCollected.toFixed(2)}</span>
+            <div className="mt-1 sm:mt-2 flex flex-col sm:flex-row sm:items-center justify-between text-[9px] sm:text-xs text-stone-500 gap-0.5">
+              <span className="truncate">Sub: ₱{totalNetSubtotal.toFixed(0)}</span>
+              <span className="font-semibold text-stone-700 truncate">VAT: ₱{totalVatCollected.toFixed(0)}</span>
             </div>
           </div>
         </div>
@@ -663,24 +663,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* Metric 2: Completed Orders Volume */}
         <div
           id="kpi-orders-volume"
-          className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-5 shadow-xs hover:border-sky-400 transition"
+          className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3 sm:p-5 shadow-xs hover:border-sky-400 transition"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider">Orders Volume</span>
-            <div className="rounded-xl sm:rounded-2xl bg-sky-500/10 p-2 sm:p-2.5 text-sky-700">
-              <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5" />
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[9px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider truncate">Orders Volume</span>
+            <div className="rounded-lg sm:rounded-2xl bg-sky-500/10 p-1.5 sm:p-2.5 text-sky-700 shrink-0">
+              <ShoppingBag className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
             </div>
           </div>
           <div className="mt-2 sm:mt-3">
-            <div className="font-display text-lg sm:text-2xl lg:text-3xl font-extrabold text-stone-900 tracking-tight">
+            <div className="font-display text-base sm:text-2xl lg:text-3xl font-extrabold text-stone-900 tracking-tight">
               {validCompletedOrders.length}{' '}
               <span className="text-xs sm:text-sm font-semibold text-stone-400">tickets</span>
             </div>
-            <div className="mt-1.5 sm:mt-2 flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs">
-              <span className="rounded-md sm:rounded-lg bg-amber-100 px-1.5 sm:px-2 py-0.2 sm:py-0.5 font-bold text-amber-800">
-                {inStoreOrders.length} In-Store
+            <div className="mt-1 sm:mt-2 flex items-center gap-1 sm:gap-2 text-[9px] sm:text-xs flex-wrap">
+              <span className="rounded-md sm:rounded-lg bg-amber-100 px-1 sm:px-2 py-0.2 sm:py-0.5 font-bold text-amber-800">
+                {inStoreOrders.length} Store
               </span>
-              <span className="rounded-md sm:rounded-lg bg-sky-100 px-1.5 sm:px-2 py-0.2 sm:py-0.5 font-bold text-sky-800">
+              <span className="rounded-md sm:rounded-lg bg-sky-100 px-1 sm:px-2 py-0.2 sm:py-0.5 font-bold text-sky-800">
                 {onlineOrders.length} Online
               </span>
             </div>
@@ -690,21 +690,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* Metric 3: Average Order Value (AOV) */}
         <div
           id="kpi-aov"
-          className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-5 shadow-xs hover:border-emerald-400 transition"
+          className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3 sm:p-5 shadow-xs hover:border-emerald-400 transition"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider">Avg Order Value</span>
-            <div className="rounded-xl sm:rounded-2xl bg-emerald-500/10 p-2 sm:p-2.5 text-emerald-700">
-              <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[9px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider truncate">Avg Order</span>
+            <div className="rounded-lg sm:rounded-2xl bg-emerald-500/10 p-1.5 sm:p-2.5 text-emerald-700 shrink-0">
+              <TrendingUp className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
             </div>
           </div>
           <div className="mt-2 sm:mt-3">
-            <div className="font-display text-lg sm:text-2xl lg:text-3xl font-extrabold text-stone-900 tracking-tight">
+            <div className="font-display text-base sm:text-2xl lg:text-3xl font-extrabold text-stone-900 tracking-tight truncate">
               ₱{averageOrderValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-            <div className="mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-stone-500 flex items-center justify-between">
-              <span>Discounts: ₱{totalDiscountsGiven.toFixed(2)}</span>
-              <span className="font-bold text-emerald-700">Healthy Margin</span>
+            <div className="mt-1 sm:mt-2 text-[9px] sm:text-xs text-stone-500 flex flex-col sm:flex-row sm:items-center justify-between gap-0.5">
+              <span className="truncate">Disc: ₱{totalDiscountsGiven.toFixed(0)}</span>
+              <span className="font-bold text-emerald-700 truncate">Healthy Margin</span>
             </div>
           </div>
         </div>
@@ -712,22 +712,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* Metric 4: Floor Plan & Operations Health */}
         <div
           id="kpi-floor-plan"
-          className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-5 shadow-xs hover:border-purple-400 transition"
+          className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3 sm:p-5 shadow-xs hover:border-purple-400 transition"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider">Floor Occupancy</span>
-            <div className="rounded-xl sm:rounded-2xl bg-purple-500/10 p-2 sm:p-2.5 text-purple-700">
-              <LayoutGrid className="h-4 w-4 sm:h-5 sm:w-5" />
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[9px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider truncate">Floor Occupancy</span>
+            <div className="rounded-lg sm:rounded-2xl bg-purple-500/10 p-1.5 sm:p-2.5 text-purple-700 shrink-0">
+              <LayoutGrid className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
             </div>
           </div>
           <div className="mt-2 sm:mt-3">
-            <div className="font-display text-lg sm:text-2xl lg:text-3xl font-extrabold text-stone-900 tracking-tight">
+            <div className="font-display text-base sm:text-2xl lg:text-3xl font-extrabold text-stone-900 tracking-tight">
               {occupiedTables.length} / {tables.length}{' '}
               <span className="text-xs sm:text-sm font-semibold text-stone-400">tables</span>
             </div>
-            <div className="mt-1.5 sm:mt-2 flex items-center justify-between text-[10px] sm:text-xs">
-              <span className="text-emerald-700 font-bold">{availableTables.length} Available</span>
-              <span className="text-amber-700 font-bold">{reservedTables.length} Reserved</span>
+            <div className="mt-1 sm:mt-2 flex flex-col sm:flex-row sm:items-center justify-between text-[9px] sm:text-xs gap-0.5">
+              <span className="text-emerald-700 font-bold truncate">{availableTables.length} Avail</span>
+              <span className="text-amber-700 font-bold truncate">{reservedTables.length} Rsrvd</span>
             </div>
           </div>
         </div>

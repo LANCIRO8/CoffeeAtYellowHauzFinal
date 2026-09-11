@@ -1,8 +1,26 @@
-import React, { useMemo } from 'react';
-import { CustomerAccount, Order, Reservation, StoreSettings } from '../../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { CustomerAccount, Order, Reservation, StoreSettings, MenuItem } from '../../types';
 import { AppStore } from '../../services/store';
 import { useModal } from '../../context/ModalContext';
-import { User, Mail, Phone, ShoppingBag, Calendar, Clock, CheckCircle2, XCircle, LogOut } from 'lucide-react';
+import {
+  User,
+  Mail,
+  Phone,
+  ShoppingBag,
+  Calendar,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  LogOut,
+  Heart,
+  Bookmark,
+  Star,
+  Sparkles,
+  Plus,
+  Check,
+  ArrowRight,
+  Coffee,
+} from 'lucide-react';
 
 interface CustomerAccountProps {
   customer: CustomerAccount;
@@ -10,6 +28,9 @@ interface CustomerAccountProps {
   onLogout: () => void;
   onViewReceipt: (order: Order) => void;
   onNavigateOrders?: () => void;
+  onNavigateMenu?: () => void;
+  onAddToCart?: (item: MenuItem) => void;
+  onCustomerUpdate?: (customer: CustomerAccount) => void;
 }
 
 export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
@@ -18,10 +39,87 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
   onLogout,
   onViewReceipt,
   onNavigateOrders,
+  onNavigateMenu,
+  onAddToCart,
+  onCustomerUpdate,
 }) => {
   const { showConfirm, showAlert } = useModal();
   const allOrders = useMemo(() => AppStore.getOrders(), []);
   const allReservations = useMemo(() => AppStore.getReservations(), []);
+  const allMenuItems = useMemo(() => AppStore.getMenuItems(), []);
+  const allCategories = useMemo(() => AppStore.getCategories(), []);
+
+  // Customer Favorites & Likes State
+  const [favIds, setFavIds] = useState<number[]>(() =>
+    AppStore.getCustomerFavorites(customer.id)
+  );
+  const [likeIds, setLikeIds] = useState<number[]>(() =>
+    AppStore.getCustomerLikes(customer.id)
+  );
+  const [savedTab, setSavedTab] = useState<'all' | 'favorites' | 'likes'>('all');
+  const [addedAnimationId, setAddedAnimationId] = useState<number | null>(null);
+
+  // Sync with AppStore updates
+  useEffect(() => {
+    const sync = () => {
+      setFavIds(AppStore.getCustomerFavorites(customer.id));
+      setLikeIds(AppStore.getCustomerLikes(customer.id));
+    };
+    const unsub = AppStore.subscribe(sync);
+    return () => unsub();
+  }, [customer.id]);
+
+  const handleToggleFavorite = (itemId: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const res = AppStore.toggleCustomerFavorite(itemId, customer.id);
+    setFavIds(res.favoriteItemIds);
+    if (onCustomerUpdate) {
+      const updated = AppStore.getActiveCustomer();
+      if (updated) onCustomerUpdate(updated);
+    }
+  };
+
+  const handleToggleLike = (itemId: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const res = AppStore.toggleCustomerLike(itemId, customer.id);
+    setLikeIds(res.likedItemIds);
+    if (onCustomerUpdate) {
+      const updated = AppStore.getActiveCustomer();
+      if (updated) onCustomerUpdate(updated);
+    }
+  };
+
+  const handleAddItemToBag = (item: MenuItem) => {
+    if (onAddToCart) {
+      onAddToCart(item);
+      setAddedAnimationId(item.id);
+      setTimeout(() => setAddedAnimationId(null), 1800);
+    }
+  };
+
+  // Filtered lists of menu items
+  const favoriteItems = useMemo(
+    () => allMenuItems.filter((item) => favIds.includes(item.id)),
+    [allMenuItems, favIds]
+  );
+
+  const likedItems = useMemo(
+    () => allMenuItems.filter((item) => likeIds.includes(item.id)),
+    [allMenuItems, likeIds]
+  );
+
+  const allSavedItems = useMemo(() => {
+    const combinedMap = new Map<number, MenuItem>();
+    favoriteItems.forEach((it) => combinedMap.set(it.id, it));
+    likedItems.forEach((it) => combinedMap.set(it.id, it));
+    return Array.from(combinedMap.values());
+  }, [favoriteItems, likedItems]);
+
+  const displayedSavedItems = useMemo(() => {
+    if (savedTab === 'favorites') return favoriteItems;
+    if (savedTab === 'likes') return likedItems;
+    return allSavedItems;
+  }, [savedTab, favoriteItems, likedItems, allSavedItems]);
 
   // Filter for customer
   const customerOrders = useMemo(() => {
@@ -36,7 +134,9 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
     return allReservations.filter(
       (r) =>
         r.customerId === customer.id ||
-        (customer.fullName && r.customerName && r.customerName.toLowerCase() === customer.fullName.toLowerCase())
+        (customer.fullName &&
+          r.customerName &&
+          r.customerName.toLowerCase() === customer.fullName.toLowerCase())
     );
   }, [allReservations, customer]);
 
@@ -59,21 +159,29 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-16">
+    <div className="max-w-5xl mx-auto space-y-8 pb-16 animate-in fade-in duration-300">
       {/* Profile Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-3xl border border-stone-200 bg-white p-6 sm:p-8 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 rounded-3xl border border-stone-200 bg-white p-6 sm:p-8 shadow-xs">
         <div className="flex items-center gap-4">
-          <div className="grid h-16 w-16 place-items-center rounded-2xl bg-amber-500 text-stone-950 font-display text-2xl font-extrabold">
+          <div className="grid h-16 w-16 place-items-center rounded-2xl bg-amber-500 text-stone-950 font-display text-2xl font-extrabold shadow-sm shrink-0">
             {(customer.fullName || 'C').charAt(0)}
           </div>
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700">
-              Customer Account
-            </span>
-            <h1 className="text-2xl font-bold text-stone-900 font-display">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-black uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                Customer Account
+              </span>
+              {customer.loyaltyPoints !== undefined && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-black text-amber-900 bg-amber-400/20 px-2 py-0.5 rounded-md">
+                  <Sparkles className="h-3 w-3 text-amber-600" />
+                  {customer.loyaltyPoints} Points
+                </span>
+              )}
+            </div>
+            <h1 className="mt-1 text-2xl sm:text-3xl font-bold text-stone-900 font-display">
               {customer.fullName || 'Customer'}
             </h1>
-            <div className="mt-1 flex flex-wrap items-center gap-4 text-xs text-stone-500">
+            <div className="mt-1.5 flex flex-wrap items-center gap-4 text-xs text-stone-500">
               <span className="flex items-center gap-1.5">
                 <Mail className="h-3.5 w-3.5 text-stone-400" />
                 {customer.email}
@@ -86,15 +194,334 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
           </div>
         </div>
 
-        <button
-          onClick={onLogout}
-          className="inline-flex items-center gap-2 rounded-xl border border-stone-200 px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50 transition"
-        >
-          <LogOut className="h-4 w-4" />
-          Sign Out
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {onNavigateMenu && (
+            <button
+              onClick={onNavigateMenu}
+              className="inline-flex items-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-400 px-4 py-2.5 text-xs font-black text-stone-950 shadow-xs transition active:scale-95 cursor-pointer"
+            >
+              <Coffee className="h-4 w-4" />
+              <span>Browse Menu</span>
+            </button>
+          )}
+          <button
+            onClick={onLogout}
+            className="inline-flex items-center gap-2 rounded-xl border border-stone-200 px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50 transition cursor-pointer"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign Out
+          </button>
+        </div>
       </div>
 
+      {/* Taste Profile Stats Row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <button
+          type="button"
+          onClick={() => setSavedTab('favorites')}
+          className={`flex items-center gap-3 p-4 rounded-2xl border transition text-left cursor-pointer ${
+            savedTab === 'favorites'
+              ? 'border-amber-400 bg-amber-50/70 shadow-xs'
+              : 'border-stone-200 bg-white hover:border-stone-300'
+          }`}
+        >
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-amber-100 text-amber-700">
+            <Bookmark className="h-5 w-5 fill-amber-500 text-amber-500" />
+          </div>
+          <div>
+            <span className="block text-xl font-display font-black text-stone-900">
+              {favoriteItems.length}
+            </span>
+            <span className="block text-[11px] font-bold text-stone-500">Saved Favorites</span>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSavedTab('likes')}
+          className={`flex items-center gap-3 p-4 rounded-2xl border transition text-left cursor-pointer ${
+            savedTab === 'likes'
+              ? 'border-rose-400 bg-rose-50/70 shadow-xs'
+              : 'border-stone-200 bg-white hover:border-stone-300'
+          }`}
+        >
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-rose-100 text-rose-600">
+            <Heart className="h-5 w-5 fill-rose-500 text-rose-500" />
+          </div>
+          <div>
+            <span className="block text-xl font-display font-black text-stone-900">
+              {likedItems.length}
+            </span>
+            <span className="block text-[11px] font-bold text-stone-500">Liked Dishes</span>
+          </div>
+        </button>
+
+        <div className="flex items-center gap-3 p-4 rounded-2xl border border-stone-200 bg-white">
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-stone-100 text-stone-700">
+            <ShoppingBag className="h-5 w-5 text-stone-700" />
+          </div>
+          <div>
+            <span className="block text-xl font-display font-black text-stone-900">
+              {customerOrders.length}
+            </span>
+            <span className="block text-[11px] font-bold text-stone-500">Past Orders</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 p-4 rounded-2xl border border-stone-200 bg-white">
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-stone-100 text-stone-700">
+            <Calendar className="h-5 w-5 text-stone-700" />
+          </div>
+          <div>
+            <span className="block text-xl font-display font-black text-stone-900">
+              {customerReservations.length}
+            </span>
+            <span className="block text-[11px] font-bold text-stone-500">Reservations</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* FAVORITES & LIKED ITEMS SECTION */}
+      {/* ========================================================================= */}
+      <section className="rounded-3xl border border-stone-200 bg-white p-6 sm:p-8 shadow-xs space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-100 pb-5">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-amber-800">
+                <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                Your Taste Profile
+              </span>
+            </div>
+            <h2 className="font-display text-xl sm:text-2xl font-bold text-stone-900">
+              Favorites &amp; Liked Items
+            </h2>
+            <p className="text-xs sm:text-sm text-stone-500">
+              Remember your go-to coffees, signature comfort foods, and re-order with a single tap.
+            </p>
+          </div>
+
+          {/* Tab Filter Switcher */}
+          <div className="flex items-center gap-1.5 bg-stone-100 p-1.5 rounded-2xl shrink-0">
+            <button
+              type="button"
+              onClick={() => setSavedTab('all')}
+              className={`rounded-xl px-3 py-1.5 text-xs font-black transition cursor-pointer ${
+                savedTab === 'all'
+                  ? 'bg-white text-stone-900 shadow-xs'
+                  : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              All Saved ({allSavedItems.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSavedTab('favorites')}
+              className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-black transition cursor-pointer ${
+                savedTab === 'favorites'
+                  ? 'bg-white text-amber-900 shadow-xs'
+                  : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              <Bookmark className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+              <span>Favorites ({favoriteItems.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSavedTab('likes')}
+              className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-black transition cursor-pointer ${
+                savedTab === 'likes'
+                  ? 'bg-white text-rose-900 shadow-xs'
+                  : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              <Heart className="h-3.5 w-3.5 fill-rose-500 text-rose-500" />
+              <span>Liked ({likedItems.length})</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Empty State */}
+        {displayedSavedItems.length === 0 ? (
+          <div className="rounded-2xl border-2 border-dashed border-stone-200 bg-stone-50/50 p-8 sm:p-12 text-center space-y-4">
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-amber-100 text-amber-700">
+              {savedTab === 'likes' ? (
+                <Heart className="h-8 w-8 text-rose-500" />
+              ) : (
+                <Bookmark className="h-8 w-8 text-amber-600" />
+              )}
+            </div>
+            <div className="max-w-md mx-auto space-y-1">
+              <h3 className="font-display text-base sm:text-lg font-bold text-stone-900">
+                {savedTab === 'favorites'
+                  ? 'No favorite items saved yet'
+                  : savedTab === 'likes'
+                  ? 'No liked items yet'
+                  : 'Your favorites and liked list is empty'}
+              </h3>
+              <p className="text-xs sm:text-sm text-stone-500 leading-relaxed">
+                When you browse the Coffee at Yellow Hauz menu, tap the{' '}
+                <span className="font-bold text-amber-700">⭐ Bookmark</span> to save your favorite dishes, or the{' '}
+                <span className="font-bold text-rose-600">❤️ Heart</span> to like drinks. They will stay saved in your account for quick re-ordering!
+              </p>
+            </div>
+            {onNavigateMenu && (
+              <button
+                type="button"
+                onClick={onNavigateMenu}
+                className="inline-flex items-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-400 px-5 py-2.5 text-xs font-black text-stone-950 shadow-sm transition active:scale-95 cursor-pointer"
+              >
+                <span>Browse Menu to Add Favorites</span>
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        ) : (
+          /* Grid of Saved / Liked Items */
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            {displayedSavedItems.map((item) => {
+              const category = allCategories.find((c) => c.id === item.categoryId);
+              const isFav = favIds.includes(item.id);
+              const isLiked = likeIds.includes(item.id);
+              const isJustAdded = addedAnimationId === item.id;
+
+              return (
+                <div
+                  key={item.id}
+                  className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xs hover:shadow-md hover:border-amber-400 transition-all duration-200"
+                >
+                  {/* Photo with badges & actions */}
+                  <div className="relative aspect-16/10 w-full overflow-hidden bg-stone-100">
+                    <img
+                      src={item.imageUrl || '/01_Hearts_Latte_Art.jpg'}
+                      alt={item.name}
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/01_Hearts_Latte_Art.jpg';
+                      }}
+                    />
+
+                    {/* Top Badges */}
+                    <div className="absolute top-2.5 left-2.5 flex flex-wrap items-center gap-1 z-10">
+                      {item.isBestSeller && (
+                        <span className="flex items-center gap-1 rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-stone-950 shadow-xs">
+                          <Star className="h-2.5 w-2.5 fill-stone-950 text-stone-950" />
+                          <span>Best Seller</span>
+                        </span>
+                      )}
+                      {category && (
+                        <span className="rounded-full bg-stone-950/80 backdrop-blur-xs px-2 py-0.5 text-[9px] font-bold text-white shadow-xs capitalize">
+                          {category.name}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Like & Favorite Pill in Top Right */}
+                    <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 rounded-full bg-stone-900/75 backdrop-blur-md p-1 border border-white/10 shadow-md">
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleLike(item.id, e)}
+                        className="grid h-6 w-6 place-items-center rounded-full text-white transition hover:scale-110 active:scale-90 cursor-pointer"
+                        title={isLiked ? 'Liked' : 'Like'}
+                      >
+                        <Heart
+                          className={`h-3.5 w-3.5 ${
+                            isLiked ? 'fill-red-500 text-red-500' : 'text-white'
+                          }`}
+                        />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleFavorite(item.id, e)}
+                        className="grid h-6 w-6 place-items-center rounded-full text-white transition hover:scale-110 active:scale-90 cursor-pointer"
+                        title={isFav ? 'Remove from Favorites' : 'Add to Favorites'}
+                      >
+                        <Bookmark
+                          className={`h-3.5 w-3.5 ${
+                            isFav ? 'fill-amber-400 text-amber-400' : 'text-white'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Price Tag in Bottom Right */}
+                    <div className="absolute bottom-2.5 right-2.5 rounded-xl bg-stone-950/90 backdrop-blur-xs px-2.5 py-1 shadow-md border border-white/10">
+                      <span className="font-mono text-xs sm:text-sm font-black text-amber-400">
+                        ₱{item.price.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Body Content */}
+                  <div className="flex flex-1 flex-col justify-between p-4 space-y-3">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        {isFav && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-black text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                            <Bookmark className="h-2.5 w-2.5 fill-amber-500 text-amber-500" />
+                            Favorite
+                          </span>
+                        )}
+                        {isLiked && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-black text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                            <Heart className="h-2.5 w-2.5 fill-rose-500 text-rose-500" />
+                            Liked
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="mt-1 font-display text-base font-bold text-stone-900 line-clamp-1">
+                        {item.name}
+                      </h3>
+                      <p className="mt-0.5 text-xs text-stone-500 line-clamp-2 leading-relaxed">
+                        {item.description || 'Prepared fresh with high quality ingredients.'}
+                      </p>
+                    </div>
+
+                    {/* Card Actions */}
+                    <div className="flex items-center justify-between border-t border-stone-100 pt-3">
+                      <span className="text-[11px] font-bold text-stone-400">
+                        {item.quantity > 0 ? (
+                          <span className="text-emerald-700">In Stock</span>
+                        ) : (
+                          <span className="text-stone-500">Available</span>
+                        )}
+                      </span>
+
+                      {onAddToCart && (
+                        <button
+                          type="button"
+                          onClick={() => handleAddItemToBag(item)}
+                          className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-black transition-all active:scale-95 cursor-pointer shadow-xs ${
+                            isJustAdded
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-amber-500 hover:bg-amber-400 text-stone-950'
+                          }`}
+                        >
+                          {isJustAdded ? (
+                            <>
+                              <Check className="h-3.5 w-3.5" />
+                              <span>Added to Bag</span>
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="h-3.5 w-3.5" />
+                              <span>Add to Bag</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* ========================================================================= */}
+      {/* RESERVATIONS & ORDERS HISTORY GRID */}
+      {/* ========================================================================= */}
       <div className="grid gap-8 lg:grid-cols-2">
         {/* Table Reservations History */}
         <div className="space-y-4">
@@ -172,7 +599,7 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
                         </span>
                         {isVenue && (
                           <span className="text-[10px] font-bold text-amber-800 block">
-                            {res.venueDurationHours || 3} Hours • ₱{(res.totalAmount || 300).toFixed(2)}
+                            {res.venueDurationHours || 3} Hours • ₱{(res.totalAmount || 3500).toLocaleString('en-PH', { minimumFractionDigits: 2 })} (Consumable)
                           </span>
                         )}
                       </div>
@@ -289,7 +716,7 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
 
                     <button
                       onClick={() => onViewReceipt(ord)}
-                      className="rounded-lg px-3 py-1 text-xs font-bold transition bg-stone-100 hover:bg-stone-200 text-stone-800"
+                      className="rounded-lg px-3 py-1 text-xs font-bold transition bg-stone-100 hover:bg-stone-200 text-stone-800 cursor-pointer"
                     >
                       View Receipt
                     </button>

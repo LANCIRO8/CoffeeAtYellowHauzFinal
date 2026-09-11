@@ -1,18 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { INSTAGRAM_POSTS, InstagramPost } from '../../data/instagramPosts';
+import React, { useState } from 'react';
 import { 
   Camera, 
   Heart, 
   MessageCircle, 
   ExternalLink, 
-  X, 
-  ChevronLeft, 
-  ChevronRight, 
   Share2, 
-  Bookmark, 
   MapPin, 
   Sparkles,
-  Check
+  Check,
+  X,
+  ArrowRight
 } from 'lucide-react';
 
 interface InstagramFeedProps {
@@ -20,439 +17,320 @@ interface InstagramFeedProps {
   onNavigateReservation?: () => void;
 }
 
+interface StoryItem {
+  id: number;
+  image: string;
+  category: string;
+  title: string;
+  story: string;
+  caption: string;
+  location: string;
+  timeAgo: string;
+  initialLikes: number;
+  commentsCount: number;
+  tags: string[];
+  ctaType: 'menu' | 'reservation';
+  ctaLabel: string;
+}
+
+const STORIES: StoryItem[] = [
+  {
+    id: 1,
+    image: '/images/01_Hearts_Latte_Art.jpg',
+    category: 'Barista Craft & Morning Ritual',
+    title: 'The Heart in Every Pour',
+    story: 'Every morning before the first guest walks in, our baristas dial in the espresso grind, calibrate the extraction temperature, and steam fresh local milk into velvety microfoam. Pouring latte art is never just decorative — it is our personal invitation to pause, breathe, and savor a peaceful moment.',
+    caption: 'Pouring love and dedication into every single cup. What’s your morning mood today? ☕💛',
+    location: 'Main Espresso Bar',
+    timeAgo: '2 hours ago',
+    initialLikes: 248,
+    commentsCount: 18,
+    tags: ['#YellowHauz', '#LatteArt', '#BaristaCraft', '#DavaoCoffee'],
+    ctaType: 'menu',
+    ctaLabel: 'Order Hot Coffee'
+  },
+  {
+    id: 2,
+    image: '/images/04_Cozy_Corner.jpg',
+    category: 'Our Sanctuary Since 2007',
+    title: 'A Cozy Nook by the Garden Breeze',
+    story: 'Nestled beside warm timber walls and overlooking our garden greenery, this quiet corner has cradled countless conversations, first dates, thesis breakthroughs, and peaceful solo book-reading afternoons. We crafted Yellow Hauz to feel like home — a comforting refuge away from the busy streets.',
+    caption: 'Your favorite cozy spot overlooking the garden breeze is all set. Who are you bringing today? 🌿☕',
+    location: 'Garden View Seating Nook',
+    timeAgo: '1 day ago',
+    initialLikes: 425,
+    commentsCount: 37,
+    tags: ['#CozyCorner', '#YellowHauzSpaces', '#DavaoCafes', '#Sanctuary'],
+    ctaType: 'reservation',
+    ctaLabel: 'Reserve This Table'
+  },
+  {
+    id: 3,
+    image: '/images/06_Coffee_Beans.jpg',
+    category: 'Heritage & Ethical Roasting',
+    title: 'From Ethical High-Altitude Farms to Your Cup',
+    story: 'Exceptional coffee begins long before the grinder spins. We work with dedicated coffee farms to source beans nurtured in rich volcanic soil, hand-roasted to preserve notes of dark cacao, warm caramel, and subtle dried fruit. Ground freshly for every order, ready to pair with our signature cheesecake.',
+    caption: 'From ethical high-altitude farms to our grinders. Freshness you can taste in every single pour. 🌱✨',
+    location: 'Roasting & Grinding Station',
+    timeAgo: '3 days ago',
+    initialLikes: 312,
+    commentsCount: 24,
+    tags: ['#ArtisanRoast', '#CoffeeOrigins', '#SpecialtyCoffee', '#BeanToCup'],
+    ctaType: 'menu',
+    ctaLabel: 'Explore Specialty Brews'
+  }
+];
+
 export const InstagramFeed: React.FC<InstagramFeedProps> = ({
   onNavigateMenu,
   onNavigateReservation,
 }) => {
-  const [selectedPost, setSelectedPost] = useState<InstagramPost | null>(null);
-  const [likedPosts, setLikedPosts] = useState<Record<number, boolean>>({});
+  const [likes, setLikes] = useState<Record<number, boolean>>({});
   const [copiedId, setCopiedId] = useState<number | null>(null);
-  const [filter, setFilter] = useState<'all' | 'brews' | 'moments'>('all');
+  const [previewImage, setPreviewImage] = useState<StoryItem | null>(null);
 
-  // Filter posts if needed
-  const filteredPosts = INSTAGRAM_POSTS.filter(post => {
-    if (filter === 'brews') {
-      return post.id % 2 === 1 || [1, 5, 6, 8, 9, 10, 11, 13, 14, 15].includes(post.id);
-    }
-    if (filter === 'moments') {
-      return [2, 3, 4, 7, 12, 16].includes(post.id);
-    }
-    return true;
-  });
-
-  // Handle like toggle
-  const toggleLike = (postId: number, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    setLikedPosts(prev => ({
+  const toggleLike = (id: number) => {
+    setLikes(prev => ({
       ...prev,
-      [postId]: !prev[postId],
+      [id]: !prev[id]
     }));
   };
 
-  // Handle keyboard navigation for modal
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!selectedPost) return;
-      if (e.key === 'Escape') {
-        setSelectedPost(null);
-      } else if (e.key === 'ArrowRight') {
-        navigateModal(1);
-      } else if (e.key === 'ArrowLeft') {
-        navigateModal(-1);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedPost]);
-
-  const navigateModal = (direction: number) => {
-    if (!selectedPost) return;
-    const currentIndex = INSTAGRAM_POSTS.findIndex(p => p.id === selectedPost.id);
-    if (currentIndex === -1) return;
-    const nextIndex = (currentIndex + direction + INSTAGRAM_POSTS.length) % INSTAGRAM_POSTS.length;
-    setSelectedPost(INSTAGRAM_POSTS[nextIndex]);
-  };
-
-  const handleShare = (post: InstagramPost, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    navigator.clipboard?.writeText?.(window.location.href);
-    setCopiedId(post.id);
-    setTimeout(() => setCopiedId(null), 2000);
+  const handleShare = (story: StoryItem) => {
+    setCopiedId(story.id);
+    navigator.clipboard?.writeText?.(window.location.origin);
+    setTimeout(() => setCopiedId(null), 2200);
   };
 
   return (
-    <section className="space-y-6 pt-4">
+    <section className="space-y-6 pt-2">
       {/* Section Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-2 border-b border-stone-200/80">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-3 border-b border-stone-200/80">
         <div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-900 text-amber-300 text-xs font-bold shadow-xs">
-              <Camera className="h-3.5 w-3.5 text-amber-400" />
+          <div className="flex items-center gap-2 mb-1">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-stone-900 text-amber-300 text-[11px] font-bold shadow-xs">
+              <Camera className="h-3 w-3 text-amber-400" />
               <span>@coffeeatyellowhauz</span>
             </span>
+            <span className="text-xs text-stone-500 font-medium">Stories &amp; Moments</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight font-baskerville">
-            Instagram Feed &amp; Daily Stories
+          <h2 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight font-display">
+            Stories From Yellow Hauz
           </h2>
         </div>
 
-        {/* Action button & Filter tabs */}
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <div className="flex items-center p-1 bg-stone-200/70 rounded-xl">
-            <button
-              onClick={() => setFilter('all')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                filter === 'all'
-                  ? 'bg-white text-stone-900 shadow-xs'
-                  : 'text-stone-600 hover:text-stone-900'
-              }`}
-            >
-              All 16 Posts
-            </button>
-            <button
-              onClick={() => setFilter('brews')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                filter === 'brews'
-                  ? 'bg-white text-stone-900 shadow-xs'
-                  : 'text-stone-600 hover:text-stone-900'
-              }`}
-            >
-              Artisan Brews
-            </button>
-            <button
-              onClick={() => setFilter('moments')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                filter === 'moments'
-                  ? 'bg-white text-stone-900 shadow-xs'
-                  : 'text-stone-600 hover:text-stone-900'
-              }`}
-            >
-              Café Moments
-            </button>
-          </div>
-
-          <a
-            href="https://www.instagram.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-400 px-4 py-2 text-xs font-black text-stone-950 shadow-xs transition active:scale-95"
-          >
-            <Camera className="h-4 w-4" />
-            <span>Follow on Instagram</span>
-            <ExternalLink className="h-3.5 w-3.5 opacity-70" />
-          </a>
-        </div>
+        <a
+          href="https://www.instagram.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 self-start sm:self-auto rounded-xl bg-amber-500 hover:bg-amber-400 px-3.5 py-2 text-xs font-black text-stone-950 shadow-xs transition active:scale-95"
+        >
+          <Camera className="h-4 w-4" />
+          <span>Follow on Instagram</span>
+          <ExternalLink className="h-3.5 w-3.5 opacity-70" />
+        </a>
       </div>
 
-      {/* 16-Post Mosaic Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 auto-rows-[190px] sm:auto-rows-[220px] lg:auto-rows-[240px] gap-3 sm:gap-4 grid-flow-dense">
-        {filteredPosts.map((post) => {
-          const isLiked = likedPosts[post.id];
-          const totalLikes = post.likes + (isLiked ? 1 : 0);
-
-          // Dynamic Mosaic Bento Spans for 16 posts
-          let spanClasses = 'col-span-1 row-span-1';
-          let isHero = false;
-          let isTall = false;
-          let isWide = false;
-
-          if (post.id === 1) {
-            // Hero Latte Art post (2x2)
-            spanClasses = 'col-span-2 row-span-2 sm:col-span-2 sm:row-span-2 lg:col-span-2 lg:row-span-2';
-            isHero = true;
-          } else if (post.id === 4) {
-            // Cozy Corner Tall (1x2)
-            spanClasses = 'col-span-1 row-span-2 sm:col-span-1 sm:row-span-2 lg:col-span-1 lg:row-span-2';
-            isTall = true;
-          } else if (post.id === 8) {
-            // Cold brew Wide (2x1)
-            spanClasses = 'col-span-2 row-span-1 sm:col-span-2 sm:row-span-1 lg:col-span-2 lg:row-span-1';
-            isWide = true;
-          } else if (post.id === 13) {
-            // Specialty Drink Tall (1x2)
-            spanClasses = 'col-span-1 row-span-2 sm:col-span-1 sm:row-span-2 lg:col-span-1 lg:row-span-2';
-            isTall = true;
-          } else if (post.id === 16) {
-            // Yellow Hauz Family Passion Hero (2x2)
-            spanClasses = 'col-span-2 row-span-2 sm:col-span-2 sm:row-span-2 lg:col-span-2 lg:row-span-2';
-            isHero = true;
-          }
+      {/* Story Cards List: Photo on one side, Story text beside it */}
+      <div className="space-y-6">
+        {STORIES.map((item, index) => {
+          const isLiked = !!likes[item.id];
+          const totalLikes = item.initialLikes + (isLiked ? 1 : 0);
+          const isEven = index % 2 === 1;
 
           return (
-            <div
-              key={post.id}
-              onClick={() => setSelectedPost(post)}
-              className={`group relative overflow-hidden rounded-2xl sm:rounded-3xl bg-stone-200 border border-stone-300/80 shadow-xs cursor-pointer transition-all duration-300 hover:shadow-2xl hover:border-amber-400 ${spanClasses}`}
+            <article
+              key={item.id}
+              className="rounded-2xl border border-stone-200/90 bg-white overflow-hidden shadow-xs hover:shadow-md transition duration-300 grid grid-cols-1 md:grid-cols-12"
             >
-              {/* Image */}
-              <img
-                src={post.image}
-                alt={post.title}
-                className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = post.thumbnail;
-                }}
-              />
+              {/* Image Side (Photo) */}
+              <div 
+                className={`relative md:col-span-5 h-64 sm:h-72 md:h-full min-h-[260px] overflow-hidden bg-amber-100/40 group cursor-pointer ${
+                  isEven ? 'md:order-2' : 'md:order-1'
+                }`}
+                onClick={() => setPreviewImage(item)}
+              >
+                <img
+                  src={item.image}
+                  alt={item.title}
+                  className="h-full w-full object-cover group-hover:scale-105 transition duration-500"
+                />
+                
+                {/* Location Overlay Pill */}
+                <div className="absolute top-3 left-3 rounded-full bg-stone-950/75 backdrop-blur-xs px-2.5 py-1 text-[10px] font-bold text-amber-300 flex items-center gap-1 shadow-xs">
+                  <MapPin className="h-3 w-3 text-amber-400" />
+                  <span>{item.location}</span>
+                </div>
 
-              {/* Gradient Scrim at bottom for always-readable preview on larger cards */}
-              <div className="absolute inset-0 bg-gradient-to-t from-stone-950/80 via-stone-950/20 to-transparent opacity-60 group-hover:opacity-0 transition-opacity duration-300 pointer-events-none" />
+                {/* Tap to expand hint */}
+                <div className="absolute bottom-3 right-3 rounded-md bg-stone-950/60 backdrop-blur-xs px-2 py-0.5 text-[9px] font-bold text-stone-200 opacity-0 group-hover:opacity-100 transition">
+                  Click to enlarge
+                </div>
+              </div>
 
-              {/* Persistent Bottom Label for Large/Hero/Tall cards */}
-              {(isHero || isTall || isWide) && (
-                <div className="absolute bottom-3 left-3 right-3 z-10 text-white transition-opacity duration-200 group-hover:opacity-0 pointer-events-none">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="rounded-full bg-amber-500 text-stone-950 text-[10px] font-black px-2 py-0.5 shadow-xs">
-                      {isHero ? 'Featured Post' : isTall ? 'Cozy Corner' : 'Artisan Craft'}
+              {/* Text Side (Story text beside the image) */}
+              <div className={`p-5 sm:p-6 md:p-7 md:col-span-7 flex flex-col justify-between ${
+                isEven ? 'md:order-1' : 'md:order-2'
+              }`}>
+                <div>
+                  {/* Instagram Post Meta Header */}
+                  <div className="flex items-center justify-between gap-3 pb-3 mb-3 border-b border-stone-100">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-8 w-8 rounded-full overflow-hidden bg-amber-400 border border-amber-500/40 shrink-0">
+                        <img
+                          src="/images/Coffeatyellowhauz_logo.jpg"
+                          alt="Yellow Hauz"
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-black text-stone-900 leading-none">
+                            coffeeatyellowhauz
+                          </span>
+                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500" />
+                          <span className="text-[10px] text-stone-400 font-semibold leading-none">
+                            {item.timeAgo}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-amber-700 font-bold tracking-wide uppercase mt-0.5 block">
+                          {item.category}
+                        </span>
+                      </div>
+                    </div>
+
+                    <span className="text-[11px] font-bold text-stone-400">
+                      Story #{item.id}
                     </span>
                   </div>
-                  <h3 className="text-xs sm:text-sm font-extrabold text-stone-50 drop-shadow-xs line-clamp-1">
-                    {post.title}
+
+                  {/* Story Title & Narrative */}
+                  <h3 className="text-lg sm:text-xl font-black text-stone-900 tracking-tight leading-snug">
+                    {item.title}
                   </h3>
-                </div>
-              )}
 
-              {/* Instagram top badge */}
-              <div className="absolute top-2.5 right-2.5 z-10">
-                <span className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-full bg-stone-950/60 backdrop-blur-xs text-white transition group-hover:bg-amber-500 group-hover:text-stone-950 shadow-xs">
-                  <Camera className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                </span>
-              </div>
-
-              {/* Number indicator */}
-              <div className="absolute top-2.5 left-2.5 z-10 flex items-center gap-1.5">
-                <span className="rounded-full bg-stone-950/70 backdrop-blur-xs px-2.5 py-0.5 text-[10px] font-bold text-amber-300 shadow-xs">
-                  #{post.id}
-                </span>
-              </div>
-
-              {/* Hover Dark Overlay with Stats & Caption */}
-              <div className="absolute inset-0 bg-stone-950/80 opacity-0 backdrop-blur-[3px] transition-opacity duration-200 group-hover:opacity-100 flex flex-col justify-between p-4 sm:p-5 text-white">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-amber-300">
-                    {post.timeAgo}
-                  </span>
-                  <div className="flex items-center gap-1 text-xs text-stone-200">
-                    <MapPin className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                    <span className="text-[10px] sm:text-xs truncate max-w-[120px]">Davao City</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1 sm:space-y-1.5 my-auto">
-                  <p className="text-xs sm:text-sm font-extrabold text-amber-300 line-clamp-1">{post.title}</p>
-                  <p className={`text-[11px] sm:text-xs text-stone-200 leading-snug ${isHero ? 'line-clamp-4' : isTall ? 'line-clamp-4' : 'line-clamp-2'}`}>
-                    {post.caption}
+                  <p className="mt-2.5 text-xs sm:text-sm text-stone-600 leading-relaxed font-normal">
+                    {item.story}
                   </p>
+
+                  {/* Instagram Caption Block */}
+                  <div className="mt-4 rounded-xl bg-amber-50/70 border border-amber-200/60 p-3 text-xs text-stone-800">
+                    <span className="font-bold text-amber-950 mr-1.5">coffeeatyellowhauz:</span>
+                    <span className="italic text-stone-700 font-medium">"{item.caption}"</span>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {item.tags.map(tag => (
+                        <span key={tag} className="text-[10px] font-bold text-amber-700">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-between border-t border-stone-700/80 pt-2.5 text-xs font-bold">
-                  <div className="flex items-center gap-3">
-                    <span className="inline-flex items-center gap-1 text-white">
-                      <Heart className={`h-3.5 w-3.5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-stone-300'}`} />
-                      <span className="text-[11px] sm:text-xs">{totalLikes}</span>
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-stone-300">
-                      <MessageCircle className="h-3.5 w-3.5" />
-                      <span className="text-[11px] sm:text-xs">{post.comments}</span>
-                    </span>
+                {/* Footer Actions: Likes, Comments, Share, Order / Reserve CTA */}
+                <div className="mt-5 pt-3.5 border-t border-stone-100 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => toggleLike(item.id)}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-stone-700 hover:text-stone-950 transition cursor-pointer group"
+                    >
+                      <Heart 
+                        className={`h-4 w-4 transition duration-200 group-active:scale-125 ${
+                          isLiked 
+                            ? 'fill-rose-500 text-rose-500' 
+                            : 'text-stone-400 group-hover:text-stone-700'
+                        }`} 
+                      />
+                      <span className={isLiked ? 'text-rose-600 font-black' : ''}>
+                        {totalLikes}
+                      </span>
+                    </button>
+
+                    <div className="inline-flex items-center gap-1.5 text-xs font-bold text-stone-500">
+                      <MessageCircle className="h-4 w-4 text-stone-400" />
+                      <span>{item.commentsCount}</span>
+                    </div>
+
+                    <button
+                      onClick={() => handleShare(item)}
+                      title="Share link"
+                      className="inline-flex items-center gap-1 text-xs font-bold text-stone-500 hover:text-stone-900 transition cursor-pointer"
+                    >
+                      {copiedId === item.id ? (
+                        <span className="inline-flex items-center gap-1 text-emerald-600 font-black">
+                          <Check className="h-3.5 w-3.5" />
+                          <span>Copied</span>
+                        </span>
+                      ) : (
+                        <Share2 className="h-3.5 w-3.5 text-stone-400" />
+                      )}
+                    </button>
                   </div>
 
-                  <span className="text-[11px] text-amber-400 underline font-bold group-hover:text-amber-300">
-                    View Post ↗
-                  </span>
+                  {/* Contextual Action Button */}
+                  <div>
+                    {item.ctaType === 'menu' && onNavigateMenu && (
+                      <button
+                        onClick={onNavigateMenu}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 px-3.5 py-1.5 text-xs font-extrabold text-stone-950 shadow-2xs transition active:scale-95 cursor-pointer"
+                      >
+                        <span>{item.ctaLabel}</span>
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {item.ctaType === 'reservation' && onNavigateReservation && (
+                      <button
+                        onClick={onNavigateReservation}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-stone-900 hover:bg-stone-800 px-3.5 py-1.5 text-xs font-bold text-amber-300 shadow-2xs transition active:scale-95 cursor-pointer"
+                      >
+                        <span>{item.ctaLabel}</span>
+                        <ArrowRight className="h-3.5 w-3.5 text-amber-400" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            </article>
           );
         })}
       </div>
 
-      {/* Instagram Post Detail Modal */}
-      {selectedPost && (
+      {/* Lightbox / Full Photo Preview Modal */}
+      {previewImage && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-stone-950/80 backdrop-blur-xs animate-in fade-in duration-200"
-          onClick={() => setSelectedPost(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/80 backdrop-blur-xs p-4"
+          onClick={() => setPreviewImage(null)}
         >
           <div 
-            className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-3xl shadow-2xl overflow-hidden border border-stone-200 flex flex-col md:flex-row"
+            className="relative max-w-2xl w-full bg-white rounded-2xl overflow-hidden shadow-2xl border border-stone-200"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Close Button */}
             <button
-              onClick={() => setSelectedPost(null)}
-              className="absolute top-4 right-4 z-20 grid h-8 w-8 place-items-center rounded-full bg-stone-900/80 text-white hover:bg-stone-900 transition shadow-md"
+              onClick={() => setPreviewImage(null)}
+              className="absolute top-3 right-3 z-10 grid h-8 w-8 place-items-center rounded-full bg-stone-950/70 text-white hover:bg-stone-950 transition cursor-pointer"
             >
               <X className="h-4 w-4" />
             </button>
 
-            {/* Left Column: Image with Nav Buttons */}
-            <div className="relative flex-1 bg-stone-950 flex items-center justify-center min-h-[300px] md:min-h-[500px]">
+            <div className="aspect-4/3 sm:aspect-16/10 w-full bg-stone-100 overflow-hidden">
               <img
-                src={selectedPost.image}
-                alt={selectedPost.title}
-                className="max-h-[70vh] w-full object-contain"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = selectedPost.thumbnail;
-                }}
+                src={previewImage.image}
+                alt={previewImage.title}
+                className="h-full w-full object-cover"
               />
-
-              {/* Prev / Next controls */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigateModal(-1);
-                }}
-                className="absolute left-3 top-1/2 -translate-y-1/2 grid h-10 w-10 place-items-center rounded-full bg-stone-900/70 text-white hover:bg-stone-900 hover:scale-110 transition shadow-lg"
-                title="Previous photo"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigateModal(1);
-                }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 grid h-10 w-10 place-items-center rounded-full bg-stone-900/70 text-white hover:bg-stone-900 hover:scale-110 transition shadow-lg"
-                title="Next photo"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </button>
-
-              {/* Image index counter badge */}
-              <div className="absolute bottom-4 left-4 z-10">
-                <span className="rounded-full bg-stone-950/80 backdrop-blur-xs px-3 py-1 text-xs font-bold text-amber-300">
-                  Post {selectedPost.id} of {INSTAGRAM_POSTS.length}
-                </span>
-              </div>
             </div>
 
-            {/* Right Column: Instagram Post Info */}
-            <div className="w-full md:w-[380px] lg:w-[420px] flex flex-col justify-between p-6 bg-white overflow-y-auto">
-              <div>
-                {/* Profile Header */}
-                <div className="flex items-center justify-between pb-4 border-b border-stone-100">
-                  <div className="flex items-center gap-3">
-                    <div className="grid h-11 w-11 place-items-center rounded-full bg-amber-500 text-stone-950 font-black text-xs shadow-xs border-2 border-amber-300">
-                      YH
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-extrabold text-sm text-stone-900">coffeeatyellowhauz</span>
-                        <span className="grid h-4 w-4 place-items-center rounded-full bg-amber-500 text-stone-950 text-[9px] font-black">
-                          ✓
-                        </span>
-                      </div>
-                      <span className="text-[11px] text-stone-500 flex items-center gap-1">
-                        <MapPin className="h-3 w-3 text-amber-600" />
-                        {selectedPost.location}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Caption & Post Body */}
-                <div className="py-4 space-y-3">
-                  <div className="flex items-start gap-2.5">
-                    <div className="grid h-7 w-7 place-items-center rounded-full bg-amber-500 text-stone-950 font-bold text-[10px] shrink-0 mt-0.5">
-                      YH
-                    </div>
-                    <div className="text-xs leading-relaxed text-stone-800">
-                      <span className="font-extrabold mr-1.5 text-stone-900">coffeeatyellowhauz</span>
-                      {selectedPost.caption}
-                    </div>
-                  </div>
-
-                  {/* Hashtags */}
-                  <div className="flex flex-wrap gap-1.5 pt-1 pl-9">
-                    {selectedPost.tags.map((tag, idx) => (
-                      <span key={idx} className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md hover:underline cursor-pointer">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Simulated comments */}
-                  <div className="pt-3 border-t border-stone-100 pl-9 space-y-2">
-                    <div className="text-xs text-stone-700">
-                      <span className="font-bold mr-1.5 text-stone-900">davaocoffeelover</span>
-                      The best coffee spot in town! Always love the atmosphere here ☕💛
-                    </div>
-                    <div className="text-xs text-stone-700">
-                      <span className="font-bold mr-1.5 text-stone-900">baristalife_ph</span>
-                      That crema &amp; latte art looks pristine! 🔥
-                    </div>
-                  </div>
-                </div>
+            <div className="p-4 sm:p-5">
+              <div className="flex items-center justify-between text-xs text-stone-500 mb-1">
+                <span className="font-bold text-amber-700 uppercase">{previewImage.category}</span>
+                <span>{previewImage.location}</span>
               </div>
-
-              {/* Interaction Bar & Quick Actions */}
-              <div className="border-t border-stone-100 pt-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => toggleLike(selectedPost.id)}
-                      className="grid h-9 w-9 place-items-center rounded-xl bg-stone-100 hover:bg-stone-200 transition active:scale-90"
-                    >
-                      <Heart 
-                        className={`h-5 w-5 transition ${
-                          likedPosts[selectedPost.id] 
-                            ? 'fill-red-500 text-red-500 scale-110' 
-                            : 'text-stone-700'
-                        }`} 
-                      />
-                    </button>
-                    <button 
-                      onClick={() => handleShare(selectedPost)}
-                      className="grid h-9 w-9 place-items-center rounded-xl bg-stone-100 hover:bg-stone-200 transition text-stone-700"
-                      title="Share link"
-                    >
-                      {copiedId === selectedPost.id ? (
-                        <Check className="h-4 w-4 text-emerald-600" />
-                      ) : (
-                        <Share2 className="h-4 w-4" />
-                      )}
-                    </button>
-                    <button 
-                      className="grid h-9 w-9 place-items-center rounded-xl bg-stone-100 hover:bg-stone-200 transition text-stone-700"
-                    >
-                      <Bookmark className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider">
-                    {selectedPost.timeAgo}
-                  </span>
-                </div>
-
-                <div className="text-xs font-bold text-stone-900">
-                  {selectedPost.likes + (likedPosts[selectedPost.id] ? 1 : 0)} likes
-                </div>
-
-                {/* Quick actions for ordering / visiting */}
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  {onNavigateMenu && (
-                    <button
-                      onClick={() => {
-                        setSelectedPost(null);
-                        onNavigateMenu();
-                      }}
-                      className="w-full rounded-xl bg-amber-500 hover:bg-amber-400 py-2.5 text-xs font-black text-stone-950 shadow-xs transition text-center"
-                    >
-                      Order Coffee
-                    </button>
-                  )}
-                  {onNavigateReservation && (
-                    <button
-                      onClick={() => {
-                        setSelectedPost(null);
-                        onNavigateReservation();
-                      }}
-                      className="w-full rounded-xl bg-stone-900 hover:bg-stone-800 py-2.5 text-xs font-bold text-amber-300 transition text-center"
-                    >
-                      Reserve Spot
-                    </button>
-                  )}
-                </div>
-              </div>
+              <h4 className="font-display font-black text-base sm:text-lg text-stone-900">
+                {previewImage.title}
+              </h4>
+              <p className="mt-1.5 text-xs sm:text-sm text-stone-600">
+                {previewImage.caption}
+              </p>
             </div>
           </div>
         </div>

@@ -25,6 +25,9 @@ import {
   RefreshCw,
   Award,
   ChefHat,
+  Coffee,
+  Filter,
+  ChevronDown,
 } from 'lucide-react';
 
 interface CashierAccountManagerProps {
@@ -42,8 +45,12 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
 
   // Search and Filter State
   const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'all' | 'cashier' | 'cook' | 'admin'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'cashier' | 'barista' | 'cook' | 'admin'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+
+  // Filter Modal & Add Menu State
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
 
   // Reveal PIN states
   const [revealedPins, setRevealedPins] = useState<Record<number, boolean>>({});
@@ -133,17 +140,25 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
   };
 
   // Open Create Modal
-  const handleOpenCreateModal = () => {
+  const handleOpenCreateModal = (targetRole: User['role'] = 'cashier') => {
     setEditingUser(null);
-    const existingCashiers = users.filter((u) => u.role === 'cashier');
-    const nextNum = existingCashiers.length + 1;
-    const autoEmpId = `CASHIER00${nextNum > 9 ? nextNum : `0${nextNum}`}`;
+    const existingRoleUsers = users.filter((u) => u.role === targetRole);
+    const nextNum = existingRoleUsers.length + 1;
+    const prefix =
+      targetRole === 'cashier'
+        ? 'CASHIER'
+        : targetRole === 'barista'
+        ? 'BARISTA'
+        : targetRole === 'cook'
+        ? 'COOK'
+        : 'ADMIN';
+    const autoEmpId = `${prefix}00${nextNum > 9 ? nextNum : `0${nextNum}`}`;
 
     setFormData({
       fullName: '',
       username: '',
       employeeId: autoEmpId,
-      role: 'cashier',
+      role: targetRole,
       status: 'active',
       pin: '00000000',
       phone: '',
@@ -151,6 +166,29 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
     });
     setFormErrors({});
     setIsFormModalOpen(true);
+  };
+
+  // Change role inside modal
+  const handleRoleChange = (newRole: User['role']) => {
+    let nextEmployeeId = formData.employeeId;
+    if (!editingUser) {
+      const existingRoleUsers = users.filter((u) => u.role === newRole);
+      const nextNum = existingRoleUsers.length + 1;
+      const prefix =
+        newRole === 'cashier'
+          ? 'CASHIER'
+          : newRole === 'barista'
+          ? 'BARISTA'
+          : newRole === 'cook'
+          ? 'COOK'
+          : 'ADMIN';
+      nextEmployeeId = `${prefix}00${nextNum > 9 ? nextNum : `0${nextNum}`}`;
+    }
+    setFormData((prev) => ({
+      ...prev,
+      role: newRole,
+      employeeId: nextEmployeeId,
+    }));
   };
 
   // Open Edit Modal
@@ -241,9 +279,17 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
         email: formData.email.trim() || undefined,
         createdAt: new Date().toISOString(),
       });
+      const roleLabel =
+        formData.role === 'cook'
+          ? 'Cook'
+          : formData.role === 'barista'
+          ? 'Barista'
+          : formData.role === 'cashier'
+          ? 'Cashier'
+          : 'Admin';
       showAlert({
-        title: 'Cashier Account Created',
-        message: `New account for ${formData.fullName} (${formData.role.toUpperCase()}) is active with PIN ${formData.pin}.`,
+        title: `${roleLabel} Account Created`,
+        message: `New account for ${formData.fullName} (${roleLabel}) is active with PIN ${formData.pin}.`,
         type: 'success',
       });
     }
@@ -343,120 +389,132 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Overview Cards */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-stone-200 bg-white p-4 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">
-              Total Staff
-            </span>
-            <Users className="h-4 w-4 text-stone-400" />
-          </div>
-          <div className="mt-2 font-display text-2xl font-extrabold text-stone-900 font-mono">
-            {stats.total}
-          </div>
-          <span className="text-[10px] text-stone-400 font-medium">Registered Accounts</span>
-        </div>
-
-        <div className="rounded-2xl border border-stone-200 bg-white p-4 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700">
-              Active Cashiers
-            </span>
-            <UserCheck className="h-4 w-4 text-amber-600" />
-          </div>
-          <div className="mt-2 font-display text-2xl font-extrabold text-amber-900 font-mono">
-            {stats.activeCashiers}
-          </div>
-          <span className="text-[10px] text-stone-500 font-medium">Authorized for POS terminal</span>
-        </div>
-
-        <div className="rounded-2xl border border-stone-200 bg-white p-4 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-purple-700">
-              Admin Users
-            </span>
-            <Shield className="h-4 w-4 text-purple-600" />
-          </div>
-          <div className="mt-2 font-display text-2xl font-extrabold text-purple-900 font-mono">
-            {stats.activeAdmins}
-          </div>
-          <span className="text-[10px] text-stone-500 font-medium">Full system permissions</span>
-        </div>
-
-        <div className="rounded-2xl border border-stone-200 bg-white p-4 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400">
-              Inactive / In Leave
-            </span>
-            <UserX className="h-4 w-4 text-stone-400" />
-          </div>
-          <div className="mt-2 font-display text-2xl font-extrabold text-stone-600 font-mono">
-            {stats.inactive}
-          </div>
-          <span className="text-[10px] text-stone-400 font-medium">Terminal access suspended</span>
-        </div>
-      </div>
-
-      {/* Action Bar & Filters */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-2xl bg-stone-100 p-2.5 border border-stone-200">
+    <div className="space-y-4">
+      {/* Action Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl bg-stone-100 p-2.5 border border-stone-200">
         {/* Search */}
-        <div className="relative flex-1 min-w-[220px]">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400" />
           <input
+            id="staff-search-input"
             type="text"
-            placeholder="Search cashier by name, @username, or ID..."
+            placeholder="Search staff by name, @username, or ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full rounded-xl border border-stone-200 bg-white pl-8 pr-3 py-1.5 text-xs text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none"
           />
         </div>
 
-        {/* Filter Pills */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Role Filter */}
-          <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-stone-200">
-            {(['all', 'cashier', 'cook', 'admin'] as const).map((r) => (
-              <button
-                key={r}
-                onClick={() => setRoleFilter(r)}
-                className={`rounded-lg px-2.5 py-1 text-[11px] font-bold capitalize transition ${
-                  roleFilter === r
-                    ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
-                    : 'text-stone-600 hover:bg-stone-50'
-                }`}
-              >
-                {r === 'all' ? 'All Roles' : r === 'cashier' ? 'Cashiers' : r === 'cook' ? 'Cooks' : 'Admins'}
-              </button>
-            ))}
-          </div>
-
-          {/* Status Filter */}
-          <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-stone-200">
-            {(['all', 'active', 'inactive'] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => setStatusFilter(s)}
-                className={`rounded-lg px-2.5 py-1 text-[11px] font-bold capitalize transition ${
-                  statusFilter === s
-                    ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
-                    : 'text-stone-600 hover:bg-stone-50'
-                }`}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-
-          {/* Create Button */}
+        {/* Filter & Add Staff Buttons */}
+        <div className="flex items-center gap-2">
+          {/* Single Filter Button that opens modal */}
           <button
-            onClick={handleOpenCreateModal}
-            className="flex items-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 px-3.5 py-2 text-xs font-extrabold shadow-xs transition active:scale-98 cursor-pointer"
+            id="btn-staff-filter-modal"
+            type="button"
+            onClick={() => setIsFilterModalOpen(true)}
+            className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+              roleFilter !== 'all' || statusFilter !== 'all'
+                ? 'border-amber-500 bg-amber-50 text-amber-950 font-extrabold ring-1 ring-amber-400/40'
+                : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
+            }`}
           >
-            <UserPlus className="h-3.5 w-3.5" />
-            <span>+ Add Cashier</span>
+            <Filter className="h-3.5 w-3.5 text-amber-600" />
+            <span>Filter</span>
+            {(roleFilter !== 'all' || statusFilter !== 'all') && (
+              <span className="ml-0.5 rounded-full bg-amber-500 px-1.5 py-0.2 text-[10px] font-extrabold text-stone-950">
+                {(roleFilter !== 'all' ? 1 : 0) + (statusFilter !== 'all' ? 1 : 0)}
+              </span>
+            )}
           </button>
+
+          {/* Add Staff with options for Cashier, Barista, and Cook */}
+          <div className="relative">
+            <div className="flex items-center rounded-xl bg-amber-500 shadow-xs">
+              <button
+                id="btn-add-staff-main"
+                type="button"
+                onClick={() => handleOpenCreateModal('cashier')}
+                className="flex items-center gap-1.5 rounded-l-xl bg-amber-500 hover:bg-amber-400 text-stone-950 px-3 py-1.5 text-xs font-extrabold transition active:scale-98 cursor-pointer"
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                <span>+ Add Staff</span>
+              </button>
+              <button
+                id="btn-add-staff-menu-toggle"
+                type="button"
+                onClick={() => setIsAddMenuOpen((prev) => !prev)}
+                className="border-l border-amber-600/30 px-2 py-1.5 text-stone-950 hover:bg-amber-400 rounded-r-xl transition cursor-pointer"
+                title="Choose role to add"
+              >
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isAddMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
+
+            {isAddMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-20"
+                  onClick={() => setIsAddMenuOpen(false)}
+                />
+                <div className="absolute right-0 mt-1.5 w-56 rounded-2xl bg-white p-1.5 shadow-xl border border-stone-200 z-30 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-stone-400">
+                    Add Team Member
+                  </div>
+                  <button
+                    id="btn-add-cashier-opt"
+                    type="button"
+                    onClick={() => {
+                      setIsAddMenuOpen(false);
+                      handleOpenCreateModal('cashier');
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-bold text-stone-800 hover:bg-amber-50 hover:text-amber-950 transition text-left cursor-pointer"
+                  >
+                    <div className="grid h-7 w-7 place-items-center rounded-lg bg-amber-100 text-amber-800">
+                      <UserCheck className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <div className="font-extrabold">+ Add Cashier</div>
+                      <div className="text-[10px] text-stone-400 font-normal">POS Register &amp; Sales</div>
+                    </div>
+                  </button>
+                  <button
+                    id="btn-add-barista-opt"
+                    type="button"
+                    onClick={() => {
+                      setIsAddMenuOpen(false);
+                      handleOpenCreateModal('barista');
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-bold text-stone-800 hover:bg-teal-50 hover:text-teal-950 transition text-left cursor-pointer"
+                  >
+                    <div className="grid h-7 w-7 place-items-center rounded-lg bg-teal-100 text-teal-800">
+                      <Coffee className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <div className="font-extrabold">+ Add Barista</div>
+                      <div className="text-[10px] text-stone-400 font-normal">Coffee Bar &amp; Drinks</div>
+                    </div>
+                  </button>
+                  <button
+                    id="btn-add-cook-opt"
+                    type="button"
+                    onClick={() => {
+                      setIsAddMenuOpen(false);
+                      handleOpenCreateModal('cook');
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-bold text-stone-800 hover:bg-orange-50 hover:text-orange-950 transition text-left cursor-pointer"
+                  >
+                    <div className="grid h-7 w-7 place-items-center rounded-lg bg-orange-100 text-orange-800">
+                      <ChefHat className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <div className="font-extrabold">+ Add Cook</div>
+                      <div className="text-[10px] text-stone-400 font-normal">Kitchen Food Prep</div>
+                    </div>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -507,6 +565,10 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
                             className={`grid h-10 w-10 place-items-center rounded-2xl font-bold text-xs shadow-2xs ${
                               user.role === 'admin'
                                 ? 'bg-stone-900 text-amber-400'
+                                : user.role === 'cook'
+                                ? 'bg-orange-100 text-orange-900'
+                                : user.role === 'barista'
+                                ? 'bg-teal-100 text-teal-900'
                                 : 'bg-amber-100 text-amber-900'
                             }`}
                           >
@@ -539,6 +601,10 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
                         ) : user.role === 'cook' ? (
                           <span className="inline-flex items-center gap-1 rounded-lg bg-orange-50 border border-orange-200 px-2.5 py-1 text-[11px] font-extrabold text-orange-800">
                             <ChefHat className="h-3 w-3 text-orange-600" /> Kitchen Cook
+                          </span>
+                        ) : user.role === 'barista' ? (
+                          <span className="inline-flex items-center gap-1 rounded-lg bg-teal-50 border border-teal-200 px-2.5 py-1 text-[11px] font-extrabold text-teal-800">
+                            <Coffee className="h-3 w-3 text-teal-600" /> Barista
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-1 text-[11px] font-extrabold text-amber-800">
@@ -658,12 +724,12 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
                 </div>
                 <div>
                   <h3 className="font-display text-lg font-bold text-stone-900">
-                    {editingUser ? 'Edit Staff Account' : 'Register New Cashier / Staff'}
+                    {editingUser ? 'Edit Staff Account' : 'Register New Staff Member'}
                   </h3>
                   <p className="text-xs text-stone-500">
                     {editingUser
                       ? `Update profile and permissions for ${editingUser.fullName}`
-                      : 'Create a new POS cashier or administrator profile.'}
+                      : 'Create a new cashier, barista, cook, or admin profile.'}
                   </p>
                 </div>
               </div>
@@ -695,6 +761,40 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
                   {formErrors.fullName && (
                     <p className="text-[11px] font-bold text-rose-600 mt-1">{formErrors.fullName}</p>
                   )}
+                </div>
+
+                {/* Role Selector */}
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-stone-700 uppercase mb-1.5">
+                    Staff Role <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { id: 'cashier', label: 'Cashier', icon: UserCheck, desc: 'POS Register' },
+                      { id: 'barista', label: 'Barista', icon: Coffee, desc: 'Coffee & Drinks' },
+                      { id: 'cook', label: 'Cook', icon: ChefHat, desc: 'Kitchen Food' },
+                      { id: 'admin', label: 'Admin', icon: Shield, desc: 'System Admin' },
+                    ].map((r) => {
+                      const Icon = r.icon;
+                      const isSelected = formData.role === r.id;
+                      return (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => handleRoleChange(r.id as User['role'])}
+                          className={`flex flex-col items-center justify-center p-2.5 rounded-2xl border text-center transition cursor-pointer ${
+                            isSelected
+                              ? 'border-amber-500 bg-amber-50 text-amber-950 font-bold ring-2 ring-amber-400/30'
+                              : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
+                          }`}
+                        >
+                          <Icon className={`h-4 w-4 mb-1 ${isSelected ? 'text-amber-700' : 'text-stone-500'}`} />
+                          <span className="text-xs font-bold">{r.label}</span>
+                          <span className="text-[10px] text-stone-400">{r.desc}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Username */}
@@ -756,28 +856,6 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
                   {formErrors.pin && (
                     <p className="text-[11px] font-bold text-rose-600 mt-1">{formErrors.pin}</p>
                   )}
-                </div>
-
-                {/* Role */}
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase mb-1">
-                    System Role <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={formData.role}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        role: e.target.value as User['role'],
-                      })
-                    }
-                    className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3.5 py-2 text-xs sm:text-sm font-bold text-stone-900 focus:border-amber-500 focus:outline-none"
-                  >
-                    <option value="cashier">Cashier (POS Register &amp; Floor Plan)</option>
-                    <option value="barista">Barista (Coffee Bar &amp; Drink Station)</option>
-                    <option value="cook">Kitchen Cook (Kitchen Tickets &amp; Food Prep)</option>
-                    <option value="admin">Admin (Full System Access)</option>
-                  </select>
                 </div>
 
                 {/* Phone */}
@@ -913,6 +991,140 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
                 className="flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 py-2.5 text-xs font-extrabold text-stone-950 shadow-xs disabled:opacity-40"
               >
                 <span>Save PIN</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filter Modal */}
+      {isFilterModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-stone-200 animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3.5">
+              <div className="flex items-center gap-2.5">
+                <div className="grid h-9 w-9 place-items-center rounded-xl bg-amber-100 text-amber-900">
+                  <Filter className="h-4 w-4 text-amber-700" />
+                </div>
+                <div>
+                  <h3 className="font-display text-base font-bold text-stone-900">
+                    Filter Staff Members
+                  </h3>
+                  <p className="text-[11px] text-stone-500">
+                    Filter by system role or account status
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsFilterModalOpen(false)}
+                className="rounded-xl p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="py-4 space-y-4">
+              {/* Role Filter Options */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 uppercase mb-2">
+                  Role
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { id: 'all', label: 'All Roles', count: users.length },
+                    { id: 'cashier', label: 'Cashier', count: users.filter((u) => u.role === 'cashier').length },
+                    { id: 'barista', label: 'Barista', count: users.filter((u) => u.role === 'barista').length },
+                    { id: 'cook', label: 'Cook', count: users.filter((u) => u.role === 'cook').length },
+                    { id: 'admin', label: 'Admin', count: users.filter((u) => u.role === 'admin').length },
+                  ].map((r) => {
+                    const isSelected = roleFilter === r.id;
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => setRoleFilter(r.id as any)}
+                        className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                          isSelected
+                            ? 'border-amber-500 bg-amber-50 text-amber-950 font-extrabold ring-1 ring-amber-400/40'
+                            : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
+                        }`}
+                      >
+                        <span>{r.label}</span>
+                        <span
+                          className={`rounded-full px-1.5 py-0.2 text-[10px] ${
+                            isSelected
+                              ? 'bg-amber-500 text-stone-950 font-extrabold'
+                              : 'bg-stone-100 text-stone-500'
+                          }`}
+                        >
+                          {r.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Status Filter Options */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 uppercase mb-2">
+                  Account Status
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'all', label: 'All', count: users.length },
+                    { id: 'active', label: 'Active', count: users.filter((u) => u.status === 'active').length },
+                    { id: 'inactive', label: 'Inactive', count: users.filter((u) => u.status === 'inactive').length },
+                  ].map((s) => {
+                    const isSelected = statusFilter === s.id;
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setStatusFilter(s.id as any)}
+                        className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                          isSelected
+                            ? 'border-amber-500 bg-amber-50 text-amber-950 font-extrabold ring-1 ring-amber-400/40'
+                            : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
+                        }`}
+                      >
+                        <span>{s.label}</span>
+                        <span
+                          className={`rounded-full px-1.5 py-0.2 text-[10px] ${
+                            isSelected
+                              ? 'bg-amber-500 text-stone-950 font-extrabold'
+                              : 'bg-stone-100 text-stone-500'
+                          }`}
+                        >
+                          {s.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-between border-t border-stone-100 pt-3.5 mt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setRoleFilter('all');
+                  setStatusFilter('all');
+                }}
+                className="text-xs font-bold text-stone-500 hover:text-stone-800 transition underline cursor-pointer"
+              >
+                Reset Filters
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsFilterModalOpen(false)}
+                className="rounded-xl bg-amber-500 hover:bg-amber-400 px-5 py-2 text-xs font-extrabold text-stone-950 shadow-xs transition active:scale-98 cursor-pointer"
+              >
+                Apply Filters
               </button>
             </div>
           </div>

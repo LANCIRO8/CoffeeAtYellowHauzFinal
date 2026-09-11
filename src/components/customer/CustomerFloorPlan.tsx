@@ -51,7 +51,9 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
         onMouseEnter={() => setHoveredTableId(table.id)}
         onMouseLeave={() => setHoveredTableId(null)}
         onClick={() => onSelectTable(table)}
-        className="relative group cursor-pointer select-none transition-all duration-300 transform hover:-translate-y-1.5 focus:outline-none w-full max-w-[155px] sm:max-w-[210px] min-w-0"
+        className={`relative group cursor-pointer select-none transition-all duration-300 transform hover:-translate-y-1.5 focus:outline-none w-full max-w-[155px] sm:max-w-[210px] min-w-0 ${
+          isHovered ? 'z-50' : isSelected ? 'z-30' : 'z-10 hover:z-50'
+        }`}
         style={{
           maxWidth: isExtraLarge ? '230px' : isLarge ? '195px' : isTwoSeater ? '140px' : '165px',
         }}
@@ -119,16 +121,16 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
 
         {/* Main Table Surface */}
         <div
-          className={`relative z-10 flex flex-col justify-between rounded-xl sm:rounded-2xl p-2 sm:p-4 transition-all duration-200 border-2 shadow-xs ${
-            isSelected
-              ? 'bg-amber-100 border-amber-500 shadow-md ring-4 ring-amber-500/20'
-              : isHovered
-              ? 'bg-amber-50/90 border-amber-400 shadow-lg ring-4 ring-amber-400/20 scale-[1.02]'
+          className={`relative flex flex-col justify-between rounded-xl sm:rounded-2xl p-2 sm:p-4 transition-all duration-200 border-2 shadow-xs ${
+            isHovered
+              ? 'z-50 bg-amber-50/90 border-amber-400 shadow-xl ring-4 ring-amber-400/20 scale-[1.02]'
+              : isSelected
+              ? 'z-30 bg-amber-100 border-amber-500 shadow-md ring-4 ring-amber-500/20'
               : isReserved
-              ? 'bg-amber-50/60 border-amber-300'
+              ? 'z-10 bg-amber-50/60 border-amber-300'
               : isOccupied
-              ? 'bg-stone-900 border-stone-700 text-white'
-              : 'bg-white border-stone-200 hover:border-amber-400'
+              ? 'z-10 bg-stone-900 border-stone-700 text-white'
+              : 'z-10 bg-white border-stone-200 hover:border-amber-400'
           }`}
           style={{
             minHeight: isExtraLarge ? '125px' : isLarge ? '118px' : isTwoSeater ? '100px' : '108px',
@@ -136,7 +138,7 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
         >
           {/* Table Header: Number & Capacity */}
           <div className="flex items-center justify-between gap-1">
-            <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
               <span
                 className={`grid h-5 w-5 sm:h-7 sm:w-7 place-items-center rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-black shadow-xs shrink-0 ${
                   isSelected || isHovered
@@ -148,9 +150,14 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
               >
                 T{table.tableNumber}
               </span>
-              <span className={`text-[10px] sm:text-[11px] font-bold truncate ${isOccupied ? 'text-stone-200' : 'text-stone-900'}`}>
-                Table {table.tableNumber}
-              </span>
+              <div className="min-w-0">
+                <span className={`text-[11px] sm:text-xs font-black truncate block ${isOccupied ? 'text-stone-200' : 'text-stone-900'}`}>
+                  {table.name || `Table ${table.tableNumber}`}
+                </span>
+                <span className="text-[9px] sm:text-[10px] text-stone-400 font-semibold block truncate">
+                  Table #{table.tableNumber}
+                </span>
+              </div>
             </div>
 
             <span
@@ -167,24 +174,28 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
             </span>
           </div>
 
-          {/* Area & Feature Badge */}
-          <div className="my-0.5 sm:my-1 text-[9px] sm:text-[10px] font-semibold flex items-center justify-between gap-1">
-            <span
-              className={`px-1 sm:px-1.5 py-0.5 rounded text-[8px] sm:text-[10px] shrink-0 ${
-                isAircon
-                  ? 'bg-sky-50 text-sky-700 border border-sky-200/60'
-                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
-              }`}
-            >
-              {isAircon ? '❄️ AC' : '🌿 Garden'}
-            </span>
+          {/* Setup / Configuration & Area Badge */}
+          <div className="my-1 sm:my-1.5 space-y-1 text-[9px] sm:text-[10px]">
+            <div className="flex items-center justify-between gap-1">
+              <span
+                className={`px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold shrink-0 ${
+                  isAircon
+                    ? 'bg-sky-50 text-sky-800 border border-sky-200/60'
+                    : 'bg-amber-50 text-amber-800 border border-amber-200/60'
+                }`}
+              >
+                {isAircon ? '❄️ Air-Con' : '☕ Non-A/C'}
+              </span>
 
-            {isExtraLarge ? (
-              <span className="text-[8px] sm:text-[9px] text-stone-400 font-medium truncate">Big Group</span>
-            ) : isTwoSeater ? (
-              <span className="text-[8px] sm:text-[9px] text-stone-400 font-medium truncate">Duo</span>
-            ) : (
-              <span className="text-[8px] sm:text-[9px] text-stone-400 font-medium truncate">Standard</span>
+              <span className="text-[8px] sm:text-[9px] text-stone-500 font-medium truncate">
+                {table.capacity} Seats
+              </span>
+            </div>
+
+            {table.setup && (
+              <p className="text-[8px] sm:text-[9px] text-stone-600 font-semibold truncate" title={table.setup}>
+                {table.setup}
+              </p>
             )}
           </div>
 
@@ -210,18 +221,18 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
             </span>
           </div>
 
-          {/* Floating Hover Card / Tooltip saying "Reserve Table" */}
+          {/* Floating Hover Card / Tooltip saying "Reserve Table" - Elevated above all sibling tables */}
           {isHovered && (
-            <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-30 pointer-events-none whitespace-nowrap animate-in fade-in zoom-in-95 duration-150">
-              <div className="flex items-center gap-1.5 rounded-xl bg-stone-950 px-3 py-1.5 text-xs font-black text-amber-300 shadow-xl border border-amber-500/30">
-                <Sparkles className="h-3.5 w-3.5 text-amber-400 animate-spin" />
-                <span>Reserve Table #{table.tableNumber}</span>
-                <span className="text-[10px] text-stone-300 font-normal">
-                  ({table.capacity} seats)
+            <div className="absolute -top-12 sm:-top-13 left-1/2 -translate-x-1/2 z-[100] pointer-events-none whitespace-nowrap animate-in fade-in zoom-in-95 duration-150 drop-shadow-2xl filter">
+              <div className="flex items-center gap-1.5 rounded-xl bg-stone-950/95 backdrop-blur-sm px-3 py-1.5 text-xs font-black text-amber-300 shadow-2xl border-2 border-amber-400 ring-2 ring-amber-400/30">
+                <Sparkles className="h-3.5 w-3.5 text-amber-400 animate-pulse shrink-0" />
+                <span>Reserve {table.name ? `${table.name} (T${table.tableNumber})` : `Table #${table.tableNumber}`}</span>
+                <span className="text-[10px] text-amber-200/90 font-medium ml-0.5">
+                  • {table.capacity} seats
                 </span>
               </div>
               {/* Tooltip triangle arrow */}
-              <div className="mx-auto h-0 w-0 border-x-4 border-x-transparent border-t-4 border-t-stone-950" />
+              <div className="mx-auto h-0 w-0 border-x-5 border-x-transparent border-t-5 border-t-amber-400" />
             </div>
           )}
         </div>
@@ -245,27 +256,61 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
 
         {/* Architectural Legend & Landmarks Bar */}
         <div className="relative z-10 flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-3 sm:mb-6 pb-2.5 sm:pb-4 border-b border-stone-200/90 text-xs">
-          <div className="flex items-center gap-2.5 sm:gap-4 flex-wrap">
-            <h3 className="text-xs sm:text-base font-extrabold text-stone-900 border-r border-stone-300 pr-2.5 sm:pr-4">
-              All Tables
-            </h3>
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            {/* Quick Area Filters */}
+            <div className="flex items-center gap-1 rounded-xl bg-stone-200/60 p-1">
+              <button
+                type="button"
+                onClick={() => setAreaFilter('all')}
+                className={`rounded-lg px-2.5 py-1 text-[11px] sm:text-xs font-black transition ${
+                  areaFilter === 'all'
+                    ? 'bg-white text-stone-900 shadow-2xs'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                All ({tables.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setAreaFilter('airconditioned')}
+                className={`rounded-lg px-2.5 py-1 text-[11px] sm:text-xs font-black transition ${
+                  areaFilter === 'airconditioned'
+                    ? 'bg-sky-600 text-white shadow-2xs'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                Air-Con ({airconTables.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setAreaFilter('normal')}
+                className={`rounded-lg px-2.5 py-1 text-[11px] sm:text-xs font-black transition ${
+                  areaFilter === 'normal'
+                    ? 'bg-amber-500 text-stone-950 shadow-2xs'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                Non-A/C ({mainDiningTables.length})
+              </button>
+            </div>
+
             <div className="flex items-center gap-1">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-100" />
-              <span className="font-bold text-[11px] sm:text-xs text-stone-700">Available</span>
+              <span className="h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-emerald-100" />
+              <span className="font-bold text-[10px] sm:text-xs text-stone-700">Available</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-amber-100" />
-              <span className="font-bold text-[11px] sm:text-xs text-stone-700">Reserved</span>
+              <span className="h-2 w-2 rounded-full bg-amber-400 ring-2 ring-amber-100" />
+              <span className="font-bold text-[10px] sm:text-xs text-stone-700">Reserved</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="h-2.5 w-2.5 rounded-full bg-stone-900 ring-2 ring-stone-200" />
-              <span className="font-bold text-[11px] sm:text-xs text-stone-700">Occupied</span>
+              <span className="h-2 w-2 rounded-full bg-stone-900 ring-2 ring-stone-200" />
+              <span className="font-bold text-[10px] sm:text-xs text-stone-700">Occupied</span>
             </div>
           </div>
 
           <div className="flex items-center gap-1.5 text-stone-500 font-medium text-[10px] sm:text-xs">
             <Info className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-600" />
-            <span>Click any table below to book</span>
+            <span>Click any table below to reserve</span>
           </div>
         </div>
 
@@ -275,40 +320,7 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
           {/* Divided Dining Rooms Layout */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6">
 
-            {/* Area 1: Main Dining Room & Garden (Tables 1 - 4) */}
-            {(areaFilter === 'all' || areaFilter === 'normal') && (
-              <div className="rounded-2xl sm:rounded-3xl border-2 border-emerald-200/90 bg-emerald-50/30 p-2.5 sm:p-5 space-y-3 sm:space-y-5 transition-all shadow-xs">
-                {/* Area Header */}
-                <div className="flex items-center justify-between border-b border-emerald-200/80 pb-2 sm:pb-3">
-                  <div>
-                    <div className="flex items-center gap-1.5 sm:gap-2">
-                      <span className="text-sm sm:text-base">🌿</span>
-                      <h4 className="font-display font-extrabold text-stone-900 text-xs sm:text-base">
-                        Main Dining &amp; Garden View
-                      </h4>
-                    </div>
-                    <p className="text-[10px] sm:text-[11px] text-stone-600 mt-0.5">
-                      Bright, airy café space with natural daylight and bistro seating.
-                    </p>
-                  </div>
-                  <span className="rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 text-[9px] sm:text-[10px] font-bold px-2 py-0.5 shrink-0">
-                    Tables 1 - 4
-                  </span>
-                </div>
-
-                {/* Tables Grid */}
-                <div className="grid grid-cols-2 gap-x-2 sm:gap-x-4 gap-y-4 sm:gap-y-8 py-2 sm:py-3 place-items-center">
-                  {mainDiningTables.map(renderTable)}
-                </div>
-
-                <div className="pt-1 text-center text-[10px] sm:text-[11px] text-emerald-800 font-semibold flex items-center justify-center gap-1">
-                  <span>🍃</span>
-                  <span>Perfect for casual brunch and friendly catch-ups</span>
-                </div>
-              </div>
-            )}
-
-            {/* Area 2: Air-Conditioned Studio Room (Tables 5 - 8) */}
+            {/* Area 1: Air-Con Section (Tables 1, 2, 3, 6) */}
             {(areaFilter === 'all' || areaFilter === 'airconditioned') && (
               <div className="rounded-2xl sm:rounded-3xl border-2 border-sky-200/90 bg-sky-50/30 p-2.5 sm:p-5 space-y-3 sm:space-y-5 transition-all shadow-xs">
                 {/* Area Header */}
@@ -317,26 +329,59 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
                     <div className="flex items-center gap-1.5 sm:gap-2">
                       <span className="text-sm sm:text-base">❄️</span>
                       <h4 className="font-display font-extrabold text-stone-900 text-xs sm:text-base">
-                        Air-Conditioned Studio Lounge
+                        Air-Con
                       </h4>
                     </div>
                     <p className="text-[10px] sm:text-[11px] text-stone-600 mt-0.5">
-                      Cool ambiance, quiet workspace, power outlets, and executive tables.
+                      1st Aircon (3 tables), 2nd Aircon (1 table), 3rd Aircon (long table), &amp; Kolin (couch &amp; tables).
                     </p>
                   </div>
                   <span className="rounded-full bg-sky-100 text-sky-800 border border-sky-200 text-[9px] sm:text-[10px] font-bold px-2 py-0.5 shrink-0">
-                    Tables 5 - 8
+                    Tables 1, 2, 3, 6
                   </span>
                 </div>
 
                 {/* Tables Grid */}
-                <div className="grid grid-cols-2 gap-x-2 sm:gap-x-4 gap-y-4 sm:gap-y-8 py-2 sm:py-3 place-items-center">
+                <div className="grid grid-cols-2 gap-x-2 sm:gap-x-4 gap-y-5 sm:gap-y-9 pt-7 pb-3 sm:pt-9 sm:pb-4 place-items-center relative overflow-visible">
                   {airconTables.map(renderTable)}
                 </div>
 
                 <div className="pt-1 text-center text-[10px] sm:text-[11px] text-sky-800 font-semibold flex items-center justify-center gap-1">
                   <Wind className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                  <span>Climate-controlled • Fast Wi-Fi • Dedicated Outlets</span>
+                  <span>Climate-controlled • Fast Wi-Fi • Quiet Workspace</span>
+                </div>
+              </div>
+            )}
+
+            {/* Area 2: Non-A/C Section (Tables 4, 5, 7, 8, 9, 10) */}
+            {(areaFilter === 'all' || areaFilter === 'normal') && (
+              <div className="rounded-2xl sm:rounded-3xl border-2 border-amber-200/90 bg-amber-50/25 p-2.5 sm:p-5 space-y-3 sm:space-y-5 transition-all shadow-xs">
+                {/* Area Header */}
+                <div className="flex items-center justify-between border-b border-amber-200/80 pb-2 sm:pb-3">
+                  <div>
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <span className="text-sm sm:text-base">🌿</span>
+                      <h4 className="font-display font-extrabold text-stone-900 text-xs sm:text-base">
+                        Non-A/C
+                      </h4>
+                    </div>
+                    <p className="text-[10px] sm:text-[11px] text-stone-600 mt-0.5">
+                      Center high chairs, Left side long tables, Door &amp; Entrance couches, Spotlight, and Window bar.
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-[9px] sm:text-[10px] font-bold px-2 py-0.5 shrink-0">
+                    Tables 4, 5, 7, 8, 9, 10
+                  </span>
+                </div>
+
+                {/* Tables Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-2 sm:gap-x-3 gap-y-5 sm:gap-y-9 pt-7 pb-3 sm:pt-9 sm:pb-4 place-items-center relative overflow-visible">
+                  {mainDiningTables.map(renderTable)}
+                </div>
+
+                <div className="pt-1 text-center text-[10px] sm:text-[11px] text-amber-900 font-semibold flex items-center justify-center gap-1">
+                  <span>☕</span>
+                  <span>Open café atmosphere • High chairs, lounge seating, &amp; window view</span>
                 </div>
               </div>
             )}

@@ -630,7 +630,7 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
                       {ord.orderClassification === 'live_in_house' || ord.tableNumber ? (
                         <span className="rounded-md bg-emerald-100 border border-emerald-300 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-950 flex items-center gap-1">
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                          <span>Live In-House Table #{ord.tableNumber || 1}</span>
+                          <span>Table #{ord.tableNumber || 1}</span>
                         </span>
                       ) : (
                         <span className="rounded-md bg-amber-500/15 border border-amber-300 px-2 py-0.5 text-[10px] font-extrabold uppercase text-amber-950 flex items-center gap-1">
@@ -655,7 +655,7 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
                     )}
                     <div className="flex items-center gap-1.5 text-[11px] text-stone-500">
                       <Clock className="h-3 w-3 text-stone-400" />
-                      <span>Placed on {dateStr}</span>
+                      <span>{dateStr}</span>
                       {ord.customerName && (
                         <>
                           <span>•</span>

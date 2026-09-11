@@ -35,6 +35,7 @@ import {
   ArrowUpRight,
   AlertTriangle,
   CheckCircle2,
+  X,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -87,6 +88,57 @@ type AnalyticsSection = 'all' | 'movement' | 'distribution' | 'trends';
 type ChartType = 'donut' | 'pie';
 type MetricType = 'revenue' | 'quantity';
 
+const sectionLabels: Record<AnalyticsSection, string> = {
+  all: 'Complete Dashboard',
+  movement: 'Fast & Slow Moving',
+  distribution: 'Pie & Donut Charts',
+  trends: 'Hourly Trends',
+};
+
+const timeRangeLabels: Record<TimeRange, string> = {
+  today: 'Today',
+  '7days': '7 Days',
+  '30days': '30 Days',
+  custom: 'Custom Range',
+  all: 'All Time',
+};
+
+const SECTION_OPTIONS = [
+  {
+    id: 'all' as AnalyticsSection,
+    label: 'Complete Dashboard',
+    description: 'View all metrics, breakdown charts, and movement data',
+    icon: Layers,
+  },
+  {
+    id: 'movement' as AnalyticsSection,
+    label: 'Fast & Slow Moving',
+    description: 'Top velocity and underperforming menu items',
+    icon: Flame,
+    badge: 'Popular',
+  },
+  {
+    id: 'distribution' as AnalyticsSection,
+    label: 'Pie & Donut Charts',
+    description: 'Category revenue and top-sellers distribution',
+    icon: LucidePieChart,
+  },
+  {
+    id: 'trends' as AnalyticsSection,
+    label: 'Hourly Trends',
+    description: 'Peak dining hours and ordering volume curve',
+    icon: TrendingUp,
+  },
+];
+
+const TIME_RANGE_OPTIONS: { id: TimeRange; label: string }[] = [
+  { id: 'today', label: 'Today' },
+  { id: '7days', label: '7 Days' },
+  { id: '30days', label: '30 Days' },
+  { id: 'custom', label: 'Custom' },
+  { id: 'all', label: 'All Time' },
+];
+
 export const SalesAnalytics: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>(() => AppStore.getOrders());
   const [menuItems, setMenuItems] = useState<MenuItem[]>(() => AppStore.getMenuItems());
@@ -96,7 +148,7 @@ export const SalesAnalytics: React.FC = () => {
   const [customStartDate, setCustomStartDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [customEndDate, setCustomEndDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [analyticsSection, setAnalyticsSection] = useState<AnalyticsSection>('all');
-  const [isSectionNavCollapsed, setIsSectionNavCollapsed] = useState<boolean>(false);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
   
   // Interactive chart controls
   const [chartShape, setChartShape] = useState<ChartType>('donut');
@@ -650,170 +702,220 @@ export const SalesAnalytics: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-16">
-      {/* Header with Time Range Filter */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-stone-200 pb-5">
+    <div className="space-y-4 sm:space-y-6 pb-16">
+      {/* Header with Title and Single "Section & Time Filter" Modal Trigger */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 border-b border-stone-200 pb-3.5 sm:pb-5">
         <div>
-          <h2 className="font-display text-2xl font-extrabold text-stone-900 flex items-center gap-2.5">
-            <LucidePieChart className="h-6 w-6 text-amber-600" />
-            <span>Sales and Data analytics</span>
+          <h2 className="font-display text-lg sm:text-2xl font-extrabold text-stone-900 flex items-center gap-2 sm:gap-2.5">
+            <LucidePieChart className="h-5 w-5 sm:h-6 sm:w-6 text-black" />
+            <span>Analytics</span>
           </h2>
         </div>
 
-        {/* Time Range Filter Pills */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1 rounded-2xl bg-white p-1 border border-stone-200 shadow-2xs">
-            {(
-              [
-                { id: 'today', label: 'Today' },
-                { id: '7days', label: '7 Days' },
-                { id: '30days', label: '30 Days' },
-                { id: 'custom', label: 'Custom' },
-                { id: 'all', label: 'All Time' },
-              ] as { id: TimeRange; label: string }[]
-            ).map((range) => (
-              <button
-                key={range.id}
-                type="button"
-                onClick={() => setTimeRange(range.id)}
-                className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all ${
-                  timeRange === range.id
-                    ? 'bg-amber-500 text-stone-950 shadow-xs'
-                    : 'text-stone-500 hover:text-stone-900 hover:bg-stone-50'
-                }`}
-              >
-                {range.label}
-              </button>
-            ))}
-          </div>
-
-          {timeRange === 'custom' && (
-            <div className="flex items-center gap-2 rounded-2xl bg-white px-3 py-1.5 border border-amber-300 shadow-2xs text-xs">
-              <div className="flex items-center gap-1.5">
-                <span className="text-stone-400 font-medium">From:</span>
-                <input
-                  type="date"
-                  value={customStartDate}
-                  max={customEndDate || todayStr}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="rounded-lg border border-stone-200 bg-stone-50 px-2 py-1 text-xs font-semibold text-stone-800 focus:border-amber-500 focus:outline-none"
-                />
-              </div>
-              <span className="text-stone-400 font-bold">→</span>
-              <div className="flex items-center gap-1.5">
-                <span className="text-stone-400 font-medium">To:</span>
-                <input
-                  type="date"
-                  value={customEndDate}
-                  min={customStartDate}
-                  max={todayStr}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="rounded-lg border border-stone-200 bg-stone-50 px-2 py-1 text-xs font-semibold text-stone-800 focus:border-amber-500 focus:outline-none"
-                />
+        {/* Single Button Modal Trigger for Section View & Time Filter */}
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <button
+            id="btn-analytics-filter-modal"
+            type="button"
+            onClick={() => setIsFilterModalOpen(true)}
+            className="flex items-center gap-2 sm:gap-3 rounded-2xl bg-white px-2.5 sm:px-3.5 py-1.5 sm:py-2 border border-stone-200 shadow-2xs hover:border-amber-400 hover:bg-stone-50 transition-all cursor-pointer group"
+          >
+            <div className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-xl bg-amber-500/15 text-amber-800 group-hover:bg-amber-500 group-hover:text-stone-950 transition-colors">
+              <SlidersHorizontal className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            </div>
+            <div className="flex flex-col text-left">
+              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-stone-600">Filters &amp; View</span>
+              <div className="flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-black text-stone-900">
+                <span>{timeRangeLabels[timeRange]}</span>
+                <span className="text-stone-300">•</span>
+                <span className="text-amber-800">{sectionLabels[analyticsSection]}</span>
               </div>
             </div>
-          )}
+            <ChevronDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-400 ml-1 group-hover:text-stone-700 transition-colors" />
+          </button>
         </div>
       </div>
 
+      {/* Combined Section View & Time Filter Modal */}
+      {isFilterModalOpen && (
+        <div
+          id="modal-analytics-filters"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-xs transition-opacity"
+          onClick={() => setIsFilterModalOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-lg rounded-3xl bg-white p-4 sm:p-6 shadow-2xl border border-stone-200 flex flex-col space-y-4 sm:space-y-5 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <div className="flex items-center gap-2 sm:gap-2.5">
+                <div className="grid h-8 w-8 sm:h-9 sm:w-9 place-items-center rounded-xl bg-amber-500/15 text-amber-800">
+                  <SlidersHorizontal className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-extrabold text-stone-900">Data View &amp; Time Filters</h3>
+                  <p className="text-[10px] sm:text-xs text-stone-500">Configure dashboard display and time range</p>
+                </div>
+              </div>
+              <button
+                id="btn-close-analytics-filter-modal"
+                type="button"
+                onClick={() => setIsFilterModalOpen(false)}
+                className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
 
-      {/* Section Navigation Tabs (Collapsible) */}
-      <div className="border-b border-stone-200 pb-2 space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsSectionNavCollapsed(!isSectionNavCollapsed)}
-              className="flex items-center gap-1.5 rounded-xl bg-stone-100 hover:bg-stone-200/80 px-2.5 py-1 text-xs font-bold text-stone-700 transition-all cursor-pointer border border-stone-200"
-              title={isSectionNavCollapsed ? 'Expand section filter' : 'Collapse section filter'}
-            >
-              <SlidersHorizontal className="h-3.5 w-3.5 text-stone-500" />
-              <span>Section View</span>
-              {isSectionNavCollapsed ? (
-                <ChevronDown className="h-3.5 w-3.5 text-stone-500" />
-              ) : (
-                <ChevronUp className="h-3.5 w-3.5 text-stone-500" />
+            {/* Section View Selector */}
+            <div className="space-y-2 sm:space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-stone-500 flex items-center gap-1.5">
+                  <Layers className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-stone-600" />
+                  <span>Section View</span>
+                </span>
+                <span className="text-[10px] sm:text-[11px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/60">
+                  {sectionLabels[analyticsSection]}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {SECTION_OPTIONS.map((opt) => {
+                  const isSelected = analyticsSection === opt.id;
+                  const Icon = opt.icon;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setAnalyticsSection(opt.id)}
+                      className={`flex items-start gap-2.5 sm:gap-3 rounded-2xl p-2.5 sm:p-3 text-left border transition-all cursor-pointer ${
+                        isSelected
+                          ? 'border-amber-500 bg-amber-50/80 text-stone-950 shadow-2xs'
+                          : 'border-stone-200 bg-stone-50/50 hover:bg-stone-100/70 text-stone-700'
+                      }`}
+                    >
+                      <div
+                        className={`mt-0.5 grid h-6 w-6 sm:h-7 sm:w-7 shrink-0 place-items-center rounded-xl ${
+                          isSelected
+                            ? 'bg-amber-500 text-stone-950 font-bold'
+                            : 'bg-stone-200/80 text-stone-600'
+                        }`}
+                      >
+                        <Icon className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] sm:text-xs font-extrabold text-stone-900 truncate">
+                            {opt.label}
+                          </span>
+                          {opt.badge && (
+                            <span className="rounded-full bg-emerald-100 px-1.5 py-0.2 text-[8px] sm:text-[9px] font-black text-emerald-800 shrink-0">
+                              {opt.badge}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] sm:text-[11px] text-stone-500 leading-tight mt-0.5">
+                          {opt.description}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Time Filter Selector */}
+            <div className="space-y-2 sm:space-y-2.5 pt-2.5 sm:pt-3 border-t border-stone-100">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-stone-500 flex items-center gap-1.5">
+                  <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-stone-600" />
+                  <span>Time Filter</span>
+                </span>
+                <span className="text-[10px] sm:text-[11px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/60">
+                  {timeRangeLabels[timeRange]}
+                </span>
+              </div>
+
+              {/* Time Range Pills */}
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
+                {TIME_RANGE_OPTIONS.map((range) => {
+                  const isSelected = timeRange === range.id;
+                  return (
+                    <button
+                      key={range.id}
+                      type="button"
+                      onClick={() => setTimeRange(range.id)}
+                      className={`rounded-xl py-1.5 sm:py-2 px-1.5 sm:px-2 text-center text-[11px] sm:text-xs font-extrabold transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-amber-500 text-stone-950 shadow-xs'
+                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200/70 hover:text-stone-900'
+                      }`}
+                    >
+                      {range.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Custom Date Pickers when custom is active */}
+              {timeRange === 'custom' && (
+                <div className="rounded-2xl bg-amber-50/50 p-2.5 sm:p-3 border border-amber-200 space-y-2 mt-2">
+                  <span className="text-[10px] sm:text-[11px] font-bold text-amber-900 block">
+                    Custom Date Range
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <label className="text-[9px] sm:text-[10px] font-bold text-stone-500 block mb-1">
+                        From Date
+                      </label>
+                      <input
+                        type="date"
+                        value={customStartDate}
+                        max={customEndDate || todayStr}
+                        onChange={(e) => setCustomStartDate(e.target.value)}
+                        className="w-full rounded-xl border border-stone-300 bg-white px-2.5 py-1.5 text-[11px] sm:text-xs font-semibold text-stone-800 focus:border-amber-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] sm:text-[10px] font-bold text-stone-500 block mb-1">
+                        To Date
+                      </label>
+                      <input
+                        type="date"
+                        value={customEndDate}
+                        min={customStartDate}
+                        max={todayStr}
+                        onChange={(e) => setCustomEndDate(e.target.value)}
+                        className="w-full rounded-xl border border-stone-300 bg-white px-2.5 py-1.5 text-[11px] sm:text-xs font-semibold text-stone-800 focus:border-amber-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
               )}
-            </button>
+            </div>
 
-            {/* Active section indicator pill when collapsed */}
-            {isSectionNavCollapsed && (
-              <span className="flex items-center gap-1 text-xs font-extrabold text-amber-900 bg-amber-100/80 px-2.5 py-0.5 rounded-lg border border-amber-200">
-                {analyticsSection === 'all' && 'Complete Dashboard'}
-                {analyticsSection === 'movement' && 'Fast & Slow Moving Charts'}
-                {analyticsSection === 'distribution' && 'Pie & Donut Charts'}
-                {analyticsSection === 'trends' && 'Hourly Trends'}
-              </span>
-            )}
-          </div>
-
-          <div className="text-xs text-stone-500 hidden sm:block">
-            Timeframe: <strong className="text-stone-800 capitalize">{timeRange === 'all' ? 'All Time' : timeRange}</strong>
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between border-t border-stone-100 pt-3">
+              <div className="text-[10px] sm:text-[11px] text-stone-400">
+                Active:{' '}
+                <span className="font-bold text-stone-700">
+                  {sectionLabels[analyticsSection]}
+                </span>{' '}
+                ({timeRangeLabels[timeRange]})
+              </div>
+              <button
+                id="btn-apply-analytics-filter"
+                type="button"
+                onClick={() => setIsFilterModalOpen(false)}
+                className="rounded-xl bg-stone-900 px-4 sm:px-5 py-1.5 sm:py-2 text-[11px] sm:text-xs font-extrabold text-white hover:bg-stone-800 transition-colors shadow-xs cursor-pointer"
+              >
+                Apply &amp; Close
+              </button>
+            </div>
           </div>
         </div>
-
-        {!isSectionNavCollapsed && (
-          <div className="flex flex-wrap items-center gap-1.5 rounded-2xl bg-stone-100 p-1.5 border border-stone-200">
-            <button
-              type="button"
-              onClick={() => setAnalyticsSection('all')}
-              className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-extrabold transition-all cursor-pointer ${
-                analyticsSection === 'all'
-                  ? 'bg-amber-500 text-stone-950 shadow-xs'
-                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
-              }`}
-            >
-              <Layers className="h-3.5 w-3.5" />
-              <span>Complete Dashboard</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setAnalyticsSection('movement')}
-              className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-extrabold transition-all cursor-pointer ${
-                analyticsSection === 'movement'
-                  ? 'bg-amber-500 text-stone-950 shadow-xs'
-                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
-              }`}
-            >
-              <Flame className="h-3.5 w-3.5 text-amber-950" />
-              <span>Fast &amp; Slow Moving Charts</span>
-              <span className="rounded-full bg-emerald-200 px-1.5 py-0.2 text-[10px] font-black text-emerald-950">
-                New
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setAnalyticsSection('distribution')}
-              className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-extrabold transition-all cursor-pointer ${
-                analyticsSection === 'distribution'
-                  ? 'bg-amber-500 text-stone-950 shadow-xs'
-                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
-              }`}
-            >
-              <LucidePieChart className="h-3.5 w-3.5" />
-              <span>Pie &amp; Donut Charts</span>
-              <span className="rounded-full bg-amber-200/80 px-1.5 py-0.2 text-[10px] font-black text-amber-950">
-                Featured
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setAnalyticsSection('trends')}
-              className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-extrabold transition-all cursor-pointer ${
-                analyticsSection === 'trends'
-                  ? 'bg-amber-500 text-stone-950 shadow-xs'
-                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
-              }`}
-            >
-              <TrendingUp className="h-3.5 w-3.5" />
-              <span>Hourly Trends</span>
-            </button>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* DUAL PIE & DONUT CHARTS SHOWCASE: Category Share & Best Sellers Share */}
       {(analyticsSection === 'all' || analyticsSection === 'distribution') && (
@@ -821,32 +923,32 @@ export const SalesAnalytics: React.FC = () => {
           {/* Main Dual Donut / Pie Grid */}
           <div className="grid gap-6 lg:grid-cols-2">
             {/* CHART 1: Category Sales Share (Donut / Pie Chart) */}
-            <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-xs flex flex-col justify-between space-y-5">
+            <div className="rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-6 shadow-xs flex flex-col justify-between space-y-3.5 sm:space-y-5">
               <div>
                 {/* Header & Controls */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-4">
-                  <div className="flex items-center gap-2.5">
-                    <div className="grid h-10 w-10 place-items-center rounded-2xl bg-amber-500/10 text-amber-700">
-                      <Layers className="h-5 w-5" />
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 border-b border-stone-100 pb-3 sm:pb-4">
+                  <div className="flex items-center gap-2 sm:gap-2.5">
+                    <div className="grid h-8 w-8 sm:h-10 sm:w-10 place-items-center rounded-2xl bg-amber-500/10 text-amber-700">
+                      <Layers className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
                     <div>
-                      <h3 className="font-display text-base font-extrabold text-stone-900 flex items-center gap-1.5">
+                      <h3 className="font-display text-xs sm:text-base font-extrabold text-stone-900 flex items-center gap-1 sm:gap-1.5">
                         <span>Category Sales Share</span>
                       </h3>
-                      <p className="text-xs text-stone-500">
+                      <p className="text-[10px] sm:text-xs text-stone-500">
                         {categoryMetric === 'revenue' ? 'Revenue distribution' : 'Unit volume share'} by menu category
                       </p>
                     </div>
                   </div>
 
                   {/* Chart Customizer (Metric & Donut/Pie Toggles) */}
-                  <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                  <div className="flex items-center gap-1 sm:gap-1.5 self-start sm:self-auto">
                     {/* Metric Toggle */}
-                    <div className="flex items-center gap-0.5 rounded-xl bg-stone-100 p-0.5 border border-stone-200 text-[11px]">
+                    <div className="flex items-center gap-0.5 rounded-xl bg-stone-100 p-0.5 border border-stone-200 text-[10px] sm:text-[11px]">
                       <button
                         type="button"
                         onClick={() => setCategoryMetric('revenue')}
-                        className={`rounded-lg px-2 py-1 font-bold transition-all cursor-pointer ${
+                        className={`rounded-lg px-1.5 sm:px-2 py-0.5 sm:py-1 font-bold transition-all cursor-pointer ${
                           categoryMetric === 'revenue'
                             ? 'bg-white text-stone-900 shadow-2xs'
                             : 'text-stone-500 hover:text-stone-800'
@@ -858,7 +960,7 @@ export const SalesAnalytics: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setCategoryMetric('quantity')}
-                        className={`rounded-lg px-2 py-1 font-bold transition-all cursor-pointer ${
+                        className={`rounded-lg px-1.5 sm:px-2 py-0.5 sm:py-1 font-bold transition-all cursor-pointer ${
                           categoryMetric === 'quantity'
                             ? 'bg-white text-stone-900 shadow-2xs'
                             : 'text-stone-500 hover:text-stone-800'
@@ -870,7 +972,7 @@ export const SalesAnalytics: React.FC = () => {
                     </div>
 
                     {/* Donut vs Pie Toggle */}
-                    <div className="flex items-center gap-0.5 rounded-xl bg-stone-100 p-0.5 border border-stone-200 text-[11px]">
+                    <div className="flex items-center gap-0.5 rounded-xl bg-stone-100 p-0.5 border border-stone-200 text-[10px] sm:text-[11px]">
                       <button
                         type="button"
                         onClick={() => setChartShape('donut')}
@@ -881,7 +983,7 @@ export const SalesAnalytics: React.FC = () => {
                         }`}
                         title="Donut Chart View"
                       >
-                        <Disc className="h-4 w-4" />
+                        <Disc className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       </button>
                       <button
                         type="button"
@@ -893,19 +995,19 @@ export const SalesAnalytics: React.FC = () => {
                         }`}
                         title="Solid Pie Chart View"
                       >
-                        <CircleDot className="h-4 w-4" />
+                        <CircleDot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       </button>
                     </div>
                   </div>
                 </div>
 
                 {/* Chart Graphic + Center Callout */}
-                <div className="relative h-64 sm:h-72 w-full flex items-center justify-center my-3">
+                <div className="relative h-60 sm:h-72 w-full flex items-center justify-center my-2 sm:my-3">
                   {categoryPieData.length === 0 ? (
                     <div className="text-center text-stone-400 py-8">
-                      <LucidePieChart className="h-10 w-10 mx-auto text-stone-300 mb-2 opacity-60" />
-                      <p className="font-bold text-sm text-stone-600">No category sales found</p>
-                      <p className="text-xs text-stone-400">Complete transactions to view category pie</p>
+                      <LucidePieChart className="h-8 w-8 sm:h-10 sm:w-10 mx-auto text-stone-300 mb-2 opacity-60" />
+                      <p className="font-bold text-xs sm:text-sm text-stone-600">No category sales found</p>
+                      <p className="text-[10px] sm:text-xs text-stone-400">Complete transactions to view category pie</p>
                     </div>
                   ) : (
                     <>
@@ -937,15 +1039,15 @@ export const SalesAnalytics: React.FC = () => {
                       {/* Donut Center Total Overlay */}
                       {chartShape === 'donut' && categoryPieData.length > 0 && (
                         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400">
+                          <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider text-stone-400">
                             {categoryMetric === 'revenue' ? 'Total Sales' : 'Total Units'}
                           </span>
-                          <span className="font-display font-black text-stone-900 text-base sm:text-lg font-mono">
+                          <span className="font-display font-black text-stone-900 text-sm sm:text-lg font-mono">
                             {categoryMetric === 'revenue'
                               ? `₱${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
                               : `${totalItemsSold}`}
                           </span>
-                          <span className="text-[9px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded-md mt-0.5">
+                          <span className="text-[8px] sm:text-[9px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded-md mt-0.5">
                             {categoryPieData.length} Categories
                           </span>
                         </div>
@@ -956,28 +1058,28 @@ export const SalesAnalytics: React.FC = () => {
               </div>
 
               {/* Category Breakdown Ranked Table */}
-              <div className="space-y-2 pt-3 border-t border-stone-100 max-h-48 overflow-y-auto pr-1">
+              <div className="space-y-1.5 sm:space-y-2 pt-2.5 sm:pt-3 border-t border-stone-100 max-h-48 overflow-y-auto pr-1">
                 {categoryPieData.map((item, idx) => {
                   const fill = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
                   return (
                     <div
                       key={item.name}
-                      className="flex items-center justify-between rounded-2xl border border-stone-100 bg-stone-50/70 p-2.5 hover:bg-amber-50/50 hover:border-amber-200 transition text-xs"
+                      className="flex items-center justify-between rounded-2xl border border-stone-100 bg-stone-50/70 p-2 sm:p-2.5 hover:bg-amber-50/50 hover:border-amber-200 transition text-[11px] sm:text-xs"
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
                         <span
-                          className="h-3 w-3 rounded-full shrink-0 shadow-2xs"
+                          className="h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full shrink-0 shadow-2xs"
                           style={{ backgroundColor: fill }}
                         />
-                        <span className="font-bold text-stone-800 truncate">{item.name}</span>
-                        <span className="text-[10px] text-stone-400 font-mono">
+                        <span className="font-bold text-stone-800 truncate text-[11px] sm:text-xs">{item.name}</span>
+                        <span className="text-[9px] sm:text-[10px] text-stone-400 font-mono">
                           ({item.quantity} sold)
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-2.5 shrink-0 font-mono">
+                      <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 font-mono text-[11px] sm:text-xs">
                         <span className="font-extrabold text-stone-900">₱{item.revenue.toFixed(2)}</span>
-                        <span className="rounded-md bg-stone-200/80 px-1.5 py-0.5 text-[10px] font-extrabold text-stone-800">
+                        <span className="rounded-md bg-stone-200/80 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-extrabold text-stone-800">
                           {item.pct}%
                         </span>
                       </div>
@@ -988,33 +1090,33 @@ export const SalesAnalytics: React.FC = () => {
             </div>
 
             {/* CHART 2: Best Sellers Sales Share (Donut / Pie Chart) */}
-            <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-xs flex flex-col justify-between space-y-5">
+            <div className="rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-6 shadow-xs flex flex-col justify-between space-y-3.5 sm:space-y-5">
               <div>
                 {/* Header & Controls */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-4">
-                  <div className="flex items-center gap-2.5">
-                    <div className="grid h-10 w-10 place-items-center rounded-2xl bg-amber-500/10 text-amber-700">
-                      <Award className="h-5 w-5" />
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 border-b border-stone-100 pb-3 sm:pb-4">
+                  <div className="flex items-center gap-2 sm:gap-2.5">
+                    <div className="grid h-8 w-8 sm:h-10 sm:w-10 place-items-center rounded-2xl bg-amber-500/10 text-amber-700">
+                      <Award className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
                     <div>
-                      <h3 className="font-display text-base font-extrabold text-stone-900 flex items-center gap-1.5">
+                      <h3 className="font-display text-xs sm:text-base font-extrabold text-stone-900 flex items-center gap-1 sm:gap-1.5">
                         <span>Best Sellers Sales Share</span>
-                        <Crown className="h-3.5 w-3.5 text-amber-500 fill-amber-400" />
+                        <Crown className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-500 fill-amber-400" />
                       </h3>
-                      <p className="text-xs text-stone-500">
+                      <p className="text-[10px] sm:text-xs text-stone-500">
                         Top {bestSellerTopCount} revenue leaders vs other catalog items
                       </p>
                     </div>
                   </div>
 
                   {/* Chart Customizer (Metric & Top N Count) */}
-                  <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                  <div className="flex items-center gap-1 sm:gap-1.5 self-start sm:self-auto">
                     {/* Metric Toggle */}
-                    <div className="flex items-center gap-0.5 rounded-xl bg-stone-100 p-0.5 border border-stone-200 text-[11px]">
+                    <div className="flex items-center gap-0.5 rounded-xl bg-stone-100 p-0.5 border border-stone-200 text-[10px] sm:text-[11px]">
                       <button
                         type="button"
                         onClick={() => setBestSellerMetric('revenue')}
-                        className={`rounded-lg px-2 py-1 font-bold transition-all cursor-pointer ${
+                        className={`rounded-lg px-1.5 sm:px-2 py-0.5 sm:py-1 font-bold transition-all cursor-pointer ${
                           bestSellerMetric === 'revenue'
                             ? 'bg-white text-stone-900 shadow-2xs'
                             : 'text-stone-500 hover:text-stone-800'
@@ -1026,7 +1128,7 @@ export const SalesAnalytics: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setBestSellerMetric('quantity')}
-                        className={`rounded-lg px-2 py-1 font-bold transition-all cursor-pointer ${
+                        className={`rounded-lg px-1.5 sm:px-2 py-0.5 sm:py-1 font-bold transition-all cursor-pointer ${
                           bestSellerMetric === 'quantity'
                             ? 'bg-white text-stone-900 shadow-2xs'
                             : 'text-stone-500 hover:text-stone-800'
@@ -1041,7 +1143,7 @@ export const SalesAnalytics: React.FC = () => {
                     <select
                       value={bestSellerTopCount}
                       onChange={(e) => setBestSellerTopCount(Number(e.target.value))}
-                      className="rounded-xl border border-stone-200 bg-stone-100 px-2 py-1 text-[11px] font-bold text-stone-700 focus:outline-none cursor-pointer"
+                      className="rounded-xl border border-stone-200 bg-stone-100 px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-bold text-stone-700 focus:outline-none cursor-pointer"
                     >
                       <option value={5}>Top 5</option>
                       <option value={6}>Top 6</option>
@@ -1051,12 +1153,12 @@ export const SalesAnalytics: React.FC = () => {
                 </div>
 
                 {/* Chart Graphic + Center Callout */}
-                <div className="relative h-64 sm:h-72 w-full flex items-center justify-center my-3">
+                <div className="relative h-60 sm:h-72 w-full flex items-center justify-center my-2 sm:my-3">
                   {bestSellersPieData.length === 0 ? (
                     <div className="text-center text-stone-400 py-8">
-                      <Award className="h-10 w-10 mx-auto text-stone-300 mb-2 opacity-60" />
-                      <p className="font-bold text-sm text-stone-600">No item sales recorded</p>
-                      <p className="text-xs text-stone-400">Products sold will appear in this donut chart</p>
+                      <Award className="h-8 w-8 sm:h-10 sm:w-10 mx-auto text-stone-300 mb-2 opacity-60" />
+                      <p className="font-bold text-xs sm:text-sm text-stone-600">No item sales recorded</p>
+                      <p className="text-[10px] sm:text-xs text-stone-400">Products sold will appear in this donut chart</p>
                     </div>
                   ) : (
                     <>
@@ -1088,13 +1190,13 @@ export const SalesAnalytics: React.FC = () => {
                       {/* Donut Center Best Seller Highlight */}
                       {chartShape === 'donut' && bestSellersPieData.length > 0 && (
                         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center px-4">
-                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-700 flex items-center gap-1">
+                          <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider text-amber-700 flex items-center gap-1">
                             <Crown className="h-2.5 w-2.5 fill-amber-500" /> #1 Best Seller
                           </span>
                           <span className="font-display font-black text-stone-900 text-xs sm:text-sm truncate max-w-[130px]">
                             {bestSellersPieData[0]?.name}
                           </span>
-                          <span className="font-mono text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-md mt-0.5">
+                          <span className="font-mono text-[9px] sm:text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-md mt-0.5">
                             {bestSellersPieData[0]?.pct}% of all sales
                           </span>
                         </div>
@@ -1105,20 +1207,20 @@ export const SalesAnalytics: React.FC = () => {
               </div>
 
               {/* Best Sellers Ranked Breakdown */}
-              <div className="space-y-2 pt-3 border-t border-stone-100 max-h-48 overflow-y-auto pr-1">
+              <div className="space-y-1.5 sm:space-y-2 pt-2.5 sm:pt-3 border-t border-stone-100 max-h-48 overflow-y-auto pr-1">
                 {bestSellersPieData.map((item) => (
                   <div
                     key={item.name}
-                    className="flex items-center justify-between rounded-2xl border border-stone-100 bg-stone-50/70 p-2.5 hover:bg-amber-50/50 hover:border-amber-200 transition text-xs"
+                    className="flex items-center justify-between rounded-2xl border border-stone-100 bg-stone-50/70 p-2 sm:p-2.5 hover:bg-amber-50/50 hover:border-amber-200 transition text-[11px] sm:text-xs"
                   >
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                       <span
-                        className="h-3 w-3 rounded-full shrink-0 shadow-2xs"
+                        className="h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full shrink-0 shadow-2xs"
                         style={{ backgroundColor: item.color }}
                       />
                       {!item.isOther && item.rank && item.rank <= 3 && (
                         <span
-                          className={`grid h-4 w-4 place-items-center rounded-full text-[9px] font-black shrink-0 ${
+                          className={`grid h-3.5 w-3.5 sm:h-4 sm:w-4 place-items-center rounded-full text-[8px] sm:text-[9px] font-black shrink-0 ${
                             item.rank === 1
                               ? 'bg-amber-400 text-stone-950'
                               : item.rank === 2
@@ -1129,15 +1231,15 @@ export const SalesAnalytics: React.FC = () => {
                           {item.rank}
                         </span>
                       )}
-                      <span className="font-bold text-stone-800 truncate">{item.name}</span>
-                      <span className="text-[10px] text-stone-400 font-mono shrink-0">
+                      <span className="font-bold text-stone-800 truncate text-[11px] sm:text-xs">{item.name}</span>
+                      <span className="text-[9px] sm:text-[10px] text-stone-400 font-mono shrink-0">
                         {item.quantity} sold
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2.5 shrink-0 font-mono">
+                    <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 font-mono text-[11px] sm:text-xs">
                       <span className="font-extrabold text-stone-900">₱{item.revenue.toFixed(2)}</span>
-                      <span className="rounded-md bg-stone-200/80 px-1.5 py-0.5 text-[10px] font-extrabold text-stone-800">
+                      <span className="rounded-md bg-stone-200/80 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-extrabold text-stone-800">
                         {item.pct}%
                       </span>
                     </div>
@@ -1155,22 +1257,22 @@ export const SalesAnalytics: React.FC = () => {
           {/* DUAL CHARTS GRID (Split View) */}
           <div className="grid gap-6 lg:grid-cols-2">
             {/* CHART 1: FAST MOVING ITEMS */}
-            <div className="rounded-3xl border border-emerald-200/80 bg-linear-to-b from-emerald-50/30 to-white p-6 shadow-xs flex flex-col justify-between space-y-5">
-                <div className="space-y-4">
+            <div className="rounded-3xl border border-emerald-200/80 bg-linear-to-b from-emerald-50/30 to-white p-3.5 sm:p-6 shadow-xs flex flex-col justify-between space-y-3.5 sm:space-y-5">
+                <div className="space-y-3 sm:space-y-4">
                   {/* Fast Movers Card Header */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-100 pb-3.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="grid h-9 w-9 place-items-center rounded-2xl bg-emerald-500/10 text-emerald-700">
-                        <Flame className="h-5 w-5" />
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 border-b border-emerald-100 pb-3 sm:pb-3.5">
+                    <div className="flex items-center gap-2 sm:gap-2.5">
+                      <div className="grid h-8 w-8 sm:h-9 sm:w-9 place-items-center rounded-2xl bg-emerald-500/10 text-emerald-700">
+                        <Flame className="h-4 w-4 sm:h-5 sm:w-5" />
                       </div>
                       <div>
-                        <h4 className="font-display text-base font-extrabold text-stone-900 flex items-center gap-2">
+                        <h4 className="font-display text-xs sm:text-base font-extrabold text-stone-900 flex items-center gap-1.5 sm:gap-2">
                           <span>Fast Moving Items</span>
-                          <span className="rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-bold border border-emerald-200">
+                          <span className="rounded-full bg-emerald-100 text-emerald-800 px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[10px] font-bold border border-emerald-200">
                             High Velocity
                           </span>
                         </h4>
-                        <p className="text-xs text-stone-500">
+                        <p className="text-[10px] sm:text-xs text-stone-500">
                           {fastMetric === 'quantity'
                             ? 'Highest volume sales & fastest turnover'
                             : 'Top grossing revenue drivers'}
@@ -1179,22 +1281,22 @@ export const SalesAnalytics: React.FC = () => {
                     </div>
 
                     <div className="sm:text-right font-mono self-start sm:self-auto">
-                      <span className="text-[10px] uppercase font-bold text-stone-400">Total Fast Units</span>
-                      <p className="text-sm font-extrabold text-emerald-800">
+                      <span className="text-[9px] sm:text-[10px] uppercase font-bold text-stone-400">Total Fast Units</span>
+                      <p className="text-xs sm:text-sm font-extrabold text-emerald-800">
                         {fastMovingItems.reduce((sum, i) => sum + i.unitsSold, 0)} sold
                       </p>
                     </div>
                   </div>
 
                   {/* Fast Movers Dedicated Filter Controls Bar */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-emerald-50/70 p-2 border border-emerald-100 text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 rounded-2xl bg-emerald-50/70 p-1.5 sm:p-2 border border-emerald-100 text-[10px] sm:text-xs">
                     {/* Category Filter */}
-                    <div className="flex items-center gap-1.5 rounded-xl bg-white px-2.5 py-1 border border-emerald-200/80 text-xs shadow-2xs">
-                      <Filter className="h-3 w-3 text-emerald-600" />
+                    <div className="flex items-center gap-1 sm:gap-1.5 rounded-xl bg-white px-2 sm:px-2.5 py-0.5 sm:py-1 border border-emerald-200/80 text-[10px] sm:text-xs shadow-2xs">
+                      <Filter className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-600" />
                       <select
                         value={fastCategoryFilter}
                         onChange={(e) => setFastCategoryFilter(e.target.value)}
-                        className="bg-transparent font-bold text-stone-700 outline-none cursor-pointer text-xs"
+                        className="bg-transparent font-bold text-stone-700 outline-none cursor-pointer text-[10px] sm:text-xs"
                       >
                         <option value="all">All Categories</option>
                         {categories.map((cat) => (
@@ -1205,13 +1307,13 @@ export const SalesAnalytics: React.FC = () => {
                       </select>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                       {/* Metric Toggle */}
-                      <div className="flex items-center gap-0.5 rounded-xl bg-white p-0.5 border border-emerald-200/80 text-xs shadow-2xs">
+                      <div className="flex items-center gap-0.5 rounded-xl bg-white p-0.5 border border-emerald-200/80 text-[10px] sm:text-xs shadow-2xs">
                         <button
                           type="button"
                           onClick={() => setFastMetric('quantity')}
-                          className={`rounded-lg px-2.5 py-1 font-bold transition-all cursor-pointer ${
+                          className={`rounded-lg px-2 sm:px-2.5 py-0.5 sm:py-1 font-bold transition-all cursor-pointer ${
                             fastMetric === 'quantity'
                               ? 'bg-emerald-600 text-white shadow-2xs font-extrabold'
                               : 'text-stone-500 hover:text-stone-800'
@@ -1223,7 +1325,7 @@ export const SalesAnalytics: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setFastMetric('revenue')}
-                          className={`rounded-lg px-2.5 py-1 font-bold transition-all cursor-pointer ${
+                          className={`rounded-lg px-2 sm:px-2.5 py-0.5 sm:py-1 font-bold transition-all cursor-pointer ${
                             fastMetric === 'revenue'
                               ? 'bg-emerald-600 text-white shadow-2xs font-extrabold'
                               : 'text-stone-500 hover:text-stone-800'
@@ -1235,13 +1337,13 @@ export const SalesAnalytics: React.FC = () => {
                       </div>
 
                       {/* Item Count Toggle */}
-                      <div className="flex items-center gap-0.5 rounded-xl bg-white p-0.5 border border-emerald-200/80 text-xs shadow-2xs">
+                      <div className="flex items-center gap-0.5 rounded-xl bg-white p-0.5 border border-emerald-200/80 text-[10px] sm:text-xs shadow-2xs">
                         {[5, 8, 10].map((count) => (
                           <button
                             key={count}
                             type="button"
                             onClick={() => setFastLimit(count)}
-                            className={`rounded-lg px-2 py-1 font-bold transition-all cursor-pointer ${
+                            className={`rounded-lg px-1.5 sm:px-2 py-0.5 sm:py-1 font-bold transition-all cursor-pointer ${
                               fastLimit === count
                                 ? 'bg-emerald-100 text-emerald-900 font-extrabold'
                                 : 'text-stone-500 hover:text-stone-800'
@@ -1255,12 +1357,12 @@ export const SalesAnalytics: React.FC = () => {
                   </div>
 
                   {/* Fast Moving Bar Chart */}
-                  <div className="h-64 sm:h-72 w-full">
+                  <div className="h-60 sm:h-72 w-full">
                     {fastMovingItems.length === 0 ? (
                       <div className="h-full flex flex-col items-center justify-center text-center text-stone-400 py-8">
-                        <Flame className="h-8 w-8 text-stone-300 mb-2 opacity-50" />
-                        <p className="text-sm font-bold text-stone-600">No fast moving items found</p>
-                        <p className="text-xs text-stone-400">Adjust category or date filter</p>
+                        <Flame className="h-6 w-6 sm:h-8 sm:w-8 text-stone-300 mb-2 opacity-50" />
+                        <p className="text-xs sm:text-sm font-bold text-stone-600">No fast moving items found</p>
+                        <p className="text-[10px] sm:text-xs text-stone-400">Adjust category or date filter</p>
                       </div>
                     ) : (
                       <ResponsiveContainer width="100%" height="100%">
@@ -1272,7 +1374,7 @@ export const SalesAnalytics: React.FC = () => {
                           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
                           <XAxis
                             type="number"
-                            tick={{ fontSize: 10, fill: '#78716c' }}
+                            tick={{ fontSize: 9, fill: '#78716c' }}
                             axisLine={false}
                             tickLine={false}
                             tickFormatter={(val) => (fastMetric === 'revenue' ? `₱${val}` : `${val}`)}
@@ -1280,10 +1382,10 @@ export const SalesAnalytics: React.FC = () => {
                           <YAxis
                             type="category"
                             dataKey="shortName"
-                            tick={{ fontSize: 11, fill: '#1c1917', fontWeight: 600 }}
+                            tick={{ fontSize: 10, fill: '#1c1917', fontWeight: 600 }}
                             axisLine={false}
                             tickLine={false}
-                            width={95}
+                            width={90}
                           />
                           <Tooltip content={<CustomMovementTooltip />} />
                           <Bar
@@ -1305,15 +1407,15 @@ export const SalesAnalytics: React.FC = () => {
                 </div>
 
                 {/* Fast Moving Detail List */}
-                <div className="space-y-2 border-t border-emerald-100/70 pt-3.5 max-h-56 overflow-y-auto pr-1">
+                <div className="space-y-1.5 sm:space-y-2 border-t border-emerald-100/70 pt-2.5 sm:pt-3.5 max-h-56 overflow-y-auto pr-1">
                   {fastMovingItems.map((item, idx) => (
                     <div
                       key={item.id}
-                      className="flex items-center justify-between rounded-2xl border border-stone-100 bg-white/80 p-2.5 hover:bg-emerald-50/40 transition text-xs"
+                      className="flex items-center justify-between rounded-2xl border border-stone-100 bg-white/80 p-2 sm:p-2.5 hover:bg-emerald-50/40 transition text-[11px] sm:text-xs"
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
                         <span
-                          className={`grid h-6 w-6 place-items-center rounded-lg font-bold text-[11px] shrink-0 ${
+                          className={`grid h-5 w-5 sm:h-6 sm:w-6 place-items-center rounded-lg font-bold text-[10px] sm:text-[11px] shrink-0 ${
                             idx === 0
                               ? 'bg-amber-400 text-stone-950 shadow-2xs font-extrabold'
                               : idx === 1
@@ -1358,44 +1460,44 @@ export const SalesAnalytics: React.FC = () => {
               </div>
 
             {/* CHART 2: SLOW MOVING ITEMS */}
-            <div className="rounded-3xl border border-rose-200/80 bg-linear-to-b from-rose-50/30 to-white p-6 shadow-xs flex flex-col justify-between space-y-5">
-                <div className="space-y-4">
+            <div className="rounded-3xl border border-rose-200/80 bg-linear-to-b from-rose-50/30 to-white p-3.5 sm:p-6 shadow-xs flex flex-col justify-between space-y-3.5 sm:space-y-5">
+                <div className="space-y-3 sm:space-y-4">
                   {/* Slow Movers Card Header */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-rose-100 pb-3.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="grid h-9 w-9 place-items-center rounded-2xl bg-rose-500/10 text-rose-700">
-                        <Turtle className="h-5 w-5" />
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 border-b border-rose-100 pb-3 sm:pb-3.5">
+                    <div className="flex items-center gap-2 sm:gap-2.5">
+                      <div className="grid h-8 w-8 sm:h-9 sm:w-9 place-items-center rounded-2xl bg-rose-500/10 text-rose-700">
+                        <Turtle className="h-4 w-4 sm:h-5 sm:w-5" />
                       </div>
                       <div>
-                        <h4 className="font-display text-base font-extrabold text-stone-900 flex items-center gap-2">
+                        <h4 className="font-display text-xs sm:text-base font-extrabold text-stone-900 flex items-center gap-1.5 sm:gap-2">
                           <span>Slow Moving Items</span>
-                          <span className="rounded-full bg-rose-100 text-rose-800 px-2 py-0.5 text-[10px] font-bold border border-rose-200">
+                          <span className="rounded-full bg-rose-100 text-rose-800 px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[10px] font-bold border border-rose-200">
                             Turnover Alert
                           </span>
                         </h4>
-                        <p className="text-xs text-stone-500">
+                        <p className="text-[10px] sm:text-xs text-stone-500">
                           Lowest turnover, stagnant inventory &amp; zero-sale candidates
                         </p>
                       </div>
                     </div>
 
                     <div className="sm:text-right font-mono self-start sm:self-auto">
-                      <span className="text-[10px] uppercase font-bold text-stone-400">Dormant Items</span>
-                      <p className="text-sm font-extrabold text-rose-800">
+                      <span className="text-[9px] sm:text-[10px] uppercase font-bold text-stone-400">Dormant Items</span>
+                      <p className="text-xs sm:text-sm font-extrabold text-rose-800">
                         {slowMovingItems.filter((i) => i.unitsSold === 0).length} items (0 sold)
                       </p>
                     </div>
                   </div>
 
                   {/* Slow Movers Dedicated Filter Controls Bar */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-rose-50/70 p-2 border border-rose-100 text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 rounded-2xl bg-rose-50/70 p-1.5 sm:p-2 border border-rose-100 text-[10px] sm:text-xs">
                     {/* Category Filter */}
-                    <div className="flex items-center gap-1.5 rounded-xl bg-white px-2.5 py-1 border border-rose-200/80 text-xs shadow-2xs">
-                      <Filter className="h-3 w-3 text-rose-600" />
+                    <div className="flex items-center gap-1 sm:gap-1.5 rounded-xl bg-white px-2 sm:px-2.5 py-0.5 sm:py-1 border border-rose-200/80 text-[10px] sm:text-xs shadow-2xs">
+                      <Filter className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-rose-600" />
                       <select
                         value={slowCategoryFilter}
                         onChange={(e) => setSlowCategoryFilter(e.target.value)}
-                        className="bg-transparent font-bold text-stone-700 outline-none cursor-pointer text-xs"
+                        className="bg-transparent font-bold text-stone-700 outline-none cursor-pointer text-[10px] sm:text-xs"
                       >
                         <option value="all">All Categories</option>
                         {categories.map((cat) => (
@@ -1406,13 +1508,13 @@ export const SalesAnalytics: React.FC = () => {
                       </select>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                       {/* Metric Toggle */}
-                      <div className="flex items-center gap-0.5 rounded-xl bg-white p-0.5 border border-rose-200/80 text-xs shadow-2xs">
+                      <div className="flex items-center gap-0.5 rounded-xl bg-white p-0.5 border border-rose-200/80 text-[10px] sm:text-xs shadow-2xs">
                         <button
                           type="button"
                           onClick={() => setSlowMetric('quantity')}
-                          className={`rounded-lg px-2.5 py-1 font-bold transition-all cursor-pointer ${
+                          className={`rounded-lg px-2 sm:px-2.5 py-0.5 sm:py-1 font-bold transition-all cursor-pointer ${
                             slowMetric === 'quantity'
                               ? 'bg-rose-600 text-white shadow-2xs font-extrabold'
                               : 'text-stone-500 hover:text-stone-800'
@@ -1424,7 +1526,7 @@ export const SalesAnalytics: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setSlowMetric('revenue')}
-                          className={`rounded-lg px-2.5 py-1 font-bold transition-all cursor-pointer ${
+                          className={`rounded-lg px-2 sm:px-2.5 py-0.5 sm:py-1 font-bold transition-all cursor-pointer ${
                             slowMetric === 'revenue'
                               ? 'bg-rose-600 text-white shadow-2xs font-extrabold'
                               : 'text-stone-500 hover:text-stone-800'
@@ -1436,13 +1538,13 @@ export const SalesAnalytics: React.FC = () => {
                       </div>
 
                       {/* Item Count Toggle */}
-                      <div className="flex items-center gap-0.5 rounded-xl bg-white p-0.5 border border-rose-200/80 text-xs shadow-2xs">
+                      <div className="flex items-center gap-0.5 rounded-xl bg-white p-0.5 border border-rose-200/80 text-[10px] sm:text-xs shadow-2xs">
                         {[5, 8, 10].map((count) => (
                           <button
                             key={count}
                             type="button"
                             onClick={() => setSlowLimit(count)}
-                            className={`rounded-lg px-2 py-1 font-bold transition-all cursor-pointer ${
+                            className={`rounded-lg px-1.5 sm:px-2 py-0.5 sm:py-1 font-bold transition-all cursor-pointer ${
                               slowLimit === count
                                 ? 'bg-rose-100 text-rose-900 font-extrabold'
                                 : 'text-stone-500 hover:text-stone-800'
@@ -1456,12 +1558,12 @@ export const SalesAnalytics: React.FC = () => {
                   </div>
 
                   {/* Slow Moving Bar Chart */}
-                  <div className="h-64 sm:h-72 w-full">
+                  <div className="h-60 sm:h-72 w-full">
                     {slowMovingItems.length === 0 ? (
                       <div className="h-full flex flex-col items-center justify-center text-center text-stone-400 py-8">
-                        <Turtle className="h-8 w-8 text-stone-300 mb-2 opacity-50" />
-                        <p className="text-sm font-bold text-stone-600">No slow moving items found</p>
-                        <p className="text-xs text-stone-400">All items have healthy velocity</p>
+                        <Turtle className="h-6 w-6 sm:h-8 sm:w-8 text-stone-300 mb-2 opacity-50" />
+                        <p className="text-xs sm:text-sm font-bold text-stone-600">No slow moving items found</p>
+                        <p className="text-[10px] sm:text-xs text-stone-400">All items have healthy velocity</p>
                       </div>
                     ) : (
                       <ResponsiveContainer width="100%" height="100%">
@@ -1473,7 +1575,7 @@ export const SalesAnalytics: React.FC = () => {
                           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
                           <XAxis
                             type="number"
-                            tick={{ fontSize: 10, fill: '#78716c' }}
+                            tick={{ fontSize: 9, fill: '#78716c' }}
                             axisLine={false}
                             tickLine={false}
                             tickFormatter={(val) => (slowMetric === 'revenue' ? `₱${val}` : `${val}`)}
@@ -1481,10 +1583,10 @@ export const SalesAnalytics: React.FC = () => {
                           <YAxis
                             type="category"
                             dataKey="shortName"
-                            tick={{ fontSize: 11, fill: '#1c1917', fontWeight: 600 }}
+                            tick={{ fontSize: 10, fill: '#1c1917', fontWeight: 600 }}
                             axisLine={false}
                             tickLine={false}
-                            width={95}
+                            width={90}
                           />
                           <Tooltip content={<CustomMovementTooltip />} />
                           <Bar
@@ -1506,15 +1608,15 @@ export const SalesAnalytics: React.FC = () => {
                 </div>
 
                 {/* Slow Moving Detail List */}
-                <div className="space-y-2 border-t border-rose-100/70 pt-3.5 max-h-56 overflow-y-auto pr-1">
+                <div className="space-y-1.5 sm:space-y-2 border-t border-rose-100/70 pt-2.5 sm:pt-3.5 max-h-56 overflow-y-auto pr-1">
                   {slowMovingItems.map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center justify-between rounded-2xl border border-stone-100 bg-white/80 p-2.5 hover:bg-rose-50/40 transition text-xs"
+                      className="flex items-center justify-between rounded-2xl border border-stone-100 bg-white/80 p-2 sm:p-2.5 hover:bg-rose-50/40 transition text-[11px] sm:text-xs"
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
                         <span
-                          className={`grid h-6 w-6 place-items-center rounded-lg font-bold text-[11px] shrink-0 ${
+                          className={`grid h-5 w-5 sm:h-6 sm:w-6 place-items-center rounded-lg font-bold text-[10px] sm:text-[11px] shrink-0 ${
                             item.unitsSold === 0
                               ? 'bg-stone-200 text-stone-600'
                               : 'bg-rose-100 text-rose-800'
@@ -1524,17 +1626,17 @@ export const SalesAnalytics: React.FC = () => {
                         </span>
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-stone-900 truncate">{item.name}</span>
-                            <span className="rounded-md bg-stone-100 px-1.5 py-0.2 text-[9px] font-semibold text-stone-500 shrink-0">
+                            <span className="font-bold text-stone-900 truncate text-[11px] sm:text-xs">{item.name}</span>
+                            <span className="rounded-md bg-stone-100 px-1.5 py-0.2 text-[8px] sm:text-[9px] font-semibold text-stone-500 shrink-0">
                               {item.categoryName}
                             </span>
                           </div>
-                          <div className="flex items-center gap-2 text-[10px] text-stone-500 font-mono mt-0.5">
+                          <div className="flex items-center gap-2 text-[9px] sm:text-[10px] text-stone-500 font-mono mt-0.5">
                             <span className={item.stock >= 15 ? 'text-amber-700 font-bold' : 'text-stone-600'}>
                               Stock on hand: {item.stock}
                             </span>
                             {item.stock >= 15 && (
-                              <span className="rounded-sm bg-amber-100 text-amber-800 px-1 py-0.2 text-[9px] font-bold">
+                              <span className="rounded-sm bg-amber-100 text-amber-800 px-1 py-0.2 text-[8px] sm:text-[9px] font-bold">
                                 Overstock Risk
                               </span>
                             )}
@@ -1542,7 +1644,7 @@ export const SalesAnalytics: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2.5 shrink-0 font-mono text-right">
+                      <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 font-mono text-right text-[11px] sm:text-xs">
                         <div>
                           <div
                             className={`font-extrabold ${
@@ -1551,7 +1653,7 @@ export const SalesAnalytics: React.FC = () => {
                           >
                             {item.unitsSold} sold
                           </div>
-                          <div className="text-[10px] text-stone-400 font-bold">
+                          <div className="text-[9px] sm:text-[10px] text-stone-400 font-bold">
                             ₱{item.revenue.toFixed(2)}
                           </div>
                         </div>
@@ -1568,22 +1670,22 @@ export const SalesAnalytics: React.FC = () => {
       {(analyticsSection === 'all' || analyticsSection === 'trends') && (
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Hourly Sales Trend Area Chart */}
-          <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+          <div className="rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-6 shadow-xs space-y-3 sm:space-y-4">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-2.5 sm:pb-3">
               <div className="flex items-center gap-2">
-                <div className="grid h-8 w-8 place-items-center rounded-xl bg-amber-500/10 text-amber-600">
-                  <Clock className="h-4 w-4" />
+                <div className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-xl bg-amber-500/10 text-amber-600">
+                  <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </div>
                 <div>
-                  <h3 className="font-display text-base font-bold text-stone-900">
+                  <h3 className="font-display text-xs sm:text-base font-bold text-stone-900">
                     Hourly Sales Velocity
                   </h3>
-                  <p className="text-xs text-stone-500">Peak dining &amp; beverage rush hours (7 AM - 10 PM)</p>
+                  <p className="text-[10px] sm:text-xs text-stone-500">Peak dining &amp; beverage rush hours (7 AM - 10 PM)</p>
                 </div>
               </div>
             </div>
 
-            <div className="h-64 w-full">
+            <div className="h-56 sm:h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
@@ -1595,13 +1697,13 @@ export const SalesAnalytics: React.FC = () => {
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                   <XAxis
                     dataKey="hourLabel"
-                    tick={{ fontSize: 10, fill: '#78716c' }}
+                    tick={{ fontSize: 9, fill: '#78716c' }}
                     interval={2}
                     axisLine={false}
                     tickLine={false}
                   />
                   <YAxis
-                    tick={{ fontSize: 10, fill: '#78716c' }}
+                    tick={{ fontSize: 9, fill: '#78716c' }}
                     axisLine={false}
                     tickLine={false}
                     tickFormatter={(val) => `₱${val}`}
@@ -1621,37 +1723,37 @@ export const SalesAnalytics: React.FC = () => {
           </div>
 
           {/* Top Selling Products Bar Chart */}
-          <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+          <div className="rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-6 shadow-xs space-y-3 sm:space-y-4">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-2.5 sm:pb-3">
               <div className="flex items-center gap-2">
-                <div className="grid h-8 w-8 place-items-center rounded-xl bg-amber-500/10 text-amber-600">
-                  <BarChart3 className="h-4 w-4" />
+                <div className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-xl bg-amber-500/10 text-amber-600">
+                  <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </div>
                 <div>
-                  <h3 className="font-display text-base font-bold text-stone-900">
+                  <h3 className="font-display text-xs sm:text-base font-bold text-stone-900">
                     Top Selling Products (Revenue Leaderboard)
                   </h3>
-                  <p className="text-xs text-stone-500">Highest grossing menu items in current period</p>
+                  <p className="text-[10px] sm:text-xs text-stone-500">Highest grossing menu items in current period</p>
                 </div>
               </div>
             </div>
 
-            <div className="h-64 w-full">
+            <div className="h-56 sm:h-64 w-full">
               {topProductsBarData.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-center text-stone-400">
-                  <p className="text-xs">No items sold yet in this period</p>
+                  <p className="text-[10px] sm:text-xs">No items sold yet in this period</p>
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={topProductsBarData}
                     layout="vertical"
-                    margin={{ top: 5, right: 20, left: 20, bottom: 5 }}
+                    margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
                     <XAxis
                       type="number"
-                      tick={{ fontSize: 10, fill: '#78716c' }}
+                      tick={{ fontSize: 9, fill: '#78716c' }}
                       axisLine={false}
                       tickLine={false}
                       tickFormatter={(val) => `₱${val}`}
@@ -1659,10 +1761,10 @@ export const SalesAnalytics: React.FC = () => {
                     <YAxis
                       type="category"
                       dataKey="name"
-                      tick={{ fontSize: 10, fill: '#44403c', fontWeight: 600 }}
+                      tick={{ fontSize: 9, fill: '#44403c', fontWeight: 600 }}
                       axisLine={false}
                       tickLine={false}
-                      width={85}
+                      width={80}
                     />
                     <Tooltip content={<CustomBarTooltip />} />
                     <Bar dataKey="revenue" fill="#f59e0b" radius={[0, 8, 8, 0]} />

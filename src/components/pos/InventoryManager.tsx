@@ -37,7 +37,6 @@ import {
   ArrowDown,
   MoveRight,
   SlidersHorizontal,
-  Bell,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -47,7 +46,6 @@ import {
   Filter,
   Download,
   RotateCcw,
-  ShieldCheck,
 } from 'lucide-react';
 import { LowStockNotificationModal } from './LowStockNotificationModal';
 import { RefillSuggestionsView } from './RefillSuggestionsView';
@@ -194,23 +192,26 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
   const [categoryType, setCategoryType] = useState<'drinks' | 'food' | 'all'>('all');
   const [selectedCat, setSelectedCat] = useState<number | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isCatDropdownOpen, setIsCatDropdownOpen] = useState(false);
-  const catDropdownRef = useRef<HTMLDivElement>(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isCatModalOpen, setIsCatModalOpen] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
-  // Close Category Dropdown on Outside Click
+  // Close Search Bar on Outside Click when empty
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (catDropdownRef.current && !catDropdownRef.current.contains(event.target as Node)) {
-        setIsCatDropdownOpen(false);
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        if (!searchQuery) {
+          setIsSearchOpen(false);
+        }
       }
     };
-    if (isCatDropdownOpen) {
+    if (isSearchOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isCatDropdownOpen]);
+  }, [isSearchOpen, searchQuery]);
 
   // Label for current category selection
   const currentCategoryLabel = useMemo(() => {
@@ -926,102 +927,59 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
   ];
 
   return (
-    <div className="space-y-3 sm:space-y-4 pb-14 sm:pb-16">
+    <div className="space-y-2 sm:space-y-2.5 pb-10 sm:pb-12">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 border-b border-stone-200 pb-2.5 sm:pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 border-b border-stone-200 pb-2 sm:pb-2.5">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="font-display text-lg sm:text-2xl font-extrabold text-stone-900 flex items-center gap-2">
               <Package className="h-5 w-5 sm:h-6 sm:w-6 text-black shrink-0" />
               <span>{isAdmin ? 'Inventory' : 'Stock & Refills'}</span>
             </h2>
-            {!isAdmin && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100/90 border border-amber-300 px-2.5 py-0.5 text-[10px] sm:text-xs font-bold text-amber-950 shadow-2xs">
-                <ShieldCheck className="h-3.5 w-3.5 text-amber-700 shrink-0" />
-                <span>Admin Confirmation Required</span>
-              </span>
-            )}
           </div>
-          {!isAdmin && (
-            <p className="text-[11px] text-stone-500 font-medium mt-0.5">
-              Review stock counts, availability, and submit refill requests for Administrator approval.
-            </p>
-          )}
         </div>
 
         {/* Global Quick Action Buttons */}
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-          {/* Low Stock In-App Alerts Button */}
-          <button
-            onClick={() => setIsLowStockModalOpen(true)}
-            className={`flex items-center gap-1 sm:gap-1.5 rounded-xl border px-2.5 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold transition cursor-pointer ${
-              items.filter((i) => (i.quantity ?? 0) <= 5).length > 0
-                ? 'bg-amber-50 border-amber-300 text-amber-950 hover:bg-amber-100 shadow-2xs'
-                : 'border-stone-300 bg-white text-stone-700 hover:bg-stone-50'
-            }`}
-            title="Open Low Stock Notifications & Batch Restock"
-          >
-            <Bell className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${items.filter((i) => (i.quantity ?? 0) <= 5).length > 0 ? 'text-amber-600 animate-bounce' : 'text-stone-500'}`} />
-            <span>Low Stock</span>
-            {items.filter((i) => (i.quantity ?? 0) <= 5).length > 0 && (
-              <span className="rounded-full bg-amber-400 px-1.5 py-0.2 text-[9px] sm:text-[10px] font-black text-stone-950 border border-amber-500/60 shadow-2xs">
-                {items.filter((i) => (i.quantity ?? 0) <= 5).length}
-              </span>
-            )}
-          </button>
+        {isAdmin && (
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <button
+              onClick={() => handleOpenAddCategory()}
+              className="flex items-center gap-1.5 rounded-xl border border-stone-300 bg-white px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold text-stone-800 shadow-2xs hover:bg-stone-50 hover:border-amber-400 transition cursor-pointer"
+              title="Create a new category"
+            >
+              <FolderPlus className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600" />
+              <span>+ Add Category</span>
+            </button>
 
-          {/* Staff or Admin: Suggest Refill / List Items Needed */}
-          <button
-            onClick={() => handleOpenSuggestRefill(null)}
-            className="flex items-center gap-1.5 rounded-xl border border-amber-400 bg-amber-50 px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-extrabold text-amber-950 shadow-2xs hover:bg-amber-100 transition cursor-pointer"
-            title={isAdmin ? 'Suggest items or ingredients to be refilled' : 'Request item or custom supply refill for Admin approval'}
-          >
-            <PackagePlus className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-700" />
-            <span>{isAdmin ? '+ Suggest Refill' : '+ Request Refill'}</span>
-          </button>
-
-          {/* Admin Only: New Category & Add Item */}
-          {isAdmin && (
-            <>
-              <button
-                onClick={() => handleOpenAddCategory()}
-                className="flex items-center gap-1.5 rounded-xl border border-stone-300 bg-white px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold text-stone-800 shadow-2xs hover:bg-stone-50 hover:border-amber-400 transition cursor-pointer"
-                title="Create a new category"
-              >
-                <FolderPlus className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600" />
-                <span>+ Add Category</span>
-              </button>
-
-              <button
-                onClick={handleOpenAddItem}
-                className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition cursor-pointer"
-              >
-                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span>+ Add Item</span>
-              </button>
-            </>
-          )}
-        </div>
+            <button
+              onClick={handleOpenAddItem}
+              className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition cursor-pointer"
+            >
+              <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span>+ Add Item</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Main Workspace Navigation Switcher (Items vs Refill Requests vs Categories) */}
-      <div className="flex items-center justify-between gap-2 sm:gap-4 bg-stone-100/90 p-1 sm:p-1.5 rounded-2xl border border-stone-200/90 shadow-2xs">
-        <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 w-full sm:w-auto">
+      <div className="flex items-center justify-between gap-2 sm:gap-4">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
           {/* Menu Items Tab */}
           <button
             type="button"
             onClick={() => setActiveTab('items')}
-            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2.5 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-extrabold transition-all duration-150 cursor-pointer ${
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-extrabold transition-all duration-150 cursor-pointer ${
               activeTab === 'items'
-                ? 'bg-white text-stone-950 shadow-xs border border-stone-200/80'
-                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+                ? 'bg-stone-900 text-white shadow-xs border border-stone-900'
+                : 'bg-white text-stone-700 hover:text-stone-950 hover:bg-stone-50 border border-stone-300 shadow-2xs'
             }`}
           >
-            <Package className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600" />
-            <span>Stock &amp; Items</span>
+            <Package className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${activeTab === 'items' ? 'text-amber-400' : 'text-amber-600'}`} />
+            <span>Stock</span>
             <span
               className={`text-[9px] sm:text-[10px] font-mono px-1.5 sm:px-2 py-0.5 rounded-md ${
-                activeTab === 'items' ? 'bg-amber-100 text-amber-950 font-bold' : 'bg-stone-200 text-stone-600'
+                activeTab === 'items' ? 'bg-amber-500 text-stone-950 font-black' : 'bg-stone-100 text-stone-600 font-bold'
               }`}
             >
               {items.length}
@@ -1030,24 +988,25 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
 
           {/* Refill Suggestions & Requests Tab */}
           <button
+            id="tab-inventory-refills"
             type="button"
             onClick={() => setActiveTab('refills')}
-            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2.5 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-extrabold transition-all duration-150 cursor-pointer ${
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-extrabold transition-all duration-150 cursor-pointer ${
               activeTab === 'refills'
-                ? 'bg-white text-stone-950 shadow-xs border border-stone-200/80'
-                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+                ? 'bg-stone-900 text-white shadow-xs border border-stone-900'
+                : 'bg-white text-stone-700 hover:text-stone-950 hover:bg-stone-50 border border-stone-300 shadow-2xs'
             }`}
           >
-            <PackagePlus className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600" />
-            <span>Refill Suggestions</span>
+            <PackagePlus className={`h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 ${activeTab === 'refills' ? 'text-amber-400' : 'text-amber-600'}`} />
+            <span>Refill</span>
             {pendingRefillCount > 0 ? (
-              <span className="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[9px] font-black text-stone-950 shadow-2xs">
+              <span className="flex h-4 min-w-4 sm:h-5 sm:min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[9px] sm:text-[10px] font-black text-stone-950">
                 {pendingRefillCount}
               </span>
             ) : (
               <span
                 className={`text-[9px] sm:text-[10px] font-mono px-1.5 sm:px-2 py-0.5 rounded-md ${
-                  activeTab === 'refills' ? 'bg-amber-100 text-amber-950 font-bold' : 'bg-stone-200 text-stone-600'
+                  activeTab === 'refills' ? 'bg-amber-500 text-stone-950 font-black' : 'bg-stone-100 text-stone-600 font-bold'
                 }`}
               >
                 0
@@ -1060,17 +1019,17 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('categories')}
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2.5 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-extrabold transition-all duration-150 cursor-pointer ${
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-extrabold transition-all duration-150 cursor-pointer ${
                 activeTab === 'categories'
-                  ? 'bg-white text-stone-950 shadow-xs border border-stone-200/80'
-                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+                  ? 'bg-stone-900 text-white shadow-xs border border-stone-900'
+                  : 'bg-white text-stone-700 hover:text-stone-950 hover:bg-stone-50 border border-stone-300 shadow-2xs'
               }`}
             >
-              <Layers className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600" />
+              <Layers className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${activeTab === 'categories' ? 'text-amber-400' : 'text-amber-600'}`} />
               <span>Categories</span>
               <span
                 className={`text-[9px] sm:text-[10px] font-mono px-1.5 sm:px-2 py-0.5 rounded-md ${
-                  activeTab === 'categories' ? 'bg-amber-100 text-amber-950 font-bold' : 'bg-stone-200 text-stone-600'
+                  activeTab === 'categories' ? 'bg-amber-500 text-stone-950 font-black' : 'bg-stone-100 text-stone-600 font-bold'
                 }`}
               >
                 {categories.length}
@@ -1079,308 +1038,109 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
           )}
         </div>
 
-        <div className="hidden sm:flex items-center gap-2 text-[11px] sm:text-xs text-stone-500 pr-3 font-medium">
-          {activeTab === 'items' ? (
-            <span>Live inventory stock counts &amp; availability</span>
-          ) : activeTab === 'refills' ? (
+        <div className="hidden sm:flex items-center gap-2 text-[11px] sm:text-xs text-stone-500 pr-1 font-medium">
+          {activeTab === 'refills' ? (
             <span>Staff suggestions awaiting Admin purchase &amp; confirmation</span>
-          ) : (
+          ) : activeTab === 'categories' ? (
             <span>Manage, edit, reorder &amp; remove categories</span>
-          )}
+          ) : null}
         </div>
       </div>
 
       {/* VIEW 1: MENU ITEMS */}
       {activeTab === 'items' && (
-        <div className="space-y-2.5 sm:space-y-4">
+        <div className="space-y-2 sm:space-y-2.5">
           {/* Filter Bar: Single Categories Dropdown Button + Search Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2.5 bg-stone-100/80 p-2 sm:p-2.5 rounded-2xl border border-stone-200/80">
-            {/* Single "Categories" Dropdown Button */}
-            <div className="relative inline-block" ref={catDropdownRef}>
-              <button
-                type="button"
-                id="inventory-category-dropdown-btn"
-                onClick={() => setIsCatDropdownOpen((prev) => !prev)}
-                className={`flex items-center justify-between sm:justify-start gap-1.5 sm:gap-2.5 rounded-xl px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold transition-all duration-150 border cursor-pointer shadow-2xs w-full sm:w-auto ${
-                  isCatDropdownOpen
-                    ? 'bg-stone-900 text-white border-stone-900 ring-2 ring-amber-500/30'
-                    : 'bg-white text-stone-800 border-stone-300 hover:border-amber-500 hover:bg-stone-50'
-                }`}
-                title="Filter inventory by category"
-              >
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <span className={isCatDropdownOpen ? 'text-amber-400' : 'text-amber-600'}>
-                    {categoryType === 'drinks' && selectedCat === 'all' ? (
-                      <Coffee className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    ) : categoryType === 'food' && selectedCat === 'all' ? (
-                      <Utensils className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    ) : selectedCat !== 'all' ? (
-                      (() => {
-                        const cat = categories.find((c) => c.id === selectedCat);
-                        return cat ? renderCategoryIcon(cat.name, isDrinkCategory(cat), cat.icon) : <Layers className="h-3.5 w-3.5 sm:h-4 sm:w-4" />;
-                      })()
-                    ) : (
-                      <Layers className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    )}
-                  </span>
-                  <span className={`font-extrabold ${isCatDropdownOpen ? 'text-white' : 'text-stone-900'}`}>Categories:</span>
-                  <span
-                    className={`rounded-lg px-2 py-0.5 text-[10px] sm:text-xs font-black transition ${
-                      isCatDropdownOpen
-                        ? 'bg-amber-500 text-stone-950'
-                        : 'bg-amber-100 text-amber-950'
-                    }`}
-                  >
-                    {currentCategoryLabel}
-                  </span>
-                </div>
-
-                <ChevronDown
-                  className={`h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 transition-transform duration-200 ${
-                    isCatDropdownOpen ? 'rotate-180 text-amber-400' : 'text-stone-400'
+          <div className="flex items-center justify-between gap-2">
+            {/* Single "Categories" Modal Trigger Button */}
+            <button
+              type="button"
+              id="inventory-category-dropdown-btn"
+              onClick={() => setIsCatModalOpen(true)}
+              className={`flex items-center gap-1.5 sm:gap-2.5 rounded-xl px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold transition-all duration-150 border cursor-pointer shadow-2xs shrink-0 ${
+                isCatModalOpen
+                  ? "bg-stone-900 text-white border-stone-900 ring-2 ring-amber-500/30"
+                  : "bg-white text-stone-800 border-stone-300 hover:border-amber-500 hover:bg-stone-50"
+              }`}
+              title="Filter inventory by category"
+            >
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className={isCatModalOpen ? "text-amber-400" : "text-amber-600"}>
+                  {categoryType === "drinks" && selectedCat === "all" ? (
+                    <Coffee className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  ) : categoryType === "food" && selectedCat === "all" ? (
+                    <Utensils className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  ) : selectedCat !== "all" ? (
+                    (() => {
+                      const cat = categories.find((c) => c.id === selectedCat);
+                      return cat ? renderCategoryIcon(cat.name, isDrinkCategory(cat), cat.icon) : <Layers className="h-3.5 w-3.5 sm:h-4 sm:w-4" />;
+                    })()
+                  ) : (
+                    <Layers className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  )}
+                </span>
+                <span className={`font-extrabold ${isCatModalOpen ? "text-white" : "text-stone-900"}`}>Categories:</span>
+                <span
+                  className={`rounded-lg px-2 py-0.5 text-[10px] sm:text-xs font-black transition ${
+                    isCatModalOpen
+                      ? "bg-amber-500 text-stone-950"
+                      : "bg-amber-100 text-amber-950"
                   }`}
-                />
-              </button>
-
-              {/* Dropdown Menu (Collapsible) */}
-              {isCatDropdownOpen && (
-                <div
-                  id="inventory-category-dropdown-menu"
-                  className="absolute left-0 top-full mt-2 z-50 w-72 sm:w-80 max-h-[75vh] overflow-y-auto rounded-2xl border border-stone-200 bg-white p-2 shadow-2xl animate-in fade-in zoom-in-95 duration-150 divide-y divide-stone-100"
                 >
-                  {/* Primary High-Level Filters (All / Drinks / Food) */}
-                  <div className="p-1 space-y-1">
-                    <div className="text-[10px] font-black uppercase tracking-wider text-stone-400 px-2 py-1">
-                      Primary Filters
-                    </div>
-
-                    {/* All Categories / All Items */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCategoryType('all');
-                        setSelectedCat('all');
-                        setIsCatDropdownOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-bold transition cursor-pointer ${
-                        selectedCat === 'all' && categoryType === 'all'
-                          ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
-                          : 'text-stone-700 hover:bg-stone-100'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Layers className="h-4 w-4 text-amber-600" />
-                        <span>All Categories</span>
-                      </div>
-                      <span
-                        className={`font-mono text-[10px] px-1.5 py-0.2 rounded-md ${
-                          selectedCat === 'all' && categoryType === 'all'
-                            ? 'bg-stone-950/20 text-stone-950 font-bold'
-                            : 'bg-stone-100 text-stone-500'
-                        }`}
-                      >
-                        {items.length}
-                      </span>
-                    </button>
-
-                    {/* Drinks (All) */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCategoryType('drinks');
-                        setSelectedCat('all');
-                        setIsCatDropdownOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-bold transition cursor-pointer ${
-                        selectedCat === 'all' && categoryType === 'drinks'
-                          ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
-                          : 'text-stone-700 hover:bg-stone-100'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Coffee className="h-4 w-4 text-amber-700" />
-                        <span>Drinks</span>
-                      </div>
-                      <span
-                        className={`font-mono text-[10px] px-1.5 py-0.2 rounded-md ${
-                          selectedCat === 'all' && categoryType === 'drinks'
-                            ? 'bg-stone-950/20 text-stone-950 font-bold'
-                            : 'bg-stone-100 text-stone-500'
-                        }`}
-                      >
-                        {items.filter((i) => {
-                          const c = categories.find((cat) => cat.id === i.categoryId);
-                          return c && isDrinkCategory(c);
-                        }).length}
-                      </span>
-                    </button>
-
-                    {/* Food (All) */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCategoryType('food');
-                        setSelectedCat('all');
-                        setIsCatDropdownOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-bold transition cursor-pointer ${
-                        selectedCat === 'all' && categoryType === 'food'
-                          ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
-                          : 'text-stone-700 hover:bg-stone-100'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Utensils className="h-4 w-4 text-amber-800" />
-                        <span>Food</span>
-                      </div>
-                      <span
-                        className={`font-mono text-[10px] px-1.5 py-0.2 rounded-md ${
-                          selectedCat === 'all' && categoryType === 'food'
-                            ? 'bg-stone-950/20 text-stone-950 font-bold'
-                            : 'bg-stone-100 text-stone-500'
-                        }`}
-                      >
-                        {items.filter((i) => {
-                          const c = categories.find((cat) => cat.id === i.categoryId);
-                          return c && !isDrinkCategory(c);
-                        }).length}
-                      </span>
-                    </button>
-                  </div>
-
-                  {/* Drink Subcategories */}
-                  {drinkCategories.length > 0 && (
-                    <div className="p-1 space-y-1">
-                      <div className="text-[10px] font-black uppercase tracking-wider text-stone-400 px-2 py-1 flex items-center justify-between">
-                        <span>☕ Drinks ({drinkCategories.length})</span>
-                      </div>
-                      <div className="space-y-0.5 max-h-48 overflow-y-auto pr-1">
-                        {drinkCategories.map((cat) => {
-                          const isSelected = selectedCat === cat.id;
-                          const count = items.filter((i) => i.categoryId === cat.id).length;
-                          return (
-                            <button
-                              key={cat.id}
-                              type="button"
-                              onClick={() => {
-                                setCategoryType('drinks');
-                                setSelectedCat(cat.id);
-                                setIsCatDropdownOpen(false);
-                              }}
-                              className={`w-full flex items-center justify-between rounded-xl px-3 py-1.5 text-xs transition cursor-pointer ${
-                                isSelected
-                                  ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
-                                  : 'text-stone-700 hover:bg-stone-100 font-medium'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2 truncate">
-                                <span className={isSelected ? 'text-stone-950' : 'text-stone-500'}>
-                                  {renderCategoryIcon(cat.name, true, cat.icon)}
-                                </span>
-                                <span className="truncate">{cat.name}</span>
-                              </div>
-                              <span
-                                className={`font-mono text-[10px] px-1.5 py-0.2 rounded-md shrink-0 ml-2 ${
-                                  isSelected
-                                    ? 'bg-stone-950/20 text-stone-950 font-bold'
-                                    : 'bg-stone-100 text-stone-500'
-                                }`}
-                              >
-                                {count}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Food Subcategories */}
-                  {foodCategories.length > 0 && (
-                    <div className="p-1 space-y-1">
-                      <div className="text-[10px] font-black uppercase tracking-wider text-stone-400 px-2 py-1 flex items-center justify-between">
-                        <span>🍽️ Food ({foodCategories.length})</span>
-                      </div>
-                      <div className="space-y-0.5 max-h-48 overflow-y-auto pr-1">
-                        {foodCategories.map((cat) => {
-                          const isSelected = selectedCat === cat.id;
-                          const count = items.filter((i) => i.categoryId === cat.id).length;
-                          return (
-                            <button
-                              key={cat.id}
-                              type="button"
-                              onClick={() => {
-                                setCategoryType('food');
-                                setSelectedCat(cat.id);
-                                setIsCatDropdownOpen(false);
-                              }}
-                              className={`w-full flex items-center justify-between rounded-xl px-3 py-1.5 text-xs transition cursor-pointer ${
-                                isSelected
-                                  ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
-                                  : 'text-stone-700 hover:bg-stone-100 font-medium'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2 truncate">
-                                <span className={isSelected ? 'text-stone-950' : 'text-stone-500'}>
-                                  {renderCategoryIcon(cat.name, false, cat.icon)}
-                                </span>
-                                <span className="truncate">{cat.name}</span>
-                              </div>
-                              <span
-                                className={`font-mono text-[10px] px-1.5 py-0.2 rounded-md shrink-0 ml-2 ${
-                                  isSelected
-                                    ? 'bg-stone-950/20 text-stone-950 font-bold'
-                                    : 'bg-stone-100 text-stone-500'
-                                }`}
-                              >
-                                {count}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Add New Category Shortcut in Dropdown */}
-                  <div className="p-1 pt-1.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsCatDropdownOpen(false);
-                        handleOpenAddCategory(categoryType === 'food' ? 'food' : 'drinks');
-                      }}
-                      className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-stone-300 bg-stone-50/80 px-3 py-2 text-xs font-bold text-amber-900 hover:bg-amber-50 hover:border-amber-400 transition cursor-pointer"
-                    >
-                      <Plus className="h-3.5 w-3.5 text-amber-600" />
-                      <span>Add New Category</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Search Bar & Reset */}
-            <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
-              <div className="relative flex-1 sm:w-72">
-                <Search className="absolute left-3 top-2 sm:top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={`Search ${currentCategoryLabel.toLowerCase()}...`}
-                  className="w-full rounded-xl border border-stone-300 bg-white pl-8 sm:pl-10 pr-7 sm:pr-8 py-1.5 sm:py-2 text-[10px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none shadow-2xs"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2 top-2 sm:top-2.5 text-stone-400 hover:text-stone-600 cursor-pointer"
-                    title="Clear search"
-                  >
-                    <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  </button>
-                )}
+                  {currentCategoryLabel}
+                </span>
               </div>
+
+              <ChevronDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 text-stone-400" />
+            </button>
+
+
+            {/* Search Bar (Icon toggle & expandable input) & Reset */}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0" ref={searchContainerRef}>
+              {isSearchOpen ? (
+                <div className="relative flex items-center animate-in fade-in zoom-in-95 duration-150">
+                  <Search className="absolute left-2.5 h-3.5 w-3.5 text-stone-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    autoFocus
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={"Search items..."}
+                    className="w-36 sm:w-56 md:w-64 rounded-xl border border-stone-300 bg-white pl-8 pr-7 py-1.5 sm:py-2 text-[10px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none shadow-2xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setIsSearchOpen(false);
+                    }}
+                    className="absolute right-2 text-stone-400 hover:text-stone-700 cursor-pointer p-0.5"
+                    title="Close search"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  id="inventory-search-toggle-btn"
+                  onClick={() => setIsSearchOpen(true)}
+                  className={`relative flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-xl border transition cursor-pointer shadow-2xs ${
+                    searchQuery
+                      ? "bg-amber-500 border-amber-500 text-stone-950 ring-2 ring-amber-400/40"
+                      : "bg-white border-stone-300 text-stone-700 hover:bg-stone-50 hover:border-amber-500"
+                  }`}
+                  title="Search inventory"
+                >
+                  <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  {searchQuery && (
+                    <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-600 border border-white"></span>
+                    </span>
+                  )}
+                </button>
+              )}
 
               {(selectedCat !== 'all' || categoryType !== 'all' || searchQuery) && (
                 <button
@@ -1389,6 +1149,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                     setCategoryType('all');
                     setSelectedCat('all');
                     setSearchQuery('');
+                    setIsSearchOpen(false);
                   }}
                   className="shrink-0 rounded-xl border border-stone-200 bg-white px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold text-stone-600 hover:bg-stone-100 hover:text-stone-900 transition cursor-pointer"
                   title="Reset all filters"
@@ -1403,7 +1164,10 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
           <div className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white overflow-hidden shadow-xs">
             {/* Table Header Bar */}
             <div className="p-2.5 sm:p-4 border-b border-stone-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
-              <div>
+              <div className="flex items-center gap-2 sm:gap-2.5">
+                <span className="text-[10px] sm:text-xs font-mono font-bold bg-stone-100 px-2 sm:px-2.5 py-1 rounded-lg text-stone-600 shrink-0">
+                  {filteredItems.length} {filteredItems.length === 1 ? 'product' : 'products'}
+                </span>
                 <h3 className="font-display text-sm sm:text-base font-bold text-stone-900">
                   {selectedCat === 'all'
                     ? categoryType === 'drinks'
@@ -1413,9 +1177,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                       : 'All Menu Catalog Products'
                     : categories.find((c) => c.id === selectedCat)?.name || 'Category Items'}
                 </h3>
-                <p className="text-[10px] sm:text-xs text-stone-400 mt-0.5">
-                  Track stock units, pricing, availability toggles, and edit details.
-                </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
@@ -1465,10 +1226,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   <Download className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-stone-600" />
                   <span>Export CSV</span>
                 </button>
-
-                <span className="text-[10px] sm:text-xs font-mono font-bold bg-stone-100 px-2 sm:px-2.5 py-1 rounded-lg text-stone-600">
-                  {filteredItems.length} {filteredItems.length === 1 ? 'product' : 'products'}
-                </span>
               </div>
             </div>
 
@@ -1895,11 +1652,13 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
 
       {/* VIEW 2: REFILL SUGGESTIONS & INVENTORY REQUESTS */}
       {activeTab === 'refills' && (
-        <RefillSuggestionsView
-          activeStaff={activeStaff}
-          onOpenSuggestModal={(item) => handleOpenSuggestRefill(item)}
-          categories={categories}
-        />
+        <div id="view-refill-suggestions" className="transition-opacity duration-150">
+          <RefillSuggestionsView
+            activeStaff={activeStaff}
+            onOpenSuggestModal={(item) => handleOpenSuggestRefill(item)}
+            categories={categories}
+          />
+        </div>
       )}
 
       {/* VIEW 3: CATEGORY DIRECTORY (ADD, EDIT, REMOVE & REORDER CATEGORIES) */}
@@ -2592,28 +2351,23 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
         />
       )}
 
-      {/* QUICK RESTOCK MODAL */}
+      {/* QUICK RESTOCK / REFILL MODAL */}
       {quickRestockItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-stone-200 animate-in fade-in zoom-in duration-150">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl border border-stone-200 animate-in fade-in zoom-in duration-150">
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-stone-100 pb-3.5">
-              <div className="flex items-center gap-2.5">
-                <div className="rounded-xl bg-amber-100 p-2 text-amber-700">
-                  <PackagePlus className="h-5 w-5" />
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="rounded-xl bg-amber-100 p-2 text-amber-800">
+                  <PackagePlus className="h-4 w-4" />
                 </div>
-                <div>
-                  <h3 className="font-display text-base font-bold text-stone-900">
-                    {isAdmin ? 'Quick Restock (Admin Direct)' : 'Request Stock Refill'}
-                  </h3>
-                  <p className="text-[11px] text-stone-500">
-                    {isAdmin
-                      ? 'Directly update inventory units in system'
-                      : 'Requires Admin confirmation to officially add stock into the system'}
-                  </p>
-                </div>
+                <h3 className="font-display text-base font-bold text-stone-900">
+                  {isAdmin ? 'Restock Stock' : 'Request Refill'}
+                </h3>
               </div>
               <button
+                id="btn-close-quick-restock"
+                type="button"
                 onClick={() => setQuickRestockItem(null)}
                 className="rounded-full p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700 transition cursor-pointer"
               >
@@ -2621,148 +2375,114 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
               </button>
             </div>
 
-            {/* Notice for Staff */}
-            {!isAdmin && (
-              <div className="mt-3.5 flex items-start gap-2 rounded-2xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-950">
-                <ShieldCheck className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
-                <div>
-                  <strong className="block font-bold">Admin Confirmation Required</strong>
-                  <span className="text-[11px] text-amber-800">
-                    Submitting this will log a Refill Request. The stock will only be added to the system after the Administrator approves it.
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Product Card Summary */}
-            <div className="mt-3.5 flex items-center gap-3.5 rounded-2xl bg-stone-50 p-3.5 border border-stone-200">
-              <img
-                src={quickRestockItem.imageUrl || '/images/latte.webp'}
-                alt={quickRestockItem.name}
-                className="h-12 w-12 rounded-xl object-cover border border-stone-200 shrink-0"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/images/latte.webp';
-                }}
-              />
-              <div className="min-w-0 flex-1">
-                <h4 className="font-bold text-stone-900 text-sm truncate">
-                  {quickRestockItem.name}
-                </h4>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-[10px] font-bold text-stone-500 uppercase">
-                    {categories.find((c) => c.id === quickRestockItem.categoryId)?.name || 'Category'}
-                  </span>
-                  <span className="text-stone-300">•</span>
-                  <span className="font-mono text-xs font-bold text-stone-700">
-                    ₱{quickRestockItem.price.toFixed(2)}
+            {/* Product Summary */}
+            <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-stone-50 p-2.5 border border-stone-200">
+              <div className="flex items-center gap-2.5 min-w-0">
+                {quickRestockItem.imageUrl && (
+                  <img
+                    src={quickRestockItem.imageUrl}
+                    alt={quickRestockItem.name}
+                    className="h-10 w-10 rounded-lg object-cover border border-stone-200 shrink-0"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                )}
+                <div className="min-w-0">
+                  <h4 className="font-bold text-stone-900 text-sm truncate">
+                    {quickRestockItem.name}
+                  </h4>
+                  <span className="text-[11px] text-stone-500">
+                    {categories.find((c) => c.id === quickRestockItem.categoryId)?.name || 'Item'}
                   </span>
                 </div>
               </div>
               <div className="text-right shrink-0">
-                <span className="text-[10px] text-stone-400 font-bold block uppercase">Current</span>
-                <span
-                  className={`inline-block rounded-lg px-2 py-0.5 font-mono text-xs font-bold ${
-                    quickRestockItem.quantity <= 0
-                      ? 'bg-rose-100 text-rose-800'
-                      : quickRestockItem.quantity <= (quickRestockItem.lowStockThreshold ?? 5)
-                      ? 'bg-amber-100 text-amber-900'
-                      : 'bg-stone-200 text-stone-800'
-                  }`}
-                >
+                <span className="text-[10px] text-stone-400 font-bold uppercase block">Current</span>
+                <span className="font-mono text-xs font-bold text-stone-800">
                   {quickRestockItem.quantity} units
                 </span>
               </div>
             </div>
 
-            <form onSubmit={handleApplyQuickRestock} className="mt-4 space-y-3.5">
-              {/* Stepper / Up Stock Down */}
+            <form onSubmit={handleApplyQuickRestock} className="mt-3.5 space-y-3">
+              {/* Stepper Quantity */}
               <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase mb-2">
-                  {isAdmin ? 'Restock Amount (Units to Add)' : 'Refill Amount (Units Requested)'}
+                <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                  {isAdmin ? 'Units to Add' : 'Units Requested'}
                 </label>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <button
+                    id="btn-quick-restock-minus"
                     type="button"
                     onClick={() => setRestockQty((prev) => Math.max(1, prev - 1))}
                     disabled={restockQty <= 1}
-                    className="flex h-12 w-12 items-center justify-center rounded-2xl border border-stone-300 bg-stone-50 text-stone-700 hover:bg-stone-100 hover:text-stone-900 active:scale-95 transition disabled:opacity-40 disabled:pointer-events-none cursor-pointer shadow-xs"
-                    title="Down Stock (-1)"
+                    className="flex h-10 w-10 items-center justify-center rounded-xl border border-stone-300 bg-stone-50 text-stone-700 hover:bg-stone-100 hover:text-stone-900 active:scale-95 transition disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
                   >
-                    <Minus className="h-5 w-5" />
+                    <Minus className="h-4 w-4" />
                   </button>
 
                   <div className="relative flex-1">
                     <input
+                      id="input-quick-restock-qty"
                       type="number"
                       min={1}
                       value={restockQty}
                       onChange={(e) => setRestockQty(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="h-12 w-full rounded-2xl border-2 border-amber-500 bg-amber-50/40 text-center font-mono text-xl font-black text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                      className="h-10 w-full rounded-xl border-2 border-amber-500 bg-amber-50/40 text-center font-mono text-lg font-black text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-500"
                     />
-                    <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-amber-700/70">
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-amber-700/70">
                       units
                     </span>
                   </div>
 
                   <button
+                    id="btn-quick-restock-plus"
                     type="button"
                     onClick={() => setRestockQty((prev) => prev + 1)}
-                    className="flex h-12 w-12 items-center justify-center rounded-2xl border border-stone-300 bg-stone-50 text-stone-700 hover:bg-stone-100 hover:text-stone-900 active:scale-95 transition cursor-pointer shadow-xs"
-                    title="Up Stock (+1)"
+                    className="flex h-10 w-10 items-center justify-center rounded-xl border border-stone-300 bg-stone-50 text-stone-700 hover:bg-stone-100 hover:text-stone-900 active:scale-95 transition cursor-pointer"
                   >
-                    <Plus className="h-5 w-5" />
+                    <Plus className="h-4 w-4" />
                   </button>
                 </div>
               </div>
 
-              {/* Quick Add Presets: +1, +2, +5, +10, +20 */}
-              <div>
-                <label className="block text-[11px] font-bold text-stone-500 uppercase mb-1.5">
-                  Quick Add Presets
-                </label>
-                <div className="grid grid-cols-5 gap-2">
-                  {[
-                    { label: '+1', val: 1 },
-                    { label: '+2', val: 2 },
-                    { label: '+5', val: 5 },
-                    { label: '+10', val: 10 },
-                    { label: '+20', val: 20 },
-                  ].map((preset) => (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() => setRestockQty((prev) => prev + preset.val)}
-                      className="group flex flex-col items-center justify-center rounded-xl border border-stone-200 bg-white py-2 text-xs font-extrabold text-stone-800 hover:border-amber-500 hover:bg-amber-50/80 hover:text-amber-900 active:scale-95 transition cursor-pointer shadow-2xs"
-                    >
-                      <span className="font-mono">{preset.label}</span>
-                      <span className="text-[9px] text-stone-400 group-hover:text-amber-700 font-semibold">
-                        Add
-                      </span>
-                    </button>
-                  ))}
-                </div>
+              {/* Quick Presets */}
+              <div className="flex items-center gap-1.5">
+                {[1, 2, 5, 10, 20].map((val) => (
+                  <button
+                    key={val}
+                    id={`btn-preset-add-${val}`}
+                    type="button"
+                    onClick={() => setRestockQty((prev) => prev + val)}
+                    className="flex-1 py-1 rounded-lg border border-stone-200 bg-stone-50 font-mono text-xs font-bold text-stone-700 hover:border-amber-400 hover:bg-amber-50 hover:text-amber-950 transition cursor-pointer"
+                  >
+                    +{val}
+                  </button>
+                ))}
               </div>
 
               {/* Station & Note (Staff Mode) */}
               {!isAdmin && (
-                <div className="space-y-3 pt-1 border-t border-stone-100">
+                <div className="space-y-2.5 pt-2 border-t border-stone-100">
                   <div>
-                    <label className="block text-[11px] font-bold text-stone-500 uppercase mb-1.5">
-                      Destination Station
+                    <label className="block text-xs font-bold text-stone-600 mb-1">
+                      Station
                     </label>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-3 gap-1.5">
                       {[
-                        { id: 'bar', label: 'Bar / Drinks' },
-                        { id: 'kitchen', label: 'Kitchen / Food' },
-                        { id: 'counter', label: 'Counter / Cash' },
+                        { id: 'bar', label: 'Bar' },
+                        { id: 'kitchen', label: 'Kitchen' },
+                        { id: 'counter', label: 'Counter' },
                       ].map((st) => (
                         <button
                           key={st.id}
+                          id={`btn-station-${st.id}`}
                           type="button"
                           onClick={() => setRestockStation(st.id as RefillStation)}
-                          className={`rounded-xl py-2 text-xs font-bold transition border cursor-pointer ${
+                          className={`rounded-lg py-1.5 text-xs font-bold transition border cursor-pointer ${
                             restockStation === st.id
-                              ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-2xs font-extrabold'
+                              ? 'bg-amber-500 text-stone-950 border-amber-500 font-extrabold shadow-2xs'
                               : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
                           }`}
                         >
@@ -2773,62 +2493,47 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-stone-500 uppercase mb-1.5">
-                      Note / Reason for Admin (Optional)
+                    <label className="block text-xs font-bold text-stone-600 mb-1">
+                      Note (Optional)
                     </label>
                     <input
+                      id="input-refill-notes"
                       type="text"
                       value={restockNotes}
                       onChange={(e) => setRestockNotes(e.target.value)}
-                      placeholder="e.g. Low on stock, needed for rush..."
-                      className="w-full rounded-xl border border-stone-200 bg-stone-50/50 px-3 py-2 text-xs text-stone-800 placeholder-stone-400 focus:border-amber-500 focus:bg-white focus:outline-none"
+                      placeholder="e.g. Needed for rush..."
+                      className="w-full rounded-lg border border-stone-200 bg-stone-50/50 px-2.5 py-1.5 text-xs text-stone-800 placeholder-stone-400 focus:border-amber-500 focus:bg-white focus:outline-none"
                     />
                   </div>
                 </div>
               )}
 
-              {/* Stock Calculation Preview */}
-              <div className="rounded-2xl bg-amber-500/10 border border-amber-500/20 p-3.5 flex items-center justify-between text-xs">
-                <div className="space-y-0.5">
-                  <div className="text-stone-600 font-medium">
-                    Current: <strong className="font-mono text-stone-900">{quickRestockItem.quantity}</strong> +{' '}
-                    {isAdmin ? 'Adding: ' : 'Requested: '}
-                    <strong className="font-mono text-amber-800">+{restockQty}</strong>
-                  </div>
-                  <div className="text-[11px] text-stone-500">
-                    {isAdmin ? (
-                      <>Stock status will update to <strong className="text-emerald-700">Available</strong> immediately</>
-                    ) : (
-                      <>Will update system stock upon <strong className="text-amber-800">Admin confirmation</strong></>
-                    )}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] font-bold text-amber-900 uppercase block">
-                    {isAdmin ? 'New Total' : 'Proposed Total'}
-                  </span>
-                  <span className="font-mono text-base font-black text-amber-950">
-                    {quickRestockItem.quantity + restockQty} units
-                  </span>
-                </div>
+              {/* Total After Refill */}
+              <div className="flex items-center justify-between rounded-xl bg-amber-50/70 border border-amber-200/60 px-3 py-2 text-xs">
+                <span className="text-stone-600 font-medium">Proposed Total</span>
+                <span className="font-mono text-sm font-black text-amber-950">
+                  {quickRestockItem.quantity + restockQty} units
+                </span>
               </div>
 
               {/* Actions Footer */}
-              <div className="flex gap-2.5 pt-2">
+              <div className="flex gap-2 pt-1">
                 <button
+                  id="btn-cancel-quick-restock"
                   type="button"
                   onClick={() => setQuickRestockItem(null)}
-                  className="rounded-xl border border-stone-200 px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50 cursor-pointer"
+                  className="rounded-xl border border-stone-200 px-4 py-2 text-xs font-bold text-stone-700 hover:bg-stone-50 transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
+                  id="btn-submit-quick-restock"
                   type="submit"
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 py-2.5 text-xs font-extrabold text-stone-950 shadow-md hover:bg-amber-400 active:scale-98 transition cursor-pointer"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-2 text-xs font-bold text-stone-950 shadow-xs hover:bg-amber-400 active:scale-98 transition cursor-pointer"
                 >
                   <PackagePlus className="h-4 w-4" />
                   <span>
-                    {isAdmin ? `Apply Restock (+${restockQty})` : `Submit Refill Request (+${restockQty})`}
+                    {isAdmin ? `Restock (+${restockQty})` : `Submit Request (+${restockQty})`}
                   </span>
                 </button>
               </div>
@@ -3043,6 +2748,274 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 type="button"
                 onClick={() => setIsColumnFilterModalOpen(false)}
                 className="flex-1 rounded-xl bg-amber-500 py-2 text-xs font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition cursor-pointer text-center"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CATEGORY SELECTION MODAL */}
+      {isCatModalOpen && (
+        <div
+          id="inventory-category-modal-backdrop"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsCatModalOpen(false);
+            }
+          }}
+        >
+          <div
+            id="inventory-category-modal"
+            className="w-full max-w-xl rounded-3xl bg-white p-5 sm:p-6 shadow-2xl border border-stone-200 animate-in fade-in zoom-in duration-150 my-auto max-h-[90vh] flex flex-col"
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3.5 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="rounded-xl bg-amber-100 p-2 text-amber-700">
+                  <Layers className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-display text-base sm:text-lg font-bold text-stone-900">
+                    Categories
+                  </h3>
+                  <p className="text-[11px] sm:text-xs text-stone-500">
+                    Filter inventory catalog by department or specific category
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCatModalOpen(false)}
+                className="rounded-xl p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700 transition cursor-pointer"
+                title="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Scrollable Content */}
+            <div className="overflow-y-auto py-4 space-y-4 flex-1 pr-0.5">
+              {/* Primary Department Filters */}
+              <div>
+                <span className="block text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-2">
+                  Primary Departments
+                </span>
+                <div className="grid grid-cols-3 gap-2">
+                  {/* All Categories */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCategoryType('all');
+                      setSelectedCat('all');
+                      setIsCatModalOpen(false);
+                    }}
+                    className={`flex flex-col items-center justify-center rounded-2xl border p-3 text-center transition cursor-pointer ${
+                      selectedCat === 'all' && categoryType === 'all'
+                        ? 'border-amber-500 bg-amber-500 text-stone-950 font-black shadow-md ring-2 ring-amber-400/50'
+                        : 'border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-800'
+                    }`}
+                  >
+                    <Layers className="h-5 w-5 mb-1.5" />
+                    <span className="text-xs font-bold leading-tight">All Categories</span>
+                    <span
+                      className={`text-[10px] font-mono mt-1 px-1.5 py-0.2 rounded-md ${
+                        selectedCat === 'all' && categoryType === 'all'
+                          ? 'bg-stone-950/20 text-stone-950 font-bold'
+                          : 'bg-stone-200/80 text-stone-600'
+                      }`}
+                    >
+                      {items.length} items
+                    </span>
+                  </button>
+
+                  {/* Drinks */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCategoryType('drinks');
+                      setSelectedCat('all');
+                      setIsCatModalOpen(false);
+                    }}
+                    className={`flex flex-col items-center justify-center rounded-2xl border p-3 text-center transition cursor-pointer ${
+                      selectedCat === 'all' && categoryType === 'drinks'
+                        ? 'border-amber-500 bg-amber-500 text-stone-950 font-black shadow-md ring-2 ring-amber-400/50'
+                        : 'border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-800'
+                    }`}
+                  >
+                    <Coffee className="h-5 w-5 mb-1.5" />
+                    <span className="text-xs font-bold leading-tight">All Drinks</span>
+                    <span
+                      className={`text-[10px] font-mono mt-1 px-1.5 py-0.2 rounded-md ${
+                        selectedCat === 'all' && categoryType === 'drinks'
+                          ? 'bg-stone-950/20 text-stone-950 font-bold'
+                          : 'bg-stone-200/80 text-stone-600'
+                      }`}
+                    >
+                      {items.filter((i) => {
+                        const c = categories.find((cat) => cat.id === i.categoryId);
+                        return c && isDrinkCategory(c);
+                      }).length} items
+                    </span>
+                  </button>
+
+                  {/* Food */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCategoryType('food');
+                      setSelectedCat('all');
+                      setIsCatModalOpen(false);
+                    }}
+                    className={`flex flex-col items-center justify-center rounded-2xl border p-3 text-center transition cursor-pointer ${
+                      selectedCat === 'all' && categoryType === 'food'
+                        ? 'border-amber-500 bg-amber-500 text-stone-950 font-black shadow-md ring-2 ring-amber-400/50'
+                        : 'border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-800'
+                    }`}
+                  >
+                    <Utensils className="h-5 w-5 mb-1.5" />
+                    <span className="text-xs font-bold leading-tight">All Food</span>
+                    <span
+                      className={`text-[10px] font-mono mt-1 px-1.5 py-0.2 rounded-md ${
+                        selectedCat === 'all' && categoryType === 'food'
+                          ? 'bg-stone-950/20 text-stone-950 font-bold'
+                          : 'bg-stone-200/80 text-stone-600'
+                      }`}
+                    >
+                      {items.filter((i) => {
+                        const c = categories.find((cat) => cat.id === i.categoryId);
+                        return c && !isDrinkCategory(c);
+                      }).length} items
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Drinks Subcategories */}
+              {drinkCategories.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <Coffee className="h-3 w-3 text-amber-600" />
+                      <span>Drink Categories ({drinkCategories.length})</span>
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {drinkCategories.map((cat) => {
+                      const isSelected = selectedCat === cat.id;
+                      const count = items.filter((i) => i.categoryId === cat.id).length;
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => {
+                            setCategoryType('drinks');
+                            setSelectedCat(cat.id);
+                            setIsCatModalOpen(false);
+                          }}
+                          className={`flex items-center justify-between rounded-xl border p-2.5 text-left transition cursor-pointer ${
+                            isSelected
+                              ? 'border-amber-500 bg-amber-500 text-stone-950 font-extrabold shadow-sm ring-2 ring-amber-400/40'
+                              : 'border-stone-200 bg-white hover:border-amber-300 hover:bg-stone-50 text-stone-800'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 truncate pr-1">
+                            <span className={isSelected ? 'text-stone-950' : 'text-amber-600'}>
+                              {renderCategoryIcon(cat.name, true, cat.icon)}
+                            </span>
+                            <span className="text-xs truncate font-bold">{cat.name}</span>
+                          </div>
+                          <span
+                            className={`text-[10px] font-mono px-1.5 py-0.2 rounded-md shrink-0 ${
+                              isSelected
+                                ? 'bg-stone-950/20 text-stone-950 font-bold'
+                                : 'bg-stone-100 text-stone-600'
+                            }`}
+                          >
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Food Subcategories */}
+              {foodCategories.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <Utensils className="h-3 w-3 text-amber-700" />
+                      <span>Food Categories ({foodCategories.length})</span>
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {foodCategories.map((cat) => {
+                      const isSelected = selectedCat === cat.id;
+                      const count = items.filter((i) => i.categoryId === cat.id).length;
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => {
+                            setCategoryType('food');
+                            setSelectedCat(cat.id);
+                            setIsCatModalOpen(false);
+                          }}
+                          className={`flex items-center justify-between rounded-xl border p-2.5 text-left transition cursor-pointer ${
+                            isSelected
+                              ? 'border-amber-500 bg-amber-500 text-stone-950 font-extrabold shadow-sm ring-2 ring-amber-400/40'
+                              : 'border-stone-200 bg-white hover:border-amber-300 hover:bg-stone-50 text-stone-800'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 truncate pr-1">
+                            <span className={isSelected ? 'text-stone-950' : 'text-amber-700'}>
+                              {renderCategoryIcon(cat.name, false, cat.icon)}
+                            </span>
+                            <span className="text-xs truncate font-bold">{cat.name}</span>
+                          </div>
+                          <span
+                            className={`text-[10px] font-mono px-1.5 py-0.2 rounded-md shrink-0 ${
+                              isSelected
+                                ? 'bg-stone-950/20 text-stone-950 font-bold'
+                                : 'bg-stone-100 text-stone-600'
+                            }`}
+                          >
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between gap-2.5 border-t border-stone-100 pt-3 shrink-0">
+              {isAdmin ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCatModalOpen(false);
+                    handleOpenAddCategory(categoryType === 'food' ? 'food' : 'drinks');
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-stone-300 bg-stone-50 px-3 py-2 text-xs font-bold text-amber-900 hover:bg-amber-50 hover:border-amber-400 transition cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5 text-amber-600" />
+                  <span>Add Category</span>
+                </button>
+              ) : (
+                <div />
+              )}
+
+              <button
+                type="button"
+                onClick={() => setIsCatModalOpen(false)}
+                className="rounded-xl bg-stone-900 px-4 py-2 text-xs font-extrabold text-white hover:bg-stone-800 transition cursor-pointer"
               >
                 Done
               </button>

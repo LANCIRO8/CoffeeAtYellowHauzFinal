@@ -16,6 +16,14 @@ import {
   DollarSign,
   Info,
   Lock,
+  Tv,
+  Wind,
+  Sparkles,
+  Phone,
+  ExternalLink,
+  MessageCircle,
+  UtensilsCrossed,
+  FileText,
 } from 'lucide-react';
 
 interface VenueReservationProps {
@@ -26,16 +34,19 @@ interface VenueReservationProps {
   onNavigateAccount?: () => void;
 }
 
+// Pricing & Rates:
+// Base Rate: ₱3,500 for 3 hours (fully consumable on food and drinks).
+// Extension Rate: ₱1,000 per extra hour (also consumable).
 const VENUE_HOURLY_OPTIONS = [
-  { hours: 3, label: '3 Hours', subtitle: 'Standard Block', price: 300, isPopular: true },
-  { hours: 4, label: '4 Hours', subtitle: 'Workshop / Meeting', price: 400, isPopular: false },
-  { hours: 5, label: '5 Hours', subtitle: 'Half-Day Function', price: 500, isPopular: false },
-  { hours: 6, label: '6 Hours', subtitle: 'Extended Event', price: 600, isPopular: false },
-  { hours: 8, label: '8 Hours', subtitle: 'Full-Day Studio Rental', price: 800, isPopular: false },
+  { hours: 3, label: '3 Hours', subtitle: 'Base Block (100% Consumable)', price: 3500, isPopular: true },
+  { hours: 4, label: '4 Hours', subtitle: '+1 Extra Hr (Consumable)', price: 4500, isPopular: false },
+  { hours: 5, label: '5 Hours', subtitle: '+2 Extra Hrs (Consumable)', price: 5500, isPopular: false },
+  { hours: 6, label: '6 Hours', subtitle: '+3 Extra Hrs (Consumable)', price: 6500, isPopular: false },
+  { hours: 8, label: '8 Hours', subtitle: '+5 Extra Hrs (Consumable)', price: 8500, isPopular: false },
 ];
 
 const EVENT_TYPES = [
-  { id: 'meeting', name: '💼 Business Meeting & Planning', desc: 'Conference table, projector & high-speed Wi-Fi' },
+  { id: 'meeting', name: '💼 Business Meeting & Planning', desc: 'Conference table, TV HDMI & whiteboard' },
   { id: 'workshop', name: '🎨 Creative Workshop & Art Class', desc: 'Flexible desk arrangement & presentation setup' },
   { id: 'celebration', name: '🎉 Birthday & Intimate Gathering', desc: 'Social dining layout, music & food service' },
   { id: 'study', name: '📚 Study Group & Team Review', desc: 'Quiet environment with abundant power sockets' },
@@ -44,9 +55,10 @@ const EVENT_TYPES = [
   { id: 'other', name: '✨ Other Private Function', desc: 'Custom tailored layout for your special event' },
 ];
 
+// Capacity: 25 persons only.
 const SEATING_LAYOUTS = [
   { id: 'boardroom', name: 'Boardroom / Conference', pax: '12-16 Pax', desc: 'Central conference table for discussions' },
-  { id: 'classroom', name: 'Classroom / Seminar', pax: '15-20 Pax', desc: 'Rows facing HD projector & whiteboard' },
+  { id: 'classroom', name: 'Classroom / Seminar', pax: '15-20 Pax', desc: 'Rows facing TV HDMI & whiteboard' },
   { id: 'banquet', name: 'Banquet / Party Dining', pax: '20-25 Pax', desc: 'Dining tables with buffet counter space' },
   { id: 'lounge', name: 'Casual Lounge & Circle', pax: '10-15 Pax', desc: 'Armchairs, cozy sofas & coffee tables' },
 ];
@@ -102,8 +114,11 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
   }, [timeSlot]);
 
   // Pricing calculations
+  // Base Rate: ₱3,500 for 3 hours (fully consumable on food and drinks).
+  // Extension Rate: ₱1,000 per extra hour (also consumable).
   const baseRate = useMemo(() => {
-    return selectedDuration === 3 ? 300 : selectedDuration * 100;
+    if (selectedDuration <= 3) return 3500;
+    return 3500 + (selectedDuration - 3) * 1000;
   }, [selectedDuration]);
 
   const grandTotal = baseRate;
@@ -153,7 +168,7 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
 
     const confirmed = await showConfirm({
       title: 'Confirm Studio Venue Booking',
-      message: `Please review your booking details:\n\n• Event: ${eventType}\n• Date & Time: ${date} at ${timeSlot}\n• Duration: ${selectedDuration} hours\n• Guests: ${guestCount} people\n• Total: ₱${grandTotal.toFixed(2)}\n\nConfirm this venue reservation?`,
+      message: `Please review your booking details:\n\n• Event: ${eventType}\n• Date & Time: ${date} at ${timeSlot}\n• Duration: ${selectedDuration} hours\n• Guests: ${guestCount} persons (Capacity: 25 only)\n• Total Amount: ₱${grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}\n• Policy: 100% Fully Consumable on Food & Drinks!\n• Inclusions: Air conditioning, TV HDMI, Whiteboard\n\nConfirm this venue reservation?`,
       type: 'info',
       confirmText: 'Yes, Confirm Booking',
       cancelText: 'Review Details',
@@ -268,24 +283,24 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
             {/* Inclusions Checklist */}
             <div>
               <span className="text-stone-400 font-bold uppercase block text-[9px] sm:text-[10px] mb-1">
-                Included Amenities Prepared
+                Included Amenities &amp; Inclusions (Capacity: 25 Persons)
               </span>
               <div className="grid grid-cols-2 gap-1 sm:gap-1.5 text-[9px] sm:text-[11px] text-stone-700">
                 <span className="flex items-center gap-1 sm:gap-1.5">
-                  <CheckCircle2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-600 shrink-0" />
-                  High-speed Fiber Wi-Fi
+                  <Wind className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-sky-600 shrink-0" />
+                  Air conditioning
+                </span>
+                <span className="flex items-center gap-1 sm:gap-1.5">
+                  <Tv className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-purple-600 shrink-0" />
+                  TV HDMI Display
                 </span>
                 <span className="flex items-center gap-1 sm:gap-1.5">
                   <CheckCircle2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-600 shrink-0" />
-                  Whisper Air-Conditioning
+                  Whiteboard &amp; Markers
                 </span>
                 <span className="flex items-center gap-1 sm:gap-1.5">
-                  <CheckCircle2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-600 shrink-0" />
-                  HD Projector &amp; Screen
-                </span>
-                <span className="flex items-center gap-1 sm:gap-1.5">
-                  <CheckCircle2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-600 shrink-0" />
-                  Sound &amp; Wireless Mic
+                  <UtensilsCrossed className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-600 shrink-0" />
+                  100% Consumable F&amp;B
                 </span>
               </div>
             </div>
@@ -301,10 +316,13 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                     : 'Pay at Counter / Arrival'}
                   )
                 </span>
+                <span className="text-[9px] sm:text-[10px] font-bold text-emerald-700 block">
+                  ✓ 100% fully consumable on café food and drinks
+                </span>
               </div>
               <div className="text-right">
                 <span className="font-mono text-base sm:text-xl font-extrabold text-amber-900">
-                  ₱{(confirmedReservation.totalAmount || 300).toFixed(2)}
+                  ₱{(confirmedReservation.totalAmount || 3500).toFixed(2)}
                 </span>
               </div>
             </div>
@@ -332,6 +350,130 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
       ) : (
         /* Venue Booking Form */
         <div className="space-y-6 sm:space-y-8">
+          {/* Official Rates & Amenities Highlight Banner */}
+          <div className="rounded-2xl sm:rounded-3xl border border-amber-300 bg-gradient-to-br from-amber-500/10 via-amber-100/40 to-stone-50 p-4 sm:p-7 shadow-sm space-y-4">
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-3 sm:gap-4 border-b border-amber-200/80 pb-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-2.5 py-0.5 text-[10px] sm:text-xs font-black uppercase tracking-wider text-stone-950 shadow-2xs">
+                    <Sparkles className="h-3 w-3" />
+                    Official Venue Rates &amp; Policy
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 text-[10px] sm:text-xs font-extrabold text-emerald-900">
+                    <UtensilsCrossed className="h-3 w-3 text-emerald-700" />
+                    100% Fully Consumable on Food &amp; Drinks
+                  </span>
+                </div>
+                <h2 className="text-base sm:text-2xl font-black text-stone-950 font-display">
+                  Private Studio Venue Rates &amp; Inclusions
+                </h2>
+                <p className="text-xs sm:text-sm text-stone-600 leading-relaxed max-w-2xl">
+                  Every peso of your venue rental is credited toward our handcrafted coffee, refreshers, comfort meals, and pastries for you and your guests.
+                </p>
+              </div>
+
+              {/* Rate Badges */}
+              <div className="flex flex-wrap sm:flex-nowrap gap-2 sm:gap-3 shrink-0">
+                <div className="rounded-xl sm:rounded-2xl bg-white border border-amber-300/80 p-2.5 sm:p-3 text-center min-w-[120px] shadow-2xs">
+                  <span className="text-[9px] sm:text-[10px] uppercase font-extrabold text-amber-800 block">
+                    Base Rate (3 Hours)
+                  </span>
+                  <span className="font-mono text-base sm:text-xl font-black text-stone-950">
+                    ₱3,500
+                  </span>
+                  <span className="text-[9px] sm:text-[10px] text-emerald-700 font-bold block">
+                    Consumable
+                  </span>
+                </div>
+                <div className="rounded-xl sm:rounded-2xl bg-white border border-stone-200 p-2.5 sm:p-3 text-center min-w-[120px] shadow-2xs">
+                  <span className="text-[9px] sm:text-[10px] uppercase font-extrabold text-stone-600 block">
+                    Extension Rate
+                  </span>
+                  <span className="font-mono text-base sm:text-xl font-black text-stone-950">
+                    ₱1,000
+                  </span>
+                  <span className="text-[9px] sm:text-[10px] text-stone-500 font-bold block">
+                    per extra hr (consumable)
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Inclusions & Venue Amenities Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5 pt-1">
+              <div className="rounded-xl bg-white/90 border border-stone-200/90 p-2.5 sm:p-3 space-y-1 shadow-2xs">
+                <div className="flex items-center gap-1.5 text-sky-700 font-bold text-[11px] sm:text-xs">
+                  <Wind className="h-4 w-4" />
+                  <span>Air conditioning</span>
+                </div>
+                <p className="text-[10px] sm:text-[11px] text-stone-500 leading-snug">
+                  Full climate-controlled private room comfort.
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-white/90 border border-stone-200/90 p-2.5 sm:p-3 space-y-1 shadow-2xs">
+                <div className="flex items-center gap-1.5 text-purple-700 font-bold text-[11px] sm:text-xs">
+                  <Tv className="h-4 w-4" />
+                  <span>TV HDMI</span>
+                </div>
+                <p className="text-[10px] sm:text-[11px] text-stone-500 leading-snug">
+                  HD presentation display with HDMI hookup.
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-white/90 border border-stone-200/90 p-2.5 sm:p-3 space-y-1 shadow-2xs">
+                <div className="flex items-center gap-1.5 text-emerald-700 font-bold text-[11px] sm:text-xs">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Whiteboard</span>
+                </div>
+                <p className="text-[10px] sm:text-[11px] text-stone-500 leading-snug">
+                  Whiteboard with dry-erase markers for workshops.
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-amber-50 border border-amber-200 p-2.5 sm:p-3 space-y-1 shadow-2xs">
+                <div className="flex items-center gap-1.5 text-amber-900 font-bold text-[11px] sm:text-xs">
+                  <Users className="h-4 w-4" />
+                  <span>Capacity</span>
+                </div>
+                <p className="text-[10px] sm:text-[11px] text-amber-950 font-extrabold leading-snug">
+                  25 persons only (strictly enforced).
+                </p>
+              </div>
+            </div>
+
+            {/* Extended Stays / Special Hours Banner */}
+            <div className="rounded-xl bg-stone-900 text-white p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-amber-400 block">
+                  Extended Stays / Special Hours &amp; Bulk Packages
+                </span>
+                <p className="text-[10px] sm:text-xs text-stone-300 leading-relaxed max-w-xl">
+                  Long durations or bulk packages are subject to negotiation/approval from the owner. Customers can contact directly via phone or Facebook page to discuss.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href={`tel:${settings.shop_phone || '+639123456789'}`}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 border border-stone-700 px-3 py-1.5 text-[10px] sm:text-xs font-bold text-amber-300 transition"
+                >
+                  <Phone className="h-3 w-3" />
+                  <span>Call Owner</span>
+                </a>
+                <a
+                  href="https://www.facebook.com/yellowhauzcafe"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 px-3 py-1.5 text-[10px] sm:text-xs font-bold text-white transition shadow-xs"
+                >
+                  <MessageCircle className="h-3 w-3" />
+                  <span>Facebook Page</span>
+                  <ExternalLink className="h-2.5 w-2.5 opacity-80" />
+                </a>
+              </div>
+            </div>
+          </div>
+
           <form onSubmit={handleBookVenue} className="grid gap-5 sm:gap-8 lg:grid-cols-[1.15fr_.85fr]">
             {/* Left Column: Booking Form Parameters */}
             <div className="space-y-4 sm:space-y-6 rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-8 shadow-xs">
@@ -342,8 +484,8 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                     <Clock className="h-3.5 w-3.5 sm:h-5 sm:w-5 text-amber-600 shrink-0" />
                     <span>1. Select Duration</span>
                   </h3>
-                  <span className="text-[9px] sm:text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.2 sm:px-2.5 sm:py-0.5 rounded-full">
-                    Base: 3 Hrs @ ₱300
+                  <span className="text-[9px] sm:text-xs font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.2 sm:px-2.5 sm:py-0.5 rounded-full">
+                    Base: 3 Hrs @ ₱3,500 (Consumable)
                   </span>
                 </div>
 
@@ -363,11 +505,11 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                       >
                         {opt.isPopular && (
                           <span className="absolute -top-2 right-1.5 sm:-top-2.5 sm:right-2 rounded-full bg-amber-500 px-1.5 py-0.2 sm:px-2 sm:py-0.5 text-[8px] sm:text-[9px] font-black uppercase text-stone-950 shadow-2xs">
-                            Standard
+                            Base Block
                           </span>
                         )}
                         <span className="font-mono text-xs sm:text-base font-black text-stone-900 block">
-                          ₱{opt.price}
+                          ₱{opt.price.toLocaleString()}
                         </span>
                         <span className="font-bold text-[10px] sm:text-xs text-stone-800 block mt-0.5">
                           {opt.label}
@@ -379,6 +521,10 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                     );
                   })}
                 </div>
+                <p className="mt-2 text-[10px] sm:text-[11px] text-stone-500 flex items-center gap-1">
+                  <Info className="h-3 w-3 text-amber-600 shrink-0" />
+                  <span>Extension Rate: ₱1,000 per extra hour (all rates fully consumable on food &amp; drinks).</span>
+                </p>
               </div>
 
               {/* Step 2: Date & Time Slot */}
@@ -580,16 +726,29 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                 {/* Itemized Price Breakdown */}
                 <div className="space-y-1.5 sm:space-y-2 text-[10px] sm:text-xs border-y border-stone-100 py-2 sm:py-3">
                   <div className="flex justify-between text-stone-700">
-                    <span>
-                      Studio Base Rental ({selectedDuration} hrs)
+                    <span>Base Studio Rental (3 hrs)</span>
+                    <span className="font-mono font-bold">₱3,500.00</span>
+                  </div>
+
+                  {selectedDuration > 3 && (
+                    <div className="flex justify-between text-stone-700">
+                      <span>Extension ({selectedDuration - 3} extra hr{selectedDuration - 3 > 1 ? 's' : ''} @ ₱1,000/hr)</span>
+                      <span className="font-mono font-bold">₱{((selectedDuration - 3) * 1000).toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-2 text-[10px] text-emerald-900 font-medium">
+                    <span className="font-bold flex items-center gap-1 text-emerald-800">
+                      <UtensilsCrossed className="h-3 w-3" />
+                      100% Fully Consumable
                     </span>
-                    <span className="font-mono font-bold">₱{baseRate.toFixed(2)}</span>
+                    Your ₱{grandTotal.toLocaleString()} venue fee is fully consumable on all food &amp; drinks during the reservation.
                   </div>
 
                   <div className="pt-1.5 sm:pt-2 border-t border-stone-200 flex justify-between items-baseline">
                     <span className="font-display font-bold text-xs sm:text-sm text-stone-900">Total Amount:</span>
                     <span className="font-mono text-base sm:text-2xl font-black text-amber-950">
-                      ₱{grandTotal.toFixed(2)}
+                      ₱{grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>
@@ -663,7 +822,7 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                     }`}
                   >
                     <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    <span>Reserve Studio for ₱{grandTotal.toFixed(2)}</span>
+                    <span>Reserve Studio for ₱{grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
                   </button>
                 ) : (
                   <button

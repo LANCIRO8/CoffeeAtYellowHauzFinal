@@ -1,52 +1,85 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Menu items and categories
+    // Test collection for health check
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+
+    // Menu categories
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Food, drinks, and pastries
     match /menu_items/{itemId} {
-      allow read, write: if true;
-    }
-    match /categories/{catId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if true;
     }
 
-    // Floor plan and tables
+    // Floor plan and dining tables
     match /tables/{tableId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if true;
     }
 
-    // Orders and tickets
+    // Orders and tickets (Dine-in, Takeout, Delivery)
     match /orders/{orderId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if true;
     }
 
     // Table reservations
     match /reservations/{reservationId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if true;
     }
 
-    // Customer accounts
+    // Customers and loyalty members
     match /customers/{customerId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if true;
     }
 
     // Staff accounts
     match /users/{userId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if true;
     }
 
-    // Store settings
+    // Store settings and operational configs
     match /settings/{settingId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if true;
     }
 
-    // Refill suggestions and inventory requests
+    // Staff refill suggestions & requests
     match /refill_requests/{requestId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if true;
     }
 
-    // Fallback rule
+    // Discounts and promos
+    match /discounts/{discountId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Customer table assistance requests
+    match /table_requests/{requestId} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if true;
+    }
+
+    // Default catch-all
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
   }
 }

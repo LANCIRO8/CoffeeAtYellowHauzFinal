@@ -50,6 +50,11 @@ export interface Table {
   area: 'normal' | 'airconditioned';
   status: 'available' | 'occupied' | 'reserved' | 'cleaning';
   currentOrderId?: number | null;
+  name?: string;
+  code?: string;
+  setup?: string;
+  description?: string;
+  areaName?: string;
 }
 
 export interface CustomerAccount {
@@ -60,6 +65,8 @@ export interface CustomerAccount {
   status: 'active' | 'inactive';
   loyaltyPoints?: number;
   createdAt: string;
+  favoriteItemIds?: number[];
+  likedItemIds?: number[];
 }
 
 export interface VenueAddon {
@@ -251,6 +258,15 @@ export interface ChatIntent {
   patterns: string[];
   keywords: string[];
   response: string;
+  recommendedItemIds?: number[];
+  suggestedAction?: 'menu' | 'reservation' | 'orders' | 'none';
+}
+
+export interface ChatbotCustomerResult {
+  reply: string;
+  recommendedItems?: MenuItem[];
+  suggestedAction?: 'menu' | 'reservation' | 'orders' | 'none';
+  source?: 'gemini' | 'local';
 }
 
 export interface CartItem {

@@ -183,11 +183,8 @@ export const RefillRequestModal: React.FC<RefillRequestModalProps> = ({
             </div>
             <div>
               <h3 className="text-base sm:text-lg font-black text-stone-900 leading-tight">
-                Suggest Item to Refill
+                Request Item Refill
               </h3>
-              <p className="text-[11px] text-stone-500 font-medium">
-                Sent to Admin for purchase &amp; final quantity confirmation
-              </p>
             </div>
           </div>
           <button
@@ -504,17 +501,6 @@ export const RefillRequestModal: React.FC<RefillRequestModalProps> = ({
               onChange={(e) => setNotes(e.target.value)}
               className="w-full rounded-xl border border-stone-200 bg-white p-2.5 text-xs font-medium text-stone-900 focus:border-amber-500 focus:outline-none"
             />
-          </div>
-
-          {/* Workflow Explanation Banner */}
-          <div className="rounded-xl bg-amber-500/10 border border-amber-300/60 p-2.5 text-[11px] text-amber-950 space-y-1">
-            <div className="font-extrabold flex items-center gap-1.5 text-amber-900">
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Admin Confirmation Workflow</span>
-            </div>
-            <p className="text-amber-800">
-              Your suggestion will be submitted to the Admin refill queue. When Admin buys the supplies, they will decide the final quantity and confirm it into the official system stock.
-            </p>
           </div>
         </form>
 

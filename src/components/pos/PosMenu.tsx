@@ -454,8 +454,41 @@ export const PosMenu: React.FC<PosMenuProps> = ({
   };
 
   const handleApplyDiscountToItem = (targetCartId: string, disc: Discount, idNum?: string) => {
-    setCart((prev) =>
-      prev.map((ci) => {
+    setCart((prev) => {
+      const targetIndex = prev.findIndex(
+        (ci) => (ci.cartItemId || ci.id) === targetCartId
+      );
+      if (targetIndex === -1) return prev;
+
+      const target = prev[targetIndex];
+
+      // If the target line has quantity > 1, separate out 1 discounted unit into its own line,
+      // leaving the remaining units undiscounted!
+      if (target.quantity > 1) {
+        const discountedLineId = `ci-${target.item.id}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+        const discountedLine: CartItem = {
+          ...target,
+          id: discountedLineId,
+          cartItemId: discountedLineId,
+          quantity: 1,
+          discount: disc,
+          discountIdNumber: idNum || target.discountIdNumber,
+        };
+
+        const remainingUndiscountedLine: CartItem = {
+          ...target,
+          quantity: target.quantity - 1,
+          discount: null,
+          discountIdNumber: undefined,
+        };
+
+        const next = [...prev];
+        next.splice(targetIndex, 1, remainingUndiscountedLine, discountedLine);
+        return next;
+      }
+
+      // Quantity is 1: apply the discount directly to this single line item
+      return prev.map((ci) => {
         const lineId = ci.cartItemId || ci.id;
         if (lineId === targetCartId) {
           return {
@@ -465,8 +498,9 @@ export const PosMenu: React.FC<PosMenuProps> = ({
           };
         }
         return ci;
-      })
-    );
+      });
+    });
+
     if (idNum) {
       setSeniorPwdIdNumber(idNum);
     }
@@ -475,8 +509,38 @@ export const PosMenu: React.FC<PosMenuProps> = ({
   };
 
   const handleRemoveDiscountFromItem = (targetCartId: string) => {
-    setCart((prev) =>
-      prev.map((ci) => {
+    setCart((prev) => {
+      const target = prev.find((ci) => (ci.cartItemId || ci.id) === targetCartId);
+      if (!target) return prev;
+
+      // Check if there is already another undiscounted line for the same menu item
+      const existingUndiscountedIndex = prev.findIndex(
+        (ci) =>
+          ci.item.id === target.item.id &&
+          !ci.discount &&
+          (ci.cartItemId || ci.id) !== targetCartId
+      );
+
+      if (existingUndiscountedIndex !== -1) {
+        // Merge the quantity into the existing undiscounted line and remove the separate line
+        return prev
+          .map((ci, idx) => {
+            if (idx === existingUndiscountedIndex) {
+              return {
+                ...ci,
+                quantity: ci.quantity + target.quantity,
+              };
+            }
+            if ((ci.cartItemId || ci.id) === targetCartId) {
+              return null;
+            }
+            return ci;
+          })
+          .filter(Boolean) as CartItem[];
+      }
+
+      // Otherwise, just clear the discount on this line
+      return prev.map((ci) => {
         const lineId = ci.cartItemId || ci.id;
         if (lineId === targetCartId) {
           return {
@@ -486,20 +550,38 @@ export const PosMenu: React.FC<PosMenuProps> = ({
           };
         }
         return ci;
-      })
-    );
+      });
+    });
     setIsDiscountModalOpen(false);
     setDiscountTargetCartId(null);
   };
 
   const handleClearAllDiscounts = () => {
-    setCart((prev) =>
-      prev.map((ci) => ({
-        ...ci,
-        discount: null,
-        discountIdNumber: undefined,
-      }))
-    );
+    setCart((prev) => {
+      // Merge all lines for the same menu item together when discounts are cleared
+      const merged: CartItem[] = [];
+      const itemMap = new Map<number, number>();
+
+      for (const ci of prev) {
+        const cleanItem: CartItem = {
+          ...ci,
+          discount: null,
+          discountIdNumber: undefined,
+        };
+
+        if (itemMap.has(ci.item.id)) {
+          const idx = itemMap.get(ci.item.id)!;
+          merged[idx] = {
+            ...merged[idx],
+            quantity: merged[idx].quantity + ci.quantity,
+          };
+        } else {
+          itemMap.set(ci.item.id, merged.length);
+          merged.push(cleanItem);
+        }
+      }
+      return merged;
+    });
     setSeniorPwdIdNumber('');
   };
 
@@ -1833,7 +1915,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
         customIdNumber={discountTargetItem?.discountIdNumber || seniorPwdIdNumber}
         targetItemName={discountTargetItem?.item.name}
         targetItemPrice={discountTargetItem?.item.price}
-        targetItemQuantity={discountTargetItem?.quantity}
+        targetItemQuantity={1}
         onApplyDiscount={(disc, idNum) => {
           if (discountTargetCartId !== null) {
             handleApplyDiscountToItem(discountTargetCartId, disc, idNum);

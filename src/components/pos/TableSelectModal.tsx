@@ -144,12 +144,19 @@ export const TableSelectModal: React.FC<TableSelectModalProps> = ({
                       : 'border-stone-200 bg-white hover:border-amber-400 hover:bg-stone-50/80 shadow-2xs'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="font-display text-sm font-extrabold text-stone-900">
-                      Table #{t.tableNumber}
-                    </span>
+                  <div className="flex items-center justify-between gap-1">
+                    <div className="min-w-0">
+                      <span className="font-display text-sm font-extrabold text-stone-900 block truncate">
+                        Table #{t.tableNumber}
+                      </span>
+                      {t.name && (
+                        <span className="text-[11px] font-bold text-amber-700 block truncate">
+                          {t.name}
+                        </span>
+                      )}
+                    </div>
                     <span
-                      className={`rounded-md px-1.5 py-0.5 text-[9px] font-extrabold uppercase ${
+                      className={`rounded-md px-1.5 py-0.5 text-[9px] font-extrabold uppercase shrink-0 ${
                         isOccupied
                           ? 'bg-rose-100 text-rose-700'
                           : isReserved
@@ -161,13 +168,19 @@ export const TableSelectModal: React.FC<TableSelectModalProps> = ({
                     </span>
                   </div>
 
+                  {t.setup && (
+                    <div className="mt-1 text-[10px] text-stone-500 font-medium truncate">
+                      {t.setup}
+                    </div>
+                  )}
+
                   <div className="mt-2 flex items-center justify-between text-[11px] text-stone-500">
                     <span className="flex items-center gap-1">
                       <Users className="h-3 w-3" />
                       <span>{t.capacity || 4} Seats</span>
                     </span>
                     <span className="text-[10px] font-semibold text-stone-400">
-                      {t.area === 'airconditioned' ? 'AC Area' : 'Main Area'}
+                      {t.area === 'airconditioned' ? 'Air-Con' : 'Non-A/C'}
                     </span>
                   </div>
                 </button>

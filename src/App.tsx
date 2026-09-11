@@ -37,7 +37,7 @@ import { LowStockNotificationModal } from './components/pos/LowStockNotification
 import { CustomerCartDrawer } from './components/customer/CustomerCartDrawer';
 import { TableRequestModal } from './components/customer/TableRequestModal';
 import { ScannedTableModal } from './components/customer/ScannedTableModal';
-import { Bot, Coffee } from 'lucide-react';
+import { Bot, Coffee, Sparkles } from 'lucide-react';
 import { ModalProvider, useModal } from './context/ModalContext';
 
 export default function App() {
@@ -428,7 +428,11 @@ function MainApp() {
         appMode={appMode}
         onSetAppMode={setAppMode}
         customerTab={customerTab}
-        onSetCustomerTab={setCustomerTab}
+        onSetCustomerTab={(tab) => {
+          setIsCustomerCartOpen(false);
+          setCustomerTab(tab);
+        }}
+        isCustomerCartOpen={isCustomerCartOpen}
         staffTab={staffTab}
         onSetStaffTab={setStaffTab}
         activeStaff={activeStaff}
@@ -456,7 +460,7 @@ function MainApp() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 mx-auto w-full max-w-7xl px-1 sm:px-3 py-1 sm:py-2 pb-16 sm:pb-2">
+      <main id="app-main-content" className="flex-1 mx-auto w-full max-w-7xl px-1 sm:px-3 py-1 sm:py-2 pb-16 sm:pb-2">
         {appMode === 'customer' ? (
           /* Customer Experience */
           <>
@@ -476,6 +480,7 @@ function MainApp() {
 
             {customerTab === 'menu' && (
               <CustomerMenu
+                onBack={() => setCustomerTab('home')}
                 categories={categories}
                 menuItems={menuItems}
                 settings={settings}
@@ -539,6 +544,9 @@ function MainApp() {
                 settings={settings}
                 onLogout={handleCustomerLogout}
                 onNavigateOrders={() => setCustomerTab('orders')}
+                onNavigateMenu={() => setCustomerTab('menu')}
+                onAddToCart={(item) => handleCustomerAddToCart(item)}
+                onCustomerUpdate={(updated) => setActiveCustomer(updated)}
                 onViewReceipt={(order) => {
                   if (order.status === 'to_confirm' || order.status === 'pending') {
                     setCustomerSubmittedOrder(order);
@@ -690,7 +698,43 @@ function MainApp() {
         />
       )}
 
-      {isChatbotOpen && <ChatbotModal onClose={() => setIsChatbotOpen(false)} />}
+      {isChatbotOpen && (
+        <ChatbotModal
+          onClose={() => setIsChatbotOpen(false)}
+          activeCustomer={activeCustomer}
+          activeTableNumber={activeTableBinding?.tableNumber || scannedTableNumber}
+          onAddToCart={(item) => {
+            handleCustomerAddToCart(item);
+          }}
+          onNavigateTab={(tab) => {
+            setAppMode('customer');
+            setCustomerTab(tab);
+          }}
+        />
+      )}
+
+      {/* Floating Customer AI Concierge Button (Customer Mode) - Halfway hidden circle on side */}
+      {appMode === 'customer' && !isChatbotOpen && (
+        <aside aria-label="Customer AI Concierge">
+          <button
+            id="floating-customer-concierge-btn"
+            onClick={() => setIsChatbotOpen(true)}
+            className="fixed bottom-28 sm:bottom-32 right-0 z-40 translate-x-1/2 hover:translate-x-0 focus:translate-x-0 transition-transform duration-300 ease-out flex items-center justify-start pl-2 sm:pl-2.5 w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 hover:from-amber-300 hover:to-amber-500 text-stone-950 font-bold shadow-2xl border-2 border-amber-300/90 hover:shadow-amber-500/40 active:scale-95 cursor-pointer group select-none"
+            title="Ask Yellow Hauz AI Concierge"
+            aria-label="Ask Yellow Hauz AI Concierge"
+          >
+            <div className="relative flex flex-col items-center justify-center w-7 h-7 sm:w-8 sm:h-8 shrink-0">
+              <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-950 animate-pulse" />
+              <span className="text-[8px] sm:text-[9px] font-black leading-none tracking-tighter text-stone-950 mt-0.5">
+                AI
+              </span>
+            </div>
+            <span className="text-[10px] sm:text-xs font-bold tracking-tight text-stone-950 ml-1 opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity duration-200 whitespace-nowrap pr-2">
+              Concierge
+            </span>
+          </button>
+        </aside>
+      )}
 
       {isCustomerLoginOpen && (
         <CustomerLoginModal

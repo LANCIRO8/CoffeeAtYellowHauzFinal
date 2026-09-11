@@ -195,28 +195,42 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
                 <Sparkles className="h-3.5 w-3.5" />
                 Exclusive Venue Space
               </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 px-3 py-1 text-xs font-bold text-emerald-300">
+                100% Fully Consumable on F&amp;B
+              </span>
             </div>
 
             <h2 className="font-display text-2xl sm:text-4xl font-extrabold text-white leading-tight">
               Host Your Next Event at The Yellow Hauz Private Studio
             </h2>
 
+            <p className="text-xs sm:text-sm text-stone-300 leading-relaxed max-w-xl">
+              Perfect for meetings, workshops, intimate celebrations, and gatherings. Fully air-conditioned private room with TV HDMI presentation display and whiteboard.
+            </p>
+
             <div className="flex flex-wrap items-baseline gap-3 pt-1">
               <div className="inline-flex items-baseline gap-2 rounded-2xl bg-amber-500/10 border border-amber-500/30 px-4 py-2">
-                <span className="font-mono text-2xl sm:text-3xl font-black text-amber-400">₱300.00</span>
-                <span className="text-xs font-bold text-stone-200">for 3 Full Hours</span>
-                <span className="text-[11px] text-stone-400">• (+₱100/extra hr)</span>
+                <span className="font-mono text-2xl sm:text-3xl font-black text-amber-400">₱3,500</span>
+                <span className="text-xs font-bold text-stone-200">Base Rate (3 Hours)</span>
+                <span className="text-[11px] text-stone-400">• Extension: +₱1,000/extra hr (consumable)</span>
               </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 text-[11px] text-stone-300 font-medium">
+              <span className="rounded-lg bg-stone-800/80 px-2.5 py-1 border border-stone-700">❄️ Air conditioning</span>
+              <span className="rounded-lg bg-stone-800/80 px-2.5 py-1 border border-stone-700">📺 TV HDMI</span>
+              <span className="rounded-lg bg-stone-800/80 px-2.5 py-1 border border-stone-700">📋 Whiteboard</span>
+              <span className="rounded-lg bg-amber-500/20 text-amber-300 px-2.5 py-1 border border-amber-500/30 font-bold">👥 Capacity: 25 persons only</span>
             </div>
 
             <div className="pt-2 flex flex-wrap gap-3">
               <button
                 type="button"
                 onClick={onNavigateReservation}
-                className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-6 py-3 text-xs sm:text-sm font-extrabold text-stone-950 shadow-lg shadow-amber-500/20 hover:bg-amber-400 transition transform active:scale-95"
+                className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-6 py-3 text-xs sm:text-sm font-extrabold text-stone-950 shadow-lg shadow-amber-500/20 hover:bg-amber-400 transition transform active:scale-95 cursor-pointer"
               >
                 <Calendar className="h-4 w-4" />
-                Book Studio / Reservation
+                Book Studio / View Rates
               </button>
             </div>
           </div>
@@ -233,7 +247,7 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
             <div className="absolute inset-0 bg-gradient-to-t from-stone-950/80 via-transparent to-transparent pointer-events-none" />
             <div className="absolute bottom-3 left-3 right-3 text-white">
               <span className="text-xs font-bold text-amber-400 block">Airconditioned Studio Wing</span>
-              <span className="text-[11px] text-stone-300">Up to 25 Guests • Custom Seating Layouts</span>
+              <span className="text-[11px] text-stone-300">Capacity: 25 Persons Only • TV HDMI • Whiteboard</span>
             </div>
           </div>
         </div>

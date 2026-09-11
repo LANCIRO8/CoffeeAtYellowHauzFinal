@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { User, CustomerAccount, TableBinding, Table, Order, StaffTabType } from '../types';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { User, CustomerAccount, TableBinding, Table, Order, StaffTabType, OrderItem, OrderStatus } from '../types';
 import { AppStore } from '../services/store';
 import { TableRequestModal } from './customer/TableRequestModal';
 import { StaffNotificationCenterModal } from './pos/StaffNotificationCenterModal';
@@ -44,6 +44,10 @@ import {
   Moon,
   Maximize2,
   Minimize2,
+  Clock,
+  AlertCircle,
+  Receipt,
+  ArrowRight,
 } from 'lucide-react';
 
 interface NavigationProps {
@@ -73,6 +77,7 @@ interface NavigationProps {
   onViewOrderReceipt?: (order: Order) => void;
   isDarkMode?: boolean;
   onSetDarkMode?: (isDark: boolean) => void;
+  isCustomerCartOpen?: boolean;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
@@ -102,6 +107,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   onViewOrderReceipt,
   isDarkMode: isDarkModeProp,
   onSetDarkMode,
+  isCustomerCartOpen,
 }) => {
   const [internalDarkMode, setInternalDarkMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -228,6 +234,13 @@ export const Navigation: React.FC<NavigationProps> = ({
     return AppStore.getActiveCustomerOrdersCount(activeCustomer, activeTableBinding || null);
   });
 
+  const [customerOrders, setCustomerOrders] = useState<Order[]>(() => {
+    return AppStore.getCustomerVisibleOrders(activeCustomer, activeTableBinding || null);
+  });
+  const [isCustomerNotificationsOpen, setIsCustomerNotificationsOpen] = useState(false);
+  const [hasReadCustomerNotifications, setHasReadCustomerNotifications] = useState(false);
+  const customerNotificationsDropdownRef = useRef<HTMLDivElement>(null);
+
   const tables: Table[] = useMemo(() => AppStore.getTables(), []);
 
   // Combined counts
@@ -257,12 +270,148 @@ export const Navigation: React.FC<NavigationProps> = ({
         orders.filter((o) => o.cancellationRequested && o.status !== 'cancelled').length
       );
 
+      const custOrders = AppStore.getCustomerVisibleOrders(activeCustomer, activeTableBinding || null);
+      setCustomerOrders(custOrders);
       setActiveCustomerOrdersCount(
         AppStore.getActiveCustomerOrdersCount(activeCustomer, activeTableBinding || null)
       );
     });
     return () => unsub();
   }, [activeCustomer, activeTableBinding]);
+
+  // Close customer notifications on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        customerNotificationsDropdownRef.current &&
+        !customerNotificationsDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsCustomerNotificationsOpen(false);
+      }
+    };
+    if (isCustomerNotificationsOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isCustomerNotificationsOpen]);
+
+  // Derived customer notifications
+  const hasUnreadCustomerAlerts =
+    activeCustomerOrdersCount > 0 || (!hasReadCustomerNotifications && customerOrders.length > 0);
+
+  const sortedCustomerOrders = useMemo(() => {
+    const isActive = (st: string) =>
+      st === 'to_confirm' ||
+      st === 'pending' ||
+      st === 'to_prep' ||
+      st === 'processing' ||
+      st === 'to_serve';
+
+    return [...customerOrders].sort((a, b) => {
+      const aActive = isActive(a.status);
+      const bActive = isActive(b.status);
+      if (aActive && !bActive) return -1;
+      if (!aActive && bActive) return 1;
+      return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
+    });
+  }, [customerOrders]);
+
+  const formatCustomerOrderTime = (isoString?: string) => {
+    if (!isoString) return 'Just now';
+    try {
+      const diffMs = Date.now() - new Date(isoString).getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      const diffHours = Math.floor(diffMins / 60);
+      if (diffHours < 24) return `${diffHours}h ago`;
+      return new Date(isoString).toLocaleDateString([], { month: 'short', day: 'numeric' });
+    } catch {
+      return 'Recently';
+    }
+  };
+
+  const getCustomerOrderStatusInfo = (status: OrderStatus, orderType: string, tableNumber?: number | null) => {
+    switch (status) {
+      case 'to_confirm':
+      case 'pending':
+        return {
+          title: 'Awaiting Cashier Confirmation',
+          description: 'Your order was received and is waiting for store confirmation before heading to the kitchen.',
+          badgeText: 'To Confirm',
+          badgeClass: isDarkMode
+            ? 'bg-amber-950/80 text-amber-300 border-amber-800'
+            : 'bg-amber-100 text-amber-900 border-amber-300',
+          dotClass: 'bg-amber-500 animate-pulse',
+          step: 1,
+        };
+      case 'to_prep':
+      case 'processing':
+        return {
+          title: 'Kitchen is Preparing Your Order',
+          description: 'Our chefs and baristas are currently preparing your drinks and dishes.',
+          badgeText: 'In Kitchen Prep',
+          badgeClass: isDarkMode
+            ? 'bg-sky-950/80 text-sky-300 border-sky-800'
+            : 'bg-sky-100 text-sky-900 border-sky-300',
+          dotClass: 'bg-sky-500 animate-pulse',
+          step: 2,
+        };
+      case 'to_serve':
+        return {
+          title: '🎉 Order is Ready!',
+          description:
+            orderType === 'dine_in'
+              ? tableNumber
+                ? `Server is delivering directly to Table #${tableNumber}.`
+                : 'Your dine-in order is ready to be served.'
+              : orderType === 'delivery'
+              ? 'Your order is on the way with our delivery rider.'
+              : 'Packed and waiting for you at the pick-up counter.',
+          badgeText: 'Ready to Serve / Pick Up',
+          badgeClass: isDarkMode
+            ? 'bg-emerald-950/90 text-emerald-300 border-emerald-700 ring-2 ring-emerald-500/20'
+            : 'bg-emerald-100 text-emerald-900 border-emerald-300 ring-2 ring-emerald-500/20',
+          dotClass: 'bg-emerald-500 animate-ping',
+          step: 3,
+        };
+      case 'completed':
+        return {
+          title: 'Order Served & Completed',
+          description: 'Served and settled. Thank you for dining with Yellow Hauz!',
+          badgeText: 'Completed',
+          badgeClass: isDarkMode
+            ? 'bg-stone-800 text-stone-300 border-stone-700'
+            : 'bg-stone-100 text-stone-700 border-stone-200',
+          dotClass: 'bg-stone-400',
+          step: 4,
+        };
+      case 'cancelled':
+        return {
+          title: 'Order Cancelled',
+          description: 'This order has been cancelled.',
+          badgeText: 'Cancelled',
+          badgeClass: isDarkMode
+            ? 'bg-rose-950/80 text-rose-300 border-rose-800'
+            : 'bg-rose-100 text-rose-800 border-rose-200',
+          dotClass: 'bg-rose-500',
+          step: 0,
+        };
+      default:
+        return {
+          title: 'Order Status Update',
+          description: 'Your order status has been updated.',
+          badgeText: status,
+          badgeClass: isDarkMode
+            ? 'bg-stone-800 text-stone-300 border-stone-700'
+            : 'bg-stone-100 text-stone-700 border-stone-200',
+          dotClass: 'bg-amber-500',
+          step: 1,
+        };
+    }
+  };
 
   const handleTableConfirmedByCashier = (binding: TableBinding) => {
     if (onBindTable) {
@@ -296,16 +445,16 @@ export const Navigation: React.FC<NavigationProps> = ({
         : customerTab === 'menu'
         ? 'Menu'
         : customerTab === 'orders'
-        ? 'My Orders'
+        ? 'Orders'
         : customerTab === 'reservation'
-        ? 'Reservation'
+        ? 'Reserve'
         : 'My Account'
       : staffTab === 'dashboard'
       ? 'Dashboard'
       : staffTab === 'pos'
-      ? 'Register'
+      ? 'Cashier'
       : staffTab === 'tables'
-      ? 'Floor Plan'
+      ? 'Tables'
       : staffTab === 'tickets'
       ? 'Order Tickets'
       : staffTab === 'reports'
@@ -367,11 +516,12 @@ export const Navigation: React.FC<NavigationProps> = ({
 
           <div className="h-3.5 w-px bg-stone-700 mx-1" />
 
-          {/* Quick Chatbot */}
+          {/* Quick Chatbot / Customer Concierge */}
           <button
+            id="nav-quick-concierge-btn"
             onClick={onOpenChatbot}
             className="rounded-full p-1 text-amber-400 hover:bg-stone-800 transition cursor-pointer"
-            title="AI Assistant"
+            title="Yellow Hauz Concierge & AI Barista"
           >
             <Bot className="h-3.5 w-3.5" />
           </button>
@@ -415,16 +565,16 @@ export const Navigation: React.FC<NavigationProps> = ({
           }`}
         >
           {/* Main Nav Bar */}
-          <div className="mx-auto max-w-7xl px-3 sm:px-8 py-2 sm:py-3 flex items-center justify-between gap-2">
+          <div className="mx-auto max-w-7xl px-3 sm:px-8 py-2 sm:py-2.5 flex items-center justify-between gap-1.5 sm:gap-2">
             {/* Left: Burger Menu Button + Brand Logo & Desktop Navigation Tabs */}
-            <div className="flex items-center gap-2 sm:gap-4 overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-1.5 sm:gap-2.5 overflow-x-auto no-scrollbar">
               {/* Hamburger / Burger Menu Button */}
               <button
                 id="nav-burger-btn"
                 type="button"
                 onClick={() => setIsBurgerDrawerOpen(true)}
                 title="Open Store & System Menu"
-                className="relative flex items-center justify-center rounded-xl p-2 text-stone-700 hover:text-stone-950 hover:bg-stone-100 transition cursor-pointer border border-stone-200/90 shadow-2xs"
+                className="relative flex items-center justify-center rounded-xl p-1.5 sm:p-2 text-stone-700 hover:text-stone-950 hover:bg-stone-100 transition cursor-pointer border border-stone-200/90 shadow-2xs"
               >
                 <Menu className="h-5 w-5" />
                 {(lowStockCount > 0 || pendingTableRequestsCount > 0) && (
@@ -441,7 +591,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                   if (appMode === 'customer') onSetCustomerTab('home');
                   else onSetStaffTab('dashboard');
                 }}
-                className="flex items-center gap-2.5 cursor-pointer select-none group"
+                className="flex items-center gap-2 cursor-pointer select-none group"
               >
                 <div className="relative h-9 w-9 overflow-hidden rounded-xl bg-amber-500 shadow-xs border border-amber-400/40 group-hover:scale-105 transition shrink-0 flex items-center justify-center">
                   <img
@@ -458,19 +608,16 @@ export const Navigation: React.FC<NavigationProps> = ({
                   <span className="font-display font-black text-xs sm:text-sm tracking-tight text-stone-900 leading-none">
                     Yellow Hauz
                   </span>
-                  <span className="text-[10px] text-stone-400 font-semibold leading-none mt-0.5 hidden sm:inline">
-                    Davao City
-                  </span>
                 </div>
               </div>
 
               {/* Desktop Navigation Tabs (Hidden on mobile since bottom navigation bar handles it) */}
               {appMode === 'customer' ? (
-                <nav className="hidden sm:flex items-center gap-1 sm:gap-2">
+                <nav className="hidden sm:flex items-center gap-1">
                   <button
                     onClick={() => onSetCustomerTab('home')}
                     title="Home"
-                    className={`flex items-center gap-1.5 rounded-xl p-2 sm:px-3.5 sm:py-2 text-xs sm:text-sm font-bold transition cursor-pointer ${
+                    className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs sm:text-sm font-bold transition cursor-pointer ${
                       customerTab === 'home'
                         ? isDarkMode
                           ? 'bg-[#78350f] text-white font-extrabold shadow-2xs'
@@ -486,7 +633,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                   <button
                     onClick={() => onSetCustomerTab('menu')}
                     title="Menu"
-                    className={`relative flex items-center gap-1.5 rounded-xl p-2 sm:px-3.5 sm:py-2 text-xs sm:text-sm font-bold transition cursor-pointer ${
+                    className={`relative flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs sm:text-sm font-bold transition cursor-pointer ${
                       customerTab === 'menu'
                         ? isDarkMode
                           ? 'bg-[#78350f] text-white font-extrabold shadow-2xs'
@@ -506,8 +653,8 @@ export const Navigation: React.FC<NavigationProps> = ({
                   </button>
                   <button
                     onClick={() => onSetCustomerTab('orders')}
-                    title="My Orders & Live Tracking"
-                    className={`relative flex items-center gap-1.5 rounded-xl p-2 sm:px-3.5 sm:py-2 text-xs sm:text-sm font-bold transition cursor-pointer ${
+                    title="Orders & Live Tracking"
+                    className={`relative flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs sm:text-sm font-bold transition cursor-pointer ${
                       customerTab === 'orders'
                         ? isDarkMode
                           ? 'bg-[#78350f] text-white font-extrabold shadow-2xs'
@@ -518,18 +665,12 @@ export const Navigation: React.FC<NavigationProps> = ({
                     }`}
                   >
                     <ShoppingBag className={`h-4 w-4 ${customerTab === 'orders' ? (isDarkMode ? 'text-white' : 'text-stone-950') : (isDarkMode ? 'text-stone-300' : 'text-stone-950')}`} />
-                    <span>My Orders</span>
-                    {activeCustomerOrdersCount > 0 && (
-                      <span className={`flex items-center gap-0.5 rounded-full px-1.5 py-0.2 text-[10px] font-black animate-pulse ${isDarkMode ? 'bg-[#78350f] text-white' : 'bg-amber-500 text-stone-950'}`}>
-                        <span>{activeCustomerOrdersCount}</span>
-                        <span className="hidden md:inline text-[9px] font-bold">live</span>
-                      </span>
-                    )}
+                    <span>Orders</span>
                   </button>
                   <button
                     onClick={() => onSetCustomerTab('reservation')}
-                    title="Reservation"
-                    className={`flex items-center gap-1.5 rounded-xl p-2 sm:px-3.5 sm:py-2 text-xs sm:text-sm font-bold transition cursor-pointer ${
+                    title="Reserve"
+                    className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs sm:text-sm font-bold transition cursor-pointer ${
                       customerTab === 'reservation'
                         ? isDarkMode
                           ? 'bg-[#78350f] text-white font-extrabold shadow-2xs'
@@ -540,7 +681,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                     }`}
                   >
                     <Calendar className={`h-4 w-4 ${customerTab === 'reservation' ? (isDarkMode ? 'text-white' : 'text-stone-950') : (isDarkMode ? 'text-stone-300' : 'text-stone-950')}`} />
-                    <span>Reservation</span>
+                    <span>Reserve</span>
                   </button>
                 </nav>
               ) : (
@@ -554,7 +695,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                             id="nav-staff-tickets"
                             onClick={() => onSetStaffTab('tickets')}
                             title="Kitchen Order Tickets"
-                            className={`flex items-center gap-1.5 rounded-xl px-3 sm:px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
+                            className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
                               staffTab === 'tickets'
                                 ? 'bg-amber-500 text-stone-950 font-extrabold shadow-sm'
                                 : 'text-stone-700 hover:bg-stone-100'
@@ -570,7 +711,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                             id="nav-staff-cook-refills"
                             onClick={() => onSetStaffTab('refills')}
                             title="Check Supplies & Suggest Item Refills"
-                            className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+                            className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-bold transition cursor-pointer ${
                               staffTab === 'refills'
                                 ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
                                 : 'text-stone-700 hover:bg-stone-100'
@@ -582,34 +723,34 @@ export const Navigation: React.FC<NavigationProps> = ({
                         </>
                       ) : (
                         <>
-                          {/* Shared: Register (POS) */}
+                          {/* Shared: Cashier (POS) */}
                           <button
                             id="nav-staff-pos"
                             onClick={() => onSetStaffTab('pos')}
-                            title="Register (POS)"
-                            className={`flex items-center gap-1.5 rounded-xl p-2 sm:px-3 sm:py-1.5 text-xs font-bold transition cursor-pointer ${
+                            title="Cashier (POS)"
+                            className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-bold transition cursor-pointer ${
                               staffTab === 'pos'
                                 ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
                                 : 'text-stone-700 hover:bg-stone-100'
                             }`}
                           >
                             <Monitor className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                            <span>Register</span>
+                            <span>Cashier</span>
                           </button>
 
-                          {/* Shared: Floor Plan / Tables */}
+                          {/* Shared: Tables */}
                           <button
                             id="nav-staff-tables"
                             onClick={() => onSetStaffTab('tables')}
-                            title="Floor Plan / Tables"
-                            className={`flex items-center gap-1.5 rounded-xl p-2 sm:px-3 sm:py-1.5 text-xs font-bold transition cursor-pointer ${
+                            title="Tables"
+                            className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-bold transition cursor-pointer ${
                               staffTab === 'tables'
                                 ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
                                 : 'text-stone-700 hover:bg-stone-100'
                             }`}
                           >
                             <LayoutGrid className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                            <span>Floor Plan</span>
+                            <span>Tables</span>
                           </button>
 
                           {/* Shared: Active Order Tickets */}
@@ -617,7 +758,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                             id="nav-staff-tickets"
                             onClick={() => onSetStaffTab('tickets')}
                             title="Active Order Tickets"
-                            className={`flex items-center gap-1.5 rounded-xl p-2 sm:px-3 sm:py-1.5 text-xs font-bold transition cursor-pointer ${
+                            className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-bold transition cursor-pointer ${
                               staffTab === 'tickets'
                                 ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
                               : 'text-stone-700 hover:bg-stone-100'
@@ -633,7 +774,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                               id="nav-staff-refills"
                               onClick={() => onSetStaffTab('refills')}
                               title="Check Stock & Suggest Item Refills"
-                              className={`flex items-center gap-1.5 rounded-xl p-2 sm:px-3 sm:py-1.5 text-xs font-bold transition cursor-pointer ${
+                              className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-bold transition cursor-pointer ${
                                 staffTab === 'refills'
                                   ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
                                   : 'text-stone-700 hover:bg-stone-100'
@@ -651,7 +792,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                                 id="nav-staff-reports"
                                 onClick={() => onSetStaffTab('reports')}
                                 title="Sales Reports"
-                                className={`flex items-center gap-1.5 rounded-xl p-2 sm:px-3 sm:py-1.5 text-xs font-bold transition cursor-pointer ${
+                                className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-bold transition cursor-pointer ${
                                   staffTab === 'reports'
                                     ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
                                     : 'text-stone-700 hover:bg-stone-100'
@@ -663,21 +804,21 @@ export const Navigation: React.FC<NavigationProps> = ({
                               <button
                                 id="nav-staff-analytics"
                                 onClick={() => onSetStaffTab('analytics')}
-                                title="Sales Analytics"
-                                className={`flex items-center gap-1.5 rounded-xl p-2 sm:px-3 sm:py-1.5 text-xs font-bold transition cursor-pointer ${
+                                title="Analytics"
+                                className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-bold transition cursor-pointer ${
                                   staffTab === 'analytics'
                                     ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
                                     : 'text-stone-700 hover:bg-stone-100'
                                 }`}
                               >
-                                <TrendingUp className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                                <TrendingUp className="h-4 w-4 sm:h-3.5 sm:w-3.5 text-black" />
                                 <span>Analytics</span>
                               </button>
                               <button
                                 id="nav-staff-inventory"
                                 onClick={() => onSetStaffTab('inventory')}
                                 title="Inventory Stock & Refill Approvals"
-                                className={`relative flex items-center gap-1.5 rounded-xl p-2 sm:px-3 sm:py-1.5 text-xs font-bold transition cursor-pointer ${
+                                className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-bold transition cursor-pointer ${
                                   staffTab === 'inventory'
                                     ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
                                     : 'text-stone-700 hover:bg-stone-100'
@@ -685,18 +826,6 @@ export const Navigation: React.FC<NavigationProps> = ({
                               >
                                 <Package className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                                 <span>Inventory</span>
-                                {pendingRefillCount > 0 ? (
-                                  <span
-                                    className="flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-black text-white border border-rose-600 shadow-2xs animate-pulse"
-                                    title={`${pendingRefillCount} pending refill suggestions to review`}
-                                  >
-                                    {pendingRefillCount}
-                                  </span>
-                                ) : lowStockCount > 0 ? (
-                                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-400 px-1 text-[9px] font-black text-stone-950 border border-amber-500/60 shadow-2xs">
-                                    {lowStockCount}
-                                  </span>
-                                ) : null}
                               </button>
                             </>
                           )}
@@ -709,11 +838,11 @@ export const Navigation: React.FC<NavigationProps> = ({
             </div>
 
             {/* User Account / Auth Actions */}
-            <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="flex items-center gap-1 sm:gap-1.5">
               {appMode === 'customer' ? (
-                <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className="flex items-center gap-1 sm:gap-1.5">
                   {/* Table Session / Mode Pill */}
-                  {activeTableBinding ? (
+                  {activeTableBinding && (
                     <div className="flex items-center gap-1 rounded-xl bg-amber-500/15 border border-amber-500/40 pl-2 sm:pl-2.5 pr-1 sm:pr-1.5 py-1 text-xs font-bold text-amber-950 shadow-2xs">
                       <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                       <span className="text-[11px] sm:text-xs">
@@ -732,36 +861,329 @@ export const Navigation: React.FC<NavigationProps> = ({
                         </button>
                       )}
                     </div>
-                  ) : (
-                    onOpenTableBindingModal && (
-                      <button
-                        onClick={onOpenTableBindingModal}
-                        title="Sitting in store? Bind session to your table"
-                        className="hidden sm:flex items-center gap-1.5 rounded-xl border border-dashed border-stone-300 bg-stone-50 px-2.5 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-100 hover:border-stone-400 transition cursor-pointer"
-                      >
-                        <Utensils className="h-3.5 w-3.5 text-stone-950" />
-                        <span>I'm at a Table</span>
-                      </button>
-                    )
                   )}
 
-                  {activeCustomer ? (
-                    <div className="hidden sm:flex items-center gap-1 sm:gap-1.5">
-                      <button
-                        id="customer-fullscreen-btn"
-                        type="button"
-                        onClick={toggleFullscreen}
-                        title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-                        className="flex items-center gap-1 rounded-xl border border-stone-200 px-2.5 py-1.5 text-xs font-bold text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition cursor-pointer shadow-2xs active:scale-95"
-                      >
-                        {isFullscreen ? (
-                          <Minimize2 className="h-3.5 w-3.5 text-stone-700" />
-                        ) : (
-                          <Maximize2 className="h-3.5 w-3.5 text-stone-700" />
+                  {/* Top Nav Customer Order Notifications Action Button & Popover */}
+                  <div className="relative" ref={customerNotificationsDropdownRef}>
+                    <button
+                      type="button"
+                      id="menu-notifications-btn"
+                      onClick={() => {
+                        setIsCustomerNotificationsOpen((prev) => !prev);
+                        if (!isCustomerNotificationsOpen) {
+                          setHasReadCustomerNotifications(true);
+                        }
+                      }}
+                      title={
+                        activeCustomerOrdersCount > 0
+                          ? `Order Alerts (${activeCustomerOrdersCount} active ${
+                              activeCustomerOrdersCount === 1 ? 'order' : 'orders'
+                            })`
+                          : 'Order Alerts & Notifications'
+                      }
+                      className={`relative flex items-center justify-center rounded-xl border p-2 text-xs font-bold transition cursor-pointer shadow-2xs active:scale-95 ${
+                        isCustomerNotificationsOpen
+                          ? isDarkMode
+                            ? 'border-amber-400 bg-amber-950/70 text-amber-200 ring-2 ring-amber-400/30'
+                            : 'border-amber-400 bg-amber-50 text-amber-950 ring-2 ring-amber-400/30'
+                          : activeCustomerOrdersCount > 0
+                          ? isDarkMode
+                            ? 'border-amber-500/70 bg-amber-950/40 text-amber-100 hover:bg-amber-900/50 ring-2 ring-amber-400/20'
+                            : 'border-amber-400/90 bg-amber-500/15 text-stone-950 hover:bg-amber-100 ring-2 ring-amber-400/20'
+                          : isDarkMode
+                          ? 'border-stone-700 bg-stone-800 text-stone-200 hover:bg-stone-700'
+                          : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100 hover:text-stone-950'
+                      }`}
+                    >
+                      <div className="relative">
+                        <Bell
+                          className={`h-4 w-4 ${
+                            activeCustomerOrdersCount > 0
+                              ? isDarkMode
+                                ? 'text-amber-400 fill-amber-500/40'
+                                : 'text-amber-700 fill-amber-500'
+                              : isDarkMode
+                              ? 'text-stone-300'
+                              : 'text-stone-700'
+                          }`}
+                        />
+                        {hasUnreadCustomerAlerts && (
+                          <span className="absolute -top-1.5 -right-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-500 px-0.5 text-[8px] font-black text-stone-950 ring-1 ring-white animate-pulse">
+                            {activeCustomerOrdersCount > 0 ? activeCustomerOrdersCount : '•'}
+                          </span>
                         )}
-                        <span>{isFullscreen ? 'Exit Full' : 'Fullscreen'}</span>
-                      </button>
-                      {onCustomerLogout && (
+                      </div>
+                    </button>
+
+                    {/* Customer Notifications & Live Order Tracking Popover */}
+                    {isCustomerNotificationsOpen && (
+                      <div
+                        id="customer-notifications-popover"
+                        className={`fixed sm:absolute right-2 sm:right-0 top-14 sm:top-12 z-50 w-[calc(100vw-1rem)] max-w-sm sm:w-96 rounded-2xl border p-3 sm:p-3.5 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-150 font-sans ${
+                          isDarkMode
+                            ? 'bg-[#181511] border-[#2b251e] text-[#ede8d0] shadow-[0_12px_40px_rgba(0,0,0,0.85)]'
+                            : 'bg-white border-stone-200 text-stone-900 shadow-2xl'
+                        }`}
+                      >
+                        {/* Popover Header */}
+                        <div className="flex items-center justify-between pb-2.5 border-b border-stone-200 dark:border-stone-800">
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                              <Bell className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-black tracking-tight">Order Alerts & Status</span>
+                                {activeCustomerOrdersCount > 0 ? (
+                                  <span className="rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.2 text-[9px] font-black animate-pulse">
+                                    {activeCustomerOrdersCount} In Progress
+                                  </span>
+                                ) : (
+                                  <span className="rounded-full bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 px-1.5 py-0.2 text-[9px] font-semibold">
+                                    All Caught Up
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-stone-400 leading-none mt-0.5">
+                                Real-time kitchen & delivery progress
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setIsCustomerNotificationsOpen(false)}
+                            title="Close Notifications"
+                            className="rounded-lg p-1 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+
+                        {/* Direct Shortcut to My Orders live page */}
+                        <div className="mt-2.5 mb-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCustomerNotificationsOpen(false);
+                              onSetCustomerTab('orders');
+                            }}
+                            className={`w-full flex items-center justify-between gap-2 rounded-xl px-2.5 py-2 text-xs font-bold transition cursor-pointer border ${
+                              isDarkMode
+                                ? 'bg-stone-900 border-stone-800 text-amber-300 hover:bg-stone-800/80 hover:border-amber-500/40'
+                                : 'bg-amber-50/80 border-amber-200 text-amber-950 hover:bg-amber-100 hover:border-amber-300'
+                            }`}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <ShoppingBag className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                              <span>Open Live Tracking in My Orders</span>
+                            </div>
+                            <ArrowRight className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                          </button>
+                        </div>
+
+                        {/* Active Table Session Banner */}
+                        {activeTableBinding && (
+                          <div
+                            className={`mb-2.5 flex items-center gap-2 rounded-xl p-2 text-xs border ${
+                              isDarkMode
+                                ? 'bg-stone-900/60 border-stone-800 text-stone-300'
+                                : 'bg-stone-50 border-stone-200 text-stone-700'
+                            }`}
+                          >
+                            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <span className="font-bold text-[11px] text-stone-900 dark:text-stone-100">
+                                Seated at Table #{activeTableBinding.tableNumber}
+                              </span>
+                              <span className="text-[10px] text-stone-500 dark:text-stone-400 block leading-tight">
+                                {activeTableBinding.area === 'airconditioned' ? 'Air-Con Room' : 'Main Dining Area'} • Orders are served to your table
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Order Alerts List */}
+                        <div className="max-h-[340px] overflow-y-auto space-y-2.5 pr-0.5 no-scrollbar">
+                          {sortedCustomerOrders.length > 0 ? (
+                            sortedCustomerOrders.slice(0, 6).map((order) => {
+                              const statusInfo = getCustomerOrderStatusInfo(
+                                order.status,
+                                order.orderType,
+                                order.tableNumber
+                              );
+                              const itemsText = (order.items || [])
+                                .map((it) => `${it.quantity}x ${it.name}`)
+                                .join(', ');
+
+                              return (
+                                <div
+                                  key={order.id}
+                                  className={`rounded-xl border p-2.5 transition text-xs ${
+                                    isDarkMode
+                                      ? 'bg-stone-900/70 border-stone-800 hover:border-stone-700'
+                                      : 'bg-stone-50/70 border-stone-200/90 hover:bg-stone-50 hover:border-amber-300/80 shadow-2xs'
+                                  }`}
+                                >
+                                  {/* Top Row: Order Number, Relative Time & Type */}
+                                  <div className="flex items-center justify-between gap-1 mb-1">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <span className="font-mono font-black text-[11px] text-stone-900 dark:text-stone-100">
+                                        #{order.orderNumber}
+                                      </span>
+                                      <span
+                                        className={`rounded-md px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider border ${
+                                          order.orderType === 'dine_in'
+                                            ? 'bg-amber-100/80 text-amber-900 border-amber-300 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-800'
+                                            : order.orderType === 'delivery'
+                                            ? 'bg-blue-100/80 text-blue-900 border-blue-300 dark:bg-blue-950/80 dark:text-blue-300 dark:border-blue-800'
+                                            : 'bg-stone-200/80 text-stone-800 border-stone-300 dark:bg-stone-800 dark:text-stone-200 dark:border-stone-700'
+                                        }`}
+                                      >
+                                        {order.orderType === 'dine_in'
+                                          ? `Dine-In ${order.tableNumber ? `(T#${order.tableNumber})` : ''}`
+                                          : order.orderType === 'delivery'
+                                          ? 'Delivery'
+                                          : 'Pick-Up'}
+                                      </span>
+                                    </div>
+                                    <span className="text-[10px] text-stone-400 shrink-0 font-medium">
+                                      {formatCustomerOrderTime(order.createdAt)}
+                                    </span>
+                                  </div>
+
+                                  {/* Order Status Badge & Alert Message */}
+                                  <div className="mb-1.5 mt-1">
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                      <span className={`inline-block h-2 w-2 rounded-full ${statusInfo.dotClass} shrink-0`} />
+                                      <span className="font-bold text-[11px] text-stone-900 dark:text-stone-100">
+                                        {statusInfo.title}
+                                      </span>
+                                    </div>
+                                    <p className="text-[10px] text-stone-500 dark:text-stone-400 leading-relaxed pl-3.5">
+                                      {statusInfo.description}
+                                    </p>
+                                  </div>
+
+                                  {/* Micro Progress Track */}
+                                  {order.status !== 'cancelled' && (
+                                    <div className="my-1.5 pl-3.5">
+                                      <div className="flex items-center gap-1">
+                                        <div
+                                          className={`h-1 flex-1 rounded-full ${
+                                            statusInfo.step >= 1 ? 'bg-amber-500' : 'bg-stone-200 dark:bg-stone-800'
+                                          }`}
+                                        />
+                                        <div
+                                          className={`h-1 flex-1 rounded-full ${
+                                            statusInfo.step >= 2 ? 'bg-sky-500' : 'bg-stone-200 dark:bg-stone-800'
+                                          }`}
+                                        />
+                                        <div
+                                          className={`h-1 flex-1 rounded-full ${
+                                            statusInfo.step >= 3 ? 'bg-emerald-500' : 'bg-stone-200 dark:bg-stone-800'
+                                          }`}
+                                        />
+                                      </div>
+                                      <div className="flex justify-between text-[8px] font-bold text-stone-400 mt-0.5">
+                                        <span>Confirmed</span>
+                                        <span>Cooking</span>
+                                        <span>Ready</span>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Items Summary & Total */}
+                                  <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-stone-200/60 dark:border-stone-800/80 text-[10px]">
+                                    <span className="text-stone-600 dark:text-stone-400 truncate max-w-[190px]" title={itemsText}>
+                                      {itemsText || 'Order items'}
+                                    </span>
+                                    <span className="font-black text-amber-700 dark:text-amber-400 shrink-0 font-mono">
+                                      ₱{Number(order.totalAmount || 0).toLocaleString()}
+                                    </span>
+                                  </div>
+
+                                  {/* Quick Action Buttons */}
+                                  <div className="flex items-center gap-1.5 mt-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setIsCustomerNotificationsOpen(false);
+                                        onSetCustomerTab('orders');
+                                      }}
+                                      className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-stone-900 dark:bg-stone-800 text-white dark:text-stone-100 py-1 px-2 text-[10px] font-bold hover:bg-amber-600 dark:hover:bg-amber-600 transition cursor-pointer"
+                                    >
+                                      <Clock className="h-3 w-3" />
+                                      <span>Track Live</span>
+                                    </button>
+                                    {onViewOrderReceipt && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setIsCustomerNotificationsOpen(false);
+                                          onViewOrderReceipt(order);
+                                        }}
+                                        className="flex items-center justify-center gap-1 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 py-1 px-2 text-[10px] font-bold hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                                      >
+                                        <Receipt className="h-3 w-3" />
+                                        <span>Receipt</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            /* Friendly Empty State */
+                            <div className="text-center py-6 px-3">
+                              <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 mb-2">
+                                <Coffee className="h-5 w-5" />
+                              </div>
+                              <h4 className="text-xs font-bold text-stone-900 dark:text-stone-100">
+                                No Active Orders Yet
+                              </h4>
+                              <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-1 max-w-[240px] mx-auto leading-relaxed">
+                                Place your order for dine-in, pick-up, or delivery to see live kitchen preparation and serving alerts here!
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsCustomerNotificationsOpen(false);
+                                  onSetCustomerTab('menu');
+                                }}
+                                className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-bold text-stone-950 hover:bg-amber-400 shadow-2xs transition cursor-pointer"
+                              >
+                                <Utensils className="h-3.5 w-3.5" />
+                                <span>Browse Menu & Order</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Popover Footer Info */}
+                        <div className="mt-2.5 pt-2 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between text-[9px] text-stone-400">
+                          <span>Coffee at Yellow Hauz • Davao City</span>
+                          <span>Free High-Speed WiFi</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="hidden sm:flex items-center gap-1 sm:gap-1.5">
+                    <button
+                      id="customer-fullscreen-btn"
+                      type="button"
+                      onClick={toggleFullscreen}
+                      title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+                      className="flex items-center justify-center rounded-xl border border-stone-200 p-2 text-xs font-bold text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition cursor-pointer shadow-2xs active:scale-95"
+                    >
+                      {isFullscreen ? (
+                        <Minimize2 className="h-4 w-4 text-stone-700" />
+                      ) : (
+                        <Maximize2 className="h-4 w-4 text-stone-700" />
+                      )}
+                    </button>
+                    {activeCustomer ? (
+                      onCustomerLogout && (
                         <button
                           onClick={onCustomerLogout}
                           title="Sign Out of Customer Account"
@@ -770,18 +1192,18 @@ export const Navigation: React.FC<NavigationProps> = ({
                           <LogOut className="h-3.5 w-3.5" />
                           <span>Sign Out</span>
                         </button>
-                      )}
-                    </div>
-                  ) : (
-                    <button
-                      onClick={onCustomerLoginClick}
-                      title="Customer Sign In"
-                      className="hidden sm:flex items-center gap-1.5 rounded-xl bg-stone-900 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-stone-800 shadow-xs cursor-pointer"
-                    >
-                      <UserIcon className="h-3.5 w-3.5 text-amber-400" />
-                      <span>Customer Sign In</span>
-                    </button>
-                  )}
+                      )
+                    ) : (
+                      <button
+                        onClick={onCustomerLoginClick}
+                        title="Customer Sign In"
+                        className="hidden sm:flex items-center gap-1.5 rounded-xl bg-stone-900 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-stone-800 shadow-xs cursor-pointer"
+                      >
+                        <UserIcon className="h-3.5 w-3.5 text-amber-400" />
+                        <span>Customer Sign In</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               ) : activeStaff ? (
                 <div className="flex items-center gap-1 sm:gap-2">
@@ -793,7 +1215,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                       setNotificationInitialTab('all');
                       setIsStaffNotificationModalOpen(true);
                     }}
-                    className={`relative flex items-center gap-1 sm:gap-1.5 rounded-xl border px-2 sm:px-2.5 py-1.5 text-xs font-bold transition cursor-pointer shadow-2xs ${
+                    className={`relative flex items-center justify-center rounded-xl border p-2 sm:px-2.5 sm:py-1.5 transition cursor-pointer shadow-2xs ${
                       totalStaffNotificationsCount > 0
                         ? 'border-amber-400/90 bg-amber-50/90 text-stone-950 hover:bg-amber-100 ring-2 ring-amber-400/20'
                         : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100'
@@ -801,74 +1223,13 @@ export const Navigation: React.FC<NavigationProps> = ({
                     title={`Notifications (${totalStaffNotificationsCount} alerts)`}
                   >
                     <div className="relative">
-                      <Bell className={`h-4 w-4 ${totalStaffNotificationsCount > 0 ? 'text-amber-700 fill-amber-500' : 'text-stone-700'}`} />
+                      <Bell className={`h-4 w-4 sm:h-3.5 sm:w-3.5 ${totalStaffNotificationsCount > 0 ? 'text-amber-700 fill-amber-500' : 'text-stone-700'}`} />
                       {totalStaffNotificationsCount > 0 && (
                         <span className="absolute -top-1.5 -right-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-rose-600 px-0.5 text-[8px] font-black text-white ring-1 ring-white animate-pulse">
                           {totalStaffNotificationsCount}
                         </span>
                       )}
                     </div>
-                    <span className="font-bold hidden md:inline">Notifications</span>
-
-                    {/* Breakdown Badges on Desktop */}
-                    {totalStaffNotificationsCount > 0 ? (
-                      <div className="hidden xl:flex items-center gap-1 ml-0.5">
-                        {noStockCount > 0 && (
-                          <span
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setNotificationInitialTab('no_stock');
-                              setIsStaffNotificationModalOpen(true);
-                            }}
-                            className="rounded-full bg-rose-600 text-white px-1.5 py-0.2 text-[9px] font-black hover:opacity-90 transition"
-                            title={`${noStockCount} out of stock`}
-                          >
-                            {noStockCount} no stock
-                          </span>
-                        )}
-                        {lowStockCount > 0 && (
-                          <span
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setNotificationInitialTab('low_stock');
-                              setIsStaffNotificationModalOpen(true);
-                            }}
-                            className="rounded-full bg-amber-400 text-stone-950 px-1.5 py-0.2 text-[9px] font-black border border-amber-500/60 hover:opacity-90 transition"
-                            title={`${lowStockCount} low stock`}
-                          >
-                            {lowStockCount} low
-                          </span>
-                        )}
-                        {totalTableConfirmationsCount > 0 && (
-                          <span
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setNotificationInitialTab('table_confirm');
-                              setIsStaffNotificationModalOpen(true);
-                            }}
-                            className="rounded-full bg-indigo-600 text-white px-1.5 py-0.2 text-[9px] font-black hover:opacity-90 transition"
-                            title={`${totalTableConfirmationsCount} table confirmations`}
-                          >
-                            {totalTableConfirmationsCount} tables
-                          </span>
-                        )}
-                        {pendingOrderConfirmationsCount > 0 && (
-                          <span
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setNotificationInitialTab('order_confirm');
-                              setIsStaffNotificationModalOpen(true);
-                            }}
-                            className="rounded-full bg-emerald-600 text-white px-1.5 py-0.2 text-[9px] font-black hover:opacity-90 transition"
-                            title={`${pendingOrderConfirmationsCount} orders to confirm`}
-                          >
-                            {pendingOrderConfirmationsCount} orders
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="hidden lg:inline text-[10px] text-emerald-700 font-bold">Clear</span>
-                    )}
                   </button>
 
                   {/* Fullscreen Toggle Button beside Logout */}
@@ -877,16 +1238,13 @@ export const Navigation: React.FC<NavigationProps> = ({
                     type="button"
                     onClick={toggleFullscreen}
                     title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-                    className="flex items-center gap-1 rounded-xl border border-stone-200 p-2 sm:px-2.5 sm:py-1.5 text-xs font-bold text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition cursor-pointer shadow-2xs active:scale-95"
+                    className="flex items-center justify-center rounded-xl border border-stone-200 p-2 sm:px-2.5 sm:py-1.5 text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition cursor-pointer shadow-2xs active:scale-95"
                   >
                     {isFullscreen ? (
                       <Minimize2 className="h-4 w-4 sm:h-3.5 sm:w-3.5 text-stone-700" />
                     ) : (
                       <Maximize2 className="h-4 w-4 sm:h-3.5 sm:w-3.5 text-stone-700" />
                     )}
-                    <span className="hidden sm:inline">
-                      {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-                    </span>
                   </button>
 
                   <button
@@ -909,7 +1267,7 @@ export const Navigation: React.FC<NavigationProps> = ({
       <nav
         id="mobile-bottom-navbar"
         aria-label="Mobile Navigation"
-        className={`sm:hidden fixed bottom-0 left-0 right-0 z-40 backdrop-blur-md border-t px-1 py-1.5 safe-area-pb transition-colors duration-200 ${
+        className={`sm:hidden fixed bottom-0 left-0 right-0 z-50 backdrop-blur-md border-t px-1 py-1.5 safe-area-pb transition-colors duration-200 ${
           isDarkMode
             ? 'bg-[#181511]/95 border-[#2b251e] text-[#ede8d0] shadow-[0_-4px_20px_rgba(0,0,0,0.5)]'
             : 'bg-white/95 border-stone-200/90 text-stone-900 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]'
@@ -976,13 +1334,17 @@ export const Navigation: React.FC<NavigationProps> = ({
               id="mobile-nav-bag"
               onClick={onToggleCart}
               className={`relative flex flex-col items-center justify-center py-1 px-1 rounded-xl transition cursor-pointer ${
-                isDarkMode
+                isCustomerCartOpen
+                  ? isDarkMode
+                    ? 'text-white bg-[#78350f] font-extrabold shadow-2xs ring-1 ring-amber-500/40'
+                    : 'text-amber-950 bg-amber-200/90 font-extrabold shadow-2xs ring-1 ring-amber-400/50'
+                  : isDarkMode
                   ? 'text-stone-300 hover:text-amber-200 hover:bg-stone-800/60'
                   : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
               }`}
             >
               <div className="relative">
-                <ShoppingBag className={`h-4.5 w-4.5 ${isDarkMode ? 'text-stone-300' : 'text-stone-800'}`} />
+                <ShoppingBag className={`h-4.5 w-4.5 ${isCustomerCartOpen ? (isDarkMode ? 'text-white' : 'text-amber-900') : (isDarkMode ? 'text-stone-300' : 'text-stone-800')}`} />
                 {cartCount > 0 && (
                   <span className={`absolute -top-1.5 -right-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-1 text-[8px] font-black shadow-xs animate-in zoom-in duration-150 ${
                     isDarkMode ? 'bg-[#78350f] text-white' : 'bg-amber-500 text-stone-950'
@@ -1010,16 +1372,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                   : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
               }`}
             >
-              <div className="relative">
-                <ClipboardList className={`h-4.5 w-4.5 ${customerTab === 'orders' ? (isDarkMode ? 'text-white' : 'text-amber-800') : (isDarkMode ? 'text-stone-400' : 'text-stone-700')}`} />
-                {activeCustomerOrdersCount > 0 && (
-                  <span className={`absolute -top-1.5 -right-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-1 text-[8px] font-black shadow-xs animate-pulse ${
-                    isDarkMode ? 'bg-[#78350f] text-white' : 'bg-amber-500 text-stone-950'
-                  }`}>
-                    {activeCustomerOrdersCount}
-                  </span>
-                )}
-              </div>
+              <ClipboardList className={`h-4.5 w-4.5 ${customerTab === 'orders' ? (isDarkMode ? 'text-white' : 'text-amber-800') : (isDarkMode ? 'text-stone-400' : 'text-stone-700')}`} />
               <span className="text-[9px] leading-tight font-medium mt-0.5">Orders</span>
             </button>
 
@@ -1106,27 +1459,9 @@ export const Navigation: React.FC<NavigationProps> = ({
               </>
             ) : (
               <>
-                {/* Admin Dashboard */}
-                {activeStaff?.role === 'admin' && (
-                  <button
-                    onClick={() => onSetStaffTab('dashboard')}
-                    className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer min-w-[50px] ${
-                      staffTab === 'dashboard'
-                        ? isDarkMode
-                          ? 'text-white bg-[#78350f] font-extrabold shadow-2xs'
-                          : 'text-amber-900 bg-amber-100 font-extrabold shadow-2xs'
-                        : isDarkMode
-                        ? 'text-stone-400 hover:bg-stone-800/60'
-                        : 'text-stone-600 hover:bg-stone-100'
-                    }`}
-                  >
-                    <LayoutDashboard className="h-4 w-4" />
-                    <span className="text-[9px] leading-tight mt-0.5">Dash</span>
-                  </button>
-                )}
-
                 {/* POS / Register */}
                 <button
+                  id="mobile-nav-staff-pos"
                   onClick={() => onSetStaffTab('pos')}
                   className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer min-w-[50px] ${
                     staffTab === 'pos'
@@ -1139,11 +1474,12 @@ export const Navigation: React.FC<NavigationProps> = ({
                   }`}
                 >
                   <Monitor className="h-4 w-4" />
-                  <span className="text-[9px] leading-tight mt-0.5">POS</span>
+                  <span className="text-[9px] leading-tight mt-0.5">Cashier</span>
                 </button>
 
                 {/* Tables Floor Plan */}
                 <button
+                  id="mobile-nav-staff-tables"
                   onClick={() => onSetStaffTab('tables')}
                   className={`relative flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer min-w-[50px] ${
                     staffTab === 'tables'
@@ -1164,6 +1500,7 @@ export const Navigation: React.FC<NavigationProps> = ({
 
                 {/* Tickets */}
                 <button
+                  id="mobile-nav-staff-tickets"
                   onClick={() => onSetStaffTab('tickets')}
                   className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer min-w-[50px] ${
                     staffTab === 'tickets'
@@ -1182,6 +1519,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                 {/* Admin: Sales Reports */}
                 {activeStaff?.role === 'admin' && (
                   <button
+                    id="mobile-nav-admin-reports"
                     onClick={() => onSetStaffTab('reports')}
                     className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer min-w-[50px] ${
                       staffTab === 'reports'
@@ -1195,6 +1533,26 @@ export const Navigation: React.FC<NavigationProps> = ({
                   >
                     <BarChart3 className="h-4 w-4" />
                     <span className="text-[9px] leading-tight mt-0.5">Sales</span>
+                  </button>
+                )}
+
+                {/* Admin: Analytics */}
+                {activeStaff?.role === 'admin' && (
+                  <button
+                    id="mobile-nav-admin-analytics"
+                    onClick={() => onSetStaffTab('analytics')}
+                    className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer min-w-[50px] ${
+                      staffTab === 'analytics'
+                        ? isDarkMode
+                          ? 'text-white bg-[#78350f] font-extrabold shadow-2xs'
+                          : 'text-amber-900 bg-amber-100 font-extrabold shadow-2xs'
+                        : isDarkMode
+                        ? 'text-stone-400 hover:bg-stone-800/60'
+                        : 'text-stone-600 hover:bg-stone-100'
+                    }`}
+                  >
+                    <TrendingUp className="h-4 w-4 text-black" />
+                    <span className="text-[9px] leading-tight mt-0.5">Analytics</span>
                   </button>
                 )}
 
@@ -1214,15 +1572,6 @@ export const Navigation: React.FC<NavigationProps> = ({
                     }`}
                   >
                     <Package className="h-4 w-4" />
-                    {pendingRefillCount > 0 ? (
-                      <span className="absolute -top-1 right-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-rose-500 px-0.5 text-[8px] font-black text-white animate-pulse">
-                        {pendingRefillCount}
-                      </span>
-                    ) : lowStockCount > 0 ? (
-                      <span className={`absolute -top-1 right-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[8px] font-black ${isDarkMode ? 'bg-[#78350f] text-white' : 'bg-amber-400 text-stone-950'}`}>
-                        {lowStockCount}
-                      </span>
-                    ) : null}
                     <span className="text-[9px] leading-tight mt-0.5">Inventory</span>
                   </button>
                 ) : (
@@ -1498,8 +1847,8 @@ export const Navigation: React.FC<NavigationProps> = ({
                         <Bot className="h-4 w-4" />
                       </div>
                       <div className="text-left">
-                        <div className="text-xs font-bold">AI Barista & Store Assistant</div>
-                        <div className={`text-[11px] ${isDarkMode ? 'text-stone-400' : 'text-stone-500'}`}>Ask about brews, specialty beans, menu pairing</div>
+                        <div className="text-xs font-bold">Yellow Hauz Concierge &amp; AI Barista</div>
+                        <div className={`text-[11px] ${isDarkMode ? 'text-stone-400' : 'text-stone-500'}`}>Guest menu recommendations, drink pairings &amp; venue booking</div>
                       </div>
                     </button>
 

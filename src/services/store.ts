@@ -9,6 +9,7 @@ import {
   CustomerAccount,
   StoreSettings,
   ChatIntent,
+  ChatbotCustomerResult,
   Discount,
   TableBinding,
   GuestOrderRecord,
@@ -38,6 +39,7 @@ import {
   deleteDoc,
   onSnapshot,
 } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from './firebaseErrors';
 
 // Empty initial collections for fresh 0-data zeroed state
 const INITIAL_ORDERS: Order[] = [];
@@ -189,6 +191,8 @@ const STORAGE_KEYS = {
   ACTIVE_STAFF: 'yh_active_staff',
   ACTIVE_CUSTOMER: 'yh_active_customer',
   ACTIVE_TABLE_BINDING: 'yh_active_table_binding',
+  FAVORITES: 'yh_customer_favorites',
+  LIKES: 'yh_customer_likes',
   DISCOUNTS: 'yh_discounts',
   TABLE_REQUESTS: 'yh_table_requests',
   CLIENT_SESSION_ID: 'yh_client_session_id',
@@ -349,208 +353,304 @@ export class AppStore {
     if (this.isInitialized) return;
     this.isInitialized = true;
 
+    // Immediately synchronize local catalog images with updated assets
+    try {
+      this.syncCatalogImages();
+    } catch {
+      // Ignore sync error during bootstrap
+    }
+
     try {
       // 1. Listen to Categories
-      onSnapshot(collection(db, 'categories'), (snapshot) => {
-        if (!snapshot.empty) {
-          const cats = snapshot.docs.map((doc) => doc.data() as Category);
-          cats.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-          setStored(STORAGE_KEYS.CATEGORIES, cats);
-          this.notify();
-        } else {
-          // Seed categories to Firestore
-          SEED_CATEGORIES.forEach((cat) => {
-            setDoc(doc(db, 'categories', String(cat.id)), cleanForFirestore(cat)).catch(() => {});
-          });
+      onSnapshot(
+        collection(db, 'categories'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const cats = snapshot.docs.map((doc) => doc.data() as Category);
+            cats.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+            setStored(STORAGE_KEYS.CATEGORIES, cats);
+            this.notify();
+          } else {
+            // Seed categories to Firestore
+            SEED_CATEGORIES.forEach((cat) => {
+              setDoc(doc(db, 'categories', String(cat.id)), cleanForFirestore(cat)).catch(() => {});
+            });
+          }
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, 'categories');
         }
-      });
+      );
 
       // 2. Listen to Menu Items
-      onSnapshot(collection(db, 'menu_items'), (snapshot) => {
-        if (!snapshot.empty) {
-          const items = snapshot.docs.map((doc) => doc.data() as MenuItem);
-          // Ensure any new seed items are synced
-          const existingIds = new Set(items.map((i) => i.id));
-          const missingSeedItems = SEED_MENU_ITEMS.filter((s) => !existingIds.has(s.id));
-          if (missingSeedItems.length > 0) {
-            missingSeedItems.forEach((item) => {
-              items.push(item);
+      onSnapshot(
+        collection(db, 'menu_items'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const items = snapshot.docs.map((doc) => doc.data() as MenuItem);
+            const seedMap = new Map(SEED_MENU_ITEMS.map((s) => [s.id, s]));
+
+            // Ensure any new seed items are synced
+            const existingIds = new Set(items.map((i) => i.id));
+            const missingSeedItems = SEED_MENU_ITEMS.filter((s) => !existingIds.has(s.id));
+            if (missingSeedItems.length > 0) {
+              missingSeedItems.forEach((item) => {
+                items.push(item);
+                setDoc(doc(db, 'menu_items', String(item.id)), cleanForFirestore(item)).catch(() => {});
+              });
+            }
+
+            // Ensure items use updated images from local food_and_drinks_images catalog
+            items.forEach((item) => {
+              const seed = seedMap.get(item.id);
+              if (seed && seed.imageUrl && seed.imageUrl.startsWith('/images/') && item.imageUrl !== seed.imageUrl) {
+                item.imageUrl = seed.imageUrl;
+                setDoc(doc(db, 'menu_items', String(item.id)), cleanForFirestore(item)).catch(() => {});
+              }
+            });
+
+            items.sort((a, b) => a.id - b.id);
+            setStored(STORAGE_KEYS.ITEMS, items);
+            this.notify();
+          } else {
+            // Seed menu items
+            SEED_MENU_ITEMS.forEach((item) => {
               setDoc(doc(db, 'menu_items', String(item.id)), cleanForFirestore(item)).catch(() => {});
             });
           }
-          items.sort((a, b) => a.id - b.id);
-          setStored(STORAGE_KEYS.ITEMS, items);
-          this.notify();
-        } else {
-          // Seed menu items
-          SEED_MENU_ITEMS.forEach((item) => {
-            setDoc(doc(db, 'menu_items', String(item.id)), cleanForFirestore(item)).catch(() => {});
-          });
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, 'menu_items');
         }
-      });
+      );
 
       // 3. Listen to Tables
-      onSnapshot(collection(db, 'tables'), (snapshot) => {
-        if (!snapshot.empty) {
-          const tables = snapshot.docs.map((doc) => doc.data() as Table);
-          tables.sort((a, b) => a.tableNumber - b.tableNumber);
-          setStored(STORAGE_KEYS.TABLES, tables);
-          this.notify();
-        } else {
-          // Seed tables
-          SEED_TABLES.forEach((table) => {
-            setDoc(doc(db, 'tables', String(table.id)), cleanForFirestore(table)).catch(() => {});
-          });
-        }
-      });
-
-      // 4. Listen to Orders
-      onSnapshot(collection(db, 'orders'), (snapshot) => {
-        if (!snapshot.empty) {
-          const orders = snapshot.docs.map((doc) => doc.data() as Order);
-          orders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-          setStored(STORAGE_KEYS.ORDERS, orders);
-        } else {
-          setStored(STORAGE_KEYS.ORDERS, []);
-        }
-        this.notify();
-      });
-
-      // 5. Listen to Reservations
-      onSnapshot(collection(db, 'reservations'), (snapshot) => {
-        if (!snapshot.empty) {
-          const resList = snapshot.docs.map((doc) => doc.data() as Reservation);
-          resList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-          setStored(STORAGE_KEYS.RESERVATIONS, resList);
-        } else {
-          setStored(STORAGE_KEYS.RESERVATIONS, []);
-        }
-        this.notify();
-      });
-
-      // 6. Listen to Store Settings
-      onSnapshot(collection(db, 'settings'), (snapshot) => {
-        if (!snapshot.empty) {
-          const settingsDoc = snapshot.docs.find((d) => d.id === 'general');
-          if (settingsDoc) {
-            const settings = settingsDoc.data() as StoreSettings;
-            setStored(STORAGE_KEYS.SETTINGS, settings);
+      onSnapshot(
+        collection(db, 'tables'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const tables = snapshot.docs.map((doc) => doc.data() as Table);
+            tables.sort((a, b) => a.tableNumber - b.tableNumber);
+            const needsMigration = tables.length < 10 || !tables.some((t) => t.name);
+            if (needsMigration) {
+              const merged = SEED_TABLES.map((seed) => {
+                const existing = tables.find((t) => t.tableNumber === seed.tableNumber);
+                return existing
+                  ? { ...seed, status: existing.status, currentOrderId: existing.currentOrderId }
+                  : seed;
+              });
+              setStored(STORAGE_KEYS.TABLES, merged);
+              merged.forEach((t) => {
+                setDoc(doc(db, 'tables', String(t.id)), cleanForFirestore(t)).catch(() => {});
+              });
+              this.notify();
+              return;
+            }
+            setStored(STORAGE_KEYS.TABLES, tables);
+            this.notify();
+          } else {
+            // Seed tables
+            SEED_TABLES.forEach((table) => {
+              setDoc(doc(db, 'tables', String(table.id)), cleanForFirestore(table)).catch(() => {});
+            });
+            setStored(STORAGE_KEYS.TABLES, SEED_TABLES);
             this.notify();
           }
-        } else {
-          setDoc(doc(db, 'settings', 'general'), cleanForFirestore(SEED_SETTINGS)).catch(() => {});
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, 'tables');
         }
-      });
+      );
+
+      // 4. Listen to Orders
+      onSnapshot(
+        collection(db, 'orders'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const orders = snapshot.docs.map((doc) => doc.data() as Order);
+            orders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            setStored(STORAGE_KEYS.ORDERS, orders);
+          } else {
+            setStored(STORAGE_KEYS.ORDERS, []);
+          }
+          this.notify();
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, 'orders');
+        }
+      );
+
+      // 5. Listen to Reservations
+      onSnapshot(
+        collection(db, 'reservations'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const resList = snapshot.docs.map((doc) => doc.data() as Reservation);
+            resList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            setStored(STORAGE_KEYS.RESERVATIONS, resList);
+          } else {
+            setStored(STORAGE_KEYS.RESERVATIONS, []);
+          }
+          this.notify();
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, 'reservations');
+        }
+      );
+
+      // 6. Listen to Store Settings
+      onSnapshot(
+        collection(db, 'settings'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const settingsDoc = snapshot.docs.find((d) => d.id === 'general');
+            if (settingsDoc) {
+              const settings = settingsDoc.data() as StoreSettings;
+              setStored(STORAGE_KEYS.SETTINGS, settings);
+              this.notify();
+            }
+          } else {
+            setDoc(doc(db, 'settings', 'general'), cleanForFirestore(SEED_SETTINGS)).catch(() => {});
+          }
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, 'settings');
+        }
+      );
 
       // 7. Listen to Users
-      onSnapshot(collection(db, 'users'), (snapshot) => {
-        if (!snapshot.empty) {
-          const rawUsers = snapshot.docs.map((doc) => {
-            const u = doc.data() as User;
-            if (u.fullName === 'System Administrator') {
-              u.fullName = 'Admin';
-            }
-            if ((u as any).role === 'chef') {
-              u.role = 'cook';
-            }
-            // Auto-pad or convert legacy 4-digit PINs to 8 digits if present
-            if (u.pin && u.pin.length === 4) {
-              if (u.role === 'admin' && u.pin === '1234') {
-                u.pin = '12345678';
-              } else if (u.pin === '0000') {
-                u.pin = '00000000';
-              } else {
-                u.pin = u.pin.repeat(2);
+      onSnapshot(
+        collection(db, 'users'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const rawUsers = snapshot.docs.map((doc) => {
+              const u = doc.data() as User;
+              if (u.fullName === 'System Administrator') {
+                u.fullName = 'Admin';
               }
-            } else if (!u.pin) {
-              u.pin =
-                u.role === 'admin'
-                  ? '12345678'
-                  : u.role === 'cook'
-                  ? '55667788'
-                  : u.role === 'barista'
-                  ? '33445566'
-                  : '00000000';
-            }
-            return u;
-          });
+              if ((u as any).role === 'chef') {
+                u.role = 'cook';
+              }
+              // Auto-pad or convert legacy 4-digit PINs to 8 digits if present
+              if (u.pin && u.pin.length === 4) {
+                if (u.role === 'admin' && u.pin === '1234') {
+                  u.pin = '12345678';
+                } else if (u.pin === '0000') {
+                  u.pin = '00000000';
+                } else {
+                  u.pin = u.pin.repeat(2);
+                }
+              } else if (!u.pin) {
+                u.pin =
+                  u.role === 'admin'
+                    ? '12345678'
+                    : u.role === 'cook'
+                    ? '55667788'
+                    : u.role === 'barista'
+                    ? '33445566'
+                    : '00000000';
+              }
+              return u;
+            });
 
-          // Deduplicate by id and username
-          const userMap = new Map<string, User>();
-          rawUsers.forEach((u) => {
-            const uKey = (u.username || u.fullName || String(u.id)).toLowerCase().trim();
-            if (!userMap.has(uKey)) {
-              userMap.set(uKey, u);
-            }
-          });
+            // Deduplicate by id and username
+            const userMap = new Map<string, User>();
+            rawUsers.forEach((u) => {
+              const uKey = (u.username || u.fullName || String(u.id)).toLowerCase().trim();
+              if (!userMap.has(uKey)) {
+                userMap.set(uKey, u);
+              }
+            });
 
-          // Ensure any default seed users (e.g. cook) are present
-          SEED_USERS.forEach((seedU) => {
-            const uKey = seedU.username.toLowerCase().trim();
-            if (!userMap.has(uKey)) {
-              userMap.set(uKey, seedU);
-              setDoc(doc(db, 'users', String(seedU.id)), cleanForFirestore(seedU)).catch(() => {});
-            }
-          });
+            // Ensure any default seed users (e.g. cook) are present
+            SEED_USERS.forEach((seedU) => {
+              const uKey = seedU.username.toLowerCase().trim();
+              if (!userMap.has(uKey)) {
+                userMap.set(uKey, seedU);
+                setDoc(doc(db, 'users', String(seedU.id)), cleanForFirestore(seedU)).catch(() => {});
+              }
+            });
 
-          const users = Array.from(userMap.values());
-          setStored(STORAGE_KEYS.USERS, users);
-          this.notify();
-        } else {
-          SEED_USERS.forEach((u) => {
-            setDoc(doc(db, 'users', String(u.id)), cleanForFirestore(u)).catch(() => {});
-          });
-        }
-      });
-
-      // 8. Listen to Discounts & Coupons
-      onSnapshot(collection(db, 'discounts'), (snapshot) => {
-        if (!snapshot.empty) {
-          const list = snapshot.docs.map((doc) => doc.data() as Discount);
-          const existingIds = new Set(list.map((d) => d.id));
-          DEFAULT_DISCOUNTS.forEach((def) => {
-            if (!existingIds.has(def.id)) {
-              list.push(def);
-            }
-          });
-          setStored(STORAGE_KEYS.DISCOUNTS, list);
-          this.notify();
-        } else {
-          DEFAULT_DISCOUNTS.forEach((d) => {
-            setDoc(doc(db, 'discounts', d.id), cleanForFirestore(d)).catch(() => {});
-          });
-        }
-      });
-
-      // 9. Listen to Live Table Requests (Customer selection & Cashier confirmation)
-      onSnapshot(collection(db, 'table_requests'), (snapshot) => {
-        if (!snapshot.empty) {
-          const list = snapshot.docs.map((doc) => doc.data() as TableRequest);
-          list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-          setStored(STORAGE_KEYS.TABLE_REQUESTS, list);
-        } else {
-          setStored(STORAGE_KEYS.TABLE_REQUESTS, []);
-        }
-        this.notify();
-      });
-
-      // 10. Listen to Refill Suggestions (Cashier, Cook, Barista -> Admin confirmation)
-      onSnapshot(collection(db, 'refill_requests'), (snapshot) => {
-        if (!snapshot.empty) {
-          const list = snapshot.docs.map((doc) => doc.data() as RefillRequest);
-          list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-          setStored(STORAGE_KEYS.REFILL_REQUESTS, list);
-        } else {
-          const existing = getStored<RefillRequest[]>(STORAGE_KEYS.REFILL_REQUESTS, []);
-          if (existing.length === 0) {
-            setStored(STORAGE_KEYS.REFILL_REQUESTS, SEED_REFILL_REQUESTS);
-            SEED_REFILL_REQUESTS.forEach((req) => {
-              setDoc(doc(db, 'refill_requests', req.id), cleanForFirestore(req)).catch(() => {});
+            const users = Array.from(userMap.values());
+            setStored(STORAGE_KEYS.USERS, users);
+            this.notify();
+          } else {
+            SEED_USERS.forEach((u) => {
+              setDoc(doc(db, 'users', String(u.id)), cleanForFirestore(u)).catch(() => {});
             });
           }
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, 'users');
         }
-        this.notify();
-      });
+      );
+
+      // 8. Listen to Discounts & Coupons
+      onSnapshot(
+        collection(db, 'discounts'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const list = snapshot.docs.map((doc) => doc.data() as Discount);
+            const existingIds = new Set(list.map((d) => d.id));
+            DEFAULT_DISCOUNTS.forEach((def) => {
+              if (!existingIds.has(def.id)) {
+                list.push(def);
+              }
+            });
+            setStored(STORAGE_KEYS.DISCOUNTS, list);
+            this.notify();
+          } else {
+            DEFAULT_DISCOUNTS.forEach((d) => {
+              setDoc(doc(db, 'discounts', d.id), cleanForFirestore(d)).catch(() => {});
+            });
+          }
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, 'discounts');
+        }
+      );
+
+      // 9. Listen to Live Table Requests (Customer selection & Cashier confirmation)
+      onSnapshot(
+        collection(db, 'table_requests'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const list = snapshot.docs.map((doc) => doc.data() as TableRequest);
+            list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            setStored(STORAGE_KEYS.TABLE_REQUESTS, list);
+          } else {
+            setStored(STORAGE_KEYS.TABLE_REQUESTS, []);
+          }
+          this.notify();
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, 'table_requests');
+        }
+      );
+
+      // 10. Listen to Refill Suggestions (Cashier, Cook, Barista -> Admin confirmation)
+      onSnapshot(
+        collection(db, 'refill_requests'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const list = snapshot.docs.map((doc) => doc.data() as RefillRequest);
+            list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            setStored(STORAGE_KEYS.REFILL_REQUESTS, list);
+          } else {
+            const existing = getStored<RefillRequest[]>(STORAGE_KEYS.REFILL_REQUESTS, []);
+            if (existing.length === 0) {
+              setStored(STORAGE_KEYS.REFILL_REQUESTS, SEED_REFILL_REQUESTS);
+              SEED_REFILL_REQUESTS.forEach((req) => {
+                setDoc(doc(db, 'refill_requests', req.id), cleanForFirestore(req)).catch(() => {});
+              });
+            }
+          }
+          this.notify();
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, 'refill_requests');
+        }
+      );
     } catch (err) {
       console.warn('Firebase sync initialization notice:', err);
     }
@@ -632,15 +732,48 @@ export class AppStore {
   // Menu Items
   static getMenuItems(): MenuItem[] {
     const items = getStored<MenuItem[]>(STORAGE_KEYS.ITEMS, SEED_MENU_ITEMS);
+    const seedMap = new Map(SEED_MENU_ITEMS.map((s) => [s.id, s]));
+    let modified = false;
+
+    // Synchronize updated image paths from the seed catalog
+    items.forEach((item) => {
+      const seed = seedMap.get(item.id);
+      if (seed && seed.imageUrl && seed.imageUrl.startsWith('/images/') && item.imageUrl !== seed.imageUrl) {
+        item.imageUrl = seed.imageUrl;
+        modified = true;
+      }
+    });
+
     const existingIds = new Set(items.map((i) => i.id));
     const missing = SEED_MENU_ITEMS.filter((s) => !existingIds.has(s.id));
     if (missing.length > 0) {
-      const merged = [...items, ...missing];
-      merged.sort((a, b) => a.id - b.id);
-      setStored(STORAGE_KEYS.ITEMS, merged);
-      return merged;
+      items.push(...missing);
+      items.sort((a, b) => a.id - b.id);
+      modified = true;
+    }
+    if (modified) {
+      setStored(STORAGE_KEYS.ITEMS, items);
     }
     return items;
+  }
+
+  static syncCatalogImages(): number {
+    const items = this.getMenuItems();
+    const seedMap = new Map(SEED_MENU_ITEMS.map((s) => [s.id, s]));
+    let count = 0;
+    items.forEach((item) => {
+      const seed = seedMap.get(item.id);
+      if (seed && seed.imageUrl && seed.imageUrl.startsWith('/images/') && item.imageUrl !== seed.imageUrl) {
+        item.imageUrl = seed.imageUrl;
+        count++;
+        setDoc(doc(db, 'menu_items', String(item.id)), cleanForFirestore(item)).catch(() => {});
+      }
+    });
+    if (count > 0) {
+      setStored(STORAGE_KEYS.ITEMS, items);
+      this.notify();
+    }
+    return count;
   }
 
   static saveMenuItems(items: MenuItem[]): void {
@@ -883,7 +1016,27 @@ export class AppStore {
 
   // Floor plan tables
   static getTables(): Table[] {
-    return getStored<Table[]>(STORAGE_KEYS.TABLES, SEED_TABLES);
+    const tables = getStored<Table[]>(STORAGE_KEYS.TABLES, SEED_TABLES);
+    if (!tables || tables.length < 10 || !tables.some((t) => t.name)) {
+      const merged = SEED_TABLES.map((seed) => {
+        const existing = tables?.find((t) => t.tableNumber === seed.tableNumber);
+        return existing
+          ? { ...seed, status: existing.status, currentOrderId: existing.currentOrderId }
+          : seed;
+      });
+      setStored(STORAGE_KEYS.TABLES, merged);
+      return merged;
+    }
+    return tables;
+  }
+
+  static resetToOfficialTables(): Table[] {
+    setStored(STORAGE_KEYS.TABLES, SEED_TABLES);
+    this.notify();
+    SEED_TABLES.forEach((table) => {
+      setDoc(doc(db, 'tables', String(table.id)), cleanForFirestore(table)).catch(() => {});
+    });
+    return SEED_TABLES;
   }
 
   static saveTables(tables: Table[]): void {
@@ -1712,13 +1865,106 @@ export class AppStore {
     return getStored<CustomerAccount | null>(STORAGE_KEYS.ACTIVE_CUSTOMER, null);
   }
 
+  static saveCustomerAccount(customer: CustomerAccount): void {
+    const customers = getStored<CustomerAccount[]>(STORAGE_KEYS.CUSTOMERS, []);
+    const idx = customers.findIndex(
+      (c) => c.id === customer.id || (c.email && customer.email && c.email.toLowerCase() === customer.email.toLowerCase())
+    );
+    if (idx >= 0) {
+      customers[idx] = customer;
+    } else {
+      customers.push(customer);
+    }
+    setStored(STORAGE_KEYS.CUSTOMERS, customers);
+  }
+
   static setActiveCustomer(cust: CustomerAccount | null): void {
+    if (cust) {
+      // Merge guest favorites and likes if not present on account
+      const guestFavs = getStored<number[]>(STORAGE_KEYS.FAVORITES, []);
+      const guestLikes = getStored<number[]>(STORAGE_KEYS.LIKES, []);
+      const mergedFavs = Array.from(new Set([...(cust.favoriteItemIds || []), ...guestFavs]));
+      const mergedLikes = Array.from(new Set([...(cust.likedItemIds || []), ...guestLikes]));
+      cust = {
+        ...cust,
+        favoriteItemIds: mergedFavs,
+        likedItemIds: mergedLikes,
+      };
+      setStored(STORAGE_KEYS.FAVORITES, mergedFavs);
+      setStored(STORAGE_KEYS.LIKES, mergedLikes);
+      this.saveCustomerAccount(cust);
+    }
     setStored(STORAGE_KEYS.ACTIVE_CUSTOMER, cust);
     if (cust) {
       // If customer signs up or signs in, link any guest orders to their account so it is saved permanently
       this.linkGuestOrdersToCustomer(cust.id, cust.fullName, cust.contactNumber);
     }
     this.notify();
+  }
+
+  // Customer Favorites & Liked Items Management
+  static getCustomerFavorites(customerId?: number): number[] {
+    const active = this.getActiveCustomer();
+    if (customerId && active && active.id === customerId && Array.isArray(active.favoriteItemIds)) {
+      return active.favoriteItemIds;
+    }
+    if (active && Array.isArray(active.favoriteItemIds) && active.favoriteItemIds.length > 0) {
+      return active.favoriteItemIds;
+    }
+    return getStored<number[]>(STORAGE_KEYS.FAVORITES, []);
+  }
+
+  static toggleCustomerFavorite(itemId: number, customerId?: number): { isFavorite: boolean; favoriteItemIds: number[] } {
+    let favs = this.getCustomerFavorites(customerId);
+    const exists = favs.includes(itemId);
+    if (exists) {
+      favs = favs.filter((id) => id !== itemId);
+    } else {
+      favs = [...favs, itemId];
+    }
+
+    setStored(STORAGE_KEYS.FAVORITES, favs);
+
+    const active = this.getActiveCustomer();
+    if (active) {
+      const updated: CustomerAccount = { ...active, favoriteItemIds: favs };
+      setStored(STORAGE_KEYS.ACTIVE_CUSTOMER, updated);
+      this.saveCustomerAccount(updated);
+    }
+    this.notify();
+    return { isFavorite: !exists, favoriteItemIds: favs };
+  }
+
+  static getCustomerLikes(customerId?: number): number[] {
+    const active = this.getActiveCustomer();
+    if (customerId && active && active.id === customerId && Array.isArray(active.likedItemIds)) {
+      return active.likedItemIds;
+    }
+    if (active && Array.isArray(active.likedItemIds) && active.likedItemIds.length > 0) {
+      return active.likedItemIds;
+    }
+    return getStored<number[]>(STORAGE_KEYS.LIKES, []);
+  }
+
+  static toggleCustomerLike(itemId: number, customerId?: number): { isLiked: boolean; likedItemIds: number[] } {
+    let likes = this.getCustomerLikes(customerId);
+    const exists = likes.includes(itemId);
+    if (exists) {
+      likes = likes.filter((id) => id !== itemId);
+    } else {
+      likes = [...likes, itemId];
+    }
+
+    setStored(STORAGE_KEYS.LIKES, likes);
+
+    const active = this.getActiveCustomer();
+    if (active) {
+      const updated: CustomerAccount = { ...active, likedItemIds: likes };
+      setStored(STORAGE_KEYS.ACTIVE_CUSTOMER, updated);
+      this.saveCustomerAccount(updated);
+    }
+    this.notify();
+    return { isLiked: !exists, likedItemIds: likes };
   }
 
   // Guest Order Tracking & Session Management
@@ -2165,23 +2411,28 @@ export class AppStore {
     return null;
   }
 
-  // Chatbot Logic
-  static getChatbotResponse(userMessage: string): string {
+  // Chatbot Customer Concierge Logic
+  static getChatbotCustomerResponse(userMessage: string): ChatbotCustomerResult {
     const lower = userMessage.toLowerCase().trim();
-    if (!lower) return 'How can I help you today with Yellow Hauz orders, menu, or tables?';
-
-    // Check intents by exact pattern or keywords
-    for (const intent of SEED_INTENTS) {
-      if (intent.patterns.some((p) => lower.includes(p.toLowerCase()))) {
-        return intent.response;
-      }
+    if (!lower) {
+      return {
+        reply: 'Hi! ☕ How can I treat you today? You can ask me for coffee recommendations, comfort food, table reservations, or our Private Venue rental!',
+        suggestedAction: 'menu',
+        source: 'local',
+      };
     }
 
-    // Check by keyword count
+    const allItems = this.getMenuItems();
+
+    // Check intents by exact pattern or keywords
     let bestMatch: ChatIntent | null = null;
     let maxMatches = 0;
 
     for (const intent of SEED_INTENTS) {
+      if (intent.patterns.some((p) => lower.includes(p.toLowerCase()))) {
+        bestMatch = intent;
+        break;
+      }
       let count = 0;
       for (const kw of intent.keywords) {
         if (lower.includes(kw.toLowerCase())) count++;
@@ -2192,13 +2443,84 @@ export class AppStore {
       }
     }
 
-    if (bestMatch && maxMatches > 0) {
-      return bestMatch.response;
+    // Resolve recommended menu items if specified by intent
+    let recommendedItems: MenuItem[] = [];
+    if (bestMatch?.recommendedItemIds && bestMatch.recommendedItemIds.length > 0) {
+      recommendedItems = allItems.filter(
+        (item) => bestMatch?.recommendedItemIds?.includes(item.id) && item.isAvailable
+      );
     }
 
-    return (
-      "I'm here to assist with Coffee at Yellow Hauz! You can ask me about our menu best sellers, table reservations, how to process cash/GCash/card payments, apply Senior/PWD 20% discounts, view sales reports, or check operating hours (7:00 AM - 10:00 PM)."
-    );
+    // If no direct intent items, check if the user is asking for specific food/drink terms
+    if (recommendedItems.length === 0) {
+      const matched = allItems.filter(
+        (item) =>
+          item.isAvailable &&
+          (lower.includes(item.name.toLowerCase()) ||
+            (item.description && lower.includes(item.description.toLowerCase().slice(0, 15))))
+      );
+      if (matched.length > 0) {
+        recommendedItems = matched.slice(0, 4);
+      }
+    }
+
+    if (bestMatch) {
+      return {
+        reply: bestMatch.response,
+        recommendedItems: recommendedItems.length > 0 ? recommendedItems : undefined,
+        suggestedAction: bestMatch.suggestedAction || 'none',
+        source: 'local',
+      };
+    }
+
+    // Fallback default response tailored purely for customer
+    const topPicks = allItems.filter((i) => i.isBestSeller && i.isAvailable).slice(0, 4);
+    return {
+      reply:
+        "I'm delighted to assist you at Coffee at Yellow Hauz! ☕ You can ask me for drink recommendations (sweet or bold coffee, iced favorites, milk teas), hearty meals (Pork Adobo Flakes, pastas, sandwiches), table reservations, our ₱300/3hr Private Venue, discounts (20% Senior/PWD), or our operating hours (7:00 AM - 10:00 PM).",
+      recommendedItems: topPicks.length > 0 ? topPicks : undefined,
+      suggestedAction: 'menu',
+      source: 'local',
+    };
+  }
+
+  static getChatbotResponse(userMessage: string): string {
+    return this.getChatbotCustomerResponse(userMessage).reply;
+  }
+
+  static async askCustomerAssistant(
+    userMessage: string,
+    context?: { customerName?: string; tableNumber?: number | null }
+  ): Promise<ChatbotCustomerResult> {
+    const localResult = this.getChatbotCustomerResponse(userMessage);
+
+    try {
+      const res = await fetch('/api/chat/assistant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMessage,
+          customerName: context?.customerName,
+          tableNumber: context?.tableNumber,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.reply) {
+          return {
+            reply: data.reply,
+            recommendedItems: localResult.recommendedItems,
+            suggestedAction: localResult.suggestedAction,
+            source: 'gemini',
+          };
+        }
+      }
+    } catch {
+      // Network or API failure: graceful fallback to comprehensive local customer engine
+    }
+
+    return localResult;
   }
 
   // Discounts & Coupons
@@ -2323,6 +2645,8 @@ export class AppStore {
       setStored(STORAGE_KEYS.TABLE_REQUESTS, []);
       setStored(STORAGE_KEYS.ACTIVE_CUSTOMER, null);
       setStored(STORAGE_KEYS.ACTIVE_TABLE_BINDING, null);
+      setStored(STORAGE_KEYS.FAVORITES, []);
+      setStored(STORAGE_KEYS.LIKES, []);
 
       try {
         localStorage.removeItem('yh_customer_cart');

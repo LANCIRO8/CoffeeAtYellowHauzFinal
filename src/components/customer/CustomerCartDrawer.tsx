@@ -285,7 +285,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
           id="cart-drawer-backdrop"
           aria-hidden="true"
           onClick={onClose}
-          className="fixed inset-0 z-40 bg-stone-950/30 backdrop-blur-xs transition-opacity duration-300 animate-in fade-in cursor-pointer"
+          className="fixed inset-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] sm:bottom-0 z-40 bg-stone-950/30 backdrop-blur-xs transition-opacity duration-300 animate-in fade-in cursor-pointer"
         />
       )}
 
@@ -293,7 +293,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
       <aside
         ref={drawerRef}
         aria-label="Customer Order Cart"
-        className={`fixed top-0 right-0 bottom-0 z-50 w-full sm:w-[390px] md:w-[420px] bg-white border-l border-stone-200/90 shadow-[-12px_0_30px_rgba(0,0,0,0.18)] flex flex-col transition-transform duration-300 ease-in-out font-sans ${
+        className={`fixed top-0 right-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] sm:bottom-0 z-40 sm:z-50 w-full sm:w-[390px] md:w-[420px] bg-white border-l border-stone-200/90 shadow-[-12px_0_30px_rgba(0,0,0,0.18)] flex flex-col transition-transform duration-300 ease-in-out font-sans ${
           isOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
         }`}
       >
@@ -346,12 +346,12 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
           ) : (
             <div className="flex items-center gap-1.5 text-stone-700 font-medium">
               <Globe className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-600" />
-              <span>Online Order</span>
+              <span>Online Order • Table Selection at Checkout</span>
             </div>
           )}
           {!activeTableBinding && (
             <span className="text-[9px] sm:text-[10px] uppercase font-extrabold text-amber-800 tracking-wider">
-              Advance Booking
+              Dine-In / Online
             </span>
           )}
         </div>
@@ -527,11 +527,14 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                 </span>
               </div>
               <div className="flex justify-between items-center text-[10px] sm:text-[11px] text-stone-500">
-                <span>VAT ({taxRate}% inclusive):</span>
+                <span>
+                  <span className="sm:hidden">VAT ({taxRate}%):</span>
+                  <span className="hidden sm:inline">VAT ({taxRate}% inclusive):</span>
+                </span>
                 <span className="font-mono">₱{taxAmount.toFixed(2)}</span>
               </div>
               <div className="flex justify-between items-center text-xs sm:text-sm font-bold text-stone-900 pt-1.5 sm:pt-2 border-t border-stone-200">
-                <span className="font-display">Total Due:</span>
+                <span className="font-display">Total:</span>
                 <span className="font-mono text-sm sm:text-base font-extrabold text-amber-700">
                   ₱{totalAmount.toFixed(2)}
                 </span>
@@ -598,11 +601,13 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                 {!activeTableBinding && !activeCustomer ? (
                   <>
                     <Lock className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    <span>Log In to Checkout</span>
+                    <span className="sm:hidden">Log In</span>
+                    <span className="hidden sm:inline">Log In to Checkout</span>
                   </>
                 ) : (
                   <>
-                    <span>Proceed to Checkout</span>
+                    <span className="sm:hidden">Checkout</span>
+                    <span className="hidden sm:inline">Proceed to Checkout</span>
                     <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   </>
                 )}

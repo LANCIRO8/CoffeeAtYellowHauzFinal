@@ -261,7 +261,7 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
               <div className="flex items-center justify-between text-stone-600">
                 <span className="font-medium">Table Area:</span>
                 <span className="font-bold text-stone-900">
-                  {currentRequest.area === 'airconditioned' ? 'Airconditioned Room' : 'Main Dining'}
+                  {currentRequest.area === 'airconditioned' ? 'Air-Con' : 'Non-A/C'}
                 </span>
               </div>
               <div className="flex items-center justify-between text-stone-600 pt-1 border-t border-stone-200/60">
@@ -396,7 +396,7 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
                     : 'text-stone-600 hover:bg-stone-100'
                 }`}
               >
-                Main Dining ({tables.filter((t) => t.area === 'normal').length})
+                Non-A/C ({tables.filter((t) => t.area === 'normal').length})
               </button>
               <button
                 type="button"
@@ -407,7 +407,7 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
                     : 'text-stone-600 hover:bg-stone-100'
                 }`}
               >
-                Airconditioned ({tables.filter((t) => t.area === 'airconditioned').length})
+                Air-Con ({tables.filter((t) => t.area === 'airconditioned').length})
               </button>
             </div>
 
@@ -441,13 +441,13 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
                       #{tbl.tableNumber}
                     </span>
                     <span className="text-xs font-bold text-amber-950 mt-0.5">
-                      Table #{tbl.tableNumber}
+                      {tbl.name || `Table #${tbl.tableNumber}`}
                     </span>
                     <div className="mt-1 flex items-center gap-1 text-[10px] text-stone-500 font-medium">
                       <Users className="h-3 w-3" />
                       <span>{tbl.capacity} Seats</span>
                       <span>•</span>
-                      <span>{tbl.area === 'airconditioned' ? 'AC' : 'Main'}</span>
+                      <span>{tbl.area === 'airconditioned' ? 'Air-Con' : 'Non-A/C'}</span>
                     </div>
 
                     {isOccupied && (
@@ -478,13 +478,14 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
                       <span className="font-extrabold text-stone-950 text-sm block">
                         {isChangingTable
                           ? `Switch Table: #${activeTableBinding?.tableNumber} ➔ #${selectedTableNumber}`
-                          : `Confirm Table #${selectedTableNumber}`}
+                          : `Confirm Table #${selectedTableNumber}${targetTableObj?.name ? ` • ${targetTableObj.name}` : ''}`}
                       </span>
                       <p className="text-xs text-stone-600">
                         {targetTableObj?.area === 'airconditioned'
-                          ? 'Airconditioned Room'
-                          : 'Main Dining Area'}{' '}
+                          ? 'Air-Con'
+                          : 'Non-A/C'}{' '}
                         • {targetTableObj?.capacity || 4} Person Capacity
+                        {targetTableObj?.setup ? ` • ${targetTableObj.setup}` : ''}
                       </p>
                     </div>
                   </div>
