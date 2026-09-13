@@ -555,8 +555,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     setDescription(item.description);
     setQuantity(item.quantity);
     setTemperature(item.temperature);
-    setIsAvailable(item.isAvailable);
-    setIsBestSeller(item.isBestSeller);
+    setIsAvailable(item.isAvailable !== false);
+    setIsBestSeller(Boolean(item.isBestSeller));
     setImageUrl(item.imageUrl || '/images/latte.webp');
     setIsItemModalOpen(true);
   };
@@ -574,8 +574,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
         description: description.trim(),
         quantity,
         temperature,
-        isAvailable,
-        isBestSeller,
+        isAvailable: Boolean(isAvailable),
+        isBestSeller: Boolean(isBestSeller),
         imageUrl,
       });
       showAlert({
@@ -591,8 +591,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
         description: description.trim(),
         quantity,
         temperature,
-        isAvailable,
-        isBestSeller,
+        isAvailable: Boolean(isAvailable),
+        isBestSeller: Boolean(isBestSeller),
         imageUrl,
         sortOrder: items.length + 1,
       });
@@ -630,6 +630,17 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
 
   const handleToggleAvailability = (item: MenuItem) => {
     AppStore.updateMenuItem(item.id, { isAvailable: !item.isAvailable });
+    refresh();
+  };
+
+  const handleToggleBestSeller = (item: MenuItem) => {
+    const nextState = !item.isBestSeller;
+    AppStore.updateMenuItem(item.id, { isBestSeller: nextState });
+    showAlert({
+      title: nextState ? '⭐ Added to Best Sellers' : 'Removed from Best Sellers',
+      message: `"${item.name}" is ${nextState ? 'now featured as a Best Seller.' : 'no longer marked as a Best Seller.'}`,
+      type: 'info',
+    });
     refresh();
   };
 
@@ -1390,12 +1401,31 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                                     (e.target as HTMLImageElement).src = '/images/latte.webp';
                                   }}
                                 />
-                                <div className="font-bold text-stone-900 text-xs sm:text-sm flex items-center gap-1 sm:gap-1.5">
+                                <div className="font-bold text-stone-900 text-xs sm:text-sm flex items-center gap-1.5 flex-wrap">
                                   <span>{item.name}</span>
-                                  {item.isBestSeller && (
-                                    <span className="rounded-full bg-amber-100 text-amber-800 text-[9px] font-extrabold px-1.5 py-0.2 shrink-0">
-                                      ⭐ Star
-                                    </span>
+                                  {isAdmin ? (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleToggleBestSeller(item);
+                                      }}
+                                      title={item.isBestSeller ? 'Click to remove from Best Sellers' : 'Click to mark as Best Seller'}
+                                      className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-extrabold transition cursor-pointer ${
+                                        item.isBestSeller
+                                          ? 'bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200'
+                                          : 'bg-stone-100 text-stone-400 border border-stone-200 hover:bg-amber-50 hover:text-amber-800'
+                                      }`}
+                                    >
+                                      <span>⭐</span>
+                                      <span>{item.isBestSeller ? 'Star' : 'Set Star'}</span>
+                                    </button>
+                                  ) : (
+                                    item.isBestSeller && (
+                                      <span className="rounded-full bg-amber-100 text-amber-800 text-[9px] font-extrabold px-1.5 py-0.2 shrink-0">
+                                        ⭐ Star
+                                      </span>
+                                    )
                                   )}
                                 </div>
                               </div>
@@ -2298,25 +2328,44 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 />
               </div>
 
-              <div className="flex items-center gap-6 pt-2">
-                <label className="flex items-center gap-2 text-xs font-bold text-stone-700 cursor-pointer">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <label
+                  htmlFor="item-available-checkbox"
+                  className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs font-bold cursor-pointer select-none transition ${
+                    isAvailable
+                      ? 'border-emerald-300 bg-emerald-50/70 text-emerald-950'
+                      : 'border-stone-200 bg-stone-50 text-stone-600 hover:bg-stone-100/70'
+                  }`}
+                >
                   <input
+                    id="item-available-checkbox"
                     type="checkbox"
-                    checked={isAvailable}
+                    checked={Boolean(isAvailable)}
                     onChange={(e) => setIsAvailable(e.target.checked)}
-                    className="h-4 w-4 rounded text-amber-500 cursor-pointer"
+                    className="h-4 w-4 rounded text-emerald-600 accent-emerald-600 cursor-pointer"
                   />
                   <span>Available for Sale</span>
                 </label>
 
-                <label className="flex items-center gap-2 text-xs font-bold text-stone-700 cursor-pointer">
+                <label
+                  htmlFor="item-bestseller-checkbox"
+                  className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs font-bold cursor-pointer select-none transition ${
+                    isBestSeller
+                      ? 'border-amber-300 bg-amber-50 text-amber-950 shadow-xs'
+                      : 'border-stone-200 bg-stone-50 text-stone-600 hover:bg-amber-50/50'
+                  }`}
+                >
                   <input
+                    id="item-bestseller-checkbox"
                     type="checkbox"
-                    checked={isBestSeller}
+                    checked={Boolean(isBestSeller)}
                     onChange={(e) => setIsBestSeller(e.target.checked)}
-                    className="h-4 w-4 rounded text-amber-500 cursor-pointer"
+                    className="h-4 w-4 rounded text-amber-500 accent-amber-500 cursor-pointer"
                   />
-                  <span>⭐ Featured Best Seller</span>
+                  <span className="flex items-center gap-1.5">
+                    <span>⭐</span>
+                    <span>Featured Best Seller</span>
+                  </span>
                 </label>
               </div>
 

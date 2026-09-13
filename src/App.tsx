@@ -361,7 +361,7 @@ function MainApp() {
   }, [activeStaff, staffTab]);
 
   const bestSellers = useMemo(() => {
-    return menuItems.filter((i) => i.isBestSeller && i.isAvailable).slice(0, 6);
+    return menuItems.filter((i) => i.isBestSeller && i.isAvailable).slice(0, 12);
   }, [menuItems]);
 
   const handleStaffLogout = async () => {

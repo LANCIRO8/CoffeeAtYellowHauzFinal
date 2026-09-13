@@ -400,11 +400,20 @@ export class AppStore {
               });
             }
 
-            // Ensure items use updated images from local food_and_drinks_images catalog
+            // Ensure items use updated images from local catalog without overwriting user customizations
             items.forEach((item) => {
               const seed = seedMap.get(item.id);
+              let changed = false;
               if (seed && seed.imageUrl && seed.imageUrl.startsWith('/images/') && item.imageUrl !== seed.imageUrl) {
                 item.imageUrl = seed.imageUrl;
+                changed = true;
+              }
+              // Only fallback to seed if isBestSeller was never defined
+              if (seed && item.isBestSeller === undefined) {
+                item.isBestSeller = Boolean(seed.isBestSeller);
+                changed = true;
+              }
+              if (changed) {
                 setDoc(doc(db, 'menu_items', String(item.id)), cleanForFirestore(item)).catch(() => {});
               }
             });
@@ -740,6 +749,10 @@ export class AppStore {
       const seed = seedMap.get(item.id);
       if (seed && seed.imageUrl && seed.imageUrl.startsWith('/images/') && item.imageUrl !== seed.imageUrl) {
         item.imageUrl = seed.imageUrl;
+        modified = true;
+      }
+      if (seed && item.isBestSeller === undefined) {
+        item.isBestSeller = Boolean(seed.isBestSeller);
         modified = true;
       }
     });
