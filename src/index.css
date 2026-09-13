@@ -451,3 +451,207 @@ html.dark body {
   color: #ffffff !important;
 }
 
+/* ==========================================================================
+   Amber 500 Dominant Theme
+   In this theme, vibrant, warm Amber 500 (#f59e0b) is more dominant than white.
+   White backgrounds and cards are converted to warm golden amber surfaces,
+   major bars and headers prominently feature Amber 500, and borders carry
+   golden amber tones for a cozy, authentic Yellow Hauz café atmosphere.
+   ========================================================================== */
+html.theme-amber,
+body.theme-amber {
+  background-color: #fef3c7 !important; /* Warm golden amber-100 canvas */
+  color: #1c1917 !important;
+  color-scheme: light;
+}
+
+html.theme-amber body {
+  background-color: #fef3c7 !important;
+  color: #1c1917 !important;
+}
+
+/* Base scrollbar in Amber Mode */
+.theme-amber ::-webkit-scrollbar-thumb {
+  background: #f59e0b;
+}
+.theme-amber ::-webkit-scrollbar-thumb:hover {
+  background: #d97706;
+}
+
+/* Selection in Amber Mode */
+.theme-amber ::selection,
+.theme-amber *::selection {
+  background-color: #f59e0b !important;
+  color: #1c1917 !important;
+}
+
+/* Sticky Header and Mobile Bottom Navbar in Amber Mode */
+.theme-amber header.sticky,
+.theme-amber nav.sticky {
+  background-color: #f59e0b !important;
+  border-bottom-color: #d97706 !important;
+  color: #1c1917 !important;
+  box-shadow: 0 4px 20px -2px rgba(217, 119, 6, 0.3) !important;
+}
+
+.theme-amber header.sticky nav button {
+  color: #1c1917 !important;
+}
+
+.theme-amber header.sticky nav button:hover {
+  background-color: #fcd34d !important;
+}
+
+.theme-amber #mobile-bottom-navbar,
+.theme-amber nav#mobile-bottom-navbar {
+  background-color: #f59e0b !important;
+  border-top-color: #d97706 !important;
+  color: #1c1917 !important;
+  box-shadow: 0 -4px 20px rgba(217, 119, 6, 0.3) !important;
+}
+
+.theme-amber #mobile-bottom-navbar button {
+  color: #451a03 !important;
+}
+
+/* Cards & Surfaces in Amber Dominant Theme:
+   White cards become rich warm golden amber surfaces instead of stark white */
+.theme-amber .bg-white,
+.theme-amber .bg-white\/95,
+.theme-amber .bg-white\/90,
+.theme-amber .bg-white\/80 {
+  background-color: #fffbeb !important; /* Soft warm amber-50 surface */
+  border-color: #fcd34d !important;
+  color: #1c1917 !important;
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.08) !important;
+}
+
+/* Secondary surfaces */
+.theme-amber .bg-stone-50,
+.theme-amber .bg-stone-50\/60,
+.theme-amber .bg-stone-50\/70,
+.theme-amber .bg-stone-50\/80,
+.theme-amber .bg-stone-50\/90 {
+  background-color: #fef3c7 !important; /* Amber-100 */
+}
+
+.theme-amber .bg-stone-100,
+.theme-amber .bg-stone-100\/70,
+.theme-amber .bg-stone-100\/80,
+.theme-amber .bg-stone-100\/90 {
+  background-color: #fde68a !important; /* Amber-200 */
+}
+
+.theme-amber .bg-stone-200,
+.theme-amber .bg-stone-200\/60,
+.theme-amber .bg-stone-200\/80 {
+  background-color: #fcd34d !important; /* Amber-300 */
+}
+
+/* Borders in Amber Mode */
+.theme-amber .border-stone-100,
+.theme-amber .border-stone-200,
+.theme-amber .border-stone-200\/80,
+.theme-amber .border-stone-200\/90,
+.theme-amber .border-stone-300 {
+  border-color: #fcd34d !important;
+}
+
+/* Text and Headings */
+.theme-amber .text-stone-950,
+.theme-amber .text-stone-900,
+.theme-amber .text-stone-800 {
+  color: #1c1917 !important;
+}
+
+.theme-amber .text-stone-700,
+.theme-amber .text-stone-600 {
+  color: #574f34 !important; /* Warm espresso brown */
+}
+
+.theme-amber .text-stone-500,
+.theme-amber .text-stone-400 {
+  color: #78350f !important; /* Amber-900 */
+}
+
+/* Primary Amber 500 Elements */
+.theme-amber .bg-amber-500,
+.theme-amber .bg-amber-500\/95,
+.theme-amber .bg-amber-500\/90 {
+  background-color: #f59e0b !important;
+  color: #1c1917 !important;
+  border-color: #d97706 !important;
+}
+
+.theme-amber .hover\:bg-amber-400:hover,
+.theme-amber .hover\:bg-amber-500:hover {
+  background-color: #d97706 !important;
+  color: #ffffff !important;
+}
+
+/* Form controls */
+.theme-amber input,
+.theme-amber select,
+.theme-amber textarea {
+  background-color: #fffbeb !important;
+  border-color: #fcd34d !important;
+  color: #1c1917 !important;
+}
+
+.theme-amber input:focus,
+.theme-amber select:focus,
+.theme-amber textarea:focus {
+  border-color: #f59e0b !important;
+  outline-color: #f59e0b !important;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3) !important;
+}
+
+/* Executive Header in Amber Theme */
+.theme-amber #admin-dashboard-header {
+  background-color: #f59e0b !important;
+  border-color: #d97706 !important;
+  color: #1c1917 !important;
+}
+
+.theme-amber #admin-dashboard-header p,
+.theme-amber #admin-dashboard-header span,
+.theme-amber #admin-dashboard-header h1,
+.theme-amber #admin-dashboard-header strong {
+  color: #1c1917 !important;
+}
+
+/* Modals, drawers and dropdowns in Amber Mode */
+.theme-amber .shadow-2xl,
+.theme-amber .shadow-xl {
+  box-shadow: 0 10px 30px -5px rgba(217, 119, 6, 0.25) !important;
+}
+
+.theme-amber button.bg-amber-500,
+.theme-amber a.bg-amber-500 {
+  background-color: #f59e0b !important;
+  color: #1c1917 !important;
+}
+
+.theme-amber button.bg-stone-900,
+.theme-amber button.bg-stone-950 {
+  background-color: #78350f !important; /* Deep rich roast amber-900 instead of cold black */
+  color: #ffffff !important;
+}
+
+.theme-amber button.bg-stone-900:hover,
+.theme-amber button.bg-stone-950:hover {
+  background-color: #92400e !important;
+}
+
+/* Badges and pills in Amber mode */
+.theme-amber .bg-amber-100 {
+  background-color: #fde68a !important;
+  color: #78350f !important;
+}
+
+.theme-amber .bg-amber-50 {
+  background-color: #fef3c7 !important;
+  color: #92400e !important;
+}
+
+

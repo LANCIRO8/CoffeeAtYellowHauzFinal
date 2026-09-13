@@ -18,6 +18,9 @@
           if (saved === 'dark' || (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
             document.documentElement.classList.add('dark');
             document.body && document.body.classList.add('dark');
+          } else if (saved === 'amber') {
+            document.documentElement.classList.add('theme-amber');
+            document.body && document.body.classList.add('theme-amber');
           }
         } catch (e) {}
       })();

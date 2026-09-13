@@ -1988,19 +1988,19 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
 
       {/* VOID ORDER MODAL (Shows "Back to Cashier" or "Cancel Order") */}
       {voidingOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl border border-stone-200 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-900/60 backdrop-blur-xs">
+          <div className="w-full max-w-sm sm:max-w-md rounded-2xl sm:rounded-3xl bg-white p-3 sm:p-5 shadow-2xl border border-stone-200 space-y-2.5 sm:space-y-3.5 animate-in fade-in zoom-in-95 duration-150">
             {/* Header */}
-            <div className="flex items-start justify-between border-b border-stone-100 pb-4">
-              <div className="flex items-center gap-3">
-                <span className="grid h-10 w-10 place-items-center rounded-2xl bg-rose-100 text-rose-700">
-                  <Ban className="h-5 w-5" />
+            <div className="flex items-start justify-between border-b border-stone-100 pb-2.5 sm:pb-3">
+              <div className="flex items-center gap-2 sm:gap-2.5">
+                <span className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-lg sm:rounded-xl bg-rose-100 text-rose-700 shrink-0">
+                  <Ban className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </span>
-                <div>
-                  <h3 className="font-display text-lg font-extrabold text-stone-900">
+                <div className="min-w-0">
+                  <h3 className="font-display text-xs sm:text-sm font-extrabold text-stone-900 truncate">
                     Void Ticket #{voidingOrder.orderNumber}
                   </h3>
-                  <p className="text-xs text-stone-500">
+                  <p className="text-[10px] sm:text-[11px] text-stone-500">
                     Stage:{' '}
                     <span className="font-bold text-stone-800 capitalize">
                       {voidingOrder.status === 'processing'
@@ -2020,64 +2020,59 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
               </div>
               <button
                 onClick={() => setVoidingOrder(null)}
-                className="grid h-8 w-8 place-items-center rounded-xl text-stone-400 hover:bg-stone-100 hover:text-stone-700 transition cursor-pointer"
+                className="grid h-6 w-6 sm:h-7 sm:w-7 place-items-center rounded-lg text-stone-400 hover:bg-stone-100 hover:text-stone-700 transition cursor-pointer shrink-0"
               >
-                <X className="h-4 w-4" />
+                <X className="h-3.5 w-3.5" />
               </button>
             </div>
 
             {/* Summary Box */}
-            <div className="rounded-2xl bg-stone-50 p-3.5 border border-stone-200/80 text-xs space-y-1">
+            <div className="rounded-lg sm:rounded-xl bg-stone-50 p-2 sm:p-2.5 border border-stone-200/80 text-[10px] sm:text-[11px] space-y-0.5 sm:space-y-1">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-stone-800">
+                <span className="font-bold text-stone-800 truncate">
                   Guest: {voidingOrder.customerName || 'Walk-in Guest'}
                 </span>
-                <span className="rounded-md bg-stone-200 px-2 py-0.5 font-mono text-[10px] font-bold text-stone-800">
+                <span className="rounded-md bg-stone-200 px-1 sm:px-1.5 py-0.5 font-mono text-[8px] sm:text-[9px] font-bold text-stone-800 shrink-0">
                   {voidingOrder.items.length} Item(s)
                 </span>
               </div>
-              <div className="text-[11px] text-stone-500 truncate">
+              <div className="text-[9px] sm:text-[10px] text-stone-500 truncate">
                 Items: {voidingOrder.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')}
               </div>
             </div>
 
-            <div className="text-xs font-extrabold text-stone-700 uppercase tracking-wider">
+            <div className="text-[10px] sm:text-[11px] font-extrabold text-stone-700 uppercase tracking-wider">
               Choose Void Handling Method:
             </div>
 
             {/* Option 1: Back to Cashier */}
-            <div className="rounded-2xl border-2 border-amber-300 bg-amber-50/60 p-4 space-y-3 transition hover:border-amber-400">
-              <div className="flex items-start gap-3">
-                <div className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500 text-stone-950 shrink-0">
-                  <Undo2 className="h-5 w-5" />
-                </div>
-                <div className="space-y-1 min-w-0 flex-1">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-black text-amber-950">Option 1: Back to Cashier</h4>
-                    <span className="rounded-md bg-amber-200 px-2 py-0.5 text-[10px] font-extrabold text-amber-900 uppercase">
-                      Revert Queue
-                    </span>
+            <div className="rounded-xl border border-amber-300 bg-amber-50/60 p-2.5 sm:p-3 space-y-2 sm:space-y-2.5 transition hover:border-amber-400">
+              <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                  <div className="grid h-6 w-6 sm:h-7 sm:w-7 place-items-center rounded-md sm:rounded-lg bg-amber-500 text-stone-950 shrink-0">
+                    <Undo2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                   </div>
-                  <p className="text-xs text-amber-900/80 leading-relaxed">
-                    Sends this ticket back to the Cashier Terminal (<span className="font-bold">To Confirm</span>). Cooking is paused so cashier staff can review, modify items, or attend to customer requests.
-                  </p>
+                  <h4 className="text-[11px] sm:text-xs font-black text-amber-950 truncate">Option 1: Back to Cashier</h4>
                 </div>
+                <span className="rounded-md bg-amber-200 px-1 sm:px-1.5 py-0.5 text-[8px] sm:text-[9px] font-extrabold text-amber-900 uppercase shrink-0">
+                  Revert Queue
+                </span>
               </div>
 
               {/* Return Reason selection */}
-              <div className="space-y-2 pt-2 border-t border-amber-200/60">
-                <label className="text-[11px] font-bold text-amber-950 block">
+              <div className="space-y-1.5 sm:space-y-2 pt-1 border-t border-amber-200/60">
+                <label className="text-[9px] sm:text-[10px] font-bold text-amber-950 block">
                   Select Reason for Returning:
                 </label>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1">
                   {RETURN_REASONS.map((r) => (
                     <button
                       key={r}
                       type="button"
                       onClick={() => setVoidReturnReason(r)}
-                      className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition cursor-pointer ${
+                      className={`rounded-md px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold transition cursor-pointer ${
                         voidReturnReason === r
-                          ? 'bg-amber-500 text-stone-950 font-bold shadow-xs'
+                          ? 'bg-amber-500 text-stone-950 font-bold shadow-2xs'
                           : 'bg-white/90 border border-amber-200 text-amber-900 hover:bg-white'
                       }`}
                     >
@@ -2090,57 +2085,42 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                   type="text"
                   value={voidReturnCustomNote}
                   onChange={(e) => setVoidReturnCustomNote(e.target.value)}
-                  placeholder="Optional extra note for cashier (e.g. 'Customer wants less sugar')..."
-                  className="w-full rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none"
+                  placeholder="Optional note for cashier..."
+                  className="w-full rounded-md sm:rounded-lg border border-amber-300 bg-white px-2 sm:px-2.5 py-1 sm:py-1.5 text-[10px] sm:text-[11px] text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none"
                 />
 
                 <button
                   type="button"
                   onClick={() => handleReturnToCashier(voidingOrder)}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-400 px-4 py-2.5 text-xs font-black text-stone-950 transition active:scale-95 cursor-pointer shadow-xs"
+                  className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 px-2.5 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-[11px] font-black text-stone-950 transition active:scale-95 cursor-pointer shadow-2xs"
                 >
-                  <Undo2 className="h-4 w-4" />
+                  <Undo2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                   <span>Confirm &amp; Send Back to Cashier</span>
                 </button>
               </div>
             </div>
 
             {/* Option 2: Permanently Cancel */}
-            <div className="rounded-2xl border-2 border-rose-300 bg-rose-50/60 p-4 space-y-3 transition hover:border-rose-400">
-              <div className="flex items-start gap-3">
-                <div className="grid h-9 w-9 place-items-center rounded-xl bg-rose-600 text-white shrink-0">
-                  <XCircle className="h-5 w-5" />
-                </div>
-                <div className="space-y-1 min-w-0 flex-1">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-black text-rose-950">Option 2: Cancel Order</h4>
-                    <span className="rounded-md bg-rose-200 px-2 py-0.5 text-[10px] font-extrabold text-rose-900 uppercase">
-                      Permanent Void
-                    </span>
+            <div className="rounded-xl border border-rose-300 bg-rose-50/60 p-2.5 sm:p-3 space-y-2 sm:space-y-2.5 transition hover:border-rose-400">
+              <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                  <div className="grid h-6 w-6 sm:h-7 sm:w-7 place-items-center rounded-md sm:rounded-lg bg-rose-600 text-white shrink-0">
+                    <XCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                   </div>
-                  <p className="text-xs text-rose-900/80 leading-relaxed">
-                    Permanently cancels this order. Select the exact cancellation reason and notes for audit records. Restores stock to inventory.
-                  </p>
+                  <h4 className="text-[11px] sm:text-xs font-black text-rose-950 truncate">Option 2: Cancel Order</h4>
                 </div>
+                <span className="rounded-md bg-rose-200 px-1 sm:px-1.5 py-0.5 text-[8px] sm:text-[9px] font-extrabold text-rose-900 uppercase shrink-0">
+                  Permanent Void
+                </span>
               </div>
 
               <button
                 type="button"
                 onClick={() => handleProceedToCancelFromVoid(voidingOrder)}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-500 px-4 py-2.5 text-xs font-black text-white transition active:scale-95 cursor-pointer shadow-xs shadow-rose-600/20"
+                className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 px-2.5 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-[11px] font-black text-white transition active:scale-95 cursor-pointer shadow-2xs shadow-rose-600/20"
               >
-                <Ban className="h-4 w-4" />
+                <Ban className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 <span>Cancel Order &amp; Specify Reason...</span>
-              </button>
-            </div>
-
-            <div className="flex justify-end pt-1">
-              <button
-                type="button"
-                onClick={() => setVoidingOrder(null)}
-                className="rounded-xl px-4 py-2 text-xs font-bold text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition cursor-pointer"
-              >
-                Close / Dismiss
               </button>
             </div>
           </div>

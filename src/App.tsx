@@ -65,6 +65,7 @@ function MainApp() {
     const r = AppRouter.parseCurrentRoute();
     return r.mode === 'customer' ? r.tab : 'home';
   });
+  const [reservationKey, setReservationKey] = useState<number>(0);
 
   const [staffTab, setStaffTab] = useState<StaffTabType>(() => {
     const r = AppRouter.parseCurrentRoute();
@@ -134,27 +135,35 @@ function MainApp() {
   const [isCustomerCartOpen, setIsCustomerCartOpen] = useState(false);
   const [isCustomerCheckoutOpen, setIsCustomerCheckoutOpen] = useState(false);
 
-  // Dark Mode / Light Mode Theme state (persisted across page reloads)
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+  // Theme state: 'light' | 'amber' | 'dark' (persisted across page reloads)
+  const [currentTheme, setCurrentTheme] = useState<'light' | 'amber' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('theme');
-      if (saved) return saved === 'dark';
-      return document.documentElement.classList.contains('dark');
+      if (saved === 'dark' || saved === 'amber' || saved === 'light') return saved;
+      if (document.documentElement.classList.contains('dark')) return 'dark';
+      if (document.documentElement.classList.contains('theme-amber')) return 'amber';
     }
-    return false;
+    return 'light';
   });
 
+  const isDarkMode = currentTheme === 'dark';
+
   useEffect(() => {
-    if (isDarkMode) {
+    document.documentElement.classList.remove('dark', 'theme-amber');
+    document.body.classList.remove('dark', 'theme-amber');
+
+    if (currentTheme === 'dark') {
       document.documentElement.classList.add('dark');
       document.body.classList.add('dark');
       localStorage.setItem('theme', 'dark');
+    } else if (currentTheme === 'amber') {
+      document.documentElement.classList.add('theme-amber');
+      document.body.classList.add('theme-amber');
+      localStorage.setItem('theme', 'amber');
     } else {
-      document.documentElement.classList.remove('dark');
-      document.body.classList.remove('dark');
       localStorage.setItem('theme', 'light');
     }
-  }, [isDarkMode]);
+  }, [currentTheme]);
 
   // Synchronize cart with localStorage whenever customerCart updates
   useEffect(() => {
@@ -265,15 +274,6 @@ function MainApp() {
 
   useEffect(() => {
     AppStore.initFirebaseSync();
-
-    // Clean wipe database to 0 data upon user's request
-    if (localStorage.getItem('yh_zero_reset_done') !== 'true') {
-      AppStore.resetDatabaseToZero().then(() => {
-        try {
-          localStorage.setItem('yh_zero_reset_done', 'true');
-        } catch {}
-      });
-    }
 
     const unsubscribe = AppStore.subscribe(() => {
       refreshAppData();
@@ -416,8 +416,10 @@ function MainApp() {
   return (
     <div
       className={`min-h-screen flex flex-col selection:bg-amber-500 selection:text-stone-950 transition-colors duration-200 ${
-        isDarkMode
+        currentTheme === 'dark'
           ? 'dark bg-[#15120e] text-[#ede8d0]'
+          : currentTheme === 'amber'
+          ? 'theme-amber bg-[#fef3c7] text-[#1c1917]'
           : 'bg-stone-100/70 text-stone-900'
       } ${
         appMode === 'customer' ? 'customer-mode font-baskerville' : 'font-sans'
@@ -430,6 +432,9 @@ function MainApp() {
         customerTab={customerTab}
         onSetCustomerTab={(tab) => {
           setIsCustomerCartOpen(false);
+          if (tab === 'reservation') {
+            setReservationKey((k) => k + 1);
+          }
           setCustomerTab(tab);
         }}
         isCustomerCartOpen={isCustomerCartOpen}
@@ -455,8 +460,9 @@ function MainApp() {
           setManualTableModalOpen(true);
         }}
         onViewOrderReceipt={(order) => setSelectedReceiptOrder(order)}
+        theme={currentTheme}
+        onSetTheme={setCurrentTheme}
         isDarkMode={isDarkMode}
-        onSetDarkMode={setIsDarkMode}
       />
 
       {/* Main Content Area */}
@@ -469,7 +475,10 @@ function MainApp() {
                 bestSellers={bestSellers}
                 settings={settings}
                 onNavigateMenu={() => setCustomerTab('menu')}
-                onNavigateReservation={() => setCustomerTab('reservation')}
+                onNavigateReservation={() => {
+                  setReservationKey((k) => k + 1);
+                  setCustomerTab('reservation');
+                }}
                 onNavigateOrders={() => setCustomerTab('orders')}
                 onAddToCart={(item) => {
                   handleCustomerAddToCart(item);
@@ -530,6 +539,7 @@ function MainApp() {
 
             {customerTab === 'reservation' && (
               <CustomerReservation
+                key={reservationKey}
                 settings={settings}
                 activeCustomer={activeCustomer}
                 onReservationSuccess={() => refreshAppData()}

@@ -77,6 +77,8 @@ interface NavigationProps {
   onViewOrderReceipt?: (order: Order) => void;
   isDarkMode?: boolean;
   onSetDarkMode?: (isDark: boolean) => void;
+  theme?: 'light' | 'amber' | 'dark';
+  onSetTheme?: (theme: 'light' | 'amber' | 'dark') => void;
   isCustomerCartOpen?: boolean;
 }
 
@@ -105,34 +107,46 @@ export const Navigation: React.FC<NavigationProps> = ({
   onOpenLowStockModal,
   onToggleCart,
   onViewOrderReceipt,
+  theme: themeProp,
+  onSetTheme,
   isDarkMode: isDarkModeProp,
   onSetDarkMode,
   isCustomerCartOpen,
 }) => {
-  const [internalDarkMode, setInternalDarkMode] = useState<boolean>(() => {
+  const [internalTheme, setInternalTheme] = useState<'light' | 'amber' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('theme');
-      if (saved) return saved === 'dark';
-      return document.documentElement.classList.contains('dark');
+      if (saved === 'dark' || saved === 'amber' || saved === 'light') return saved;
+      if (document.documentElement.classList.contains('dark')) return 'dark';
+      if (document.documentElement.classList.contains('theme-amber')) return 'amber';
     }
-    return false;
+    return isDarkModeProp ? 'dark' : 'light';
   });
 
-  const isDarkMode = isDarkModeProp !== undefined ? isDarkModeProp : internalDarkMode;
+  const currentTheme = themeProp !== undefined ? themeProp : internalTheme;
+  const isDarkMode = currentTheme === 'dark';
+  const isAmberMode = currentTheme === 'amber';
 
-  const handleSetTheme = (dark: boolean) => {
-    if (onSetDarkMode) {
-      onSetDarkMode(dark);
+  const handleSelectTheme = (newTheme: 'light' | 'amber' | 'dark') => {
+    if (onSetTheme) {
+      onSetTheme(newTheme);
     } else {
-      setInternalDarkMode(dark);
-      if (dark) {
+      setInternalTheme(newTheme);
+      document.documentElement.classList.remove('dark', 'theme-amber');
+      document.body.classList.remove('dark', 'theme-amber');
+      if (newTheme === 'dark') {
         document.documentElement.classList.add('dark');
         document.body.classList.add('dark');
         localStorage.setItem('theme', 'dark');
+      } else if (newTheme === 'amber') {
+        document.documentElement.classList.add('theme-amber');
+        document.body.classList.add('theme-amber');
+        localStorage.setItem('theme', 'amber');
       } else {
-        document.documentElement.classList.remove('dark');
-        document.body.classList.remove('dark');
         localStorage.setItem('theme', 'light');
+      }
+      if (onSetDarkMode) {
+        onSetDarkMode(newTheme === 'dark');
       }
     }
   };
@@ -244,11 +258,12 @@ export const Navigation: React.FC<NavigationProps> = ({
   const tables: Table[] = useMemo(() => AppStore.getTables(), []);
 
   // Combined counts
+  const isUserAdmin = activeStaff?.role === 'admin' || AppStore.getActiveStaff()?.role === 'admin';
   const totalTableConfirmationsCount = pendingTableRequestsCount + pendingReservationsCount;
   const totalStaffNotificationsCount =
     noStockCount +
     lowStockCount +
-    pendingRefillCount +
+    (isUserAdmin ? pendingRefillCount : 0) +
     totalTableConfirmationsCount +
     pendingOrderConfirmationsCount +
     pendingCancellationRequestsCount;
@@ -560,7 +575,13 @@ export const Navigation: React.FC<NavigationProps> = ({
           onMouseLeave={() => {
             if (!isPinned) setIsHoverPeek(false);
           }}
-          className={`sticky top-0 z-40 border-b border-stone-200/90 bg-white/95 backdrop-blur-md transition-all duration-200 ${
+          className={`sticky top-0 z-40 border-b backdrop-blur-md transition-all duration-200 ${
+            isDarkMode
+              ? 'border-stone-800 bg-stone-900/95 text-stone-100'
+              : isAmberMode
+              ? 'border-amber-600 bg-amber-500 text-stone-950 shadow-md'
+              : 'border-stone-200/90 bg-white/95 text-stone-900'
+          } ${
             !isPinned ? 'shadow-md ring-1 ring-black/5' : ''
           }`}
         >
@@ -574,7 +595,13 @@ export const Navigation: React.FC<NavigationProps> = ({
                 type="button"
                 onClick={() => setIsBurgerDrawerOpen(true)}
                 title="Open Store & System Menu"
-                className="relative flex items-center justify-center rounded-xl p-1.5 sm:p-2 text-stone-700 hover:text-stone-950 hover:bg-stone-100 transition cursor-pointer border border-stone-200/90 shadow-2xs"
+                className={`relative flex items-center justify-center rounded-xl p-1.5 sm:p-2 transition cursor-pointer border shadow-2xs ${
+                  isDarkMode
+                    ? 'text-stone-300 hover:text-white hover:bg-stone-800 border-stone-700'
+                    : isAmberMode
+                    ? 'text-stone-950 hover:bg-amber-600/30 bg-amber-400 border-amber-600'
+                    : 'text-stone-700 hover:text-stone-950 hover:bg-stone-100 border-stone-200/90'
+                }`}
               >
                 <Menu className="h-5 w-5" />
                 {(lowStockCount > 0 || pendingTableRequestsCount > 0) && (
@@ -738,21 +765,6 @@ export const Navigation: React.FC<NavigationProps> = ({
                             <span>Cashier</span>
                           </button>
 
-                          {/* Shared: Tables */}
-                          <button
-                            id="nav-staff-tables"
-                            onClick={() => onSetStaffTab('tables')}
-                            title="Tables"
-                            className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-bold transition cursor-pointer ${
-                              staffTab === 'tables'
-                                ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
-                                : 'text-stone-700 hover:bg-stone-100'
-                            }`}
-                          >
-                            <LayoutGrid className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                            <span>Tables</span>
-                          </button>
-
                           {/* Shared: Active Order Tickets */}
                           <button
                             id="nav-staff-tickets"
@@ -766,6 +778,21 @@ export const Navigation: React.FC<NavigationProps> = ({
                           >
                             <ClipboardList className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                             <span>Tickets</span>
+                          </button>
+
+                          {/* Shared: Tables */}
+                          <button
+                            id="nav-staff-tables"
+                            onClick={() => onSetStaffTab('tables')}
+                            title="Tables"
+                            className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-bold transition cursor-pointer ${
+                              staffTab === 'tables'
+                                ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
+                                : 'text-stone-700 hover:bg-stone-100'
+                            }`}
+                          >
+                            <LayoutGrid className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                            <span>Tables</span>
                           </button>
 
                           {/* Non-Admin Staff (Barista, Cashier): Separate Staff Stock & Refills */}
@@ -1270,6 +1297,8 @@ export const Navigation: React.FC<NavigationProps> = ({
         className={`sm:hidden fixed bottom-0 left-0 right-0 z-50 backdrop-blur-md border-t px-1 py-1.5 safe-area-pb transition-colors duration-200 ${
           isDarkMode
             ? 'bg-[#181511]/95 border-[#2b251e] text-[#ede8d0] shadow-[0_-4px_20px_rgba(0,0,0,0.5)]'
+            : isAmberMode
+            ? 'bg-amber-500 border-amber-600 text-stone-950 shadow-[0_-4px_20px_rgba(217,119,6,0.35)]'
             : 'bg-white/95 border-stone-200/90 text-stone-900 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]'
         }`}
       >
@@ -1477,6 +1506,24 @@ export const Navigation: React.FC<NavigationProps> = ({
                   <span className="text-[9px] leading-tight mt-0.5">Cashier</span>
                 </button>
 
+                {/* Tickets */}
+                <button
+                  id="mobile-nav-staff-tickets"
+                  onClick={() => onSetStaffTab('tickets')}
+                  className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer min-w-[50px] ${
+                    staffTab === 'tickets'
+                      ? isDarkMode
+                        ? 'text-white bg-[#78350f] font-extrabold shadow-2xs'
+                        : 'text-amber-900 bg-amber-100 font-extrabold shadow-2xs'
+                      : isDarkMode
+                      ? 'text-stone-400 hover:bg-stone-800/60'
+                      : 'text-stone-600 hover:bg-stone-100'
+                  }`}
+                >
+                  <ClipboardList className="h-4 w-4" />
+                  <span className="text-[9px] leading-tight mt-0.5">Tickets</span>
+                </button>
+
                 {/* Tables Floor Plan */}
                 <button
                   id="mobile-nav-staff-tables"
@@ -1496,24 +1543,6 @@ export const Navigation: React.FC<NavigationProps> = ({
                     <span className="absolute -top-1 right-1 h-2 w-2 rounded-full animate-ping bg-amber-500" />
                   )}
                   <span className="text-[9px] leading-tight mt-0.5">Tables</span>
-                </button>
-
-                {/* Tickets */}
-                <button
-                  id="mobile-nav-staff-tickets"
-                  onClick={() => onSetStaffTab('tickets')}
-                  className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer min-w-[50px] ${
-                    staffTab === 'tickets'
-                      ? isDarkMode
-                        ? 'text-white bg-[#78350f] font-extrabold shadow-2xs'
-                        : 'text-amber-900 bg-amber-100 font-extrabold shadow-2xs'
-                      : isDarkMode
-                      ? 'text-stone-400 hover:bg-stone-800/60'
-                      : 'text-stone-600 hover:bg-stone-100'
-                  }`}
-                >
-                  <ClipboardList className="h-4 w-4" />
-                  <span className="text-[9px] leading-tight mt-0.5">Tickets</span>
                 </button>
 
                 {/* Admin: Sales Reports */}
@@ -1636,11 +1665,17 @@ export const Navigation: React.FC<NavigationProps> = ({
             <div className={`w-screen max-w-sm sm:max-w-md shadow-2xl flex flex-col justify-between overflow-y-auto border-r animate-in slide-in-from-left duration-200 transition-colors ${
               isDarkMode
                 ? 'bg-stone-900 text-stone-100 border-stone-800'
+                : isAmberMode
+                ? 'bg-[#fffbeb] text-stone-900 border-amber-300'
                 : 'bg-white text-stone-900 border-stone-200'
             }`}>
               {/* Drawer Top Bar */}
               <div className={`p-4 sm:p-5 border-b flex items-center justify-between transition-colors ${
-                isDarkMode ? 'bg-stone-950/80 border-stone-800' : 'bg-stone-50/90 border-stone-100'
+                isDarkMode
+                  ? 'bg-stone-950/80 border-stone-800'
+                  : isAmberMode
+                  ? 'bg-amber-500 text-stone-950 border-amber-600 shadow-xs'
+                  : 'bg-stone-50/90 border-stone-100'
               }`}>
                 <div className="flex items-center gap-3">
                   <div className="relative h-11 w-11 overflow-hidden rounded-2xl bg-amber-500 shadow-md border border-amber-400/30 shrink-0 flex items-center justify-center">
@@ -1656,15 +1691,15 @@ export const Navigation: React.FC<NavigationProps> = ({
                   </div>
                   <div>
                     <h2 className={`font-display font-extrabold text-sm sm:text-base leading-tight ${
-                      isDarkMode ? 'text-stone-100' : 'text-stone-950'
+                      isDarkMode ? 'text-stone-100' : isAmberMode ? 'text-stone-950' : 'text-stone-950'
                     }`}>
                       Coffee at Yellow Hauz
                     </h2>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className={`text-[11px] font-medium ${isDarkMode ? 'text-stone-400' : 'text-stone-500'}`}>Davao City</span>
-                      <span className={isDarkMode ? 'text-stone-600' : 'text-stone-300'}>•</span>
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-500">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      <span className={`text-[11px] font-medium ${isDarkMode ? 'text-stone-400' : isAmberMode ? 'text-amber-950/80 font-bold' : 'text-stone-500'}`}>Davao City</span>
+                      <span className={isDarkMode ? 'text-stone-600' : isAmberMode ? 'text-amber-900/40' : 'text-stone-300'}>•</span>
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold ${isAmberMode ? 'text-stone-950' : 'text-emerald-500'}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${isAmberMode ? 'bg-stone-950' : 'bg-emerald-500 animate-pulse'}`}></span>
                         Firestore Cloud DB
                       </span>
                     </div>
@@ -1677,6 +1712,8 @@ export const Navigation: React.FC<NavigationProps> = ({
                   className={`rounded-xl p-2 transition cursor-pointer ${
                     isDarkMode
                       ? 'text-stone-400 hover:text-white hover:bg-stone-800'
+                      : isAmberMode
+                      ? 'text-stone-950 hover:bg-amber-600/30 bg-amber-400/60'
                       : 'text-stone-400 hover:text-stone-800 hover:bg-stone-100'
                   }`}
                   title="Close Navigation Menu"
@@ -2043,56 +2080,86 @@ export const Navigation: React.FC<NavigationProps> = ({
                   </div>
                 </div>
 
-                {/* 4. Appearance & Theme (Dark Mode / Light Mode) */}
+                {/* 4. Appearance & Theme (Light / Amber 500 Dominant / Dark) */}
                 <div>
                   <div className="flex items-center justify-between mb-2.5">
-                    <label className={`text-[11px] font-extrabold tracking-wider uppercase ${isDarkMode ? 'text-stone-400' : 'text-stone-500'}`}>
+                    <label className={`text-[11px] font-extrabold tracking-wider uppercase ${isDarkMode ? 'text-stone-400' : isAmberMode ? 'text-amber-950 font-black' : 'text-stone-500'}`}>
                       Theme &amp; Display
                     </label>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                      isDarkMode
+                      currentTheme === 'amber'
+                        ? 'bg-amber-500 text-stone-950 border border-amber-600 font-extrabold shadow-xs'
+                        : isDarkMode
                         ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                         : 'bg-stone-100 text-stone-600 border border-stone-200'
                     }`}>
-                      {isDarkMode ? 'Dark Active' : 'Light Active'}
+                      {currentTheme === 'amber' ? 'Amber 500 Active' : isDarkMode ? 'Dark Active' : 'Light Active'}
                     </span>
                   </div>
 
-                  <div className={`grid grid-cols-2 gap-2 p-1.5 rounded-2xl border transition-colors ${
+                  <div className={`grid grid-cols-3 gap-1.5 p-1.5 rounded-2xl border transition-colors ${
                     isDarkMode
                       ? 'bg-stone-800/90 border-stone-700/80'
+                      : isAmberMode
+                      ? 'bg-amber-200/70 border-amber-300'
                       : 'bg-stone-100 border-stone-200/80'
                   }`}>
                     {/* Light Mode Button */}
                     <button
                       id="burger-theme-light-btn"
                       type="button"
-                      onClick={() => handleSetTheme(false)}
-                      className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                        !isDarkMode
-                          ? 'bg-white text-stone-950 font-extrabold shadow-sm border border-stone-200/90'
-                          : 'text-stone-400 hover:text-white hover:bg-stone-700/50'
+                      onClick={() => handleSelectTheme('light')}
+                      className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 sm:px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        currentTheme === 'light'
+                          ? 'bg-white text-stone-950 font-extrabold shadow-xs border border-stone-200/90'
+                          : isDarkMode
+                          ? 'text-stone-400 hover:text-white hover:bg-stone-700/50'
+                          : isAmberMode
+                          ? 'text-amber-900 hover:text-stone-950 hover:bg-amber-200'
+                          : 'text-stone-600 hover:text-stone-950 hover:bg-stone-200/60'
                       }`}
                       title="Switch to Light Mode"
                     >
-                      <Sun className={`h-4 w-4 ${!isDarkMode ? 'text-amber-500 fill-amber-500/20' : 'text-stone-400'}`} />
-                      <span>Light Mode</span>
+                      <Sun className={`h-4 w-4 shrink-0 ${currentTheme === 'light' ? 'text-amber-500 fill-amber-500/20' : 'text-stone-400'}`} />
+                      <span className="text-[11px] sm:text-xs">Light</span>
+                    </button>
+
+                    {/* Amber 500 Dominant Theme Button */}
+                    <button
+                      id="burger-theme-amber-btn"
+                      type="button"
+                      onClick={() => handleSelectTheme('amber')}
+                      className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 sm:px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        currentTheme === 'amber'
+                          ? 'bg-amber-500 text-stone-950 font-black shadow-xs border border-amber-600 ring-1 ring-amber-400/60'
+                          : isDarkMode
+                          ? 'text-amber-400/90 hover:text-amber-300 hover:bg-stone-700/50'
+                          : 'text-amber-800 hover:text-amber-950 hover:bg-amber-200/80'
+                      }`}
+                      title="Amber 500 Dominant Theme - Amber 500 is dominant over white"
+                    >
+                      <Sparkles className={`h-4 w-4 shrink-0 ${currentTheme === 'amber' ? 'text-stone-950 fill-stone-950' : 'text-amber-600'}`} />
+                      <span className="text-[11px] sm:text-xs font-black">Amber 500</span>
                     </button>
 
                     {/* Dark Mode Button */}
                     <button
                       id="burger-theme-dark-btn"
                       type="button"
-                      onClick={() => handleSetTheme(true)}
-                      className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                        isDarkMode
-                          ? 'bg-amber-500 text-stone-950 font-black shadow-sm'
+                      onClick={() => handleSelectTheme('dark')}
+                      className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 sm:px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        currentTheme === 'dark'
+                          ? 'bg-amber-500 text-stone-950 font-black shadow-xs'
+                          : isDarkMode
+                          ? 'text-stone-400 hover:text-white hover:bg-stone-700/50'
+                          : isAmberMode
+                          ? 'text-amber-900 hover:text-stone-950 hover:bg-amber-200'
                           : 'text-stone-600 hover:text-stone-950 hover:bg-stone-200/60'
                       }`}
                       title="Switch to Dark Mode"
                     >
-                      <Moon className={`h-4 w-4 ${isDarkMode ? 'text-stone-950 fill-stone-950/20' : 'text-stone-600'}`} />
-                      <span>Dark Mode</span>
+                      <Moon className={`h-4 w-4 shrink-0 ${currentTheme === 'dark' ? 'text-stone-950 fill-stone-950/20' : 'text-stone-600'}`} />
+                      <span className="text-[11px] sm:text-xs">Dark</span>
                     </button>
                   </div>
                 </div>

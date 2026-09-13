@@ -27,7 +27,7 @@ export const CustomerReservation: React.FC<CustomerReservationProps> = ({
 }) => {
   const [tables, setTables] = useState<Table[]>(() => AppStore.getTables());
   const [modalTable, setModalTable] = useState<Table | null>(null);
-  const [activeReservationType, setActiveReservationType] = useState<'tables' | 'venue'>('tables');
+  const [activeReservationType, setActiveReservationType] = useState<'tables' | 'venue'>('venue');
   const [confirmedReservation, setConfirmedReservation] = useState<Reservation | null>(null);
 
   const handleTableClickFromFloorPlan = (table: Table) => {
@@ -43,7 +43,7 @@ export const CustomerReservation: React.FC<CustomerReservationProps> = ({
             Reservations
           </h1>
           <p className="text-[10px] sm:text-sm text-stone-600 leading-relaxed">
-            Choose between reserving a dine-in table on our interactive cafe floor plan or booking our exclusive on-site private studio space.
+            Choose between booking our exclusive on-site private studio space or reserving a dine-in table on our interactive cafe floor plan.
           </p>
         </div>
 
@@ -51,22 +51,7 @@ export const CustomerReservation: React.FC<CustomerReservationProps> = ({
         <div className="shrink-0">
           <div className="inline-flex rounded-xl sm:rounded-2xl bg-stone-200/80 p-1 sm:p-1.5 border border-stone-300 shadow-inner w-full sm:w-auto">
             <button
-              type="button"
-              onClick={() => {
-                setActiveReservationType('tables');
-                setConfirmedReservation(null);
-              }}
-              className={`flex-1 sm:flex-initial py-1.5 px-2.5 sm:py-2.5 sm:px-4 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap cursor-pointer ${
-                activeReservationType === 'tables'
-                  ? 'bg-stone-950 text-amber-400 shadow-md'
-                  : 'text-stone-700 hover:text-stone-950 hover:bg-stone-100/60'
-              }`}
-            >
-              <UtensilsCrossed className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              <span>Dine-in Tables</span>
-            </button>
-
-            <button
+              id="btn-reservation-venue"
               type="button"
               onClick={() => {
                 setActiveReservationType('venue');
@@ -80,6 +65,23 @@ export const CustomerReservation: React.FC<CustomerReservationProps> = ({
             >
               <Building className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span>Private Studio Venue</span>
+            </button>
+
+            <button
+              id="btn-reservation-tables"
+              type="button"
+              onClick={() => {
+                setActiveReservationType('tables');
+                setConfirmedReservation(null);
+              }}
+              className={`flex-1 sm:flex-initial py-1.5 px-2.5 sm:py-2.5 sm:px-4 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap cursor-pointer ${
+                activeReservationType === 'tables'
+                  ? 'bg-stone-950 text-amber-400 shadow-md'
+                  : 'text-stone-700 hover:text-stone-950 hover:bg-stone-100/60'
+              }`}
+            >
+              <UtensilsCrossed className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span>Dine-in Tables</span>
             </button>
           </div>
         </div>

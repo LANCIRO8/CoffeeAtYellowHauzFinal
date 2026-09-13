@@ -375,11 +375,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* 1. Header Banner & Executive Controls */}
       <div
         id="admin-dashboard-header"
-        className="rounded-2xl sm:rounded-3xl border border-amber-400/80 bg-amber-500 text-stone-950 p-4 sm:p-7 shadow-md transition-all"
+        className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white text-stone-900 p-4 sm:p-6 shadow-xs transition-all"
       >
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6">
           <div className="flex items-center gap-3 sm:gap-4">
-            <div className="relative h-12 w-12 sm:h-16 sm:w-16 overflow-hidden rounded-2xl bg-stone-950 border-2 border-stone-950/20 shadow-sm shrink-0 flex items-center justify-center">
+            <div className="relative h-12 w-12 sm:h-14 sm:w-14 overflow-hidden rounded-2xl bg-stone-900 border border-stone-200 shadow-2xs shrink-0 flex items-center justify-center">
               <img
                 src="/images/Coffeatyellowhauz_logo.jpg"
                 alt="Yellow Hauz Cafe"
@@ -392,22 +392,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             <div className="space-y-0.5 sm:space-y-1">
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-stone-950/15 px-2 py-0.5 text-[9px] sm:text-[11px] font-black uppercase tracking-wider text-stone-950">
-                <Sparkles className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-stone-950" />
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200/80 px-2.5 py-0.5 text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-amber-900">
+                <Sparkles className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-600" />
                 <span>Executive Command Center</span>
               </div>
-              <h1 className="font-display text-lg sm:text-2xl lg:text-3xl font-black tracking-tight text-stone-950 leading-tight">
+              <h1 className="font-display text-lg sm:text-2xl lg:text-3xl font-black tracking-tight text-stone-900 leading-tight">
                 Welcome back, {activeStaff.fullName || 'Admin'}
               </h1>
-              <p className="text-[10px] sm:text-xs md:text-sm text-stone-900 max-w-2xl font-medium leading-tight sm:leading-normal">
-                Real-time executive dashboard for <strong>{settings.storeName || 'Coffee at Yellow Hauz'}</strong>.
+              <p className="text-[10px] sm:text-xs md:text-sm text-stone-600 max-w-2xl font-normal leading-relaxed">
+                Real-time executive dashboard for <strong className="font-semibold text-stone-900">{settings.storeName || 'Coffee at Yellow Hauz'}</strong>.
                 Monitor revenue rushes, active kitchen tickets, table floor utilization, and store operations.
               </p>
             </div>
           </div>
 
           {/* Time range selector & refresh */}
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 bg-stone-950/15 p-1 sm:p-1.5 rounded-xl sm:rounded-2xl border border-stone-950/20 self-start lg:self-center">
+          <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 bg-stone-100 p-1 rounded-xl sm:rounded-2xl border border-stone-200 self-start lg:self-center">
             {(
               [
                 { id: 'today', label: 'Today' },
@@ -420,10 +420,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 key={range.id}
                 id={`admin-range-${range.id}`}
                 onClick={() => setTimeRange(range.id)}
-                className={`px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-black transition cursor-pointer ${
+                className={`px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition cursor-pointer ${
                   timeRange === range.id
-                    ? 'bg-stone-950 text-amber-400 shadow-xs'
-                    : 'text-stone-900 hover:text-stone-950 hover:bg-stone-950/10'
+                    ? 'bg-stone-900 text-amber-400 shadow-xs'
+                    : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
                 }`}
               >
                 {range.label}
@@ -433,42 +433,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <button
               id="admin-dashboard-refresh-btn"
               onClick={handleRefresh}
-              className="p-1 sm:p-1.5 rounded-lg sm:rounded-xl text-stone-900 hover:text-stone-950 hover:bg-stone-950/20 transition cursor-pointer"
+              className="p-1 sm:p-1.5 rounded-lg sm:rounded-xl text-stone-500 hover:text-stone-900 hover:bg-stone-200/60 transition cursor-pointer"
               title="Refresh Dashboard Data"
             >
-              <RefreshCw className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${isRefreshing ? 'animate-spin text-stone-950' : ''}`} />
+              <RefreshCw className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${isRefreshing ? 'animate-spin text-amber-600' : ''}`} />
             </button>
           </div>
         </div>
 
         {/* Quick Hub Navigation Cards */}
-        <div className="mt-4 sm:mt-6 pt-3 sm:pt-5 border-t border-stone-950/15 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-2.5">
+        <div className="mt-4 sm:mt-6 pt-4 sm:pt-5 border-t border-stone-100 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-2.5">
           <button
             id="admin-quick-pos"
             onClick={() => onNavigateTab('pos')}
-            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-950/10 hover:bg-stone-950/20 border border-stone-950/15 p-2 sm:p-3 text-left transition cursor-pointer group shadow-2xs"
+            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-amber-50/50 border border-stone-200/80 hover:border-amber-300 p-2 sm:p-2.5 text-left transition cursor-pointer group shadow-2xs"
           >
-            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-stone-950 text-amber-400 group-hover:scale-105 transition shrink-0">
+            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-amber-100 text-amber-800 group-hover:bg-amber-200/80 group-hover:scale-105 transition shrink-0">
               <Monitor className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
             <div>
-              <div className="text-[10px] sm:text-xs font-bold text-stone-950">POS Register</div>
+              <div className="text-[10px] sm:text-xs font-bold text-stone-800 group-hover:text-stone-950">POS Register</div>
             </div>
           </button>
 
           <button
             id="admin-quick-tickets"
             onClick={() => onNavigateTab('tickets')}
-            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-950/10 hover:bg-stone-950/20 border border-stone-950/15 p-2 sm:p-3 text-left transition cursor-pointer group relative shadow-2xs"
+            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-sky-50/50 border border-stone-200/80 hover:border-sky-300 p-2 sm:p-2.5 text-left transition cursor-pointer group relative shadow-2xs"
           >
-            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-stone-950 text-sky-400 group-hover:scale-105 transition shrink-0">
+            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-sky-100 text-sky-700 group-hover:bg-sky-200/80 group-hover:scale-105 transition shrink-0">
               <ClipboardList className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
             <div>
-              <div className="text-[10px] sm:text-xs font-bold text-stone-950 flex items-center gap-1 sm:gap-1.5">
+              <div className="text-[10px] sm:text-xs font-bold text-stone-800 group-hover:text-stone-950 flex items-center gap-1 sm:gap-1.5">
                 <span>Tickets</span>
                 {pendingTickets.length > 0 && (
-                  <span className="rounded-full bg-stone-950 text-amber-400 px-1.5 py-0.2 text-[8px] sm:text-[9px] font-black">
+                  <span className="rounded-full bg-sky-600 text-white px-1.5 py-0.2 text-[8px] sm:text-[9px] font-black">
                     {pendingTickets.length}
                   </span>
                 )}
@@ -479,26 +479,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <button
             id="admin-quick-tables"
             onClick={() => onNavigateTab('tables')}
-            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-950/10 hover:bg-stone-950/20 border border-stone-950/15 p-2 sm:p-3 text-left transition cursor-pointer group shadow-2xs"
+            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-emerald-50/50 border border-stone-200/80 hover:border-emerald-300 p-2 sm:p-2.5 text-left transition cursor-pointer group shadow-2xs"
           >
-            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-stone-950 text-emerald-400 group-hover:scale-105 transition shrink-0">
+            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-emerald-100 text-emerald-700 group-hover:bg-emerald-200/80 group-hover:scale-105 transition shrink-0">
               <LayoutGrid className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
             <div>
-              <div className="text-[10px] sm:text-xs font-bold text-stone-950">Floor Plan</div>
+              <div className="text-[10px] sm:text-xs font-bold text-stone-800 group-hover:text-stone-950">Floor Plan</div>
             </div>
           </button>
 
           <button
             id="admin-quick-inventory"
             onClick={() => onNavigateTab('inventory')}
-            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-950/10 hover:bg-stone-950/20 border border-stone-950/15 p-2 sm:p-3 text-left transition cursor-pointer group relative shadow-2xs"
+            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-rose-50/50 border border-stone-200/80 hover:border-rose-300 p-2 sm:p-2.5 text-left transition cursor-pointer group relative shadow-2xs"
           >
-            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-stone-950 text-rose-400 group-hover:scale-105 transition shrink-0">
+            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-rose-100 text-rose-700 group-hover:bg-rose-200/80 group-hover:scale-105 transition shrink-0">
               <Package className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
             <div>
-              <div className="text-[10px] sm:text-xs font-bold text-stone-950 flex items-center gap-1">
+              <div className="text-[10px] sm:text-xs font-bold text-stone-800 group-hover:text-stone-950 flex items-center gap-1">
                 <span>Inventory</span>
                 {lowStockItems.length > 0 && (
                   <span className="rounded-full bg-rose-600 text-white px-1.5 py-0.2 text-[8px] sm:text-[9px] font-black">
@@ -512,26 +512,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <button
             id="admin-quick-reports"
             onClick={() => onNavigateTab('reports')}
-            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-950/10 hover:bg-stone-950/20 border border-stone-950/15 p-2 sm:p-3 text-left transition cursor-pointer group shadow-2xs"
+            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-indigo-50/50 border border-stone-200/80 hover:border-indigo-300 p-2 sm:p-2.5 text-left transition cursor-pointer group shadow-2xs"
           >
-            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-stone-950 text-indigo-400 group-hover:scale-105 transition shrink-0">
+            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-indigo-100 text-indigo-700 group-hover:bg-indigo-200/80 group-hover:scale-105 transition shrink-0">
               <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
             <div>
-              <div className="text-[10px] sm:text-xs font-bold text-stone-950">Sales Ledger</div>
+              <div className="text-[10px] sm:text-xs font-bold text-stone-800 group-hover:text-stone-950">Sales Ledger</div>
             </div>
           </button>
 
           <button
             id="admin-quick-settings"
             onClick={() => onNavigateTab('settings')}
-            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-950/10 hover:bg-stone-950/20 border border-stone-950/15 p-2 sm:p-3 text-left transition cursor-pointer group shadow-2xs"
+            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-stone-100 border border-stone-200/80 hover:border-stone-300 p-2 sm:p-2.5 text-left transition cursor-pointer group shadow-2xs"
           >
-            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-stone-950 text-amber-200 group-hover:scale-105 transition shrink-0">
+            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-stone-200 text-stone-700 group-hover:bg-stone-300 group-hover:scale-105 transition shrink-0">
               <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
             <div>
-              <div className="text-[10px] sm:text-xs font-bold text-stone-950">Store Config</div>
+              <div className="text-[10px] sm:text-xs font-bold text-stone-800 group-hover:text-stone-950">Store Config</div>
             </div>
           </button>
         </div>

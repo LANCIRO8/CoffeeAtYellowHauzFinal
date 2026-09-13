@@ -36,7 +36,12 @@ import {
   AlertTriangle,
   CheckCircle2,
   X,
+  XCircle,
+  Ban,
+  FileDown,
+  Loader2,
 } from 'lucide-react';
+import { exportAnalyticsToPdf } from '../../utils/exportAnalyticsPdf';
 import {
   ResponsiveContainer,
   PieChart,
@@ -84,7 +89,7 @@ const BEST_SELLER_COLORS = [
   '#94a3b8', // #9 Slate / Others
 ];
 
-type AnalyticsSection = 'all' | 'movement' | 'distribution' | 'trends';
+type AnalyticsSection = 'all' | 'movement' | 'distribution' | 'trends' | 'cancellations';
 type ChartType = 'donut' | 'pie';
 type MetricType = 'revenue' | 'quantity';
 
@@ -93,7 +98,21 @@ const sectionLabels: Record<AnalyticsSection, string> = {
   movement: 'Fast & Slow Moving',
   distribution: 'Pie & Donut Charts',
   trends: 'Hourly Trends',
+  cancellations: 'Cancellations & Voids',
 };
+
+const CANCELLATION_COLORS = [
+  '#ef4444', // Red 500
+  '#f97316', // Orange 500
+  '#f59e0b', // Amber 500
+  '#8b5cf6', // Violet 500
+  '#ec4899', // Pink 500
+  '#06b6d4', // Cyan 500
+  '#64748b', // Slate 500
+  '#10b981', // Emerald 500
+  '#a855f7', // Purple 500
+  '#e11d48', // Rose 600
+];
 
 const timeRangeLabels: Record<TimeRange, string> = {
   today: 'Today',
@@ -109,6 +128,13 @@ const SECTION_OPTIONS = [
     label: 'Complete Dashboard',
     description: 'View all metrics, breakdown charts, and movement data',
     icon: Layers,
+  },
+  {
+    id: 'cancellations' as AnalyticsSection,
+    label: 'Cancellations & Voids',
+    description: 'Void reasons, cancellation audit, and lost revenue',
+    icon: XCircle,
+    badge: 'Audit',
   },
   {
     id: 'movement' as AnalyticsSection,
@@ -139,6 +165,146 @@ const TIME_RANGE_OPTIONS: { id: TimeRange; label: string }[] = [
   { id: 'all', label: 'All Time' },
 ];
 
+// Realistic representative sample cancellation/void data for previewing before transactions are cancelled
+const DEMO_CANCELLED_ORDERS: Order[] = [
+  {
+    id: 9801,
+    orderNumber: 'YH-2026-081',
+    customerName: 'Dine-In Guest',
+    channel: 'in_store',
+    cashierName: 'Maria Santos (Cashier)',
+    status: 'cancelled',
+    paymentMethod: 'cash',
+    paymentStatus: 'paid',
+    totalAmount: 360,
+    items: [
+      { id: 1, menuItemId: 1, name: 'Spanish Latte', price: 180, quantity: 2, totalPrice: 360 },
+    ],
+    cancelReason: 'Customer Changed Mind / Left',
+    cancelNotes: 'Guest had an emergency appointment before drink preparation started',
+    cancelledBy: 'Maria Santos (Cashier)',
+    cancelledAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+    createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+  } as unknown as Order,
+  {
+    id: 9802,
+    orderNumber: 'YH-2026-082',
+    customerName: 'Table 4',
+    channel: 'in_store',
+    cashierName: 'Maria Santos (Cashier)',
+    status: 'cancelled',
+    paymentMethod: 'cash',
+    paymentStatus: 'paid',
+    totalAmount: 480,
+    items: [
+      { id: 2, menuItemId: 2, name: 'Almond Croissant', price: 160, quantity: 3, totalPrice: 480 },
+    ],
+    cancelReason: 'Item Out of Stock / Kitchen Issue',
+    cancelNotes: 'Croissant batch finished in oven before kitchen could complete ticket',
+    cancelledBy: 'Chef Alex (Cook)',
+    cancelledAt: new Date(Date.now() - 3600000 * 5).toISOString(),
+    createdAt: new Date(Date.now() - 3600000 * 5).toISOString(),
+  } as unknown as Order,
+  {
+    id: 9803,
+    orderNumber: 'YH-2026-083',
+    customerName: 'Juan Dela Cruz',
+    channel: 'online',
+    cashierName: 'Online Order',
+    status: 'cancelled',
+    paymentMethod: 'gcash',
+    paymentStatus: 'paid',
+    totalAmount: 290,
+    items: [
+      { id: 3, menuItemId: 3, name: 'Iced Caramel Macchiato', price: 175, quantity: 1, totalPrice: 175 },
+      { id: 4, menuItemId: 4, name: 'Cheese (35g)', price: 45, quantity: 1, totalPrice: 45 },
+      { id: 5, menuItemId: 5, name: 'Pesto Rice', price: 70, quantity: 1, totalPrice: 70 },
+    ],
+    cancelReason: 'Payment Void / GCash Dispute',
+    cancelNotes: 'Double-sent GCash transaction reference; cashier reissued correct single ticket',
+    cancelledBy: 'Maria Santos (Cashier)',
+    cancelledAt: new Date(Date.now() - 3600000 * 8).toISOString(),
+    createdAt: new Date(Date.now() - 3600000 * 8).toISOString(),
+  } as unknown as Order,
+  {
+    id: 9804,
+    orderNumber: 'YH-2026-084',
+    customerName: 'Sarah Jenkins',
+    channel: 'online',
+    cashierName: 'Online Order',
+    status: 'cancelled',
+    paymentMethod: 'gcash',
+    paymentStatus: 'paid',
+    totalAmount: 320,
+    items: [
+      { id: 6, menuItemId: 6, name: 'Cold Brew', price: 160, quantity: 2, totalPrice: 320 },
+    ],
+    cancelReason: 'Duplicate Ticket Placed',
+    cancelNotes: 'Guest tapped place order twice due to unstable wifi signal',
+    cancelledBy: 'Leo (Barista)',
+    cancelledAt: new Date(Date.now() - 3600000 * 12).toISOString(),
+    createdAt: new Date(Date.now() - 3600000 * 12).toISOString(),
+  } as unknown as Order,
+  {
+    id: 9805,
+    orderNumber: 'YH-2026-085',
+    customerName: 'Table 2',
+    channel: 'in_store',
+    cashierName: 'Maria Santos (Cashier)',
+    status: 'cancelled',
+    paymentMethod: 'cash',
+    paymentStatus: 'paid',
+    totalAmount: 210,
+    items: [
+      { id: 7, menuItemId: 7, name: 'Mocha Frappe', price: 210, quantity: 1, totalPrice: 210 },
+    ],
+    cancelReason: 'Preparation Error / Barista Issue',
+    cancelNotes: 'Drink prepped with whole milk instead of requested oat milk; remade on fresh ticket',
+    cancelledBy: 'Leo (Barista)',
+    cancelledAt: new Date(Date.now() - 3600000 * 18).toISOString(),
+    createdAt: new Date(Date.now() - 3600000 * 18).toISOString(),
+  } as unknown as Order,
+  {
+    id: 9806,
+    orderNumber: 'YH-2026-086',
+    customerName: 'Walk-in Guest',
+    channel: 'in_store',
+    cashierName: 'Maria Santos (Cashier)',
+    status: 'cancelled',
+    paymentMethod: 'cash',
+    paymentStatus: 'paid',
+    totalAmount: 140,
+    items: [
+      { id: 8, menuItemId: 8, name: 'Americano', price: 140, quantity: 1, totalPrice: 140 },
+    ],
+    cancelReason: 'Wrong Table / Customer Details',
+    cancelNotes: 'Order ticket assigned to wrong table number by cashier trainee',
+    cancelledBy: 'Maria Santos (Cashier)',
+    cancelledAt: new Date(Date.now() - 3600000 * 24).toISOString(),
+    createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
+  } as unknown as Order,
+  {
+    id: 9807,
+    orderNumber: 'YH-2026-087',
+    customerName: 'Guest 5',
+    channel: 'in_store',
+    cashierName: 'Maria Santos (Cashier)',
+    status: 'cancelled',
+    paymentMethod: 'cash',
+    paymentStatus: 'paid',
+    totalAmount: 250,
+    items: [
+      { id: 9, menuItemId: 9, name: 'Matcha Latte', price: 180, quantity: 1, totalPrice: 180 },
+      { id: 10, menuItemId: 10, name: 'Pesto Rice', price: 70, quantity: 1, totalPrice: 70 },
+    ],
+    cancelReason: 'Customer Complaint / Dissatisfied',
+    cancelNotes: 'Guest waited extended period during lunch peak rush; manager approved full void',
+    cancelledBy: 'Admin',
+    cancelledAt: new Date(Date.now() - 3600000 * 30).toISOString(),
+    createdAt: new Date(Date.now() - 3600000 * 30).toISOString(),
+  } as unknown as Order,
+];
+
 export const SalesAnalytics: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>(() => AppStore.getOrders());
   const [menuItems, setMenuItems] = useState<MenuItem[]>(() => AppStore.getMenuItems());
@@ -155,6 +321,11 @@ export const SalesAnalytics: React.FC = () => {
   const [categoryMetric, setCategoryMetric] = useState<MetricType>('revenue');
   const [bestSellerMetric, setBestSellerMetric] = useState<MetricType>('revenue');
   const [bestSellerTopCount, setBestSellerTopCount] = useState<number>(6);
+
+  // Cancellation & Void Reasons Controls
+  const [cancelChartType, setCancelChartType] = useState<'bar' | 'donut'>('bar');
+  const [cancelMetric, setCancelMetric] = useState<'count' | 'revenue'>('count');
+  const [showDemoCancellations, setShowDemoCancellations] = useState<boolean>(true);
 
   // Fast & Slow Moving Items Controls (Independent per chart)
   const [fastMetric, setFastMetric] = useState<MetricType>('quantity');
@@ -249,6 +420,170 @@ export const SalesAnalytics: React.FC = () => {
     () => itemSales.reduce((sum, i) => sum + i.quantity, 0),
     [itemSales]
   );
+
+  // Filter cancelled or voided orders by status and date range
+  const filteredCancelledOrders = useMemo(() => {
+    const isCancelled = (o: Order) =>
+      o.status === 'cancelled' ||
+      Boolean(o.cancelledAt) ||
+      Boolean(o.cancelReason) ||
+      Boolean(o.cancellationReason) ||
+      Boolean(o.returnReason);
+
+    const cancelled = orders.filter(isCancelled);
+    if (timeRange === 'all') return cancelled;
+
+    const now = new Date();
+    return cancelled.filter((o) => {
+      const dateStr = o.cancelledAt || o.createdAt;
+      const orderDate = new Date(dateStr);
+      if (timeRange === 'today') {
+        return (
+          orderDate.getDate() === now.getDate() &&
+          orderDate.getMonth() === now.getMonth() &&
+          orderDate.getFullYear() === now.getFullYear()
+        );
+      }
+      if (timeRange === '7days') {
+        const diffDays = (now.getTime() - orderDate.getTime()) / (1000 * 3600 * 24);
+        return diffDays <= 7;
+      }
+      if (timeRange === '30days') {
+        const diffDays = (now.getTime() - orderDate.getTime()) / (1000 * 3600 * 24);
+        return diffDays <= 30;
+      }
+      if (timeRange === 'custom') {
+        const orderTime = orderDate.getTime();
+        const start = new Date(`${customStartDate}T00:00:00`).getTime();
+        const end = new Date(`${customEndDate}T23:59:59.999`).getTime();
+        return orderTime >= start && orderTime <= end;
+      }
+      return true;
+    });
+  }, [orders, timeRange, customStartDate, customEndDate]);
+
+  // Aggregate Cancellation Reasons
+  const cancellationData = useMemo(() => {
+    const hasLiveCancellations = filteredCancelledOrders.length > 0;
+    const activeOrders = hasLiveCancellations
+      ? filteredCancelledOrders
+      : (showDemoCancellations ? DEMO_CANCELLED_ORDERS : []);
+
+    const reasonMap = new Map<string, {
+      reason: string;
+      shortReason: string;
+      count: number;
+      revenue: number;
+      notes: string[];
+      recentTickets: string[];
+    }>();
+
+    let totalCancelledRevenue = 0;
+    const totalCount = activeOrders.length;
+
+    for (const order of activeOrders) {
+      const rawReason =
+        order.cancelReason ||
+        order.cancellationReason ||
+        order.returnReason ||
+        'Unspecified / Other';
+      const cleanReason = rawReason.trim();
+      const note = order.cancelNotes || order.cancellationNotes || '';
+      const amount = order.totalAmount || 0;
+      totalCancelledRevenue += amount;
+
+      const existing = reasonMap.get(cleanReason) || {
+        reason: cleanReason,
+        shortReason: cleanReason.length > 20 ? cleanReason.slice(0, 19) + '…' : cleanReason,
+        count: 0,
+        revenue: 0,
+        notes: [],
+        recentTickets: [],
+      };
+
+      existing.count += 1;
+      existing.revenue += amount;
+      if (note && !existing.notes.includes(note)) {
+        existing.notes.push(note);
+      }
+      if (order.orderNumber && !existing.recentTickets.includes(order.orderNumber)) {
+        existing.recentTickets.push(order.orderNumber);
+      }
+      reasonMap.set(cleanReason, existing);
+    }
+
+    const reasonsList = Array.from(reasonMap.values())
+      .map((item, idx) => ({
+        ...item,
+        pctCount: totalCount > 0 ? ((item.count / totalCount) * 100).toFixed(1) : '0',
+        pctRevenue: totalCancelledRevenue > 0 ? ((item.revenue / totalCancelledRevenue) * 100).toFixed(1) : '0',
+        color: CANCELLATION_COLORS[idx % CANCELLATION_COLORS.length],
+      }))
+      .sort((a, b) => (cancelMetric === 'revenue' ? b.revenue - a.revenue : b.count - a.count));
+
+    const totalOrdersInRange = filteredCompletedOrders.length + totalCount;
+    const cancelRate = totalOrdersInRange > 0 ? ((totalCount / totalOrdersInRange) * 100).toFixed(1) : '0';
+    const topReason = reasonsList.length > 0 ? reasonsList[0] : null;
+
+    return {
+      reasonsList,
+      totalCount,
+      totalRevenue: totalCancelledRevenue,
+      cancelRate,
+      topReason,
+      hasRealData: hasLiveCancellations,
+      isDemo: !hasLiveCancellations && showDemoCancellations,
+    };
+  }, [filteredCancelledOrders, showDemoCancellations, cancelMetric, filteredCompletedOrders]);
+
+  // PDF Export States
+  const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
+  const [exportScope, setExportScope] = useState<'all' | 'current'>('all');
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [exportStatusText, setExportStatusText] = useState<string>('');
+  const [exportSuccessMessage, setExportSuccessMessage] = useState<string>('');
+
+  const handleExportPdf = async () => {
+    setIsExporting(true);
+    setExportStatusText('Preparing charts for export...');
+    const originalSection = analyticsSection;
+
+    try {
+      if (exportScope === 'all' && analyticsSection !== 'all') {
+        setAnalyticsSection('all');
+        await new Promise((resolve) => setTimeout(resolve, 350));
+      } else {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      }
+
+      await exportAnalyticsToPdf({
+        scope: exportScope,
+        currentSection: analyticsSection,
+        sectionLabel: sectionLabels[analyticsSection],
+        timeRangeLabel: timeRangeLabels[timeRange],
+        kpis: {
+          totalRevenue,
+          totalOrders: filteredCompletedOrders.length,
+          totalItemsSold,
+          avgOrderValue,
+        },
+        onProgress: (msg) => setExportStatusText(msg),
+      });
+
+      setIsExportModalOpen(false);
+      setExportSuccessMessage('Analytics charts exported to PDF successfully!');
+      setTimeout(() => setExportSuccessMessage(''), 4500);
+    } catch (err: any) {
+      console.error('PDF export failed:', err);
+      alert(err?.message || 'Failed to export charts to PDF. Please try again.');
+    } finally {
+      if (exportScope === 'all' && originalSection !== 'all') {
+        setAnalyticsSection(originalSection);
+      }
+      setIsExporting(false);
+      setExportStatusText('');
+    }
+  };
 
   // 1. Pie Chart Data: Categories (Revenue & Quantity Share)
   const categoryPieData = useMemo(() => {
@@ -701,6 +1036,43 @@ export const SalesAnalytics: React.FC = () => {
     return null;
   };
 
+  const CustomCancelTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="rounded-2xl border border-stone-700 bg-stone-900/95 px-4 py-3 text-white shadow-xl text-xs space-y-1.5 min-w-[220px]">
+          <div className="flex items-center gap-2 border-b border-stone-800 pb-1.5">
+            <span
+              className="h-3 w-3 rounded-full shrink-0"
+              style={{ backgroundColor: data.color || '#ef4444' }}
+            />
+            <p className="font-extrabold text-rose-400 text-sm truncate">{data.reason}</p>
+          </div>
+          <div className="flex items-center justify-between gap-4 font-mono">
+            <span className="text-stone-400">Voided Tickets:</span>
+            <span className="font-bold text-white">
+              {data.count} {data.count === 1 ? 'order' : 'orders'}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-4 font-mono">
+            <span className="text-stone-400">Total Lost Value:</span>
+            <span className="font-extrabold text-rose-300">₱{Number(data.revenue).toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between gap-4 text-[11px] text-stone-400 pt-1 border-t border-stone-800/80">
+            <span>Share of All Voids:</span>
+            <span className="font-bold text-amber-300">{data.pctCount}%</span>
+          </div>
+          {data.notes && data.notes.length > 0 && (
+            <div className="pt-1 text-[10px] text-stone-400 italic border-t border-stone-800/50 line-clamp-2">
+              &ldquo;{data.notes[0]}&rdquo;
+            </div>
+          )}
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6 pb-16">
       {/* Header with Title and Single "Section & Time Filter" Modal Trigger */}
@@ -712,8 +1084,26 @@ export const SalesAnalytics: React.FC = () => {
           </h2>
         </div>
 
-        {/* Single Button Modal Trigger for Section View & Time Filter */}
-        <div className="flex items-center gap-2.5 sm:gap-3">
+        {/* Header Actions: Export PDF & Filter Trigger */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Export to PDF Button */}
+          <button
+            id="btn-export-analytics-pdf"
+            type="button"
+            onClick={() => setIsExportModalOpen(true)}
+            className="flex items-center gap-2 sm:gap-2.5 rounded-2xl bg-white px-2.5 sm:px-3.5 py-1.5 sm:py-2 border border-stone-200 shadow-2xs hover:border-amber-400 hover:bg-stone-50 transition-all cursor-pointer group"
+            title="Export charts to PDF document"
+          >
+            <div className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-xl bg-amber-500/15 text-amber-800 group-hover:bg-amber-500 group-hover:text-stone-950 transition-colors">
+              <FileDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            </div>
+            <div className="flex flex-col text-left">
+              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-stone-500">Report</span>
+              <span className="text-[11px] sm:text-xs font-black text-stone-900">Export PDF</span>
+            </div>
+          </button>
+
+          {/* Single Button Modal Trigger for Section View & Time Filter */}
           <button
             id="btn-analytics-filter-modal"
             type="button"
@@ -735,6 +1125,173 @@ export const SalesAnalytics: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Success Notification Banner */}
+      {exportSuccessMessage && (
+        <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-xs font-bold text-emerald-800 shadow-xs animate-in fade-in duration-200">
+          <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+          <span>{exportSuccessMessage}</span>
+        </div>
+      )}
+
+      {/* Export to PDF Modal */}
+      {isExportModalOpen && (
+        <div
+          id="modal-export-analytics-pdf"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-xs transition-opacity"
+          onClick={() => !isExporting && setIsExportModalOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-md rounded-3xl bg-white p-4 sm:p-6 shadow-2xl border border-stone-200 flex flex-col space-y-4 animate-in fade-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500/15 text-amber-800">
+                  <FileDown className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-extrabold text-stone-900">Export Charts to PDF</h3>
+                  <p className="text-[10px] sm:text-xs text-stone-500">Download formatted sales &amp; performance report</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isExporting}
+                onClick={() => setIsExportModalOpen(false)}
+                className="rounded-xl p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Scope Selection */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-extrabold uppercase tracking-wider text-stone-600 block">
+                Report Scope
+              </label>
+
+              <div className="grid grid-cols-1 gap-2">
+                <button
+                  type="button"
+                  disabled={isExporting}
+                  onClick={() => setExportScope('all')}
+                  className={`flex items-start gap-3 rounded-2xl p-3 border text-left transition-all cursor-pointer ${
+                    exportScope === 'all'
+                      ? 'border-amber-500 bg-amber-50/40 shadow-xs'
+                      : 'border-stone-200 bg-white hover:bg-stone-50'
+                  }`}
+                >
+                  <div
+                    className={`mt-0.5 h-4 w-4 rounded-full border flex items-center justify-center ${
+                      exportScope === 'all'
+                        ? 'border-amber-600 bg-amber-600 text-white'
+                        : 'border-stone-300 bg-white'
+                    }`}
+                  >
+                    {exportScope === 'all' && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-stone-900">Complete Charts Report</div>
+                    <div className="text-[10px] text-stone-500 leading-relaxed mt-0.5">
+                      All 6 charts: Category Share, Best Sellers, Velocity (Fast/Slow Movers), and Hourly Rush Trends.
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isExporting}
+                  onClick={() => setExportScope('current')}
+                  className={`flex items-start gap-3 rounded-2xl p-3 border text-left transition-all cursor-pointer ${
+                    exportScope === 'current'
+                      ? 'border-amber-500 bg-amber-50/40 shadow-xs'
+                      : 'border-stone-200 bg-white hover:bg-stone-50'
+                  }`}
+                >
+                  <div
+                    className={`mt-0.5 h-4 w-4 rounded-full border flex items-center justify-center ${
+                      exportScope === 'current'
+                        ? 'border-amber-600 bg-amber-600 text-white'
+                        : 'border-stone-300 bg-white'
+                    }`}
+                  >
+                    {exportScope === 'current' && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-stone-900">
+                      Current Section Only ({sectionLabels[analyticsSection]})
+                    </div>
+                    <div className="text-[10px] text-stone-500 leading-relaxed mt-0.5">
+                      Exports only the charts currently displayed in the active section tab.
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Range & KPI summary card */}
+            <div className="rounded-2xl bg-stone-50 border border-stone-200 p-3 text-xs space-y-1">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-stone-500 font-semibold">Active Filter:</span>
+                <span className="font-extrabold text-stone-800">{timeRangeLabels[timeRange]}</span>
+              </div>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-stone-500 font-semibold">Gross Sales:</span>
+                <span className="font-extrabold text-amber-800">
+                  ₱{totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-stone-500 font-semibold">Orders &amp; Items:</span>
+                <span className="font-bold text-stone-700">
+                  {filteredCompletedOrders.length} orders • {totalItemsSold} items
+                </span>
+              </div>
+            </div>
+
+            {/* Exporting Progress State */}
+            {isExporting && (
+              <div className="flex items-center gap-2.5 rounded-xl bg-amber-50 border border-amber-200 p-2.5 text-xs font-bold text-amber-900">
+                <Loader2 className="h-4 w-4 animate-spin text-amber-700 shrink-0" />
+                <span>{exportStatusText || 'Rendering high-resolution charts...'}</span>
+              </div>
+            )}
+
+            {/* Footer Buttons */}
+            <div className="flex items-center justify-end gap-2 border-t border-stone-100 pt-3">
+              <button
+                type="button"
+                disabled={isExporting}
+                onClick={() => setIsExportModalOpen(false)}
+                className="rounded-xl border border-stone-300 bg-white px-3.5 py-1.5 text-xs font-bold text-stone-700 hover:bg-stone-50 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                id="btn-confirm-export-pdf"
+                type="button"
+                disabled={isExporting}
+                onClick={handleExportPdf}
+                className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-1.5 text-xs font-extrabold text-stone-950 shadow-2xs hover:bg-amber-400 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {isExporting ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Exporting...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileDown className="h-3.5 w-3.5" />
+                    <span>Download PDF</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Combined Section View & Time Filter Modal */}
       {isFilterModalOpen && (
@@ -923,7 +1480,7 @@ export const SalesAnalytics: React.FC = () => {
           {/* Main Dual Donut / Pie Grid */}
           <div className="grid gap-6 lg:grid-cols-2">
             {/* CHART 1: Category Sales Share (Donut / Pie Chart) */}
-            <div className="rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-6 shadow-xs flex flex-col justify-between space-y-3.5 sm:space-y-5">
+            <div id="chart-card-category-share" className="rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-6 shadow-xs flex flex-col justify-between space-y-3.5 sm:space-y-5">
               <div>
                 {/* Header & Controls */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 border-b border-stone-100 pb-3 sm:pb-4">
@@ -1090,7 +1647,7 @@ export const SalesAnalytics: React.FC = () => {
             </div>
 
             {/* CHART 2: Best Sellers Sales Share (Donut / Pie Chart) */}
-            <div className="rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-6 shadow-xs flex flex-col justify-between space-y-3.5 sm:space-y-5">
+            <div id="chart-card-best-sellers" className="rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-6 shadow-xs flex flex-col justify-between space-y-3.5 sm:space-y-5">
               <div>
                 {/* Header & Controls */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 border-b border-stone-100 pb-3 sm:pb-4">
@@ -1251,13 +1808,282 @@ export const SalesAnalytics: React.FC = () => {
         </div>
       )}
 
+      {/* CANCELLATION & VOID REASONS AUDIT GRAPH */}
+      {(analyticsSection === 'all' || analyticsSection === 'cancellations') && (
+        <div
+          id="chart-card-cancellation-reasons"
+          className="rounded-3xl border border-rose-200 bg-white p-3.5 sm:p-6 shadow-xs space-y-4 sm:space-y-6"
+        >
+          {/* Section Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-rose-100 pb-3 sm:pb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="grid h-8 w-8 sm:h-9 sm:w-9 place-items-center rounded-2xl bg-rose-500/10 text-rose-600">
+                <XCircle className="h-4 w-4 sm:h-5 sm:w-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="font-display text-xs sm:text-base font-extrabold text-stone-900">
+                    Order Cancellation &amp; Void Reasons
+                  </h4>
+                  {cancellationData.isDemo ? (
+                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[9px] sm:text-[10px] font-bold text-amber-700 border border-amber-200">
+                      Sample Preview
+                    </span>
+                  ) : cancellationData.hasRealData ? (
+                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] sm:text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                      Live Store Data
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-[10px] sm:text-xs text-stone-500">
+                  Distribution of ticket voids, customer cancellations &amp; barista/kitchen drop causes
+                </p>
+              </div>
+            </div>
+
+            {/* Top Controls: Metric Toggle + Chart Style + Demo Toggle */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Metric Toggle: Count vs Lost ₱ */}
+              <div className="flex items-center bg-stone-100 p-0.5 rounded-xl text-[10px] sm:text-xs font-bold border border-stone-200">
+                <button
+                  type="button"
+                  onClick={() => setCancelMetric('count')}
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                    cancelMetric === 'count'
+                      ? 'bg-white text-rose-700 shadow-2xs font-black'
+                      : 'text-stone-500 hover:text-stone-800'
+                  }`}
+                >
+                  By Frequency
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCancelMetric('revenue')}
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                    cancelMetric === 'revenue'
+                      ? 'bg-white text-rose-700 shadow-2xs font-black'
+                      : 'text-stone-500 hover:text-stone-800'
+                  }`}
+                >
+                  By Lost Value (₱)
+                </button>
+              </div>
+
+              {/* Chart Style Toggle: Bar vs Donut */}
+              <div className="flex items-center bg-stone-100 p-0.5 rounded-xl border border-stone-200">
+                <button
+                  type="button"
+                  onClick={() => setCancelChartType('bar')}
+                  className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                    cancelChartType === 'bar'
+                      ? 'bg-white text-rose-700 shadow-2xs'
+                      : 'text-stone-400 hover:text-stone-700'
+                  }`}
+                  title="Horizontal Bar Chart View"
+                >
+                  <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCancelChartType('donut')}
+                  className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                    cancelChartType === 'donut'
+                      ? 'bg-white text-rose-700 shadow-2xs'
+                      : 'text-stone-400 hover:text-stone-700'
+                  }`}
+                  title="Donut Distribution View"
+                >
+                  <Disc className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                </button>
+              </div>
+
+              {/* Demo Sample Toggle if 0 real cancellations */}
+              {!cancellationData.hasRealData && (
+                <button
+                  type="button"
+                  onClick={() => setShowDemoCancellations((prev) => !prev)}
+                  className={`px-2 py-1 rounded-xl text-[10px] font-bold border transition-colors cursor-pointer ${
+                    showDemoCancellations
+                      ? 'bg-amber-100 text-amber-900 border-amber-300'
+                      : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
+                  }`}
+                >
+                  {showDemoCancellations ? 'Hide Demo' : 'Preview Sample Voids'}
+                </button>
+              )}
+            </div>
+          </div>
+
+
+          {/* Main Visualizer & Breakdown Grid */}
+          {cancellationData.reasonsList.length === 0 ? (
+            <div className="text-center py-10 border border-dashed border-stone-200 rounded-2xl bg-stone-50">
+              <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto mb-2 opacity-80" />
+              <h5 className="font-bold text-stone-800 text-sm">No Cancellations Recorded</h5>
+              <p className="text-xs text-stone-500 mt-0.5 max-w-sm mx-auto">
+                No orders were cancelled or voided in the selected time range ({timeRangeLabels[timeRange]}).
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowDemoCancellations(true)}
+                className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-white border border-stone-200 text-stone-700 hover:bg-stone-100 shadow-2xs cursor-pointer"
+              >
+                Preview with Sample Void Data
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-6 lg:grid-cols-12 items-center">
+              {/* Chart graphic (7 cols on lg) */}
+              <div className="lg:col-span-7 bg-stone-50 rounded-2xl border border-stone-100 p-3 sm:p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider">
+                    {cancelChartType === 'bar' ? 'Reason Frequency Leaderboard' : 'Void Reason Distribution'}
+                  </span>
+                  <span className="text-[10px] sm:text-xs font-extrabold text-stone-600">
+                    {cancelMetric === 'count' ? 'Ranked by ticket count' : 'Ranked by lost revenue (₱)'}
+                  </span>
+                </div>
+
+                <div className="h-64 sm:h-72 w-full flex items-center justify-center relative">
+                  {cancelChartType === 'bar' ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        layout="vertical"
+                        data={cancellationData.reasonsList}
+                        margin={{ top: 5, right: 25, left: 10, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                        <XAxis
+                          type="number"
+                          tick={{ fontSize: 9, fill: '#78716c' }}
+                          axisLine={false}
+                          tickLine={false}
+                          tickFormatter={(val) => (cancelMetric === 'revenue' ? `₱${val}` : `${val}`)}
+                        />
+                        <YAxis
+                          type="category"
+                          dataKey="shortReason"
+                          tick={{ fontSize: 9, fill: '#44403c', fontWeight: 600 }}
+                          axisLine={false}
+                          tickLine={false}
+                          width={115}
+                        />
+                        <Tooltip content={<CustomCancelTooltip />} />
+                        <Bar
+                          dataKey={cancelMetric === 'revenue' ? 'revenue' : 'count'}
+                          radius={[0, 6, 6, 0]}
+                        >
+                          {cancellationData.reasonsList.map((entry, idx) => (
+                            <Cell key={`bar-cell-${idx}`} fill={entry.color} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Tooltip content={<CustomCancelTooltip />} />
+                          <Pie
+                            data={cancellationData.reasonsList}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={65}
+                            outerRadius={95}
+                            paddingAngle={2}
+                            dataKey={cancelMetric === 'revenue' ? 'revenue' : 'count'}
+                            animationDuration={500}
+                          >
+                            {cancellationData.reasonsList.map((entry, idx) => (
+                              <Cell
+                                key={`donut-cell-${idx}`}
+                                fill={entry.color}
+                                stroke="#ffffff"
+                                strokeWidth={2}
+                              />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-[10px] font-bold text-stone-600 uppercase tracking-wider">
+                          {cancelMetric === 'revenue' ? 'Lost Value' : 'Total Voids'}
+                        </span>
+                        <span className="text-sm sm:text-base font-black text-rose-950 font-mono">
+                          {cancelMetric === 'revenue'
+                            ? `₱${cancellationData.totalRevenue.toFixed(0)}`
+                            : `${cancellationData.totalCount} orders`}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Reasons Breakdown List & Recent Notes (5 cols on lg) */}
+              <div className="lg:col-span-5 space-y-2 max-h-72 overflow-y-auto pr-1">
+                <span className="text-[10px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1">
+                  Reason Breakdown &amp; Incident Notes
+                </span>
+                {cancellationData.reasonsList.map((item) => (
+                  <div
+                    key={item.reason}
+                    className="p-2.5 rounded-xl border border-stone-200 bg-stone-50 hover:bg-white hover:border-stone-300 transition-all space-y-1.5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="h-2.5 w-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: item.color }}
+                        />
+                        <span className="text-xs font-bold text-stone-900 truncate" title={item.reason}>
+                          {item.reason}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0 font-mono text-[11px]">
+                        <span className="font-extrabold text-stone-900">
+                          {item.count} {item.count === 1 ? 'ticket' : 'tickets'}
+                        </span>
+                        <span className="text-stone-300">•</span>
+                        <span className="font-bold text-rose-600">₱{item.revenue.toFixed(2)}</span>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="h-1.5 w-full rounded-full bg-stone-200 overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${cancelMetric === 'revenue' ? item.pctRevenue : item.pctCount}%`,
+                          backgroundColor: item.color,
+                        }}
+                      />
+                    </div>
+
+                    {/* Footer Info: Share & Latest Note */}
+                    <div className="flex items-center justify-between text-[10px] text-stone-500">
+                      <span>{item.pctCount}% of all cancellations</span>
+                      {item.notes.length > 0 && (
+                        <span className="truncate max-w-[160px] italic text-stone-600" title={item.notes[0]}>
+                          &ldquo;{item.notes[0]}&rdquo;
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* FAST & SLOW MOVING PRODUCT VELOCITY CHARTS */}
       {(analyticsSection === 'all' || analyticsSection === 'movement') && (
         <div className="space-y-6">
           {/* DUAL CHARTS GRID (Split View) */}
           <div className="grid gap-6 lg:grid-cols-2">
             {/* CHART 1: FAST MOVING ITEMS */}
-            <div className="rounded-3xl border border-emerald-200/80 bg-linear-to-b from-emerald-50/30 to-white p-3.5 sm:p-6 shadow-xs flex flex-col justify-between space-y-3.5 sm:space-y-5">
+            <div id="chart-card-fast-moving" className="rounded-3xl border border-emerald-200/80 bg-linear-to-b from-emerald-50/30 to-white p-3.5 sm:p-6 shadow-xs flex flex-col justify-between space-y-3.5 sm:space-y-5">
                 <div className="space-y-3 sm:space-y-4">
                   {/* Fast Movers Card Header */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 border-b border-emerald-100 pb-3 sm:pb-3.5">
@@ -1460,7 +2286,7 @@ export const SalesAnalytics: React.FC = () => {
               </div>
 
             {/* CHART 2: SLOW MOVING ITEMS */}
-            <div className="rounded-3xl border border-rose-200/80 bg-linear-to-b from-rose-50/30 to-white p-3.5 sm:p-6 shadow-xs flex flex-col justify-between space-y-3.5 sm:space-y-5">
+            <div id="chart-card-slow-moving" className="rounded-3xl border border-rose-200/80 bg-linear-to-b from-rose-50/30 to-white p-3.5 sm:p-6 shadow-xs flex flex-col justify-between space-y-3.5 sm:space-y-5">
                 <div className="space-y-3 sm:space-y-4">
                   {/* Slow Movers Card Header */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 border-b border-rose-100 pb-3 sm:pb-3.5">
@@ -1670,7 +2496,7 @@ export const SalesAnalytics: React.FC = () => {
       {(analyticsSection === 'all' || analyticsSection === 'trends') && (
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Hourly Sales Trend Area Chart */}
-          <div className="rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-6 shadow-xs space-y-3 sm:space-y-4">
+          <div id="chart-card-hourly-trend" className="rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-6 shadow-xs space-y-3 sm:space-y-4">
             <div className="flex items-center justify-between border-b border-stone-100 pb-2.5 sm:pb-3">
               <div className="flex items-center gap-2">
                 <div className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-xl bg-amber-500/10 text-amber-600">
@@ -1723,7 +2549,7 @@ export const SalesAnalytics: React.FC = () => {
           </div>
 
           {/* Top Selling Products Bar Chart */}
-          <div className="rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-6 shadow-xs space-y-3 sm:space-y-4">
+          <div id="chart-card-top-products" className="rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-6 shadow-xs space-y-3 sm:space-y-4">
             <div className="flex items-center justify-between border-b border-stone-100 pb-2.5 sm:pb-3">
               <div className="flex items-center gap-2">
                 <div className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-xl bg-amber-500/10 text-amber-600">

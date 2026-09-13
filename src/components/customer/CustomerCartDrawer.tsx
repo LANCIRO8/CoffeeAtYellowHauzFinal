@@ -23,6 +23,7 @@ import {
   Search,
   CupSoda,
   Egg,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 interface CustomerCartDrawerProps {
@@ -64,6 +65,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
   
   // Add-ons modal & filtering state
   const [isAddonsModalOpen, setIsAddonsModalOpen] = useState(false);
+  const [isAddonFilterModalOpen, setIsAddonFilterModalOpen] = useState(false);
   const [addonsCategoryFilter, setAddonsCategoryFilter] = useState<'all' | 'drinks' | 'food'>('all');
   const [addonsSearchQuery, setAddonsSearchQuery] = useState('');
   const [recentlyAddedAddonId, setRecentlyAddedAddonId] = useState<number | null>(null);
@@ -623,29 +625,23 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
             className="absolute inset-0 z-50 bg-white flex flex-col animate-in slide-in-from-right duration-250 font-sans"
           >
             {/* Add-ons Header */}
-            <div className="flex items-center justify-between border-b border-stone-200 px-4 py-3.5 bg-amber-50/90">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between border-b border-stone-200 px-4 py-3 bg-white">
+              <div className="flex items-center gap-2.5">
                 <button
+                  type="button"
                   onClick={() => setIsAddonsModalOpen(false)}
-                  title="Back to Bag"
-                  className="grid h-8 w-8 place-items-center rounded-xl bg-white border border-stone-200 text-stone-700 hover:bg-stone-100 transition cursor-pointer shadow-2xs"
+                  title="Back"
+                  className="grid h-8 w-8 place-items-center rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 transition cursor-pointer"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <Sparkles className="h-4 w-4 text-amber-600" />
-                    <h3 className="font-display text-sm font-bold text-stone-900">
-                      Add-ons & Extras
-                    </h3>
-                  </div>
-                  <p className="text-[11px] text-stone-500">
-                    Customize your order with coffee jelly, rice, milk, etc.
-                  </p>
-                </div>
+                <h3 className="font-display text-sm font-bold text-stone-900">
+                  Add-ons &amp; Extras
+                </h3>
               </div>
 
               <button
+                type="button"
                 onClick={() => setIsAddonsModalOpen(false)}
                 className="grid h-7 w-7 place-items-center rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
               >
@@ -653,75 +649,142 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
               </button>
             </div>
 
-            {/* Filter Tabs & Search */}
-            <div className="p-3.5 border-b border-stone-200 bg-stone-50 space-y-2.5">
-              {/* Category Pills */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-thin">
-                <button
-                  onClick={() => setAddonsCategoryFilter('all')}
-                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold transition cursor-pointer ${
-                    addonsCategoryFilter === 'all'
-                      ? 'bg-amber-500 text-stone-950 shadow-xs'
-                      : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
-                  }`}
-                >
-                  All Add-ons ({allAddonItems.length})
-                </button>
-                <button
-                  onClick={() => setAddonsCategoryFilter('drinks')}
-                  className={`shrink-0 flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold transition cursor-pointer ${
-                    addonsCategoryFilter === 'drinks'
-                      ? 'bg-amber-500 text-stone-950 shadow-xs'
-                      : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
-                  }`}
-                >
-                  <CupSoda className="h-3 w-3" />
-                  <span>Drink Add-ons ({drinkAddonItems.length})</span>
-                </button>
-                <button
-                  onClick={() => setAddonsCategoryFilter('food')}
-                  className={`shrink-0 flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold transition cursor-pointer ${
-                    addonsCategoryFilter === 'food'
-                      ? 'bg-amber-500 text-stone-950 shadow-xs'
-                      : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
-                  }`}
-                >
-                  <Egg className="h-3 w-3" />
-                  <span>Food Add-ons ({foodAddonItems.length})</span>
-                </button>
-              </div>
-
-              {/* Search Bar */}
-              <div className="relative">
+            {/* Search Bar & Single Button Filter */}
+            <div className="p-3 border-b border-stone-200 bg-stone-50 flex items-center gap-2">
+              <div className="relative flex-1">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400" />
                 <input
                   type="text"
                   value={addonsSearchQuery}
                   onChange={(e) => setAddonsSearchQuery(e.target.value)}
-                  placeholder="Search add-ons (e.g., jelly, egg, almond milk)..."
-                  className="w-full rounded-xl border border-stone-200 bg-white pl-8 pr-3 py-1.5 text-xs text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none shadow-2xs"
+                  placeholder="Search add-ons..."
+                  className="w-full rounded-xl border border-stone-200 bg-white pl-8 pr-7 py-1.5 text-xs text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none shadow-2xs"
                 />
                 {addonsSearchQuery && (
                   <button
+                    type="button"
                     onClick={() => setAddonsSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 cursor-pointer"
                   >
-                    <X className="h-3 w-3" />
+                    <X className="h-3.5 w-3.5" />
                   </button>
                 )}
               </div>
+
+              {/* Single Filter Button Modal Trigger */}
+              <button
+                id="btn-addons-filter"
+                type="button"
+                onClick={() => setIsAddonFilterModalOpen(true)}
+                className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-bold border transition cursor-pointer shadow-2xs shrink-0 ${
+                  addonsCategoryFilter !== 'all'
+                    ? 'border-amber-400 bg-amber-50 text-amber-900'
+                    : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-100'
+                }`}
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5 text-amber-700" />
+                <span>Filter:</span>
+                <span className="font-extrabold text-stone-900">
+                  {addonsCategoryFilter === 'all'
+                    ? 'All'
+                    : addonsCategoryFilter === 'drinks'
+                    ? 'Drinks'
+                    : 'Food'}
+                </span>
+              </button>
             </div>
 
-            {/* Add-ons List */}
-            <div className="flex-1 overflow-y-auto p-3.5 space-y-2.5">
-              {displayAddonItems.length === 0 ? (
-                <div className="py-12 text-center text-stone-400 space-y-2">
-                  <div className="grid h-12 w-12 place-items-center rounded-xl bg-stone-100 mx-auto text-stone-400">
-                    <Sparkles className="h-6 w-6" />
+            {/* Filter Modal */}
+            {isAddonFilterModalOpen && (
+              <div
+                id="modal-addons-filter"
+                className="absolute inset-0 z-60 flex items-center justify-center p-4 bg-stone-950/40 backdrop-blur-2xs"
+                onClick={() => setIsAddonFilterModalOpen(false)}
+              >
+                <div
+                  className="w-full max-w-xs rounded-2xl bg-white p-4 shadow-xl border border-stone-200 space-y-3 animate-in fade-in zoom-in-95 duration-150"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between border-b border-stone-100 pb-2">
+                    <div className="flex items-center gap-2">
+                      <SlidersHorizontal className="h-3.5 w-3.5 text-amber-700" />
+                      <h4 className="text-xs font-bold text-stone-900">Filter Add-ons</h4>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddonFilterModalOpen(false)}
+                      className="p-1 text-stone-400 hover:text-stone-600 rounded-lg cursor-pointer"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
                   </div>
+
+                  <div className="space-y-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddonsCategoryFilter('all');
+                        setIsAddonFilterModalOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-bold transition cursor-pointer ${
+                        addonsCategoryFilter === 'all'
+                          ? 'bg-amber-500 text-stone-950'
+                          : 'bg-stone-50 text-stone-700 hover:bg-stone-100'
+                      }`}
+                    >
+                      <span>All Add-ons</span>
+                      <span className="text-[10px] font-mono opacity-80">({allAddonItems.length})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddonsCategoryFilter('drinks');
+                        setIsAddonFilterModalOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-bold transition cursor-pointer ${
+                        addonsCategoryFilter === 'drinks'
+                          ? 'bg-amber-500 text-stone-950'
+                          : 'bg-stone-50 text-stone-700 hover:bg-stone-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <CupSoda className="h-3.5 w-3.5" />
+                        <span>Drink Add-ons</span>
+                      </div>
+                      <span className="text-[10px] font-mono opacity-80">({drinkAddonItems.length})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddonsCategoryFilter('food');
+                        setIsAddonFilterModalOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-bold transition cursor-pointer ${
+                        addonsCategoryFilter === 'food'
+                          ? 'bg-amber-500 text-stone-950'
+                          : 'bg-stone-50 text-stone-700 hover:bg-stone-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <Egg className="h-3.5 w-3.5" />
+                        <span>Food Add-ons</span>
+                      </div>
+                      <span className="text-[10px] font-mono opacity-80">({foodAddonItems.length})</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Add-ons List */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {displayAddonItems.length === 0 ? (
+                <div className="py-12 text-center text-stone-400 space-y-1.5">
                   <p className="text-xs font-bold text-stone-600">No add-ons found</p>
                   <p className="text-[11px] text-stone-400">
-                    Try searching for another keyword or change category filter
+                    Try searching for another keyword or change filter
                   </p>
                 </div>
               ) : (
@@ -733,17 +796,18 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                   return (
                     <div
                       key={addon.id}
-                      className={`flex items-center justify-between gap-3 rounded-2xl border p-2.5 transition ${
+                      className={`flex items-center justify-between gap-3 rounded-xl border p-2 transition ${
                         qtyInBag > 0
                           ? 'border-amber-300 bg-amber-50/40 shadow-xs'
-                          : 'border-stone-200/90 bg-white hover:border-stone-300 hover:bg-stone-50/50'
+                          : 'border-stone-200 bg-white hover:border-stone-300'
                       }`}
                     >
                       {/* Thumbnail */}
-                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-stone-100 border border-stone-200/80">
+                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-stone-100 border border-stone-200/80">
                         <img
                           src={addon.imageUrl || '/images/latte.webp'}
-                          alt={addon.name}
+                          alt=""
+                          aria-hidden="true"
                           className="h-full w-full object-cover"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = '/images/latte.webp';
@@ -765,10 +829,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                             {isDrinkAddon ? 'Drink' : 'Food'}
                           </span>
                         </div>
-                        <p className="text-[10px] text-stone-500 line-clamp-1 mt-0.5">
-                          {addon.description || 'Extra addition for your meal or beverage'}
-                        </p>
-                        <p className="font-mono text-xs font-extrabold text-amber-700 mt-1">
+                        <p className="font-mono text-xs font-extrabold text-amber-700 mt-0.5">
                           ₱{addon.price.toFixed(2)}
                         </p>
                       </div>
@@ -776,11 +837,12 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                       {/* Action Controls */}
                       <div className="shrink-0 flex items-center">
                         {qtyInBag > 0 ? (
-                          <div className="flex items-center rounded-xl border border-amber-400 bg-amber-100 overflow-hidden shadow-2xs">
+                          <div className="flex items-center rounded-lg border border-amber-400 bg-amber-100 overflow-hidden shadow-2xs">
                             <button
+                              type="button"
                               onClick={() => onUpdateQuantity(addon.id, -1)}
                               title="Decrease"
-                              className="p-1.5 text-amber-900 hover:bg-amber-200 transition active:scale-95 cursor-pointer"
+                              className="p-1 text-amber-900 hover:bg-amber-200 transition active:scale-95 cursor-pointer"
                             >
                               <Minus className="h-3 w-3" />
                             </button>
@@ -788,17 +850,19 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                               {qtyInBag}
                             </span>
                             <button
+                              type="button"
                               onClick={() => handleAddAddonItem(addon)}
                               title="Increase"
-                              className="p-1.5 text-amber-900 hover:bg-amber-200 transition active:scale-95 cursor-pointer"
+                              className="p-1 text-amber-900 hover:bg-amber-200 transition active:scale-95 cursor-pointer"
                             >
                               <Plus className="h-3 w-3" />
                             </button>
                           </div>
                         ) : (
                           <button
+                            type="button"
                             onClick={() => handleAddAddonItem(addon)}
-                            className={`flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-extrabold transition cursor-pointer shadow-2xs ${
+                            className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-extrabold transition cursor-pointer shadow-2xs ${
                               isRecentlyAdded
                                 ? 'bg-emerald-500 text-white animate-bounce'
                                 : 'bg-amber-500 text-stone-950 hover:bg-amber-400 active:scale-95'
@@ -825,16 +889,16 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
             </div>
 
             {/* Add-ons Done / Back Footer */}
-            <div className="border-t border-stone-200 bg-stone-50 p-3.5 flex items-center justify-between gap-3">
-              <div className="text-xs">
-                <span className="text-stone-500">Items in Bag: </span>
-                <span className="font-bold font-mono text-stone-900">{totalItemCount}</span>
+            <div className="border-t border-stone-200 bg-stone-50 p-3 flex items-center justify-between gap-3">
+              <div className="text-xs font-bold text-stone-800">
+                <span className="font-mono">{totalItemCount} items</span>
                 <span className="mx-1.5 text-stone-300">•</span>
-                <span className="font-bold font-mono text-amber-700">₱{totalAmount.toFixed(2)}</span>
+                <span className="font-mono text-amber-700">₱{totalAmount.toFixed(2)}</span>
               </div>
               <button
+                type="button"
                 onClick={() => setIsAddonsModalOpen(false)}
-                className="flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2 text-xs font-extrabold text-white hover:bg-stone-800 transition cursor-pointer shadow-xs"
+                className="flex items-center gap-1 rounded-xl bg-stone-900 px-3.5 py-1.5 text-xs font-extrabold text-white hover:bg-stone-800 transition cursor-pointer shadow-xs"
               >
                 <span>Back to Bag</span>
                 <ChevronRight className="h-3.5 w-3.5" />
