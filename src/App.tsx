@@ -37,7 +37,7 @@ import { LowStockNotificationModal } from './components/pos/LowStockNotification
 import { CustomerCartDrawer } from './components/customer/CustomerCartDrawer';
 import { TableRequestModal } from './components/customer/TableRequestModal';
 import { ScannedTableModal } from './components/customer/ScannedTableModal';
-import { Bot, Coffee, Sparkles } from 'lucide-react';
+import { Bot, Coffee, Sparkles, User as UserIcon, Utensils } from 'lucide-react';
 import { ModalProvider, useModal } from './context/ModalContext';
 
 export default function App() {
@@ -170,7 +170,7 @@ function MainApp() {
     try {
       localStorage.setItem('yh_customer_cart', JSON.stringify(customerCart));
     } catch (e) {
-      console.error('Failed to persist customer bag items:', e);
+      console.error('Failed to persist customer cart items:', e);
     }
   }, [customerCart]);
 
@@ -419,7 +419,7 @@ function MainApp() {
         currentTheme === 'dark'
           ? 'dark bg-[#15120e] text-[#ede8d0]'
           : currentTheme === 'amber'
-          ? 'theme-amber bg-[#fef3c7] text-[#1c1917]'
+          ? 'theme-beige theme-amber bg-[#F7F3EB] text-[#2C241D]'
           : 'bg-stone-100/70 text-stone-900'
       } ${
         appMode === 'customer' ? 'customer-mode font-baskerville' : 'font-sans'
@@ -484,6 +484,7 @@ function MainApp() {
                   handleCustomerAddToCart(item);
                   setCustomerTab('menu');
                 }}
+                onOpenChatbot={() => setIsChatbotOpen(true)}
               />
             )}
 
@@ -565,6 +566,42 @@ function MainApp() {
                   }
                 }}
               />
+            )}
+
+            {customerTab === 'account' && !activeCustomer && (
+              <div className="max-w-2xl mx-auto px-4 py-12 text-center animate-in fade-in duration-300">
+                <div className="rounded-3xl border border-stone-200 bg-white p-8 sm:p-12 shadow-xs space-y-6">
+                  <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-amber-500/10 text-amber-600">
+                    <UserIcon className="h-10 w-10" />
+                  </div>
+                  <div className="space-y-2">
+                    <h2 className="font-display text-2xl sm:text-3xl font-bold text-stone-900">
+                      Sign In to Your Yellow Hauz Account
+                    </h2>
+                    <p className="text-sm text-stone-600 max-w-md mx-auto leading-relaxed">
+                      View your saved favorites, track live orders, and manage your account credentials.
+                    </p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomerLoginOpen(true)}
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-500 px-6 py-3 text-sm font-bold text-stone-950 hover:bg-amber-400 shadow-xs transition active:scale-95 cursor-pointer"
+                    >
+                      <UserIcon className="h-4 w-4" />
+                      <span>Sign In or Create Account</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCustomerTab('menu')}
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-stone-50 px-6 py-3 text-sm font-bold text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+                    >
+                      <Utensils className="h-4 w-4" />
+                      <span>Browse Menu</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
           </>
         ) : (

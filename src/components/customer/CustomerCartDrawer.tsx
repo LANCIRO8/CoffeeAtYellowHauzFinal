@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { CartItem, CustomerAccount, MenuItem, StoreSettings, TableBinding, Category } from '../../types';
 import { AppStore } from '../../services/store';
 import {
-  ShoppingBag,
+  ShoppingCart,
   X,
   Plus,
   Minus,
@@ -159,7 +159,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
     return found ? found.quantity : 0;
   };
 
-  // Handle pressing outside the bag drawer or pressing Escape to auto-collapse
+  // Handle pressing outside the cart drawer or pressing Escape to auto-collapse
   useEffect(() => {
     if (!isOpen) return;
 
@@ -172,8 +172,15 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
         return;
       }
 
-      // If clicked on the header bag trigger button or similar trigger, ignore to avoid conflict
-      if (target.closest('#header-bag-btn') || target.closest('#toggle-bag-btn')) {
+      // If clicked on any cart trigger button or similar trigger, ignore to avoid conflict
+      if (
+        target.closest('#header-bag-btn') ||
+        target.closest('#toggle-bag-btn') ||
+        target.closest('#header-cart-btn') ||
+        target.closest('#toggle-cart-btn') ||
+        target.closest('#mobile-nav-cart') ||
+        target.closest('#mobile-nav-bag')
+      ) {
         return;
       }
 
@@ -258,11 +265,11 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
       {!isOpen && (
         <button
           onClick={onToggle}
-          title="Open Order Bag"
+          title="Open Order Cart"
           className="hidden sm:flex fixed right-0 top-1/2 -translate-y-1/2 z-40 items-center gap-2 rounded-l-2xl bg-amber-500 hover:bg-amber-400 py-3.5 pl-3 pr-2.5 text-stone-950 font-extrabold shadow-[-4px_4px_16px_rgba(0,0,0,0.18)] transition transform hover:-translate-x-1 active:scale-95 cursor-pointer border-y border-l border-amber-600/30 group"
         >
           <div className="relative">
-            <ShoppingBag className="h-5 w-5 stroke-[2.3] transition group-hover:scale-110" />
+            <ShoppingCart className="h-5 w-5 stroke-[2.3] transition group-hover:scale-110" />
             {totalItemCount > 0 && (
               <span className="absolute -top-2 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-stone-950 px-1 text-[9px] font-black text-amber-400">
                 {totalItemCount}
@@ -271,7 +278,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
           </div>
           <div className="flex flex-col items-start text-left leading-tight pr-1">
             <span className="text-[10px] uppercase font-bold tracking-wider text-stone-800">
-              Your Bag
+              Your Cart
             </span>
             <span className="font-mono text-xs font-black">
               ₱{totalAmount.toFixed(2)}
@@ -312,12 +319,12 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
         <div className="flex items-center justify-between border-b border-stone-200 px-3.5 sm:px-5 py-3 sm:py-4 bg-stone-50/80">
           <div className="flex items-center gap-2 sm:gap-2.5">
             <div className="grid h-8 w-8 sm:h-9 sm:w-9 place-items-center rounded-xl bg-amber-500 text-stone-950 shadow-xs shrink-0">
-              <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5" />
+              <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
             <div>
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <h3 className="font-display text-sm sm:text-base font-bold text-stone-900">
-                  Your Order Bag
+                  Your Order Cart
                 </h3>
                 <span className="rounded-full bg-amber-200/80 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black text-amber-950">
                   {totalItemCount} {totalItemCount === 1 ? 'item' : 'items'}
@@ -366,7 +373,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                 <Coffee className="h-8 w-8 text-amber-600 stroke-[1.7]" />
               </div>
               <p className="font-display font-bold text-stone-800 text-base">
-                Your bag is empty
+                Your cart is empty
               </p>
               <p className="text-xs text-stone-500 mt-1 max-w-[240px] leading-relaxed">
                 Browse our handcrafted espresso, iced specials, adobo flakes, and desserts to start your order.
@@ -569,7 +576,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
 
             <div className="flex items-center gap-1.5 sm:gap-2 pt-0.5 sm:pt-1">
               <button
-                id="bag-addons-footer-btn"
+                id="cart-addons-footer-btn"
                 onClick={() => {
                   setAddonsCategoryFilter('all');
                   setIsAddonsModalOpen(true);
@@ -583,7 +590,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
 
               <button
                 onClick={onClearCart}
-                title="Clear all items in bag"
+                title="Clear all items in cart"
                 className="rounded-xl border border-stone-200 bg-white px-2.5 sm:px-3 py-2 sm:py-2.5 text-[11px] sm:text-xs font-bold text-stone-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition cursor-pointer"
               >
                 Clear
@@ -789,7 +796,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                 </div>
               ) : (
                 displayAddonItems.map((addon) => {
-                  const qtyInBag = getAddonCartQuantity(addon.id);
+                  const qtyInCart = getAddonCartQuantity(addon.id);
                   const isRecentlyAdded = recentlyAddedAddonId === addon.id;
                   const isDrinkAddon = addon.categoryId === 17 || addon.name.toLowerCase().includes('milk') || addon.name.toLowerCase().includes('jelly');
 
@@ -797,7 +804,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                     <div
                       key={addon.id}
                       className={`flex items-center justify-between gap-3 rounded-xl border p-2 transition ${
-                        qtyInBag > 0
+                        qtyInCart > 0
                           ? 'border-amber-300 bg-amber-50/40 shadow-xs'
                           : 'border-stone-200 bg-white hover:border-stone-300'
                       }`}
@@ -836,7 +843,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
 
                       {/* Action Controls */}
                       <div className="shrink-0 flex items-center">
-                        {qtyInBag > 0 ? (
+                        {qtyInCart > 0 ? (
                           <div className="flex items-center rounded-lg border border-amber-400 bg-amber-100 overflow-hidden shadow-2xs">
                             <button
                               type="button"
@@ -847,7 +854,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                               <Minus className="h-3 w-3" />
                             </button>
                             <span className="w-5 text-center text-xs font-mono font-black text-stone-950">
-                              {qtyInBag}
+                              {qtyInCart}
                             </span>
                             <button
                               type="button"
@@ -900,7 +907,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                 onClick={() => setIsAddonsModalOpen(false)}
                 className="flex items-center gap-1 rounded-xl bg-stone-900 px-3.5 py-1.5 text-xs font-extrabold text-white hover:bg-stone-800 transition cursor-pointer shadow-xs"
               >
-                <span>Back to Bag</span>
+                <span>Back to Cart</span>
                 <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>

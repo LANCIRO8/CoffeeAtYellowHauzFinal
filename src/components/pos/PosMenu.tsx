@@ -132,30 +132,8 @@ export const PosMenu: React.FC<PosMenuProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const [isTicketSidebarOpen, setIsTicketSidebarOpen] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('yellowhauz_pos_ticket_collapsed');
-      if (saved !== null) {
-        return saved !== 'true'; // if collapsed is true, open is false
-      }
-      // If no saved preference: default open on desktop (>=1024px), closed on mobile
-      if (typeof window !== 'undefined') {
-        return window.innerWidth >= 1024;
-      }
-      return true;
-    } catch {
-      return true;
-    }
-  });
-
-  // Sync ticket sidebar collapse state to localStorage whenever it changes
-  useEffect(() => {
-    try {
-      localStorage.setItem('yellowhauz_pos_ticket_collapsed', String(!isTicketSidebarOpen));
-    } catch {
-      // ignore
-    }
-  }, [isTicketSidebarOpen]);
+  // Start with Current Ticket collapsed by default so Cashier opens directly to the full menu
+  const [isTicketSidebarOpen, setIsTicketSidebarOpen] = useState<boolean>(false);
 
   // Order Details State
   const [orderType, setOrderType] = useState<'dine_in' | 'take_away' | 'delivery'>('dine_in');

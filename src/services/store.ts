@@ -1878,6 +1878,19 @@ export class AppStore {
     return getStored<CustomerAccount | null>(STORAGE_KEYS.ACTIVE_CUSTOMER, null);
   }
 
+  static getCustomers(): CustomerAccount[] {
+    return getStored<CustomerAccount[]>(STORAGE_KEYS.CUSTOMERS, []);
+  }
+
+  static getCustomerByEmail(email: string): CustomerAccount | null {
+    const customers = this.getCustomers();
+    return (
+      customers.find(
+        (c) => c.email && c.email.toLowerCase() === email.trim().toLowerCase()
+      ) || null
+    );
+  }
+
   static saveCustomerAccount(customer: CustomerAccount): void {
     const customers = getStored<CustomerAccount[]>(STORAGE_KEYS.CUSTOMERS, []);
     const idx = customers.findIndex(

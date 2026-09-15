@@ -42,9 +42,6 @@ export const CustomerReservation: React.FC<CustomerReservationProps> = ({
           <h1 className="font-display text-lg sm:text-3xl font-extrabold text-stone-900 leading-tight">
             Reservations
           </h1>
-          <p className="text-[10px] sm:text-sm text-stone-600 leading-relaxed">
-            Choose between booking our exclusive on-site private studio space or reserving a dine-in table on our interactive cafe floor plan.
-          </p>
         </div>
 
         {/* Inline Type Selector */}

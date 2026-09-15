@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Category,
   MenuItem,
   Order,
+  OrderStatus,
   User,
   Reservation,
   StoreSettings,
@@ -45,6 +46,15 @@ import {
   Ban,
   TrendingDown,
   Percent,
+  ChefHat,
+  Bell,
+  Utensils,
+  Check,
+  X,
+  FileText,
+  Printer,
+  ShieldCheck,
+  Zap,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -76,7 +86,7 @@ interface AdminDashboardProps {
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   categories,
-  menuItems,
+  menuItems: initialMenuItems,
   settings,
   activeStaff,
   onNavigateTab,
@@ -84,21 +94,46 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onOpenLowStockModal,
   onRefreshData,
 }) => {
-  const { showConfirm, showAlert } = useModal();
+  const { showConfirm, showAlert, showPrompt } = useModal();
 
   // Selected date filtering preset for executive metrics
   const [timeRange, setTimeRange] = useState<'today' | '7days' | '30days' | 'all'>('today');
   const [dashboardChartTab, setDashboardChartTab] = useState<'category' | 'bestSellers'>('category');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
-  const [orderStatusFilter, setOrderStatusFilter] = useState<'all' | 'pending' | 'processing' | 'completed' | 'cancelled'>('all');
+  const [orderStatusFilter, setOrderStatusFilter] = useState<
+    'all' | 'to_confirm' | 'to_prep' | 'processing' | 'to_serve' | 'completed' | 'cancelled'
+  >('all');
   const [restockAmount, setRestockAmount] = useState<number>(10);
+  const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
 
-  // Live collections from Store
-  const orders = useMemo(() => AppStore.getOrders(), [categories, menuItems]);
-  const tables = useMemo(() => AppStore.getTables(), []);
-  const reservations = useMemo(() => AppStore.getReservations(), []);
-  const users = useMemo(() => AppStore.getUsers(), []);
+  // Live Reactive Collections from AppStore
+  const [orders, setOrders] = useState<Order[]>(() => AppStore.getOrders());
+  const [tables, setTables] = useState<Table[]>(() => AppStore.getTables());
+  const [reservations, setReservations] = useState<Reservation[]>(() => AppStore.getReservations());
+  const [users, setUsers] = useState<User[]>(() => AppStore.getUsers());
+  const [currentMenuItems, setCurrentMenuItems] = useState<MenuItem[]>(() =>
+    initialMenuItems.length > 0 ? initialMenuItems : AppStore.getMenuItems()
+  );
+
+  // Subscribe to real-time store changes
+  useEffect(() => {
+    const unsub = AppStore.subscribe(() => {
+      setOrders([...AppStore.getOrders()]);
+      setTables([...AppStore.getTables()]);
+      setReservations([...AppStore.getReservations()]);
+      setUsers([...AppStore.getUsers()]);
+      setCurrentMenuItems([...AppStore.getMenuItems()]);
+    });
+    return () => unsub();
+  }, []);
+
+  // Update currentMenuItems if prop changes
+  useEffect(() => {
+    if (initialMenuItems.length > 0) {
+      setCurrentMenuItems(initialMenuItems);
+    }
+  }, [initialMenuItems]);
 
   // Filter orders by selected time range
   const filteredOrders = useMemo(() => {
@@ -124,9 +159,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
   }, [orders, timeRange]);
 
-  // Completed valid revenue orders
+  // Valid non-cancelled revenue orders (orders that are active or completed in cafe workflow)
   const validCompletedOrders = useMemo(() => {
-    return filteredOrders.filter((o) => o.status === 'completed' || o.status === 'processing');
+    return filteredOrders.filter((o) =>
+      ['to_prep', 'processing', 'to_serve', 'completed'].includes(o.status)
+    );
   }, [filteredOrders]);
 
   // Financial KPIs
@@ -162,12 +199,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Inventory calculations
   const lowStockItems = useMemo(() => {
-    return menuItems.filter((i) => (i.quantity ?? 0) <= (i.lowStockThreshold ?? 5));
-  }, [menuItems]);
+    return currentMenuItems.filter((i) => (i.quantity ?? 0) <= (i.lowStockThreshold ?? 5));
+  }, [currentMenuItems]);
 
   const outOfStockItems = useMemo(() => {
-    return menuItems.filter((i) => (i.quantity ?? 0) <= 0);
-  }, [menuItems]);
+    return currentMenuItems.filter((i) => (i.quantity ?? 0) <= 0);
+  }, [currentMenuItems]);
 
   // Table Floor Plan Utilization
   const occupiedTables = useMemo(() => {
@@ -182,10 +219,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return tables.filter((t) => t.status === 'available');
   }, [tables]);
 
-  // Pending items requiring action
-  const pendingTickets = useMemo(() => {
-    return orders.filter((o) => o.status === 'pending' || o.status === 'processing');
+  // Operational Attention Items
+  const pendingConfirmOrders = useMemo(() => {
+    return orders.filter((o) => o.status === 'to_confirm');
   }, [orders]);
+
+  const preppingOrders = useMemo(() => {
+    return orders.filter((o) => o.status === 'to_prep' || o.status === 'processing');
+  }, [orders]);
+
+  const readyToServeOrders = useMemo(() => {
+    return orders.filter((o) => o.status === 'to_serve');
+  }, [orders]);
+
+  const pendingTicketsCount = preppingOrders.length + readyToServeOrders.length;
 
   const pendingReservations = useMemo(() => {
     return reservations.filter((r) => r.status === 'pending');
@@ -193,19 +240,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const pendingCancellationRequests = useMemo(() => {
     return orders.filter(
-      (o) => (o.cancellationRequested || o.cancellationRequestedAt) && !o.cancelledAt && o.status !== 'cancelled' && !o.cancellationRejectedAt
+      (o) =>
+        (o.cancellationRequested || o.cancellationRequestedAt) &&
+        !o.cancelledAt &&
+        o.status !== 'cancelled' &&
+        !o.cancellationRejectedAt
     );
   }, [orders]);
 
   // Filtered orders for the Live Orders stream
   const displayOrders = useMemo(() => {
     return orders.filter((o) => {
-      if (orderStatusFilter !== 'all' && o.status !== orderStatusFilter) return false;
+      if (orderStatusFilter !== 'all') {
+        if (orderStatusFilter === 'to_prep') {
+          if (o.status !== 'to_prep') return false;
+        } else if (orderStatusFilter === 'processing') {
+          if (o.status !== 'processing') return false;
+        } else if (orderStatusFilter === 'to_serve') {
+          if (o.status !== 'to_serve') return false;
+        } else if (orderStatusFilter === 'to_confirm') {
+          if (o.status !== 'to_confirm') return false;
+        } else if (orderStatusFilter === 'completed') {
+          if (o.status !== 'completed') return false;
+        } else if (orderStatusFilter === 'cancelled') {
+          if (o.status !== 'cancelled') return false;
+        }
+      }
+
       if (orderSearchQuery.trim()) {
         const q = orderSearchQuery.toLowerCase();
-        const matchNum = String(o.orderNumber).includes(q);
+        const matchNum = String(o.orderNumber).toLowerCase().includes(q);
         const matchName = (o.customerName || '').toLowerCase().includes(q);
-        if (!matchNum && !matchName) return false;
+        const matchTable = o.tableNumber ? String(o.tableNumber).includes(q) : false;
+        if (!matchNum && !matchName && !matchTable) return false;
       }
       return true;
     });
@@ -226,7 +293,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         d.getDate() === today.getDate() &&
         d.getMonth() === today.getMonth() &&
         d.getFullYear() === today.getFullYear() &&
-        (o.status === 'completed' || o.status === 'processing')
+        ['to_prep', 'processing', 'to_serve', 'completed'].includes(o.status)
       );
     });
 
@@ -242,6 +309,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return Object.values(hoursMap);
   }, [orders]);
 
+  // Peak Rush Hour calculation
+  const peakHour = useMemo(() => {
+    let max = { hour: 'None', sales: 0, orders: 0 };
+    hourlyData.forEach((h) => {
+      if (h.sales > max.sales) {
+        max = { hour: h.hour, sales: h.sales, orders: h.orders };
+      }
+    });
+    return max;
+  }, [hourlyData]);
+
+  // Daily Sales trend (used when 7days or 30days or all is selected)
+  const dailyData = useMemo(() => {
+    const daysMap: Record<string, { date: string; sales: number; orders: number }> = {};
+    const now = new Date();
+    const daysCount = timeRange === '7days' ? 7 : timeRange === '30days' ? 30 : 14;
+
+    for (let i = daysCount - 1; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 24 * 3600000);
+      const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+      const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      daysMap[key] = { date: label, sales: 0, orders: 0 };
+    }
+
+    validCompletedOrders.forEach((o) => {
+      const d = new Date(o.createdAt);
+      if (!isNaN(d.getTime())) {
+        const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+        if (daysMap[key]) {
+          daysMap[key].sales += o.totalAmount || 0;
+          daysMap[key].orders += 1;
+        }
+      }
+    });
+
+    return Object.values(daysMap);
+  }, [validCompletedOrders, timeRange]);
+
   // Category Distribution Data
   const categorySalesData = useMemo(() => {
     const catMap: Record<string, { name: string; revenue: number; count: number }> = {};
@@ -252,7 +357,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     validCompletedOrders.forEach((o) => {
       (o.items || []).forEach((it) => {
-        const product = menuItems.find((m) => m.id === it.menuItemId);
+        const product = currentMenuItems.find((m) => m.id === it.menuItemId);
         const catId = product?.categoryId || 1;
         if (catMap[catId]) {
           catMap[catId].revenue += it.totalPrice || (it.unitPrice || 0) * it.quantity;
@@ -264,7 +369,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return Object.values(catMap)
       .filter((c) => c.revenue > 0)
       .sort((a, b) => b.revenue - a.revenue);
-  }, [categories, menuItems, validCompletedOrders]);
+  }, [categories, currentMenuItems, validCompletedOrders]);
 
   // Payment Method Breakdown
   const paymentBreakdown = useMemo(() => {
@@ -291,7 +396,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     validCompletedOrders.forEach((o) => {
       (o.items || []).forEach((it) => {
         if (!itemMap[it.menuItemId]) {
-          const match = menuItems.find((m) => m.id === it.menuItemId);
+          const match = currentMenuItems.find((m) => m.id === it.menuItemId);
           itemMap[it.menuItemId] = {
             id: it.menuItemId,
             name: it.name,
@@ -308,7 +413,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return Object.values(itemMap)
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 5);
-  }, [validCompletedOrders, menuItems]);
+  }, [validCompletedOrders, currentMenuItems]);
 
   // Cashier performance
   const cashierMetrics = useMemo(() => {
@@ -359,6 +464,58 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
   };
 
+  // Handle 1-click Accept Order (moves from to_confirm to to_prep)
+  const handleAcceptOrder = (order: Order) => {
+    AppStore.updateOrderStatus(order.id, 'to_prep');
+    showAlert({
+      title: 'Order Confirmed',
+      message: `Order #${order.orderNumber} confirmed and queued for preparation in the kitchen.`,
+      type: 'success',
+    });
+  };
+
+  // Handle Cancellation Request Review
+  const handleReviewCancellation = async (order: Order) => {
+    const approved = await showConfirm({
+      title: `Cancellation Request: Order #${order.orderNumber}`,
+      message: `Customer "${order.customerName || 'Guest'}" requested cancellation.\nReason: ${
+        order.cancellationReason || 'No specific reason provided'
+      }\n\nDo you approve this cancellation and return items to inventory?`,
+      type: 'danger',
+      confirmText: 'Approve Cancellation',
+      cancelText: 'Reject Request (Keep Active)',
+    });
+
+    if (approved) {
+      AppStore.confirmOrderCancellation(
+        order.id,
+        activeStaff.fullName || 'Admin',
+        order.cancellationNotes
+      );
+      showAlert({
+        title: 'Order Cancelled',
+        message: `Order #${order.orderNumber} has been officially cancelled.`,
+        type: 'success',
+      });
+    } else {
+      if (showPrompt) {
+        const rejectNote = await showPrompt({
+          title: `Reject Cancellation: Order #${order.orderNumber}`,
+          message: 'Optionally specify a reason to notify the customer:',
+          defaultValue: 'Order is already being prepared by the barista/cook.',
+        });
+        if (rejectNote !== null) {
+          AppStore.rejectOrderCancellation(order.id, rejectNote);
+          showAlert({
+            title: 'Cancellation Rejected',
+            message: `Cancellation request was declined. Order #${order.orderNumber} remains active.`,
+            type: 'info',
+          });
+        }
+      }
+    }
+  };
+
   // Manual trigger reload
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -370,8 +527,56 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const COLORS = ['#f59e0b', '#3b82f6', '#10b981', '#ec4899', '#8b5cf6', '#06b6d4'];
 
+  // Status Badge Helper
+  const getStatusBadge = (status: OrderStatus) => {
+    switch (status) {
+      case 'to_confirm':
+        return {
+          bg: 'bg-purple-100 text-purple-900 border border-purple-200',
+          label: 'Awaiting Confirm',
+          icon: Clock,
+        };
+      case 'to_prep':
+        return {
+          bg: 'bg-amber-100 text-amber-900 border border-amber-300',
+          label: 'To Prep',
+          icon: ChefHat,
+        };
+      case 'processing':
+        return {
+          bg: 'bg-orange-100 text-orange-900 border border-orange-300',
+          label: 'Prepping',
+          icon: Coffee,
+        };
+      case 'to_serve':
+        return {
+          bg: 'bg-sky-100 text-sky-900 border border-sky-300',
+          label: 'Ready to Serve',
+          icon: Bell,
+        };
+      case 'completed':
+        return {
+          bg: 'bg-emerald-100 text-emerald-900 border border-emerald-300',
+          label: 'Completed',
+          icon: CheckCircle2,
+        };
+      case 'cancelled':
+        return {
+          bg: 'bg-rose-100 text-rose-900 border border-rose-300',
+          label: 'Cancelled',
+          icon: XCircle,
+        };
+      default:
+        return {
+          bg: 'bg-stone-100 text-stone-800 border border-stone-200',
+          label: status,
+          icon: Clock,
+        };
+    }
+  };
+
   return (
-    <div id="admin-dashboard-root" className="space-y-6 pb-20 max-w-7xl mx-auto">
+    <div id="admin-dashboard-root" className="space-y-5 sm:space-y-6 pb-20 max-w-7xl mx-auto">
       {/* 1. Header Banner & Executive Controls */}
       <div
         id="admin-dashboard-header"
@@ -400,43 +605,63 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 Welcome back, {activeStaff.fullName || 'Admin'}
               </h1>
               <p className="text-[10px] sm:text-xs md:text-sm text-stone-600 max-w-2xl font-normal leading-relaxed">
-                Real-time executive dashboard for <strong className="font-semibold text-stone-900">{settings.storeName || 'Coffee at Yellow Hauz'}</strong>.
-                Monitor revenue rushes, active kitchen tickets, table floor utilization, and store operations.
+                Real-time operational overview for{' '}
+                <strong className="font-semibold text-stone-900">
+                  {settings.storeName || 'Coffee at Yellow Hauz'}
+                </strong>{' '}
+                • Davao City. Live gross revenue, kitchen rush queues, floor occupancy, and inventory health.
               </p>
             </div>
           </div>
 
-          {/* Time range selector & refresh */}
-          <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 bg-stone-100 p-1 rounded-xl sm:rounded-2xl border border-stone-200 self-start lg:self-center">
-            {(
-              [
-                { id: 'today', label: 'Today' },
-                { id: '7days', label: '7 Days' },
-                { id: '30days', label: '30 Days' },
-                { id: 'all', label: 'All Time' },
-              ] as const
-            ).map((range) => (
-              <button
-                key={range.id}
-                id={`admin-range-${range.id}`}
-                onClick={() => setTimeRange(range.id)}
-                className={`px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition cursor-pointer ${
-                  timeRange === range.id
-                    ? 'bg-stone-900 text-amber-400 shadow-xs'
-                    : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
-                }`}
-              >
-                {range.label}
-              </button>
-            ))}
+          {/* Time range selector, daily summary button & refresh */}
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 self-start lg:self-center">
+            {/* Time range pills */}
+            <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl sm:rounded-2xl border border-stone-200">
+              {(
+                [
+                  { id: 'today', label: 'Today' },
+                  { id: '7days', label: '7 Days' },
+                  { id: '30days', label: '30 Days' },
+                  { id: 'all', label: 'All Time' },
+                ] as const
+              ).map((range) => (
+                <button
+                  key={range.id}
+                  id={`admin-range-${range.id}`}
+                  onClick={() => setTimeRange(range.id)}
+                  className={`px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition cursor-pointer ${
+                    timeRange === range.id
+                      ? 'bg-stone-900 text-amber-400 shadow-xs'
+                      : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+                  }`}
+                >
+                  {range.label}
+                </button>
+              ))}
+            </div>
 
+            {/* Daily Register Summary Snapshot */}
+            <button
+              id="admin-daily-summary-btn"
+              onClick={() => setIsSummaryModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl sm:rounded-2xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-800 text-[10px] sm:text-xs font-bold shadow-2xs transition cursor-pointer"
+              title="View Register Snapshot / Z-Reading Preview"
+            >
+              <FileText className="h-3.5 w-3.5 text-amber-600" />
+              <span>Z-Reading</span>
+            </button>
+
+            {/* Refresh */}
             <button
               id="admin-dashboard-refresh-btn"
               onClick={handleRefresh}
-              className="p-1 sm:p-1.5 rounded-lg sm:rounded-xl text-stone-500 hover:text-stone-900 hover:bg-stone-200/60 transition cursor-pointer"
+              className="p-1.5 sm:p-2 rounded-xl sm:rounded-2xl border border-stone-200 bg-stone-50 text-stone-500 hover:text-stone-900 hover:bg-stone-100 shadow-2xs transition cursor-pointer"
               title="Refresh Dashboard Data"
             >
-              <RefreshCw className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${isRefreshing ? 'animate-spin text-amber-600' : ''}`} />
+              <RefreshCw
+                className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${isRefreshing ? 'animate-spin text-amber-600' : ''}`}
+              />
             </button>
           </div>
         </div>
@@ -446,20 +671,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <button
             id="admin-quick-pos"
             onClick={() => onNavigateTab('pos')}
-            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-amber-50/50 border border-stone-200/80 hover:border-amber-300 p-2 sm:p-2.5 text-left transition cursor-pointer group shadow-2xs"
+            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-amber-50/60 border border-stone-200/80 hover:border-amber-300 p-2 sm:p-2.5 text-left transition cursor-pointer group shadow-2xs"
           >
             <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-amber-100 text-amber-800 group-hover:bg-amber-200/80 group-hover:scale-105 transition shrink-0">
               <Monitor className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
             <div>
-              <div className="text-[10px] sm:text-xs font-bold text-stone-800 group-hover:text-stone-950">POS Register</div>
+              <div className="text-[10px] sm:text-xs font-bold text-stone-800 group-hover:text-stone-950">
+                POS Register
+              </div>
             </div>
           </button>
 
           <button
             id="admin-quick-tickets"
             onClick={() => onNavigateTab('tickets')}
-            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-sky-50/50 border border-stone-200/80 hover:border-sky-300 p-2 sm:p-2.5 text-left transition cursor-pointer group relative shadow-2xs"
+            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-sky-50/60 border border-stone-200/80 hover:border-sky-300 p-2 sm:p-2.5 text-left transition cursor-pointer group relative shadow-2xs"
           >
             <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-sky-100 text-sky-700 group-hover:bg-sky-200/80 group-hover:scale-105 transition shrink-0">
               <ClipboardList className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -467,9 +694,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div>
               <div className="text-[10px] sm:text-xs font-bold text-stone-800 group-hover:text-stone-950 flex items-center gap-1 sm:gap-1.5">
                 <span>Tickets</span>
-                {pendingTickets.length > 0 && (
+                {pendingTicketsCount > 0 && (
                   <span className="rounded-full bg-sky-600 text-white px-1.5 py-0.2 text-[8px] sm:text-[9px] font-black">
-                    {pendingTickets.length}
+                    {pendingTicketsCount}
                   </span>
                 )}
               </div>
@@ -479,20 +706,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <button
             id="admin-quick-tables"
             onClick={() => onNavigateTab('tables')}
-            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-emerald-50/50 border border-stone-200/80 hover:border-emerald-300 p-2 sm:p-2.5 text-left transition cursor-pointer group shadow-2xs"
+            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-emerald-50/60 border border-stone-200/80 hover:border-emerald-300 p-2 sm:p-2.5 text-left transition cursor-pointer group shadow-2xs"
           >
             <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-emerald-100 text-emerald-700 group-hover:bg-emerald-200/80 group-hover:scale-105 transition shrink-0">
               <LayoutGrid className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
             <div>
-              <div className="text-[10px] sm:text-xs font-bold text-stone-800 group-hover:text-stone-950">Floor Plan</div>
+              <div className="text-[10px] sm:text-xs font-bold text-stone-800 group-hover:text-stone-950">
+                Floor Plan
+              </div>
             </div>
           </button>
 
           <button
             id="admin-quick-inventory"
             onClick={() => onNavigateTab('inventory')}
-            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-rose-50/50 border border-stone-200/80 hover:border-rose-300 p-2 sm:p-2.5 text-left transition cursor-pointer group relative shadow-2xs"
+            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-rose-50/60 border border-stone-200/80 hover:border-rose-300 p-2 sm:p-2.5 text-left transition cursor-pointer group relative shadow-2xs"
           >
             <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-rose-100 text-rose-700 group-hover:bg-rose-200/80 group-hover:scale-105 transition shrink-0">
               <Package className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -512,13 +741,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <button
             id="admin-quick-reports"
             onClick={() => onNavigateTab('reports')}
-            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-indigo-50/50 border border-stone-200/80 hover:border-indigo-300 p-2 sm:p-2.5 text-left transition cursor-pointer group shadow-2xs"
+            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-indigo-50/60 border border-stone-200/80 hover:border-indigo-300 p-2 sm:p-2.5 text-left transition cursor-pointer group shadow-2xs"
           >
             <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-indigo-100 text-indigo-700 group-hover:bg-indigo-200/80 group-hover:scale-105 transition shrink-0">
               <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
             <div>
-              <div className="text-[10px] sm:text-xs font-bold text-stone-800 group-hover:text-stone-950">Sales Ledger</div>
+              <div className="text-[10px] sm:text-xs font-bold text-stone-800 group-hover:text-stone-950">
+                Sales Ledger
+              </div>
             </div>
           </button>
 
@@ -531,32 +762,70 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
             <div>
-              <div className="text-[10px] sm:text-xs font-bold text-stone-800 group-hover:text-stone-950">Store Config</div>
+              <div className="text-[10px] sm:text-xs font-bold text-stone-800 group-hover:text-stone-950">
+                Store Config
+              </div>
             </div>
           </button>
         </div>
       </div>
 
       {/* Real-Time Operational Alerts & Critical Attention Hub */}
-      {(pendingCancellationRequests.length > 0 ||
+      {(pendingConfirmOrders.length > 0 ||
+        pendingCancellationRequests.length > 0 ||
         lowStockItems.length > 0 ||
         pendingReservations.length > 0 ||
-        pendingTickets.length > 0) && (
-        <div className="rounded-2xl border border-stone-200 bg-white p-3 sm:p-4 shadow-xs">
+        pendingTicketsCount > 0) && (
+        <div className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-4 shadow-xs">
           <div className="flex items-center justify-between gap-2 mb-2 sm:mb-2.5">
-            <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-stone-600 flex items-center gap-1.5">
+            <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-stone-700 flex items-center gap-1.5">
               <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
-              <span>Real-Time Operation Status &amp; Action Items</span>
+              <span>Real-Time Operation Status &amp; Action Queue</span>
             </span>
             <span className="text-[9px] sm:text-[10px] font-bold text-stone-400">
-              {pendingCancellationRequests.length + lowStockItems.length + pendingReservations.length} items requiring review
+              {pendingConfirmOrders.length +
+                pendingCancellationRequests.length +
+                lowStockItems.length +
+                pendingReservations.length}{' '}
+              items requiring attention
             </span>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {/* 1. Cancellation Requests */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            {/* 1. Pending Confirmations */}
             <button
-              onClick={() => onNavigateTab('tickets')}
+              onClick={() => {
+                setOrderStatusFilter('to_confirm');
+                const el = document.getElementById('admin-live-orders-stream');
+                el?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className={`flex items-center justify-between p-2 sm:p-2.5 rounded-xl border text-left transition cursor-pointer ${
+                pendingConfirmOrders.length > 0
+                  ? 'bg-purple-50 border-purple-300 text-purple-950 hover:bg-purple-100'
+                  : 'bg-stone-50 border-stone-200 text-stone-600'
+              }`}
+            >
+              <div>
+                <div className="text-[9px] sm:text-[11px] font-bold">To Confirm</div>
+                <div className="text-[11px] sm:text-sm font-black mt-0.5">
+                  {pendingConfirmOrders.length}{' '}
+                  <span className="text-[9px] font-normal text-stone-500">pending</span>
+                </div>
+              </div>
+              <Clock
+                className={`h-4 w-4 shrink-0 ${
+                  pendingConfirmOrders.length > 0 ? 'text-purple-600 animate-pulse' : 'text-stone-400'
+                }`}
+              />
+            </button>
+
+            {/* 2. Cancellation Requests */}
+            <button
+              onClick={() => {
+                setOrderStatusFilter('all');
+                const el = document.getElementById('admin-live-orders-stream');
+                el?.scrollIntoView({ behavior: 'smooth' });
+              }}
               className={`flex items-center justify-between p-2 sm:p-2.5 rounded-xl border text-left transition cursor-pointer ${
                 pendingCancellationRequests.length > 0
                   ? 'bg-rose-50 border-rose-300 text-rose-950 hover:bg-rose-100'
@@ -564,20 +833,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               }`}
             >
               <div>
-                <div className="text-[9px] sm:text-[11px] font-bold">Cancellation Requests</div>
+                <div className="text-[9px] sm:text-[11px] font-bold">Cancellations</div>
                 <div className="text-[11px] sm:text-sm font-black mt-0.5">
                   {pendingCancellationRequests.length}{' '}
-                  <span className="text-[9px] font-normal text-stone-500">pending</span>
+                  <span className="text-[9px] font-normal text-stone-500">requests</span>
                 </div>
               </div>
-              <Ban className={`h-4 w-4 shrink-0 ${pendingCancellationRequests.length > 0 ? 'text-rose-600 animate-pulse' : 'text-stone-400'}`} />
+              <Ban
+                className={`h-4 w-4 shrink-0 ${
+                  pendingCancellationRequests.length > 0 ? 'text-rose-600 animate-pulse' : 'text-stone-400'
+                }`}
+              />
             </button>
 
-            {/* 2. Active Kitchen Tickets */}
+            {/* 3. Active Kitchen Queue (Prepping & Ready to Serve) */}
             <button
               onClick={() => onNavigateTab('tickets')}
               className={`flex items-center justify-between p-2 sm:p-2.5 rounded-xl border text-left transition cursor-pointer ${
-                pendingTickets.length > 0
+                pendingTicketsCount > 0
                   ? 'bg-sky-50 border-sky-300 text-sky-950 hover:bg-sky-100'
                   : 'bg-stone-50 border-stone-200 text-stone-600'
               }`}
@@ -585,14 +858,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div>
                 <div className="text-[9px] sm:text-[11px] font-bold">Kitchen Queue</div>
                 <div className="text-[11px] sm:text-sm font-black mt-0.5">
-                  {pendingTickets.length}{' '}
-                  <span className="text-[9px] font-normal text-stone-500">active tickets</span>
+                  {preppingOrders.length}{' '}
+                  <span className="text-[9px] font-normal text-stone-500">prep</span> •{' '}
+                  {readyToServeOrders.length}{' '}
+                  <span className="text-[9px] font-normal text-stone-500">serve</span>
                 </div>
               </div>
-              <ClipboardList className={`h-4 w-4 shrink-0 ${pendingTickets.length > 0 ? 'text-sky-600' : 'text-stone-400'}`} />
+              <ClipboardList
+                className={`h-4 w-4 shrink-0 ${pendingTicketsCount > 0 ? 'text-sky-600' : 'text-stone-400'}`}
+              />
             </button>
 
-            {/* 3. Pending Table Reservations */}
+            {/* 4. Pending Table Reservations */}
             <button
               onClick={() => onNavigateTab('tables')}
               className={`flex items-center justify-between p-2 sm:p-2.5 rounded-xl border text-left transition cursor-pointer ${
@@ -602,19 +879,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               }`}
             >
               <div>
-                <div className="text-[9px] sm:text-[11px] font-bold">Guest Bookings</div>
+                <div className="text-[9px] sm:text-[11px] font-bold">Reservations</div>
                 <div className="text-[11px] sm:text-sm font-black mt-0.5">
                   {pendingReservations.length}{' '}
-                  <span className="text-[9px] font-normal text-stone-500">awaiting</span>
+                  <span className="text-[9px] font-normal text-stone-500">pending</span>
                 </div>
               </div>
-              <Calendar className={`h-4 w-4 shrink-0 ${pendingReservations.length > 0 ? 'text-amber-600' : 'text-stone-400'}`} />
+              <Calendar
+                className={`h-4 w-4 shrink-0 ${pendingReservations.length > 0 ? 'text-amber-600' : 'text-stone-400'}`}
+              />
             </button>
 
-            {/* 4. Stock Warnings */}
+            {/* 5. Stock Warnings */}
             <button
               onClick={() => onNavigateTab('inventory')}
-              className={`flex items-center justify-between p-2 sm:p-2.5 rounded-xl border text-left transition cursor-pointer ${
+              className={`flex items-center justify-between p-2 sm:p-2.5 rounded-xl border text-left transition cursor-pointer col-span-2 sm:col-span-1 ${
                 lowStockItems.length > 0
                   ? 'bg-amber-50 border-amber-300 text-amber-950 hover:bg-amber-100'
                   : 'bg-emerald-50 border-emerald-300 text-emerald-950'
@@ -630,7 +909,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   )}
                 </div>
               </div>
-              <Package className={`h-4 w-4 shrink-0 ${lowStockItems.length > 0 ? 'text-amber-600' : 'text-emerald-600'}`} />
+              <Package
+                className={`h-4 w-4 shrink-0 ${lowStockItems.length > 0 ? 'text-amber-600' : 'text-emerald-600'}`}
+              />
             </button>
           </div>
         </div>
@@ -641,10 +922,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* Metric 1: Total Gross Revenue */}
         <div
           id="kpi-gross-revenue"
-          className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3 sm:p-5 shadow-xs hover:border-amber-400 transition"
+          className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-5 shadow-xs hover:border-amber-400 transition"
         >
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[9px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider truncate">Gross Sales</span>
+            <span className="text-[9px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider truncate">
+              Gross Sales
+            </span>
             <div className="rounded-lg sm:rounded-2xl bg-amber-500/10 p-1.5 sm:p-2.5 text-amber-700 shrink-0">
               <DollarSign className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
             </div>
@@ -654,8 +937,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               ₱{totalGrossRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             <div className="mt-1 sm:mt-2 flex flex-col sm:flex-row sm:items-center justify-between text-[9px] sm:text-xs text-stone-500 gap-0.5">
-              <span className="truncate">Sub: ₱{totalNetSubtotal.toFixed(0)}</span>
-              <span className="font-semibold text-stone-700 truncate">VAT: ₱{totalVatCollected.toFixed(0)}</span>
+              <span className="truncate">Net Subtotal: ₱{totalNetSubtotal.toFixed(0)}</span>
+              <span className="font-semibold text-stone-700 truncate">VAT (12%): ₱{totalVatCollected.toFixed(0)}</span>
             </div>
           </div>
         </div>
@@ -663,10 +946,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* Metric 2: Completed Orders Volume */}
         <div
           id="kpi-orders-volume"
-          className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3 sm:p-5 shadow-xs hover:border-sky-400 transition"
+          className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-5 shadow-xs hover:border-sky-400 transition"
         >
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[9px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider truncate">Orders Volume</span>
+            <span className="text-[9px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider truncate">
+              Orders Volume
+            </span>
             <div className="rounded-lg sm:rounded-2xl bg-sky-500/10 p-1.5 sm:p-2.5 text-sky-700 shrink-0">
               <ShoppingBag className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
             </div>
@@ -678,7 +963,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
             <div className="mt-1 sm:mt-2 flex items-center gap-1 sm:gap-2 text-[9px] sm:text-xs flex-wrap">
               <span className="rounded-md sm:rounded-lg bg-amber-100 px-1 sm:px-2 py-0.2 sm:py-0.5 font-bold text-amber-800">
-                {inStoreOrders.length} Store
+                {inStoreOrders.length} In-Store POS
               </span>
               <span className="rounded-md sm:rounded-lg bg-sky-100 px-1 sm:px-2 py-0.2 sm:py-0.5 font-bold text-sky-800">
                 {onlineOrders.length} Online
@@ -690,10 +975,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* Metric 3: Average Order Value (AOV) */}
         <div
           id="kpi-aov"
-          className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3 sm:p-5 shadow-xs hover:border-emerald-400 transition"
+          className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-5 shadow-xs hover:border-emerald-400 transition"
         >
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[9px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider truncate">Avg Order</span>
+            <span className="text-[9px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider truncate">
+              Avg Order Size
+            </span>
             <div className="rounded-lg sm:rounded-2xl bg-emerald-500/10 p-1.5 sm:p-2.5 text-emerald-700 shrink-0">
               <TrendingUp className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
             </div>
@@ -703,8 +990,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               ₱{averageOrderValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             <div className="mt-1 sm:mt-2 text-[9px] sm:text-xs text-stone-500 flex flex-col sm:flex-row sm:items-center justify-between gap-0.5">
-              <span className="truncate">Disc: ₱{totalDiscountsGiven.toFixed(0)}</span>
-              <span className="font-bold text-emerald-700 truncate">Healthy Margin</span>
+              <span className="truncate">Total Disc: ₱{totalDiscountsGiven.toFixed(0)}</span>
+              <span className="font-bold text-emerald-700 truncate">
+                {totalDiscountsGiven > 0 ? 'Discounts applied' : 'Standard margins'}
+              </span>
             </div>
           </div>
         </div>
@@ -712,10 +1001,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* Metric 4: Floor Plan & Operations Health */}
         <div
           id="kpi-floor-plan"
-          className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3 sm:p-5 shadow-xs hover:border-purple-400 transition"
+          className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-5 shadow-xs hover:border-purple-400 transition"
         >
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[9px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider truncate">Floor Occupancy</span>
+            <span className="text-[9px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider truncate">
+              Floor Occupancy
+            </span>
             <div className="rounded-lg sm:rounded-2xl bg-purple-500/10 p-1.5 sm:p-2.5 text-purple-700 shrink-0">
               <LayoutGrid className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
             </div>
@@ -726,8 +1017,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <span className="text-xs sm:text-sm font-semibold text-stone-400">tables</span>
             </div>
             <div className="mt-1 sm:mt-2 flex flex-col sm:flex-row sm:items-center justify-between text-[9px] sm:text-xs gap-0.5">
-              <span className="text-emerald-700 font-bold truncate">{availableTables.length} Avail</span>
-              <span className="text-amber-700 font-bold truncate">{reservedTables.length} Rsrvd</span>
+              <span className="text-emerald-700 font-bold truncate">{availableTables.length} Available</span>
+              <span className="text-amber-700 font-bold truncate">{reservedTables.length} Reserved</span>
             </div>
           </div>
         </div>
@@ -739,9 +1030,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div>
             <h3 className="font-display text-xs sm:text-base font-bold text-stone-900 flex items-center gap-1.5">
               <CreditCard className="h-4 w-4 text-amber-600" />
-              <span>Revenue by Tender Method &amp; Channel Split</span>
+              <span>Revenue by Payment Method &amp; Tender Split</span>
             </h3>
-            <p className="text-[10px] sm:text-xs text-stone-500">Breakdown of gross collections across payment types and order channels.</p>
+            <p className="text-[10px] sm:text-xs text-stone-500">
+              Breakdown of gross collections across physical cash register, GCash QR, and card terminal.
+            </p>
           </div>
           <div className="flex items-center gap-2 text-[10px] sm:text-xs font-mono font-bold text-stone-700 bg-stone-50 px-2.5 py-1 rounded-xl border border-stone-200">
             <span>Period Total:</span>
@@ -751,14 +1044,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
           {/* Cash */}
-          <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-2.5 sm:p-3 flex items-center justify-between">
+          <div className="rounded-xl sm:rounded-2xl border border-amber-200 bg-amber-50/50 p-2.5 sm:p-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-amber-500 text-stone-950 flex items-center justify-center font-bold">
-                <Banknote className="h-4 w-4" />
+              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-amber-500 text-stone-950 flex items-center justify-center font-bold shadow-2xs">
+                <Banknote className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
               <div>
-                <div className="text-[10px] sm:text-xs font-bold text-amber-950">Cash Register</div>
-                <div className="text-[9px] sm:text-[10px] text-amber-900/70">Physical counter cash</div>
+                <div className="text-[11px] sm:text-xs font-bold text-amber-950">Cash Register</div>
+                <div className="text-[9px] sm:text-[10px] text-amber-900/70">Drawer cash collected</div>
               </div>
             </div>
             <div className="text-right font-mono">
@@ -767,20 +1060,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
               <div className="text-[9px] text-amber-800 font-bold">
                 {totalGrossRevenue > 0
-                  ? `${Math.round(((paymentBreakdown.find((p) => p.name === 'Cash')?.value || 0) / totalGrossRevenue) * 100)}% share`
+                  ? `${Math.round(
+                      ((paymentBreakdown.find((p) => p.name === 'Cash')?.value || 0) / totalGrossRevenue) * 100
+                    )}% share`
                   : '0%'}
               </div>
             </div>
           </div>
 
           {/* GCash */}
-          <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-2.5 sm:p-3 flex items-center justify-between">
+          <div className="rounded-xl sm:rounded-2xl border border-sky-200 bg-sky-50/50 p-2.5 sm:p-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-sky-500 text-white flex items-center justify-center font-bold">
-                <Smartphone className="h-4 w-4" />
+              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-sky-500 text-white flex items-center justify-center font-bold shadow-2xs">
+                <Smartphone className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
               <div>
-                <div className="text-[10px] sm:text-xs font-bold text-sky-950">GCash Merchant QR</div>
+                <div className="text-[11px] sm:text-xs font-bold text-sky-950">GCash Merchant QR</div>
                 <div className="text-[9px] sm:text-[10px] text-sky-900/70">Digital e-wallet payments</div>
               </div>
             </div>
@@ -790,20 +1085,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
               <div className="text-[9px] text-sky-800 font-bold">
                 {totalGrossRevenue > 0
-                  ? `${Math.round(((paymentBreakdown.find((p) => p.name === 'GCash QR')?.value || 0) / totalGrossRevenue) * 100)}% share`
+                  ? `${Math.round(
+                      ((paymentBreakdown.find((p) => p.name === 'GCash QR')?.value || 0) / totalGrossRevenue) * 100
+                    )}% share`
                   : '0%'}
               </div>
             </div>
           </div>
 
           {/* Card */}
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-2.5 sm:p-3 flex items-center justify-between">
+          <div className="rounded-xl sm:rounded-2xl border border-emerald-200 bg-emerald-50/50 p-2.5 sm:p-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold">
-                <CreditCard className="h-4 w-4" />
+              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-2xs">
+                <CreditCard className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
               <div>
-                <div className="text-[10px] sm:text-xs font-bold text-emerald-950">Card Terminal / POS</div>
+                <div className="text-[11px] sm:text-xs font-bold text-emerald-950">Card Terminal / POS</div>
                 <div className="text-[9px] sm:text-[10px] text-emerald-900/70">Debit &amp; Credit cards</div>
               </div>
             </div>
@@ -813,7 +1110,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
               <div className="text-[9px] text-emerald-800 font-bold">
                 {totalGrossRevenue > 0
-                  ? `${Math.round(((paymentBreakdown.find((p) => p.name === 'Card')?.value || 0) / totalGrossRevenue) * 100)}% share`
+                  ? `${Math.round(
+                      ((paymentBreakdown.find((p) => p.name === 'Card')?.value || 0) / totalGrossRevenue) * 100
+                    )}% share`
                   : '0%'}
               </div>
             </div>
@@ -821,55 +1120,89 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       </div>
 
-      {/* 3. Live Analytics & Rush Charts */}
+      {/* 3. Live Rush & Performance Analytics Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        {/* Hourly Sales Curve */}
+        {/* Sales Rush Curve / Daily Revenue Chart */}
         <div className="lg:col-span-2 rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-6 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 sm:mb-6">
             <div>
               <h2 className="font-display text-xs sm:text-base font-bold text-stone-900 flex items-center gap-1.5 sm:gap-2">
                 <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600" />
-                <span>Hourly Sales Trend &amp; Rush Curve (Today)</span>
+                <span>
+                  {timeRange === 'today'
+                    ? 'Hourly Sales Rush & Volume (Today)'
+                    : `Daily Revenue Trend (${
+                        timeRange === '7days' ? 'Last 7 Days' : timeRange === '30days' ? 'Last 30 Days' : 'All Time'
+                      })`}
+                </span>
               </h2>
+              {timeRange === 'today' && peakHour.sales > 0 && (
+                <p className="text-[10px] sm:text-xs text-stone-500 mt-0.5">
+                  Peak Rush Hour: <strong className="text-stone-900 font-bold">{peakHour.hour}</strong> (₱
+                  {peakHour.sales.toFixed(0)} • {peakHour.orders} orders)
+                </p>
+              )}
             </div>
             <span className="text-[9px] sm:text-xs font-mono font-bold bg-amber-50 text-amber-800 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl border border-amber-200/60 self-start sm:self-auto">
-              Realtime POS &amp; Online
+              Realtime Sync Active
             </span>
           </div>
 
-          <div className="h-44 sm:h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={hourlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="hour" tick={{ fontSize: 9, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 9, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  formatter={(value: any) => [`₱${Number(value || 0).toFixed(2)}`, 'Sales Revenue']}
-                  contentStyle={{
-                    backgroundColor: '#1c1917',
-                    borderColor: '#292524',
-                    borderRadius: '12px',
-                    color: '#fff',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="sales"
-                  stroke="#d97706"
-                  strokeWidth={2.5}
-                  fillOpacity={1}
-                  fill="url(#colorSales)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div className="h-48 sm:h-64 w-full">
+            {timeRange === 'today' ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={hourlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="hour" tick={{ fontSize: 9, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 9, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    formatter={(value: any) => [`₱${Number(value || 0).toFixed(2)}`, 'Sales Revenue']}
+                    contentStyle={{
+                      backgroundColor: '#1c1917',
+                      borderColor: '#292524',
+                      borderRadius: '12px',
+                      color: '#fff',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="sales"
+                    stroke="#d97706"
+                    strokeWidth={2.5}
+                    fillOpacity={1}
+                    fill="url(#colorSales)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 9, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    formatter={(value: any) => [`₱${Number(value || 0).toFixed(2)}`, 'Revenue']}
+                    contentStyle={{
+                      backgroundColor: '#1c1917',
+                      borderColor: '#292524',
+                      borderRadius: '12px',
+                      color: '#fff',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                    }}
+                  />
+                  <Bar dataKey="sales" fill="#f59e0b" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -910,7 +1243,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="h-40 sm:h-48 w-full">
               {(dashboardChartTab === 'category' ? categorySalesData : topProducts).length === 0 ? (
                 <div className="h-full flex items-center justify-center text-[10px] sm:text-xs text-stone-400">
-                  No transaction data for this period
+                  No sales recorded for this period
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
@@ -919,7 +1252,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       data={dashboardChartTab === 'category' ? categorySalesData : topProducts}
                       cx="50%"
                       cy="50%"
-                      innerRadius={40}
+                      innerRadius={42}
                       outerRadius={68}
                       paddingAngle={4}
                       dataKey="revenue"
@@ -963,7 +1296,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       </div>
 
       {/* 4. Live Command Center: Recent Orders, Reservations & Inventory Alerts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+      <div id="admin-live-orders-stream" className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Live Orders Feed */}
         <div className="lg:col-span-2 rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-6 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-3 sm:mb-4">
@@ -972,6 +1305,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <ClipboardList className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600" />
                 <span>Live Orders &amp; Receipts Stream</span>
               </h2>
+              <p className="text-[10px] sm:text-xs text-stone-500">
+                Real-time queue across in-house dining, pickup orders, and online orders.
+              </p>
             </div>
 
             <button
@@ -990,7 +1326,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400" />
               <input
                 type="text"
-                placeholder="Search order # or guest name..."
+                placeholder="Search order #, table #, or guest name..."
                 value={orderSearchQuery}
                 onChange={(e) => setOrderSearchQuery(e.target.value)}
                 className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-stone-200 bg-stone-50 text-[10px] sm:text-xs font-medium focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500 transition"
@@ -998,18 +1334,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             {/* Status Pills */}
-            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-              {(['all', 'pending', 'processing', 'completed', 'cancelled'] as const).map((st) => (
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
+              {(
+                [
+                  { id: 'all', label: 'All', count: orders.length },
+                  { id: 'to_confirm', label: 'To Confirm', count: pendingConfirmOrders.length },
+                  { id: 'to_prep', label: 'To Prep', count: orders.filter((o) => o.status === 'to_prep').length },
+                  { id: 'processing', label: 'Prepping', count: orders.filter((o) => o.status === 'processing').length },
+                  { id: 'to_serve', label: 'To Serve', count: readyToServeOrders.length },
+                  { id: 'completed', label: 'Completed', count: orders.filter((o) => o.status === 'completed').length },
+                  { id: 'cancelled', label: 'Cancelled', count: orders.filter((o) => o.status === 'cancelled').length },
+                ] as const
+              ).map((st) => (
                 <button
-                  key={st}
-                  onClick={() => setOrderStatusFilter(st)}
-                  className={`px-2 sm:px-2.5 py-1 rounded-lg text-[9px] sm:text-[11px] font-bold uppercase transition cursor-pointer shrink-0 ${
-                    orderStatusFilter === st
-                      ? 'bg-amber-500 text-stone-950 shadow-2xs'
+                  key={st.id}
+                  onClick={() => setOrderStatusFilter(st.id)}
+                  className={`px-2 sm:px-2.5 py-1 rounded-lg text-[9px] sm:text-[11px] font-bold uppercase transition cursor-pointer shrink-0 flex items-center gap-1 ${
+                    orderStatusFilter === st.id
+                      ? 'bg-amber-500 text-stone-950 shadow-2xs font-extrabold'
                       : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                   }`}
                 >
-                  {st}
+                  <span>{st.label}</span>
+                  {st.count > 0 && (
+                    <span
+                      className={`px-1 py-0.2 rounded-full text-[8px] font-mono ${
+                        orderStatusFilter === st.id ? 'bg-stone-950 text-amber-400' : 'bg-stone-200 text-stone-700'
+                      }`}
+                    >
+                      {st.count}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -1017,11 +1372,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           <div className="divide-y divide-stone-100 overflow-hidden rounded-xl sm:rounded-2xl border border-stone-100">
             {displayOrders.length === 0 ? (
-              <div className="p-6 text-center text-[10px] sm:text-xs text-stone-400">
+              <div className="p-8 text-center text-[10px] sm:text-xs text-stone-400">
                 No orders match your search or filter.
               </div>
             ) : (
-              displayOrders.slice(0, 5).map((order) => {
+              displayOrders.slice(0, 6).map((order) => {
                 const channel = AppStore.getOrderChannel(order);
                 const orderTime = new Date(order.createdAt).toLocaleTimeString([], {
                   hour: '2-digit',
@@ -1033,14 +1388,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   order.status !== 'cancelled' &&
                   !order.cancellationRejectedAt;
 
+                const badge = getStatusBadge(order.status);
+                const BadgeIcon = badge.icon;
+
                 return (
                   <div
                     key={order.id}
                     className="p-2.5 sm:p-3.5 hover:bg-stone-50/80 transition flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3"
                   >
-                    <div className="flex items-start gap-2 sm:gap-3">
+                    <div className="flex items-start gap-2.5 sm:gap-3">
                       <div
-                        className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl shrink-0 mt-0.5 ${
+                        className={`p-1.5 sm:p-2 rounded-xl shrink-0 mt-0.5 ${
                           channel === 'online' ? 'bg-sky-100 text-sky-700' : 'bg-amber-100 text-amber-800'
                         }`}
                       >
@@ -1056,31 +1414,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <span className="font-mono font-bold text-[10px] sm:text-xs text-stone-900">
                             {order.orderNumber}
                           </span>
+
                           <span
-                            className={`rounded-full px-1.5 sm:px-2 py-0.2 text-[8px] sm:text-[10px] font-extrabold uppercase ${
-                              order.status === 'completed'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : order.status === 'processing'
-                                ? 'bg-amber-100 text-amber-800'
-                                : order.status === 'cancelled'
-                                ? 'bg-rose-100 text-rose-800'
-                                : 'bg-stone-200 text-stone-700'
-                            }`}
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[8px] sm:text-[10px] font-extrabold uppercase ${badge.bg}`}
                           >
-                            {order.status}
+                            <BadgeIcon className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                            <span>{badge.label}</span>
                           </span>
+
                           {isCancellationPending && (
                             <span className="rounded-full bg-rose-500 text-white px-1.5 py-0.2 text-[8px] sm:text-[9px] font-black animate-pulse">
                               Cancellation Requested
                             </span>
                           )}
+
                           <span className="text-[9px] sm:text-[10px] font-bold text-stone-400">{orderTime}</span>
                         </div>
 
                         <div className="text-[10px] sm:text-xs text-stone-600 font-medium mt-0.5">
                           <span className="font-semibold text-stone-800">{order.customerName || 'Walk-in Guest'}</span>
-                          {order.tableNumber && (
+                          {order.tableNumber ? (
                             <span className="text-stone-500"> • Table #{order.tableNumber}</span>
+                          ) : (
+                            <span className="text-stone-500"> • Pick-Up / Takeaway</span>
                           )}
                           <span className="text-stone-400">
                             {' '}
@@ -1100,14 +1456,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </div>
                       </div>
 
-                      <button
-                        id={`admin-view-receipt-${order.id}`}
-                        onClick={() => onViewReceipt(order)}
-                        className="p-1 sm:p-1.5 rounded-lg sm:rounded-xl border border-stone-200 bg-white hover:bg-stone-100 text-stone-700 transition cursor-pointer"
-                        title="View Full Receipt"
-                      >
-                        <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                      </button>
+                      {/* Quick Actions */}
+                      <div className="flex items-center gap-1.5">
+                        {order.status === 'to_confirm' && (
+                          <button
+                            id={`admin-accept-order-${order.id}`}
+                            onClick={() => handleAcceptOrder(order)}
+                            className="inline-flex items-center gap-1 rounded-lg sm:rounded-xl bg-emerald-600 px-2 sm:px-2.5 py-1 text-[9px] sm:text-[11px] font-bold text-white hover:bg-emerald-700 shadow-2xs transition cursor-pointer"
+                            title="Accept and Send to Kitchen"
+                          >
+                            <Check className="h-3 w-3" />
+                            <span>Accept</span>
+                          </button>
+                        )}
+
+                        {isCancellationPending && (
+                          <button
+                            id={`admin-review-cancel-${order.id}`}
+                            onClick={() => handleReviewCancellation(order)}
+                            className="inline-flex items-center gap-1 rounded-lg sm:rounded-xl bg-rose-600 px-2 sm:px-2.5 py-1 text-[9px] sm:text-[11px] font-bold text-white hover:bg-rose-700 shadow-2xs transition cursor-pointer animate-pulse"
+                            title="Review Cancellation Request"
+                          >
+                            <Ban className="h-3 w-3" />
+                            <span>Review</span>
+                          </button>
+                        )}
+
+                        <button
+                          id={`admin-view-receipt-${order.id}`}
+                          onClick={() => onViewReceipt(order)}
+                          className="p-1 sm:p-1.5 rounded-lg sm:rounded-xl border border-stone-200 bg-white hover:bg-stone-100 text-stone-700 transition cursor-pointer shadow-2xs"
+                          title="View Full Receipt"
+                        >
+                          <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1207,7 +1590,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <button
             id="admin-open-inventory-manager-btn"
             onClick={() => onNavigateTab('inventory')}
-            className="w-full mt-3 sm:mt-4 flex items-center justify-center gap-1.5 rounded-xl sm:rounded-2xl bg-stone-900 text-white py-2 sm:py-2.5 text-[10px] sm:text-xs font-bold hover:bg-stone-800 transition cursor-pointer"
+            className="w-full mt-3 sm:mt-4 flex items-center justify-center gap-1.5 rounded-xl sm:rounded-2xl bg-stone-900 text-white py-2 sm:py-2.5 text-[10px] sm:text-xs font-bold hover:bg-stone-800 transition cursor-pointer shadow-xs"
           >
             <Package className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
             <span>Open Inventory Ledger</span>
@@ -1225,6 +1608,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600" />
                 <span>Table &amp; Venue Reservations</span>
               </h2>
+              <p className="text-[10px] sm:text-xs text-stone-500">Upcoming guest bookings and room reservations.</p>
             </div>
 
             <button
@@ -1236,7 +1620,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
 
           {reservations.length === 0 ? (
-            <div className="rounded-xl sm:rounded-2xl bg-stone-50 border border-stone-200/70 p-5 sm:p-6 text-center text-[10px] sm:text-xs text-stone-400">
+            <div className="rounded-xl sm:rounded-2xl bg-stone-50 border border-stone-200/70 p-6 text-center text-[10px] sm:text-xs text-stone-400">
               No reservations recorded yet.
             </div>
           ) : (
@@ -1262,9 +1646,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </span>
                         <span
                           className={`rounded-full px-1.5 sm:px-2 py-0.2 text-[8px] sm:text-[10px] font-bold ${
-                            isVenue
-                              ? 'bg-purple-100 text-purple-800'
-                              : 'bg-amber-100 text-amber-800'
+                            isVenue ? 'bg-purple-100 text-purple-800' : 'bg-amber-100 text-amber-800'
                           }`}
                         >
                           {isVenue ? 'Venue Rental' : `Table #${res.tableNumber || 1}`}
@@ -1298,7 +1680,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <button
                           id={`admin-confirm-res-${res.id}`}
                           onClick={() => handleConfirmReservation(res.id)}
-                          className="px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl bg-emerald-600 text-white text-[10px] sm:text-xs font-bold hover:bg-emerald-700 transition cursor-pointer"
+                          className="px-2.5 sm:px-3 py-1 rounded-lg sm:rounded-xl bg-emerald-600 text-white text-[10px] sm:text-xs font-bold hover:bg-emerald-700 shadow-2xs transition cursor-pointer"
                         >
                           Confirm
                         </button>
@@ -1317,15 +1699,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div>
               <h2 className="font-display text-xs sm:text-base font-bold text-stone-900 flex items-center gap-1.5 sm:gap-2">
                 <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600" />
-                <span>Staff &amp; Cashier Shift Performance</span>
+                <span>Staff &amp; Cashier Shift Leaderboard</span>
               </h2>
+              <p className="text-[10px] sm:text-xs text-stone-500">
+                Performance across register transactions and orders handled.
+              </p>
             </div>
 
             <button
               onClick={() => onNavigateTab('settings')}
               className="text-[10px] sm:text-xs font-bold text-amber-700 hover:text-amber-800 transition cursor-pointer"
             >
-              Manage PINs
+              Manage Staff
             </button>
           </div>
 
@@ -1335,14 +1720,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 key={`staff-${staff.id || idx}-${staff.name}`}
                 className="p-2.5 sm:p-3.5 flex items-center justify-between hover:bg-stone-50/60 transition"
               >
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="h-7 w-7 sm:h-9 sm:w-9 rounded-xl sm:rounded-2xl bg-amber-100 text-amber-900 font-extrabold flex items-center justify-center text-[10px] sm:text-xs shrink-0">
+                <div className="flex items-center gap-2.5 sm:gap-3">
+                  <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl sm:rounded-2xl bg-amber-100 text-amber-900 font-extrabold flex items-center justify-center text-[10px] sm:text-xs shrink-0 shadow-2xs">
                     {staff.name.charAt(0)}
                   </div>
                   <div>
-                    <div className="text-[10px] sm:text-xs font-bold text-stone-900 flex items-center gap-1 sm:gap-1.5">
+                    <div className="text-[10px] sm:text-xs font-bold text-stone-900 flex items-center gap-1.5">
                       <span>{staff.name}</span>
-                      <span className="rounded-md bg-stone-100 px-1 sm:px-1.5 py-0.2 text-[8px] sm:text-[9px] font-bold text-stone-600 uppercase">
+                      <span className="rounded-md bg-stone-100 px-1.5 py-0.2 text-[8px] sm:text-[9px] font-bold text-stone-600 uppercase">
                         {staff.role}
                       </span>
                     </div>
@@ -1356,13 +1741,127 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <div className="font-mono font-extrabold text-stone-900 text-xs sm:text-sm">
                     ₱{staff.salesTotal.toFixed(2)}
                   </div>
-                  <div className="text-[8px] sm:text-[10px] text-stone-400 font-bold">Total Processed</div>
+                  <div className="text-[8px] sm:text-[10px] text-stone-400 font-bold">Total Sales</div>
                 </div>
               </div>
             ))}
           </div>
         </div>
       </div>
+
+      {/* 6. Daily Register Summary / Z-Reading Snapshot Modal */}
+      {isSummaryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-3xl bg-white border border-stone-200 shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-4 sm:p-5 border-b border-stone-100 flex items-center justify-between bg-stone-50">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-amber-500 text-stone-950 flex items-center justify-center font-bold shadow-2xs">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-display text-sm sm:text-base font-black text-stone-900">
+                    Register Z-Reading Snapshot
+                  </h3>
+                  <p className="text-[10px] sm:text-xs text-stone-500">
+                    {settings.storeName || 'Coffee at Yellow Hauz'} • {timeRange.toUpperCase()} Period
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsSummaryModalOpen(false)}
+                className="p-1.5 rounded-xl hover:bg-stone-200 text-stone-500 transition cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 font-sans text-stone-800">
+              {/* Financial Box */}
+              <div className="rounded-2xl bg-stone-50 p-3.5 border border-stone-200/80 space-y-2 text-xs">
+                <div className="flex justify-between font-medium text-stone-600">
+                  <span>Gross Sales Total:</span>
+                  <span className="font-mono font-bold text-stone-950">₱{totalGrossRevenue.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-stone-500">
+                  <span>Less: Discounts / Promo / Senior:</span>
+                  <span className="font-mono text-rose-600 font-semibold">-₱{totalDiscountsGiven.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between font-medium text-stone-600">
+                  <span>Net Sales Subtotal:</span>
+                  <span className="font-mono font-bold text-stone-900">₱{totalNetSubtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-stone-500">
+                  <span>12% VAT Collected:</span>
+                  <span className="font-mono font-medium text-stone-800">₱{totalVatCollected.toFixed(2)}</span>
+                </div>
+                <div className="pt-2 border-t border-stone-200 flex justify-between font-bold text-sm text-stone-950">
+                  <span>Total Collections:</span>
+                  <span className="font-mono font-black text-amber-600">₱{totalGrossRevenue.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Tender Breakdown */}
+              <div>
+                <h4 className="text-[11px] font-black uppercase tracking-wider text-stone-500 mb-2">
+                  Tender Methods Collected
+                </h4>
+                <div className="space-y-1.5 text-xs">
+                  {paymentBreakdown.map((p) => (
+                    <div
+                      key={p.name}
+                      className="flex items-center justify-between p-2 rounded-xl bg-stone-50 border border-stone-200"
+                    >
+                      <span className="font-medium text-stone-700">{p.name}</span>
+                      <span className="font-mono font-bold text-stone-900">₱{p.value.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Transactions Summary */}
+              <div>
+                <h4 className="text-[11px] font-black uppercase tracking-wider text-stone-500 mb-2">
+                  Transaction Metrics
+                </h4>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2.5 rounded-xl bg-stone-50 border border-stone-200">
+                    <div className="text-stone-500 text-[10px]">Total Tickets</div>
+                    <div className="font-bold text-stone-900 text-sm">{validCompletedOrders.length} orders</div>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-stone-50 border border-stone-200">
+                    <div className="text-stone-500 text-[10px]">Average Ticket</div>
+                    <div className="font-bold text-stone-900 text-sm">₱{averageOrderValue.toFixed(2)}</div>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-stone-50 border border-stone-200">
+                    <div className="text-stone-500 text-[10px]">In-Store Register</div>
+                    <div className="font-bold text-stone-900 text-sm">{inStoreOrders.length} orders</div>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-stone-50 border border-stone-200">
+                    <div className="text-stone-500 text-[10px]">Online Orders</div>
+                    <div className="font-bold text-stone-900 text-sm">{onlineOrders.length} orders</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 sm:p-4 border-t border-stone-100 bg-stone-50 flex items-center justify-end gap-2">
+              <button
+                onClick={() => window.print()}
+                className="px-3 sm:px-4 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs inline-flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                <span>Print Reading</span>
+              </button>
+              <button
+                onClick={() => setIsSummaryModalOpen(false)}
+                className="px-3 sm:px-4 py-2 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold text-xs transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

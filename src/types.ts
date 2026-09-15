@@ -62,11 +62,19 @@ export interface CustomerAccount {
   fullName: string;
   email: string;
   contactNumber: string;
+  password?: string;
   status: 'active' | 'inactive';
   loyaltyPoints?: number;
   createdAt: string;
   favoriteItemIds?: number[];
   likedItemIds?: number[];
+  defaultDeliveryAddress?: string;
+  deliveryLandmark?: string;
+  deliveryNotes?: string;
+  preferredMilk?: string;
+  preferredSweetness?: string;
+  dietaryNotes?: string;
+  birthday?: string;
 }
 
 export interface VenueAddon {
@@ -248,6 +256,7 @@ export interface StoreSettings {
   storeName?: string;
   shop_address: string;
   shop_phone: string;
+  shop_email?: string;
   receipt_footer: string;
   business_hours: string;
   time_based_menus: TimeBasedMenu[];

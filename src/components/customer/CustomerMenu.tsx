@@ -16,7 +16,7 @@ import { CustomerCartDrawer } from './CustomerCartDrawer';
 import { TableRequestModal } from './TableRequestModal';
 import {
   Search,
-  ShoppingBag,
+  ShoppingCart,
   Bell,
   Plus,
   Minus,
@@ -355,12 +355,18 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
   const isCartOpen = externalIsCartOpen !== undefined ? externalIsCartOpen : internalIsCartOpen;
 
   // Checkout Form State
-  const [orderType, setOrderType] = useState<'dine_in' | 'take_away' | 'delivery'>('dine_in');
+  const [orderType, setOrderType] = useState<'dine_in' | 'take_away'>('dine_in');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'gcash' | 'card'>('cash');
   const [customerName, setCustomerName] = useState(activeCustomer?.fullName || '');
   const [customerPhone, setCustomerPhone] = useState(activeCustomer?.contactNumber || '');
-  const [deliveryAddress, setDeliveryAddress] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
+
+  useEffect(() => {
+    if (activeCustomer) {
+      if (!customerName) setCustomerName(activeCustomer.fullName || '');
+      if (!customerPhone) setCustomerPhone(activeCustomer.contactNumber || '');
+    }
+  }, [activeCustomer]);
   // Table management & Floor plan state
   const [tables, setTables] = useState<Table[]>(() => AppStore.getTables());
   useEffect(() => {
@@ -684,8 +690,6 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
     const paymentLabel = paymentMethod === 'cash' ? 'Cash' : paymentMethod === 'gcash' ? 'GCash QR' : 'Card';
     const targetDestination = finalTableNum
       ? `Dine-In • Table #${finalTableNum}`
-      : orderType === 'delivery'
-      ? `Delivery (${deliveryAddress.trim() || 'Address Specified'})`
       : orderType === 'take_away'
       ? 'Takeaway / Store Pick-up'
       : `Advance Dine-In Booking (${bookingDate} at ${arrivalTime} • Seat on arrival)`;
@@ -735,7 +739,6 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
       customerId: activeCustomer?.id || null,
       customerName: finalCustomerName,
       customerPhone: finalCustomerPhone,
-      deliveryAddress: orderType === 'delivery' ? deliveryAddress.trim() : undefined,
       orderType: isLiveInHouse ? 'dine_in' : orderType,
       paymentMethod,
       subtotal,
@@ -870,7 +873,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
               </span>
               {inCartQty > 0 && (
                 <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-900">
-                  {inCartQty} in bag
+                  {inCartQty} in cart
                 </span>
               )}
             </div>
@@ -923,7 +926,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                 ) : (
                   <>
                     <Plus className="h-4 w-4 stroke-[2.5]" />
-                    <span>Add to Bag</span>
+                    <span>Add to Cart</span>
                   </>
                 )}
               </button>
@@ -1773,7 +1776,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                     <label className="block text-[9px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
                       Ordering Method
                     </label>
-                    <div className="grid grid-cols-3 gap-1 sm:gap-2">
+                    <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                       <button
                         type="button"
                         onClick={() => {
@@ -1799,17 +1802,6 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                         }`}
                       >
                         🛍️ Pick-Up
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setOrderType('delivery')}
-                        className={`rounded-lg sm:rounded-xl py-1.5 sm:py-2.5 text-[10px] sm:text-xs font-bold border transition cursor-pointer ${
-                          orderType === 'delivery'
-                            ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-xs'
-                            : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
-                        }`}
-                      >
-                        🛵 Delivery
                       </button>
                     </div>
                   </div>
@@ -2052,22 +2044,6 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                 </div>
               )}
 
-              {orderType === 'delivery' && (
-                <div>
-                  <label className="block text-[9px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                    Delivery Address
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={deliveryAddress}
-                    onChange={(e) => setDeliveryAddress(e.target.value)}
-                    placeholder="House/Unit, Street, Barangay, Davao City"
-                    className="w-full rounded-lg sm:rounded-xl border border-stone-300 bg-stone-50 px-2.5 sm:px-4 py-1.5 sm:py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
-                  />
-                </div>
-              )}
-
               <div>
                 <label className="block text-[9px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1 sm:mb-1.5">
                   Payment Method
@@ -2298,14 +2274,14 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                           setModalSpecialInstructions(e.target.value);
                           handleUpdateItemInstructions(item.id, e.target.value);
                         }}
-                        placeholder="e.g., Less sugar, extra ice, oat milk preference..."
+                        placeholder="e.g., Extra napkins, separate packaging..."
                         className="w-full rounded-xl border border-stone-300 px-3 py-1.5 text-xs text-stone-800 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none"
                       />
                     </div>
                   )}
                 </div>
 
-                {/* MODAL FOOTER: Add to Bag or Quantity Stepper */}
+                {/* MODAL FOOTER: Add to Cart or Quantity Stepper */}
                 <div className="pt-3 sm:pt-4 mt-3 sm:mt-4 border-t border-stone-100 space-y-2">
                   <div className="flex items-center justify-between">
                     <div>
@@ -2353,14 +2329,14 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                           }}
                           className="rounded-xl sm:rounded-2xl bg-stone-900 hover:bg-stone-800 text-white px-3.5 py-2 sm:px-5 sm:py-3 text-[11px] sm:text-xs font-black shadow-md transition active:scale-95 cursor-pointer flex items-center gap-1 sm:gap-1.5"
                         >
-                          <ShoppingBag className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-400" />
-                          <span>View Bag</span>
+                          <ShoppingCart className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-400" />
+                          <span>View Cart</span>
                         </button>
                       </div>
                     ) : (
                       <button
                         type="button"
-                        id="modal-add-to-bag-button"
+                        id="modal-add-to-cart-button"
                         onClick={() => {
                           handleAddToCart(item);
                         }}
@@ -2373,12 +2349,12 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                         {isJustAdded ? (
                           <>
                             <Check className="h-4 w-4 sm:h-5 sm:w-5 stroke-[3]" />
-                            <span>Added to Bag!</span>
+                            <span>Added to Cart!</span>
                           </>
                         ) : (
                           <>
                             <Plus className="h-4 w-4 sm:h-5 sm:w-5 stroke-[2.5]" />
-                            <span>Add to Bag • ₱{item.price.toFixed(2)}</span>
+                            <span>Add to Cart • ₱{item.price.toFixed(2)}</span>
                           </>
                         )}
                       </button>

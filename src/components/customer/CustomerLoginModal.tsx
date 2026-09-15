@@ -150,17 +150,26 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
         setError('Please enter a valid email address (e.g. name@example.com)');
         return;
       }
-      // Demo authentication: If customer matches existing or mock authenticates
-      const mockCustomer: CustomerAccount = {
-        id: Math.floor(100 + Math.random() * 900),
-        fullName: fullName || (email && email.includes('@') ? email.split('@')[0].toUpperCase() : 'Customer'),
-        email: email.trim(),
-        contactNumber: contactNumber || '+63 917 000 0000',
-        status: 'active',
-        createdAt: new Date().toISOString(),
-      };
-      AppStore.setActiveCustomer(mockCustomer);
-      onSuccess(mockCustomer);
+      // Retrieve customer from store if already registered
+      const existingCustomer = AppStore.getCustomerByEmail(email);
+      const customerToActivate: CustomerAccount = existingCustomer
+        ? {
+            ...existingCustomer,
+            fullName: existingCustomer.fullName || fullName || (email.includes('@') ? email.split('@')[0].toUpperCase() : 'Customer'),
+            contactNumber: existingCustomer.contactNumber || contactNumber || '+63 917 000 0000',
+          }
+        : {
+            id: Math.floor(100 + Math.random() * 900),
+            fullName: fullName || (email && email.includes('@') ? email.split('@')[0].toUpperCase() : 'Customer'),
+            email: email.trim(),
+            contactNumber: contactNumber || '+63 917 000 0000',
+            password: password.trim(),
+            status: 'active',
+            createdAt: new Date().toISOString(),
+          };
+
+      AppStore.setActiveCustomer(customerToActivate);
+      onSuccess(customerToActivate);
       onClose();
     } else {
       // Register validation
@@ -199,6 +208,7 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
         fullName: fullName.trim(),
         email: email.trim(),
         contactNumber: contactNumber.trim(),
+        password: password.trim(),
         status: 'active',
         createdAt: new Date().toISOString(),
       };

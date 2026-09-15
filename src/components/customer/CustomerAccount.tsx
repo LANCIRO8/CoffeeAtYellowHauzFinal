@@ -20,7 +20,11 @@ import {
   Check,
   ArrowRight,
   Coffee,
+  Edit3,
+  MapPin,
+  Shield,
 } from 'lucide-react';
+import { EditCustomerProfileModal } from './EditCustomerProfileModal';
 
 interface CustomerAccountProps {
   customer: CustomerAccount;
@@ -44,6 +48,7 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
   onCustomerUpdate,
 }) => {
   const { showConfirm, showAlert } = useModal();
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const allOrders = useMemo(() => AppStore.getOrders(), []);
   const allReservations = useMemo(() => AppStore.getReservations(), []);
   const allMenuItems = useMemo(() => AppStore.getMenuItems(), []);
@@ -89,7 +94,7 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
     }
   };
 
-  const handleAddItemToBag = (item: MenuItem) => {
+  const handleAddItemToCart = (item: MenuItem) => {
     if (onAddToCart) {
       onAddToCart(item);
       setAddedAnimationId(item.id);
@@ -195,6 +200,15 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            id="account-edit-profile-btn-header"
+            onClick={() => setIsEditModalOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-stone-900 hover:bg-stone-800 px-4 py-2.5 text-xs font-black text-white shadow-xs transition active:scale-95 cursor-pointer"
+          >
+            <Edit3 className="h-4 w-4 text-amber-400" />
+            <span>Edit Credentials</span>
+          </button>
           {onNavigateMenu && (
             <button
               onClick={onNavigateMenu}
@@ -211,6 +225,119 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
             <LogOut className="h-4 w-4" />
             Sign Out
           </button>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* CREDENTIALS & SECURITY OVERVIEW */}
+      {/* ========================================================================= */}
+      <div className="rounded-3xl border border-stone-200 bg-white p-6 sm:p-8 shadow-xs space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-100 pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-amber-800">
+                <Shield className="h-3.5 w-3.5 text-amber-500" />
+                Account Credentials
+              </span>
+            </div>
+            <h2 className="font-display text-xl font-bold text-stone-900 mt-1">
+              Credentials &amp; Security
+            </h2>
+            <p className="text-xs sm:text-sm text-stone-500">
+              Personal credentials and password security settings.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            id="account-edit-profile-btn"
+            onClick={() => setIsEditModalOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 px-4 py-2.5 text-xs font-bold shadow-xs transition active:scale-95 cursor-pointer shrink-0"
+          >
+            <Edit3 className="h-4 w-4 text-stone-950" />
+            <span>Edit Credentials</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Card 1: Credentials */}
+          <div className="rounded-2xl border border-stone-200 bg-stone-50/50 p-5 flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-stone-700">
+                  <User className="h-4 w-4 text-amber-600" />
+                  <span>Personal Details</span>
+                </div>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                  <CheckCircle2 className="h-3 w-3" /> Active
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-stone-400 block">Full Name</span>
+                  <span className="font-bold text-stone-900 text-sm">{customer.fullName}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-stone-400 block">Customer ID</span>
+                  <span className="font-mono text-stone-700">#{customer.id}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-stone-400 block">Email Address</span>
+                  <span className="text-stone-700 break-all">{customer.email}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-stone-400 block">Contact Number</span>
+                  <span className="text-stone-700 font-mono">{customer.contactNumber}</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsEditModalOpen(true)}
+              className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 hover:text-amber-950 transition cursor-pointer"
+            >
+              <Edit3 className="h-3.5 w-3.5" />
+              <span>Update Information</span>
+            </button>
+          </div>
+
+          {/* Card 2: Security & Protection */}
+          <div className="rounded-2xl border border-stone-200 bg-stone-50/50 p-5 flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-stone-700">
+                  <Shield className="h-4 w-4 text-amber-600" />
+                  <span>Account Security</span>
+                </div>
+                <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 border border-stone-200 px-2 py-0.5 text-[10px] font-bold text-stone-600">
+                  {customer.password ? 'Protected' : 'Standard'}
+                </span>
+              </div>
+
+              <div className="space-y-2 text-xs pt-1">
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-stone-400 block">Password Status</span>
+                  <span className="font-bold text-stone-900 text-sm">
+                    {customer.password ? '●●●●●●●● (Password Protected)' : 'Default Account Access'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-stone-500 leading-relaxed">
+                  Credentials are used for table reservations, digital order tickets, and logging in on new devices.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsEditModalOpen(true)}
+              className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 hover:text-amber-950 transition cursor-pointer"
+            >
+              <Edit3 className="h-3.5 w-3.5" />
+              <span>Change Password</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -289,8 +416,8 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-amber-800">
-                <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                Your Taste Profile
+                <Bookmark className="h-3.5 w-3.5 text-amber-500" />
+                Saved Collections
               </span>
             </div>
             <h2 className="font-display text-xl sm:text-2xl font-bold text-stone-900">
@@ -490,7 +617,7 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
                       {onAddToCart && (
                         <button
                           type="button"
-                          onClick={() => handleAddItemToBag(item)}
+                          onClick={() => handleAddItemToCart(item)}
                           className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-black transition-all active:scale-95 cursor-pointer shadow-xs ${
                             isJustAdded
                               ? 'bg-emerald-600 text-white'
@@ -500,12 +627,12 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
                           {isJustAdded ? (
                             <>
                               <Check className="h-3.5 w-3.5" />
-                              <span>Added to Bag</span>
+                              <span>Added to Cart</span>
                             </>
                           ) : (
                             <>
                               <Plus className="h-3.5 w-3.5" />
-                              <span>Add to Bag</span>
+                              <span>Add to Cart</span>
                             </>
                           )}
                         </button>
@@ -727,6 +854,20 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
           )}
         </div>
       </div>
+
+      {/* Edit Customer Profile & Credentials Modal */}
+      {isEditModalOpen && (
+        <EditCustomerProfileModal
+          isOpen={isEditModalOpen}
+          customer={customer}
+          onClose={() => setIsEditModalOpen(false)}
+          onSaveSuccess={(updated) => {
+            if (onCustomerUpdate) {
+              onCustomerUpdate(updated);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

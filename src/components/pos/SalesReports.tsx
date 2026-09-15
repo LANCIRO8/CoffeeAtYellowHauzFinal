@@ -612,9 +612,6 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
             <h2 className="font-display text-lg sm:text-2xl font-extrabold text-stone-900 leading-tight">
               Sales Reports
             </h2>
-            <p className="text-[10px] sm:text-xs text-stone-500">
-              Overview of revenue, VAT collections, and transaction history
-            </p>
           </div>
         </div>
 

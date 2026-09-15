@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { MenuItem, Category, User, Order, TableRequest, Reservation, Table, StaffTabType, RefillRequest } from '../../types';
-import { AppStore } from '../../services/store';
+import { AppStore, getOrderFulfillmentBreakdown } from '../../services/store';
 import { useModal } from '../../context/ModalContext';
 import { AdminConfirmRefillModal } from './AdminConfirmRefillModal';
 import {
@@ -33,7 +33,7 @@ interface StaffNotificationCenterModalProps {
   isOpen: boolean;
   onClose: () => void;
   activeStaff?: User | null;
-  initialTab?: 'all' | 'no_stock' | 'low_stock' | 'table_confirm' | 'order_confirm' | 'cancellations' | 'refills';
+  initialTab?: 'all' | 'no_stock' | 'low_stock' | 'table_confirm' | 'order_confirm' | 'cancellations' | 'refills' | 'prepping' | 'to_serve';
   onNavigateTab?: (tab: StaffTabType) => void;
   onViewOrderReceipt?: (order: Order) => void;
 }
@@ -47,7 +47,7 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
   onViewOrderReceipt,
 }) => {
   const { showAlert, showConfirm, showPrompt } = useModal();
-  const [activeTab, setActiveTab] = useState<'all' | 'no_stock' | 'low_stock' | 'table_confirm' | 'order_confirm' | 'cancellations' | 'refills'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'all' | 'no_stock' | 'low_stock' | 'table_confirm' | 'order_confirm' | 'cancellations' | 'refills' | 'prepping' | 'to_serve'>(initialTab);
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [restockingId, setRestockingId] = useState<number | null>(null);
@@ -248,6 +248,28 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
       });
   }, [refillRequests, sortOrder]);
 
+  // 8. Prepping Orders (Food & Drinks in preparation: status === 'to_prep' or 'processing')
+  const sortedPreppingOrders = useMemo(() => {
+    return orders
+      .filter((o) => o.status === 'to_prep' || o.status === 'processing')
+      .sort((a, b) => {
+        const timeA = new Date(a.processingStartedAt || a.confirmedAt || a.createdAt).getTime();
+        const timeB = new Date(b.processingStartedAt || b.confirmedAt || b.createdAt).getTime();
+        return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
+      });
+  }, [orders, sortOrder]);
+
+  // 9. Orders Ready to Serve (status === 'to_serve')
+  const sortedToServeOrders = useMemo(() => {
+    return orders
+      .filter((o) => o.status === 'to_serve')
+      .sort((a, b) => {
+        const timeA = new Date(a.readyToServeAt || a.createdAt).getTime();
+        const timeB = new Date(b.readyToServeAt || b.createdAt).getTime();
+        return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
+      });
+  }, [orders, sortOrder]);
+
   // Group pending refill requests by staff member
   interface StaffRefillGroup {
     staffKey: string;
@@ -285,6 +307,8 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
   const allUnifiedNotifications = useMemo(() => {
     const list: Array<
       | { type: 'order_confirm'; id: string; timestamp: number; data: Order }
+      | { type: 'prepping'; id: string; timestamp: number; data: Order }
+      | { type: 'to_serve'; id: string; timestamp: number; data: Order }
       | { type: 'cancellation'; id: string; timestamp: number; data: Order }
       | { type: 'table_request'; id: string; timestamp: number; data: TableRequest }
       | { type: 'reservation'; id: string; timestamp: number; data: Reservation }
@@ -310,6 +334,24 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
         type: 'order_confirm',
         id: `order-${order.id}`,
         timestamp: new Date(order.createdAt).getTime(),
+        data: order,
+      });
+    });
+
+    sortedPreppingOrders.forEach((order) => {
+      list.push({
+        type: 'prepping',
+        id: `prepping-${order.id}`,
+        timestamp: new Date(order.processingStartedAt || order.confirmedAt || order.createdAt).getTime(),
+        data: order,
+      });
+    });
+
+    sortedToServeOrders.forEach((order) => {
+      list.push({
+        type: 'to_serve',
+        id: `to-serve-${order.id}`,
+        timestamp: new Date(order.readyToServeAt || order.createdAt).getTime(),
         data: order,
       });
     });
@@ -367,6 +409,8 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
     isAdmin,
     pendingRefillRequests,
     sortedOrderConfirmations,
+    sortedPreppingOrders,
+    sortedToServeOrders,
     sortedCancellationRequests,
     sortedTableRequests,
     sortedReservations,
@@ -382,7 +426,9 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
     (isAdmin ? pendingRefillRequests.length : 0) +
     totalTableConfirmationsCount +
     sortedOrderConfirmations.length +
-    sortedCancellationRequests.length;
+    sortedCancellationRequests.length +
+    sortedPreppingOrders.length +
+    sortedToServeOrders.length;
 
   if (!isOpen) return null;
 
@@ -684,10 +730,64 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
     }
   };
 
+  // Handlers for Prepping (Food & Drinks) and To Serve orders
+  const handleMarkBaristaReady = (order: Order) => {
+    const staffName = activeStaff?.fullName || (isAdmin ? 'Admin' : 'Staff Barista');
+    AppStore.updateOrderBaristaStatus(order.id, 'ready', staffName);
+    showAlert({
+      title: 'Drinks Ready!',
+      message: `Drinks for Order #${order.orderNumber} have been marked ready.`,
+      type: 'success',
+    });
+  };
+
+  const handleMarkCookReady = (order: Order) => {
+    const staffName = activeStaff?.fullName || (isAdmin ? 'Admin' : 'Staff Cook');
+    AppStore.updateOrderCookStatus(order.id, 'ready', staffName);
+    showAlert({
+      title: 'Food Ready!',
+      message: `Kitchen food for Order #${order.orderNumber} has been marked ready.`,
+      type: 'success',
+    });
+  };
+
+  const handleAdvanceToServe = (order: Order) => {
+    const staffName = activeStaff?.fullName || (isAdmin ? 'Admin' : 'Staff');
+    AppStore.completeAllOrderSections(order.id, staffName);
+    showAlert({
+      title: 'Order Ready to Serve!',
+      message: `Order #${order.orderNumber} has been moved to the 'To Serve' queue.`,
+      type: 'success',
+    });
+  };
+
+  const handleMarkOrderCompleted = async (order: Order) => {
+    const confirmed = await showConfirm({
+      title: `Serve Order #${order.orderNumber}`,
+      message: `Confirm that all food and drinks for Order #${order.orderNumber} ${order.tableNumber ? `have been delivered to Table #${order.tableNumber}` : 'have been handed over to the customer'}?`,
+      type: 'success',
+      confirmText: 'Mark Served & Complete',
+      cancelText: 'Keep in Serve Queue',
+    });
+
+    if (confirmed) {
+      AppStore.updateOrderStatus(order.id, 'completed');
+      showAlert({
+        title: 'Order Served & Completed!',
+        message: `Order #${order.orderNumber} has been completed successfully.`,
+        type: 'success',
+      });
+    }
+  };
+
   const getTabLabel = (tabKey: typeof activeTab) => {
     switch (tabKey) {
       case 'all':
         return `All (${totalAlertsCount})`;
+      case 'prepping':
+        return `Prepping (${sortedPreppingOrders.length})`;
+      case 'to_serve':
+        return `To Serve (${sortedToServeOrders.length})`;
       case 'refills':
         return `Refills (${pendingRefillRequests.length})`;
       case 'no_stock':
@@ -883,6 +983,332 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
               <span>Confirm & Cancel</span>
             </button>
           </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderPreppingCard = (order: Order, showCategoryBadge: boolean = false) => {
+    const isOnline = order.channel === 'online' || !order.tableNumber;
+    const prepStartTime = order.processingStartedAt || order.confirmedAt || order.createdAt;
+    const breakdown = getOrderFulfillmentBreakdown(order, menuItems);
+    const { drinkItems, foodItems, hasDrinks, hasFood, drinksReady, foodReady, allApplicableReady } = breakdown;
+
+    const isBaristaActive = order.baristaStatus === 'processing';
+    const isCookActive = order.cookStatus === 'processing';
+
+    return (
+      <div
+        key={`prepping-order-${order.id}`}
+        className="rounded-xl border border-amber-300 bg-white p-2.5 sm:p-3.5 shadow-2xs hover:border-amber-400 transition space-y-2.5"
+      >
+        {/* Top bar with category & channel badges, and timestamp */}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {showCategoryBadge && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
+                <Flame className="h-3 w-3 text-amber-600" />
+                <span>Prepping Food & Drinks</span>
+              </span>
+            )}
+            <span
+              className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold ${
+                isOnline
+                  ? 'bg-blue-100 text-blue-900 border border-blue-200'
+                  : 'bg-amber-100 text-amber-900 border border-amber-200'
+              }`}
+            >
+              {isOnline ? <Globe className="h-2.5 w-2.5" /> : <Store className="h-2.5 w-2.5" />}
+              <span>{isOnline ? 'Online Order' : `Table #${order.tableNumber || 'Dine-In'}`}</span>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] text-stone-500 shrink-0 ml-auto">
+            <Clock className="h-3 w-3 text-amber-600" />
+            <span className="font-bold text-amber-900 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+              Prep: {formatRelativeTime(prepStartTime)}
+            </span>
+            <span className="text-stone-400">{formatClockTime(prepStartTime)}</span>
+          </div>
+        </div>
+
+        {/* Order Ticket header */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="rounded-lg bg-stone-900 text-amber-400 px-2 py-0.5 font-mono font-black text-[10px] sm:text-xs">
+              #{order.orderNumber}
+            </span>
+            <span className="font-extrabold text-stone-900 text-xs sm:text-sm">
+              {order.customerName || 'Guest Customer'}
+            </span>
+          </div>
+          <span className="text-[10px] sm:text-xs text-stone-600">
+            {order.items.length} {order.items.length === 1 ? 'item' : 'items'} • Total:{' '}
+            <strong className="text-stone-900 font-extrabold">₱{order.totalAmount.toFixed(2)}</strong>
+          </span>
+        </div>
+
+        {/* Separate Drinks & Food Fulfillment Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {/* Drinks Station Status */}
+          {hasDrinks && (
+            <div className={`rounded-xl border p-2 text-[10px] sm:text-xs space-y-1.5 ${
+              drinksReady
+                ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+                : isBaristaActive
+                ? 'bg-sky-50/70 border-sky-200 text-sky-950'
+                : 'bg-amber-50/50 border-amber-200 text-stone-800'
+            }`}>
+              <div className="flex items-center justify-between border-b pb-1 border-stone-200/60">
+                <div className="flex items-center gap-1.5 font-extrabold">
+                  <Coffee className="h-3.5 w-3.5 text-amber-700" />
+                  <span>Drinks Station</span>
+                </div>
+                <span className={`px-1.5 py-0.2 rounded-md font-bold text-[9px] uppercase ${
+                  drinksReady
+                    ? 'bg-emerald-600 text-white'
+                    : isBaristaActive
+                    ? 'bg-sky-600 text-white animate-pulse'
+                    : 'bg-amber-200 text-amber-950'
+                }`}>
+                  {drinksReady ? 'Drinks Ready' : isBaristaActive ? 'Prepping' : 'Queued'}
+                </span>
+              </div>
+              <div className="space-y-1 max-h-20 overflow-y-auto pr-0.5">
+                {drinkItems.map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-[10px] text-stone-700">
+                    <span className="font-medium truncate max-w-[150px]">
+                      {item.quantity}x {item.name}
+                    </span>
+                    {drinksReady && <Check className="h-3 w-3 text-emerald-600 shrink-0" />}
+                  </div>
+                ))}
+              </div>
+              {!drinksReady && (
+                <button
+                  type="button"
+                  onClick={() => handleMarkBaristaReady(order)}
+                  className="w-full mt-1 flex items-center justify-center gap-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-bold py-1 text-[10px] transition cursor-pointer shadow-2xs"
+                >
+                  <Check className="h-3 w-3 stroke-[2.5]" />
+                  <span>Mark Drinks Ready</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Kitchen Food Station Status */}
+          {hasFood && (
+            <div className={`rounded-xl border p-2 text-[10px] sm:text-xs space-y-1.5 ${
+              foodReady
+                ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+                : isCookActive
+                ? 'bg-amber-100/70 border-amber-300 text-amber-950'
+                : 'bg-stone-50 border-stone-200 text-stone-800'
+            }`}>
+              <div className="flex items-center justify-between border-b pb-1 border-stone-200/60">
+                <div className="flex items-center gap-1.5 font-extrabold">
+                  <ChefHat className="h-3.5 w-3.5 text-amber-800" />
+                  <span>Kitchen Food</span>
+                </div>
+                <span className={`px-1.5 py-0.2 rounded-md font-bold text-[9px] uppercase ${
+                  foodReady
+                    ? 'bg-emerald-600 text-white'
+                    : isCookActive
+                    ? 'bg-amber-500 text-stone-950 font-black animate-pulse'
+                    : 'bg-stone-200 text-stone-800'
+                }`}>
+                  {foodReady ? 'Food Ready' : isCookActive ? 'Cooking' : 'Queued'}
+                </span>
+              </div>
+              <div className="space-y-1 max-h-20 overflow-y-auto pr-0.5">
+                {foodItems.map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-[10px] text-stone-700">
+                    <span className="font-medium truncate max-w-[150px]">
+                      {item.quantity}x {item.name}
+                    </span>
+                    {foodReady && <Check className="h-3 w-3 text-emerald-600 shrink-0" />}
+                  </div>
+                ))}
+              </div>
+              {!foodReady && (
+                <button
+                  type="button"
+                  onClick={() => handleMarkCookReady(order)}
+                  className="w-full mt-1 flex items-center justify-center gap-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 font-black py-1 text-[10px] transition cursor-pointer shadow-2xs"
+                >
+                  <Check className="h-3 w-3 stroke-[3]" />
+                  <span>Mark Food Ready</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Action Buttons footer */}
+        <div className="flex items-center justify-between pt-1 gap-2 border-t border-stone-100">
+          <div className="flex items-center gap-2">
+            {onViewOrderReceipt && (
+              <button
+                type="button"
+                onClick={() => onViewOrderReceipt(order)}
+                className="text-[10px] sm:text-xs font-bold text-stone-600 hover:text-stone-900 underline cursor-pointer"
+              >
+                Details
+              </button>
+            )}
+            {onNavigateTab && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onNavigateTab('tickets');
+                }}
+                className="text-[10px] sm:text-xs font-bold text-amber-800 hover:text-amber-950 underline flex items-center gap-0.5 cursor-pointer"
+              >
+                <span>Tickets (KDS)</span>
+                <ChevronRight className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 ml-auto">
+            <button
+              type="button"
+              onClick={() => handleAdvanceToServe(order)}
+              className={`flex items-center gap-1 rounded-xl px-2.5 py-1 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-extrabold transition cursor-pointer shadow-2xs ${
+                allApplicableReady
+                  ? 'bg-emerald-600 text-white hover:bg-emerald-700 animate-bounce'
+                  : 'bg-stone-900 text-amber-400 hover:bg-stone-800'
+              }`}
+            >
+              <CheckCircle2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 stroke-[2.4]" />
+              <span>{allApplicableReady ? 'Ready to Serve' : 'Fast-Track to Serve'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderToServeCard = (order: Order, showCategoryBadge: boolean = false) => {
+    const isOnline = order.channel === 'online' || !order.tableNumber;
+    const readyTime = order.readyToServeAt || order.createdAt;
+
+    return (
+      <div
+        key={`to-serve-order-${order.id}`}
+        className="rounded-xl border-2 border-emerald-400 bg-white p-2.5 sm:p-3.5 shadow-2xs hover:border-emerald-500 transition space-y-2.5 ring-2 ring-emerald-400/10"
+      >
+        {/* Top bar with category & channel badges, and timestamp */}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-600 text-white px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase shadow-2xs">
+              <Utensils className="h-3 w-3" />
+              <span>To Serve • Ready</span>
+            </span>
+            <span
+              className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold ${
+                isOnline
+                  ? 'bg-blue-100 text-blue-900 border border-blue-200'
+                  : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+              }`}
+            >
+              {isOnline ? <Globe className="h-2.5 w-2.5" /> : <Store className="h-2.5 w-2.5" />}
+              <span>{isOnline ? 'Online / Take Away' : `Table #${order.tableNumber || 'Dine-In'}`}</span>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] text-stone-500 shrink-0 ml-auto">
+            <Clock className="h-3 w-3 text-emerald-600" />
+            <span className="font-bold text-emerald-900 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+              Ready {formatRelativeTime(readyTime)}
+            </span>
+            <span className="text-stone-400">{formatClockTime(readyTime)}</span>
+          </div>
+        </div>
+
+        {/* Order Ticket header */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="rounded-lg bg-emerald-600 text-white px-2 py-0.5 font-mono font-black text-[10px] sm:text-xs">
+              #{order.orderNumber}
+            </span>
+            <span className="font-extrabold text-stone-900 text-xs sm:text-sm">
+              {order.customerName || 'Guest Customer'}
+            </span>
+          </div>
+          <span className="text-[10px] sm:text-xs text-stone-600">
+            {order.items.length} {order.items.length === 1 ? 'item' : 'items'} • Total:{' '}
+            <strong className="text-stone-900 font-extrabold">₱{order.totalAmount.toFixed(2)}</strong>
+          </span>
+        </div>
+
+        {/* Destination callout */}
+        <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-2 text-xs flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+            <span className="font-extrabold text-emerald-950">
+              {order.tableNumber ? `Deliver to Table #${order.tableNumber}` : 'Handover to Customer / Courier'}
+            </span>
+          </div>
+          {order.customerPhone && (
+            <span className="text-[10px] font-mono text-emerald-800">
+              Tel: {order.customerPhone}
+            </span>
+          )}
+        </div>
+
+        {/* Order items preview with ready checkmarks */}
+        <div className="bg-stone-50 rounded-lg p-2 text-[10px] sm:text-xs text-stone-700 space-y-1 max-h-24 overflow-y-auto border border-stone-100">
+          {order.items.map((item, idx) => (
+            <div key={idx} className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Check className="h-3 w-3 text-emerald-600" />
+                <span>{item.quantity}x {item.name}</span>
+              </span>
+              <span className="font-mono text-stone-500">
+                ₱{((item.unitPrice ?? item.totalPrice / (item.quantity || 1)) * (item.quantity ?? 1)).toFixed(2)}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Action Buttons footer */}
+        <div className="flex items-center justify-between pt-1 gap-2 border-t border-stone-100">
+          <div className="flex items-center gap-2">
+            {onViewOrderReceipt && (
+              <button
+                type="button"
+                onClick={() => onViewOrderReceipt(order)}
+                className="text-[10px] sm:text-xs font-bold text-stone-600 hover:text-stone-900 underline cursor-pointer"
+              >
+                Receipt
+              </button>
+            )}
+            {onNavigateTab && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onNavigateTab('tickets');
+                }}
+                className="text-[10px] sm:text-xs font-bold text-stone-600 hover:text-stone-900 underline flex items-center gap-0.5 cursor-pointer"
+              >
+                <span>Tickets</span>
+                <ChevronRight className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleMarkOrderCompleted(order)}
+            className="flex items-center gap-1.5 rounded-xl bg-emerald-600 text-white px-3 py-1.5 text-[10px] sm:text-xs font-extrabold hover:bg-emerald-700 transition cursor-pointer shadow-sm"
+          >
+            <CheckCircle2 className="h-3.5 w-3.5 stroke-[2.5]" />
+            <span>Mark Served / Complete</span>
+          </button>
         </div>
       </div>
     );
@@ -1296,6 +1722,194 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
             </div>
           </div>
 
+          {/* Quick Category Filter Pills Bar */}
+          <div className="flex items-center gap-1.5 px-3.5 sm:px-6 py-2 border-b border-stone-200 bg-stone-50 overflow-x-auto no-scrollbar shrink-0 text-xs">
+            {/* All */}
+            <button
+              type="button"
+              id="notif-tab-all"
+              onClick={() => setActiveTab('all')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold shrink-0 transition cursor-pointer text-[11px] ${
+                activeTab === 'all'
+                  ? 'bg-stone-900 text-white shadow-2xs'
+                  : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-100'
+              }`}
+            >
+              <span>All</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
+                activeTab === 'all' ? 'bg-amber-400 text-stone-950' : 'bg-stone-100 text-stone-700'
+              }`}>
+                {totalAlertsCount}
+              </span>
+            </button>
+
+            {/* Prepping (Food & Drinks) */}
+            <button
+              type="button"
+              id="notif-tab-prepping"
+              onClick={() => setActiveTab('prepping')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold shrink-0 transition cursor-pointer text-[11px] ${
+                activeTab === 'prepping'
+                  ? 'bg-amber-500 text-stone-950 shadow-2xs font-extrabold'
+                  : sortedPreppingOrders.length > 0
+                  ? 'bg-amber-50 border border-amber-300 text-amber-900 hover:bg-amber-100'
+                  : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
+              }`}
+            >
+              <Flame className="h-3 w-3 text-amber-600" />
+              <span>Prepping</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
+                activeTab === 'prepping' ? 'bg-stone-950 text-amber-300' : 'bg-amber-200 text-amber-950'
+              }`}>
+                {sortedPreppingOrders.length}
+              </span>
+            </button>
+
+            {/* To Serve */}
+            <button
+              type="button"
+              id="notif-tab-toserve"
+              onClick={() => setActiveTab('to_serve')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold shrink-0 transition cursor-pointer text-[11px] ${
+                activeTab === 'to_serve'
+                  ? 'bg-emerald-600 text-white shadow-2xs font-extrabold'
+                  : sortedToServeOrders.length > 0
+                  ? 'bg-emerald-50 border border-emerald-300 text-emerald-900 hover:bg-emerald-100'
+                  : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
+              }`}
+            >
+              <Utensils className="h-3 w-3 text-emerald-600" />
+              <span>To Serve</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
+                activeTab === 'to_serve' ? 'bg-white text-emerald-800' : 'bg-emerald-100 text-emerald-900'
+              }`}>
+                {sortedToServeOrders.length}
+              </span>
+            </button>
+
+            {/* Orders (To Confirm) */}
+            <button
+              type="button"
+              id="notif-tab-orders"
+              onClick={() => setActiveTab('order_confirm')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold shrink-0 transition cursor-pointer text-[11px] ${
+                activeTab === 'order_confirm'
+                  ? 'bg-emerald-700 text-white shadow-2xs'
+                  : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
+              }`}
+            >
+              <ClipboardList className="h-3 w-3 text-emerald-600" />
+              <span>Orders</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
+                activeTab === 'order_confirm' ? 'bg-white text-emerald-900' : 'bg-stone-100 text-stone-700'
+              }`}>
+                {sortedOrderConfirmations.length}
+              </span>
+            </button>
+
+            {/* Cancellations */}
+            <button
+              type="button"
+              id="notif-tab-cancellations"
+              onClick={() => setActiveTab('cancellations')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold shrink-0 transition cursor-pointer text-[11px] ${
+                activeTab === 'cancellations'
+                  ? 'bg-rose-600 text-white shadow-2xs'
+                  : sortedCancellationRequests.length > 0
+                  ? 'bg-rose-50 border border-rose-200 text-rose-800 hover:bg-rose-100'
+                  : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
+              }`}
+            >
+              <Ban className="h-3 w-3 text-rose-500" />
+              <span>Cancels</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
+                activeTab === 'cancellations' ? 'bg-white text-rose-800' : 'bg-rose-100 text-rose-900'
+              }`}>
+                {sortedCancellationRequests.length}
+              </span>
+            </button>
+
+            {/* Tables */}
+            <button
+              type="button"
+              id="notif-tab-tables"
+              onClick={() => setActiveTab('table_confirm')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold shrink-0 transition cursor-pointer text-[11px] ${
+                activeTab === 'table_confirm'
+                  ? 'bg-indigo-600 text-white shadow-2xs'
+                  : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
+              }`}
+            >
+              <Utensils className="h-3 w-3 text-indigo-500" />
+              <span>Tables</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
+                activeTab === 'table_confirm' ? 'bg-white text-indigo-900' : 'bg-stone-100 text-stone-700'
+              }`}>
+                {totalTableConfirmationsCount}
+              </span>
+            </button>
+
+            {/* No Stock */}
+            <button
+              type="button"
+              id="notif-tab-nostock"
+              onClick={() => setActiveTab('no_stock')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold shrink-0 transition cursor-pointer text-[11px] ${
+                activeTab === 'no_stock'
+                  ? 'bg-rose-700 text-white shadow-2xs'
+                  : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
+              }`}
+            >
+              <span>No Stock</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
+                activeTab === 'no_stock' ? 'bg-white text-rose-900' : 'bg-stone-100 text-stone-700'
+              }`}>
+                {noStockItems.length}
+              </span>
+            </button>
+
+            {/* Low Stock */}
+            <button
+              type="button"
+              id="notif-tab-lowstock"
+              onClick={() => setActiveTab('low_stock')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold shrink-0 transition cursor-pointer text-[11px] ${
+                activeTab === 'low_stock'
+                  ? 'bg-amber-600 text-white shadow-2xs'
+                  : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
+              }`}
+            >
+              <span>Low Stock</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
+                activeTab === 'low_stock' ? 'bg-white text-amber-900' : 'bg-stone-100 text-stone-700'
+              }`}>
+                {lowStockItems.length}
+              </span>
+            </button>
+
+            {/* Refills (Admin Only) */}
+            {isAdmin && (
+              <button
+                type="button"
+                id="notif-tab-refills"
+                onClick={() => setActiveTab('refills')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold shrink-0 transition cursor-pointer text-[11px] ${
+                  activeTab === 'refills'
+                    ? 'bg-amber-500 text-stone-950 font-black shadow-2xs'
+                    : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
+                }`}
+              >
+                <PackagePlus className="h-3 w-3 text-amber-600" />
+                <span>Refills</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
+                  activeTab === 'refills' ? 'bg-stone-950 text-amber-300' : 'bg-stone-100 text-stone-700'
+                }`}>
+                  {pendingRefillRequests.length}
+                </span>
+              </button>
+            )}
+          </div>
+
           {/* Scrollable Notification List Body */}
           <div className="flex-1 overflow-y-auto p-2.5 sm:p-5 space-y-3 text-[11px] sm:text-sm">
             {totalAlertsCount === 0 && (
@@ -1319,6 +1933,10 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
                   switch (notif.type) {
                     case 'order_confirm':
                       return renderOrderCard(notif.data, true);
+                    case 'prepping':
+                      return renderPreppingCard(notif.data, true);
+                    case 'to_serve':
+                      return renderToServeCard(notif.data, true);
                     case 'cancellation':
                       return renderCancellationCard(notif.data, true);
                     case 'table_request':
@@ -1335,6 +1953,64 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
                       return null;
                   }
                 })}
+              </div>
+            )}
+
+            {/* TAB: PREPPING (FOOD & DRINKS) */}
+            {activeTab === 'prepping' && (
+              <div className="space-y-2.5 sm:space-y-3">
+                <div className="flex items-center justify-between pb-1 border-b border-stone-100">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <span className="flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-lg bg-amber-100 text-amber-900 border border-amber-300">
+                      <Flame className="h-3 w-3 sm:h-3.5 sm:w-3.5 stroke-[2.5]" />
+                    </span>
+                    <h3 className="font-extrabold text-xs sm:text-sm text-amber-950">
+                      Prepping Food & Drinks ({sortedPreppingOrders.length})
+                    </h3>
+                  </div>
+                  <span className="text-[9px] sm:text-[10px] text-stone-400 font-mono">Sorted by {sortOrder === 'newest' ? 'newest' : 'oldest'}</span>
+                </div>
+
+                {sortedPreppingOrders.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <div className="grid h-10 w-10 place-items-center rounded-full bg-emerald-100 text-emerald-600 mb-2">
+                      <CheckCircle2 className="h-5 w-5" />
+                    </div>
+                    <p className="text-xs font-bold text-stone-700">Kitchen & Bar are clear</p>
+                    <p className="text-[10px] text-stone-500 mt-0.5">No food or drinks currently awaiting preparation.</p>
+                  </div>
+                ) : (
+                  sortedPreppingOrders.map((order) => renderPreppingCard(order, false))
+                )}
+              </div>
+            )}
+
+            {/* TAB: TO SERVE */}
+            {activeTab === 'to_serve' && (
+              <div className="space-y-2.5 sm:space-y-3">
+                <div className="flex items-center justify-between pb-1 border-b border-stone-100">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <span className="flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-lg bg-emerald-100 text-emerald-900 border border-emerald-300">
+                      <Utensils className="h-3 w-3 sm:h-3.5 sm:w-3.5 stroke-[2.5]" />
+                    </span>
+                    <h3 className="font-extrabold text-xs sm:text-sm text-emerald-950">
+                      Ready to Serve ({sortedToServeOrders.length})
+                    </h3>
+                  </div>
+                  <span className="text-[9px] sm:text-[10px] text-stone-400 font-mono">Sorted by {sortOrder === 'newest' ? 'newest' : 'oldest'}</span>
+                </div>
+
+                {sortedToServeOrders.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <div className="grid h-10 w-10 place-items-center rounded-full bg-stone-100 text-stone-400 mb-2">
+                      <Utensils className="h-5 w-5" />
+                    </div>
+                    <p className="text-xs font-bold text-stone-700">No orders pending delivery</p>
+                    <p className="text-[10px] text-stone-500 mt-0.5">All ready orders have been served to guests and tables.</p>
+                  </div>
+                ) : (
+                  sortedToServeOrders.map((order) => renderToServeCard(order, false))
+                )}
               </div>
             )}
 
@@ -1676,7 +2352,51 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
                   </span>
                 </button>
 
-                {/* Option 2: Refills (Admin Only) */}
+                {/* Option 2: Prepping (Food & Drinks) */}
+                <button
+                  id="filter-opt-prepping"
+                  onClick={() => {
+                    setActiveTab('prepping');
+                    setIsFilterModalOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between p-2 rounded-xl border text-xs font-bold transition cursor-pointer ${
+                    activeTab === 'prepping'
+                      ? 'bg-amber-500 text-stone-950 border-amber-500 font-extrabold shadow-2xs'
+                      : 'bg-stone-50 border-stone-200 text-stone-800 hover:bg-stone-100'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Flame className="h-3.5 w-3.5 text-amber-600" />
+                    <span>Prepping (Food & Drinks)</span>
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'prepping' ? 'bg-stone-950 text-amber-300' : 'bg-amber-100 text-amber-900'}`}>
+                    {sortedPreppingOrders.length}
+                  </span>
+                </button>
+
+                {/* Option 3: To Serve */}
+                <button
+                  id="filter-opt-toserve"
+                  onClick={() => {
+                    setActiveTab('to_serve');
+                    setIsFilterModalOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between p-2 rounded-xl border text-xs font-bold transition cursor-pointer ${
+                    activeTab === 'to_serve'
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                      : 'bg-stone-50 border-stone-200 text-stone-800 hover:bg-stone-100'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Utensils className="h-3.5 w-3.5 text-emerald-500" />
+                    <span>To Serve</span>
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'to_serve' ? 'bg-white text-emerald-800' : 'bg-emerald-100 text-emerald-900'}`}>
+                    {sortedToServeOrders.length}
+                  </span>
+                </button>
+
+                {/* Option 4: Refills (Admin Only) */}
                 {isAdmin && (
                   <button
                     id="filter-opt-refills"
@@ -1700,7 +2420,7 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
                   </button>
                 )}
 
-                {/* Option 3: Orders */}
+                {/* Option 5: Orders */}
                 <button
                   id="filter-opt-orders"
                   onClick={() => {

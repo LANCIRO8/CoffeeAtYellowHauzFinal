@@ -452,206 +452,275 @@ html.dark body {
 }
 
 /* ==========================================================================
-   Amber 500 Dominant Theme
-   In this theme, vibrant, warm Amber 500 (#f59e0b) is more dominant than white.
-   White backgrounds and cards are converted to warm golden amber surfaces,
-   major bars and headers prominently feature Amber 500, and borders carry
-   golden amber tones for a cozy, authentic Yellow Hauz café atmosphere.
+   Beige Warm Café Theme (replacing Amber 500 theme)
+   In this theme, warm, cozy, artisanal beige/cream tones (#E8DEC8, #EDE8D0, #E0D5BE)
+   enrich the interface. White cards and surfaces are converted into elegant warm
+   beige surfaces, major bars and headers carry soft, roasted espresso and warm beige
+   tones, and borders carry warm muted beige hues for an authentic Yellow Hauz café atmosphere.
+   Both .theme-beige and .theme-amber are supported for backward-compatibility.
    ========================================================================== */
+html.theme-beige,
+body.theme-beige,
 html.theme-amber,
 body.theme-amber {
-  background-color: #fef3c7 !important; /* Warm golden amber-100 canvas */
-  color: #1c1917 !important;
+  background-color: #F7F3EB !important; /* Soft warm beige canvas */
+  color: #2C241D !important;
   color-scheme: light;
 }
 
+html.theme-beige body,
 html.theme-amber body {
-  background-color: #fef3c7 !important;
-  color: #1c1917 !important;
+  background-color: #F7F3EB !important;
+  color: #2C241D !important;
 }
 
-/* Base scrollbar in Amber Mode */
+/* Base scrollbar in Beige Mode */
+.theme-beige ::-webkit-scrollbar-thumb,
 .theme-amber ::-webkit-scrollbar-thumb {
-  background: #f59e0b;
+  background: #D5C7B2;
 }
+.theme-beige ::-webkit-scrollbar-thumb:hover,
 .theme-amber ::-webkit-scrollbar-thumb:hover {
-  background: #d97706;
+  background: #BFAEA0;
 }
 
-/* Selection in Amber Mode */
+/* Selection in Beige Mode */
+.theme-beige ::selection,
+.theme-beige *::selection,
 .theme-amber ::selection,
 .theme-amber *::selection {
-  background-color: #f59e0b !important;
-  color: #1c1917 !important;
+  background-color: #E3D7C6 !important;
+  color: #2C241D !important;
 }
 
-/* Sticky Header and Mobile Bottom Navbar in Amber Mode */
+/* Sticky Header and Mobile Bottom Navbar in Beige Mode */
+.theme-beige header.sticky,
+.theme-beige nav.sticky,
 .theme-amber header.sticky,
 .theme-amber nav.sticky {
-  background-color: #f59e0b !important;
-  border-bottom-color: #d97706 !important;
-  color: #1c1917 !important;
-  box-shadow: 0 4px 20px -2px rgba(217, 119, 6, 0.3) !important;
+  background-color: #EDE8D0 !important;
+  border-bottom-color: #D8CFB5 !important;
+  color: #2C241D !important;
+  box-shadow: 0 4px 20px -2px rgba(90, 75, 55, 0.12) !important;
 }
 
+.theme-beige header.sticky nav button,
 .theme-amber header.sticky nav button {
-  color: #1c1917 !important;
+  color: #2C241D !important;
 }
 
+.theme-beige header.sticky nav button:hover,
 .theme-amber header.sticky nav button:hover {
-  background-color: #fcd34d !important;
+  background-color: #DFD8BE !important;
 }
 
+.theme-beige #mobile-bottom-navbar,
+.theme-beige nav#mobile-bottom-navbar,
 .theme-amber #mobile-bottom-navbar,
 .theme-amber nav#mobile-bottom-navbar {
-  background-color: #f59e0b !important;
-  border-top-color: #d97706 !important;
-  color: #1c1917 !important;
-  box-shadow: 0 -4px 20px rgba(217, 119, 6, 0.3) !important;
+  background-color: #EDE8D0 !important;
+  border-top-color: #D8CFB5 !important;
+  color: #2C241D !important;
+  box-shadow: 0 -4px 20px rgba(90, 75, 55, 0.12) !important;
 }
 
+.theme-beige #mobile-bottom-navbar button,
 .theme-amber #mobile-bottom-navbar button {
-  color: #451a03 !important;
+  color: #3D2E1E !important;
 }
 
-/* Cards & Surfaces in Amber Dominant Theme:
-   White cards become rich warm golden amber surfaces instead of stark white */
+/* Cards & Surfaces in Beige Theme:
+   White cards become elegant warm beige surfaces instead of stark bright white */
+.theme-beige .bg-white,
+.theme-beige .bg-white\/95,
+.theme-beige .bg-white\/90,
+.theme-beige .bg-white\/80,
 .theme-amber .bg-white,
 .theme-amber .bg-white\/95,
 .theme-amber .bg-white\/90,
 .theme-amber .bg-white\/80 {
-  background-color: #fffbeb !important; /* Soft warm amber-50 surface */
-  border-color: #fcd34d !important;
-  color: #1c1917 !important;
-  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.08) !important;
+  background-color: #FBF9F4 !important; /* Soft warm ivory-beige surface */
+  border-color: #E6DCBA !important;
+  color: #2C241D !important;
+  box-shadow: 0 2px 10px rgba(70, 55, 35, 0.05) !important;
 }
 
 /* Secondary surfaces */
+.theme-beige .bg-stone-50,
+.theme-beige .bg-stone-50\/60,
+.theme-beige .bg-stone-50\/70,
+.theme-beige .bg-stone-50\/80,
+.theme-beige .bg-stone-50\/90,
 .theme-amber .bg-stone-50,
 .theme-amber .bg-stone-50\/60,
 .theme-amber .bg-stone-50\/70,
 .theme-amber .bg-stone-50\/80,
 .theme-amber .bg-stone-50\/90 {
-  background-color: #fef3c7 !important; /* Amber-100 */
+  background-color: #F5EFE4 !important; /* Beige-100 */
 }
 
+.theme-beige .bg-stone-100,
+.theme-beige .bg-stone-100\/70,
+.theme-beige .bg-stone-100\/80,
+.theme-beige .bg-stone-100\/90,
 .theme-amber .bg-stone-100,
 .theme-amber .bg-stone-100\/70,
 .theme-amber .bg-stone-100\/80,
 .theme-amber .bg-stone-100\/90 {
-  background-color: #fde68a !important; /* Amber-200 */
+  background-color: #EFE7DA !important; /* Beige-200 */
 }
 
+.theme-beige .bg-stone-200,
+.theme-beige .bg-stone-200\/60,
+.theme-beige .bg-stone-200\/80,
 .theme-amber .bg-stone-200,
 .theme-amber .bg-stone-200\/60,
 .theme-amber .bg-stone-200\/80 {
-  background-color: #fcd34d !important; /* Amber-300 */
+  background-color: #E2D7C5 !important; /* Beige-300 */
 }
 
-/* Borders in Amber Mode */
+/* Borders in Beige Mode */
+.theme-beige .border-stone-100,
+.theme-beige .border-stone-200,
+.theme-beige .border-stone-200\/80,
+.theme-beige .border-stone-200\/90,
+.theme-beige .border-stone-300,
 .theme-amber .border-stone-100,
 .theme-amber .border-stone-200,
 .theme-amber .border-stone-200\/80,
 .theme-amber .border-stone-200\/90,
 .theme-amber .border-stone-300 {
-  border-color: #fcd34d !important;
+  border-color: #DED3BC !important;
 }
 
 /* Text and Headings */
+.theme-beige .text-stone-950,
+.theme-beige .text-stone-900,
+.theme-beige .text-stone-800,
 .theme-amber .text-stone-950,
 .theme-amber .text-stone-900,
 .theme-amber .text-stone-800 {
-  color: #1c1917 !important;
+  color: #231C16 !important;
 }
 
+.theme-beige .text-stone-700,
+.theme-beige .text-stone-600,
 .theme-amber .text-stone-700,
 .theme-amber .text-stone-600 {
-  color: #574f34 !important; /* Warm espresso brown */
+  color: #574A3D !important; /* Warm espresso brown */
 }
 
+.theme-beige .text-stone-500,
+.theme-beige .text-stone-400,
 .theme-amber .text-stone-500,
 .theme-amber .text-stone-400 {
-  color: #78350f !important; /* Amber-900 */
+  color: #7D6B5A !important; /* Muted coffee beige brown */
 }
 
-/* Primary Amber 500 Elements */
+/* Primary Beige Elements (Replacing vibrant amber 500) */
+.theme-beige .bg-amber-500,
+.theme-beige .bg-amber-500\/95,
+.theme-beige .bg-amber-500\/90,
 .theme-amber .bg-amber-500,
 .theme-amber .bg-amber-500\/95,
 .theme-amber .bg-amber-500\/90 {
-  background-color: #f59e0b !important;
-  color: #1c1917 !important;
-  border-color: #d97706 !important;
+  background-color: #EDE8D0 !important;
+  color: #231C16 !important;
+  border-color: #D2C79E !important;
 }
 
+.theme-beige .hover\:bg-amber-400:hover,
+.theme-beige .hover\:bg-amber-500:hover,
 .theme-amber .hover\:bg-amber-400:hover,
 .theme-amber .hover\:bg-amber-500:hover {
-  background-color: #d97706 !important;
-  color: #ffffff !important;
+  background-color: #DFD8BE !important;
+  color: #231C16 !important;
 }
 
 /* Form controls */
+.theme-beige input,
+.theme-beige select,
+.theme-beige textarea,
 .theme-amber input,
 .theme-amber select,
 .theme-amber textarea {
-  background-color: #fffbeb !important;
-  border-color: #fcd34d !important;
-  color: #1c1917 !important;
+  background-color: #FAF6EE !important;
+  border-color: #D8CFB5 !important;
+  color: #231C16 !important;
 }
 
+.theme-beige input:focus,
+.theme-beige select:focus,
+.theme-beige textarea:focus,
 .theme-amber input:focus,
 .theme-amber select:focus,
 .theme-amber textarea:focus {
-  border-color: #f59e0b !important;
-  outline-color: #f59e0b !important;
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3) !important;
+  border-color: #C2B895 !important;
+  outline-color: #C2B895 !important;
+  box-shadow: 0 0 0 2px rgba(194, 184, 149, 0.35) !important;
 }
 
-/* Executive Header in Amber Theme */
+/* Executive Header in Beige Theme */
+.theme-beige #admin-dashboard-header,
 .theme-amber #admin-dashboard-header {
-  background-color: #f59e0b !important;
-  border-color: #d97706 !important;
-  color: #1c1917 !important;
+  background-color: #EDE8D0 !important;
+  border-color: #D8CFB5 !important;
+  color: #231C16 !important;
 }
 
+.theme-beige #admin-dashboard-header p,
+.theme-beige #admin-dashboard-header span,
+.theme-beige #admin-dashboard-header h1,
+.theme-beige #admin-dashboard-header strong,
 .theme-amber #admin-dashboard-header p,
 .theme-amber #admin-dashboard-header span,
 .theme-amber #admin-dashboard-header h1,
 .theme-amber #admin-dashboard-header strong {
-  color: #1c1917 !important;
+  color: #231C16 !important;
 }
 
-/* Modals, drawers and dropdowns in Amber Mode */
+/* Modals, drawers and dropdowns in Beige Mode */
+.theme-beige .shadow-2xl,
+.theme-beige .shadow-xl,
 .theme-amber .shadow-2xl,
 .theme-amber .shadow-xl {
-  box-shadow: 0 10px 30px -5px rgba(217, 119, 6, 0.25) !important;
+  box-shadow: 0 10px 30px -5px rgba(60, 48, 35, 0.15) !important;
 }
 
+.theme-beige button.bg-amber-500,
+.theme-beige a.bg-amber-500,
 .theme-amber button.bg-amber-500,
 .theme-amber a.bg-amber-500 {
-  background-color: #f59e0b !important;
-  color: #1c1917 !important;
+  background-color: #EDE8D0 !important;
+  color: #231C16 !important;
 }
 
+.theme-beige button.bg-stone-900,
+.theme-beige button.bg-stone-950,
 .theme-amber button.bg-stone-900,
 .theme-amber button.bg-stone-950 {
-  background-color: #78350f !important; /* Deep rich roast amber-900 instead of cold black */
-  color: #ffffff !important;
+  background-color: #382D22 !important; /* Deep rich roast coffee espresso */
+  color: #FAF7F2 !important;
 }
 
+.theme-beige button.bg-stone-900:hover,
+.theme-beige button.bg-stone-950:hover,
 .theme-amber button.bg-stone-900:hover,
 .theme-amber button.bg-stone-950:hover {
-  background-color: #92400e !important;
+  background-color: #4A3C2F !important;
 }
 
-/* Badges and pills in Amber mode */
+/* Badges and pills in Beige mode */
+.theme-beige .bg-amber-100,
 .theme-amber .bg-amber-100 {
-  background-color: #fde68a !important;
-  color: #78350f !important;
+  background-color: #EFE8DA !important;
+  color: #4A3C2F !important;
 }
 
+.theme-beige .bg-amber-50,
 .theme-amber .bg-amber-50 {
-  background-color: #fef3c7 !important;
-  color: #92400e !important;
+  background-color: #FAF5EB !important;
+  color: #574A3D !important;
 }
 
 

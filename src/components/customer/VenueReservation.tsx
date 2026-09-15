@@ -14,7 +14,6 @@ import {
   CreditCard,
   QrCode,
   DollarSign,
-  Info,
   Lock,
   Tv,
   Wind,
@@ -241,6 +240,23 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
             </span>
           </div>
 
+          {/* Venue Visual Preview */}
+          <div className="relative aspect-16/9 rounded-xl overflow-hidden border border-stone-200 shadow-xs">
+            <img
+              src="/images/venue.webp"
+              alt="The Yellow Hauz Private Studio Venue"
+              className="h-full w-full object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/venue.webp';
+              }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-stone-950/70 via-transparent to-transparent pointer-events-none" />
+            <div className="absolute bottom-2.5 left-3 text-white">
+              <span className="text-xs font-bold font-display">The Yellow Hauz Private Studio</span>
+              <span className="block text-[10px] text-stone-200">Exclusive booked space • Up to 25 guests</span>
+            </div>
+          </div>
+
           {/* Summary Details Grid */}
           <div className="rounded-xl sm:rounded-2xl border border-stone-200 bg-stone-50/80 p-3 sm:p-5 space-y-3 sm:space-y-4 text-[10px] sm:text-xs">
             <div className="grid grid-cols-2 gap-2 sm:gap-3 pb-2 sm:pb-3 border-b border-stone-200">
@@ -350,15 +366,42 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
       ) : (
         /* Venue Booking Form */
         <div className="space-y-6 sm:space-y-8">
+          {/* Venue Photography Showcase */}
+          <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-stone-200/80 bg-stone-900 shadow-md">
+            <div className="relative aspect-16/9 sm:aspect-21/9 w-full overflow-hidden">
+              <img
+                src="/images/venue.webp"
+                alt="The Yellow Hauz Private Studio Venue"
+                className="h-full w-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/venue.webp';
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-stone-950/85 via-stone-950/30 to-transparent" />
+              <div className="absolute bottom-3 left-4 right-4 sm:bottom-5 sm:left-6 sm:right-6 flex items-end justify-between gap-4">
+                <div>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500 px-2.5 py-0.5 text-[10px] sm:text-xs font-black uppercase tracking-wider text-stone-950 shadow-xs mb-1 sm:mb-1.5">
+                    <Sparkles className="h-3 w-3" />
+                    Private Studio &amp; Event Space
+                  </span>
+                  <h3 className="font-display text-base sm:text-2xl font-black text-white">
+                    The Yellow Hauz Function &amp; Workshop Venue
+                  </h3>
+                </div>
+                <div className="hidden sm:block shrink-0 text-right">
+                  <span className="inline-block rounded-xl bg-stone-900/80 backdrop-blur-xs border border-white/20 px-3 py-1.5 text-xs font-bold text-amber-300">
+                    Max 25 Guests
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Official Rates & Amenities Highlight Banner */}
           <div className="rounded-2xl sm:rounded-3xl border border-amber-300 bg-gradient-to-br from-amber-500/10 via-amber-100/40 to-stone-50 p-4 sm:p-7 shadow-sm space-y-4">
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-3 sm:gap-4 border-b border-amber-200/80 pb-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-2.5 py-0.5 text-[10px] sm:text-xs font-black uppercase tracking-wider text-stone-950 shadow-2xs">
-                    <Sparkles className="h-3 w-3" />
-                    Official Venue Rates &amp; Policy
-                  </span>
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 text-[10px] sm:text-xs font-extrabold text-emerald-900">
                     <UtensilsCrossed className="h-3 w-3 text-emerald-700" />
                     100% Fully Consumable on Food &amp; Drinks
@@ -367,9 +410,6 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                 <h2 className="text-base sm:text-2xl font-black text-stone-950 font-display">
                   Private Studio Venue Rates &amp; Inclusions
                 </h2>
-                <p className="text-xs sm:text-sm text-stone-600 leading-relaxed max-w-2xl">
-                  Every peso of your venue rental is credited toward our handcrafted coffee, refreshers, comfort meals, and pastries for you and your guests.
-                </p>
               </div>
 
               {/* Rate Badges */}
@@ -406,9 +446,6 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                   <Wind className="h-4 w-4" />
                   <span>Air conditioning</span>
                 </div>
-                <p className="text-[10px] sm:text-[11px] text-stone-500 leading-snug">
-                  Full climate-controlled private room comfort.
-                </p>
               </div>
 
               <div className="rounded-xl bg-white/90 border border-stone-200/90 p-2.5 sm:p-3 space-y-1 shadow-2xs">
@@ -416,9 +453,6 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                   <Tv className="h-4 w-4" />
                   <span>TV HDMI</span>
                 </div>
-                <p className="text-[10px] sm:text-[11px] text-stone-500 leading-snug">
-                  HD presentation display with HDMI hookup.
-                </p>
               </div>
 
               <div className="rounded-xl bg-white/90 border border-stone-200/90 p-2.5 sm:p-3 space-y-1 shadow-2xs">
@@ -426,9 +460,6 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                   <CheckCircle2 className="h-4 w-4" />
                   <span>Whiteboard</span>
                 </div>
-                <p className="text-[10px] sm:text-[11px] text-stone-500 leading-snug">
-                  Whiteboard with dry-erase markers for workshops.
-                </p>
               </div>
 
               <div className="rounded-xl bg-amber-50 border border-amber-200 p-2.5 sm:p-3 space-y-1 shadow-2xs">
@@ -437,7 +468,7 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                   <span>Capacity</span>
                 </div>
                 <p className="text-[10px] sm:text-[11px] text-amber-950 font-extrabold leading-snug">
-                  25 persons only (strictly enforced).
+                  25 persons only.
                 </p>
               </div>
             </div>
@@ -448,9 +479,6 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                 <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-amber-400 block">
                   Extended Stays / Special Hours &amp; Bulk Packages
                 </span>
-                <p className="text-[10px] sm:text-xs text-stone-300 leading-relaxed max-w-xl">
-                  Long durations or bulk packages are subject to negotiation/approval from the owner. Customers can contact directly via phone or Facebook page to discuss.
-                </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <a
@@ -484,9 +512,6 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                     <Clock className="h-3.5 w-3.5 sm:h-5 sm:w-5 text-amber-600 shrink-0" />
                     <span>1. Select Duration</span>
                   </h3>
-                  <span className="text-[9px] sm:text-xs font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.2 sm:px-2.5 sm:py-0.5 rounded-full">
-                    Base: 3 Hrs @ ₱3,500 (Consumable)
-                  </span>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2.5">
@@ -521,10 +546,6 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                     );
                   })}
                 </div>
-                <p className="mt-2 text-[10px] sm:text-[11px] text-stone-500 flex items-center gap-1">
-                  <Info className="h-3 w-3 text-amber-600 shrink-0" />
-                  <span>Extension Rate: ₱1,000 per extra hour (all rates fully consumable on food &amp; drinks).</span>
-                </p>
               </div>
 
               {/* Step 2: Date & Time Slot */}
@@ -684,9 +705,6 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                   <h3 className="font-display text-sm sm:text-lg font-bold text-stone-900">
                     Reservation Summary
                   </h3>
-                  <span className="rounded-full bg-amber-100 px-2 py-0.2 sm:px-2.5 sm:py-0.5 text-[8px] sm:text-[10px] font-extrabold text-amber-900 uppercase">
-                    Studio Rental
-                  </span>
                 </div>
 
                 {/* Schedule Snapshot */}
@@ -841,13 +859,6 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                     <span>Sign In to Reserve Studio</span>
                   </button>
                 )}
-
-                <div className="flex items-start gap-1.5 text-[9px] sm:text-[11px] text-stone-500">
-                  <Info className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-600 shrink-0 mt-0.5" />
-                  <span>
-                    Free cancellation up to 24 hours prior to event start. For urgent inquiries call {settings.shop_phone}.
-                  </span>
-                </div>
               </div>
             </div>
           </form>

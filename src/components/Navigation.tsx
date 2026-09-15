@@ -6,6 +6,7 @@ import { StaffNotificationCenterModal } from './pos/StaffNotificationCenterModal
 import {
   Coffee,
   ShoppingBag,
+  ShoppingCart,
   Calendar,
   User as UserIcon,
   Monitor,
@@ -218,7 +219,7 @@ export const Navigation: React.FC<NavigationProps> = ({
     }
   };
   const [notificationInitialTab, setNotificationInitialTab] = useState<
-    'all' | 'no_stock' | 'low_stock' | 'table_confirm' | 'order_confirm' | 'cancellations'
+    'all' | 'no_stock' | 'low_stock' | 'table_confirm' | 'order_confirm' | 'cancellations' | 'prepping' | 'to_serve'
   >('all');
 
   // Real-time notification counters for Staff and Admin
@@ -239,6 +240,12 @@ export const Navigation: React.FC<NavigationProps> = ({
   });
   const [pendingCancellationRequestsCount, setPendingCancellationRequestsCount] = useState<number>(() => {
     return AppStore.getOrders().filter((o) => o.cancellationRequested && o.status !== 'cancelled').length;
+  });
+  const [preppingOrdersCount, setPreppingOrdersCount] = useState<number>(() => {
+    return AppStore.getOrders().filter((o) => o.status === 'to_prep' || o.status === 'processing').length;
+  });
+  const [toServeOrdersCount, setToServeOrdersCount] = useState<number>(() => {
+    return AppStore.getOrders().filter((o) => o.status === 'to_serve').length;
   });
   const [pendingRefillCount, setPendingRefillCount] = useState<number>(() => {
     return AppStore.getPendingRefillRequestsCount();
@@ -266,7 +273,9 @@ export const Navigation: React.FC<NavigationProps> = ({
     (isUserAdmin ? pendingRefillCount : 0) +
     totalTableConfirmationsCount +
     pendingOrderConfirmationsCount +
-    pendingCancellationRequestsCount;
+    pendingCancellationRequestsCount +
+    preppingOrdersCount +
+    toServeOrdersCount;
 
   useEffect(() => {
     const unsub = AppStore.subscribe(() => {
@@ -283,6 +292,12 @@ export const Navigation: React.FC<NavigationProps> = ({
       );
       setPendingCancellationRequestsCount(
         orders.filter((o) => o.cancellationRequested && o.status !== 'cancelled').length
+      );
+      setPreppingOrdersCount(
+        orders.filter((o) => o.status === 'to_prep' || o.status === 'processing').length
+      );
+      setToServeOrdersCount(
+        orders.filter((o) => o.status === 'to_serve').length
       );
 
       const custOrders = AppStore.getCustomerVisibleOrders(activeCustomer, activeTableBinding || null);
@@ -1210,24 +1225,56 @@ export const Navigation: React.FC<NavigationProps> = ({
                       )}
                     </button>
                     {activeCustomer ? (
-                      onCustomerLogout && (
+                      <div className="flex items-center gap-1 sm:gap-1.5">
                         <button
-                          onClick={onCustomerLogout}
-                          title="Sign Out of Customer Account"
-                          className="flex items-center gap-1 rounded-xl border border-stone-200 px-2.5 py-1.5 text-xs font-bold text-stone-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition cursor-pointer shadow-2xs active:scale-95"
+                          id="top-nav-customer-account-btn"
+                          type="button"
+                          onClick={() => onSetCustomerTab('account')}
+                          title={`Customer Account: ${activeCustomer.fullName}`}
+                          aria-label={`Customer Account: ${activeCustomer.fullName}`}
+                          className={`flex items-center justify-center rounded-xl p-2 transition cursor-pointer border shadow-2xs ${
+                            customerTab === 'account'
+                              ? isDarkMode
+                                ? 'bg-amber-950/80 border-amber-500 text-amber-200 ring-2 ring-amber-400/30'
+                                : isAmberMode
+                                ? 'bg-amber-600 border-amber-700 text-stone-950 ring-2 ring-amber-300'
+                                : 'bg-amber-100 border-amber-300 text-amber-950 ring-2 ring-amber-400/30'
+                              : isDarkMode
+                              ? 'border-stone-700 bg-stone-800 text-stone-200 hover:bg-stone-700'
+                              : isAmberMode
+                              ? 'border-amber-600 bg-amber-400 text-stone-950 hover:bg-amber-300'
+                              : 'border-stone-200 bg-white text-stone-800 hover:bg-stone-50'
+                          }`}
                         >
-                          <LogOut className="h-3.5 w-3.5" />
-                          <span>Sign Out</span>
+                          <UserIcon className="h-4 w-4" />
                         </button>
-                      )
+                        {onCustomerLogout && (
+                          <button
+                            onClick={onCustomerLogout}
+                            title="Sign Out of Customer Account"
+                            className="flex items-center gap-1 rounded-xl border border-stone-200 px-2 py-1.5 text-xs font-bold text-stone-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition cursor-pointer shadow-2xs active:scale-95"
+                          >
+                            <LogOut className="h-3.5 w-3.5" />
+                            <span className="hidden xl:inline">Sign Out</span>
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       <button
+                        id="top-nav-customer-account-btn"
+                        type="button"
                         onClick={onCustomerLoginClick}
-                        title="Customer Sign In"
-                        className="hidden sm:flex items-center gap-1.5 rounded-xl bg-stone-900 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-stone-800 shadow-xs cursor-pointer"
+                        title="Customer Account / Sign In"
+                        aria-label="Customer Account / Sign In"
+                        className={`hidden sm:flex items-center justify-center rounded-xl p-2 transition cursor-pointer border shadow-2xs active:scale-95 ${
+                          isDarkMode
+                            ? 'border-stone-700 bg-stone-800 text-stone-200 hover:bg-stone-700'
+                            : isAmberMode
+                            ? 'border-amber-600 bg-amber-400 text-stone-950 hover:bg-amber-300'
+                            : 'border-stone-200 bg-white text-stone-800 hover:bg-stone-50'
+                        }`}
                       >
-                        <UserIcon className="h-3.5 w-3.5 text-amber-400" />
-                        <span>Customer Sign In</span>
+                        <UserIcon className="h-4 w-4" />
                       </button>
                     )}
                   </div>
@@ -1358,9 +1405,9 @@ export const Navigation: React.FC<NavigationProps> = ({
               <span className="text-[9px] leading-tight font-medium mt-0.5">Reserve</span>
             </button>
 
-            {/* 4. Bag / Cart (Action button) */}
+            {/* 4. Cart (Action button) */}
             <button
-              id="mobile-nav-bag"
+              id="mobile-nav-cart"
               onClick={onToggleCart}
               className={`relative flex flex-col items-center justify-center py-1 px-1 rounded-xl transition cursor-pointer ${
                 isCustomerCartOpen
@@ -1373,7 +1420,7 @@ export const Navigation: React.FC<NavigationProps> = ({
               }`}
             >
               <div className="relative">
-                <ShoppingBag className={`h-4.5 w-4.5 ${isCustomerCartOpen ? (isDarkMode ? 'text-white' : 'text-amber-900') : (isDarkMode ? 'text-stone-300' : 'text-stone-800')}`} />
+                <ShoppingCart className={`h-4.5 w-4.5 ${isCustomerCartOpen ? (isDarkMode ? 'text-white' : 'text-amber-900') : (isDarkMode ? 'text-stone-300' : 'text-stone-800')}`} />
                 {cartCount > 0 && (
                   <span className={`absolute -top-1.5 -right-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-1 text-[8px] font-black shadow-xs animate-in zoom-in duration-150 ${
                     isDarkMode ? 'bg-[#78350f] text-white' : 'bg-amber-500 text-stone-950'
@@ -1383,7 +1430,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                 )}
               </div>
               <span className="text-[9px] leading-tight font-bold mt-0.5">
-                Bag {cartCount > 0 ? `(${cartCount})` : ''}
+                Cart {cartCount > 0 ? `(${cartCount})` : ''}
               </span>
             </button>
 
@@ -2080,7 +2127,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                   </div>
                 </div>
 
-                {/* 4. Appearance & Theme (Light / Amber 500 Dominant / Dark) */}
+                {/* 4. Appearance & Theme (Light / Warm Beige / Dark) */}
                 <div>
                   <div className="flex items-center justify-between mb-2.5">
                     <label className={`text-[11px] font-extrabold tracking-wider uppercase ${isDarkMode ? 'text-stone-400' : isAmberMode ? 'text-amber-950 font-black' : 'text-stone-500'}`}>
@@ -2088,12 +2135,12 @@ export const Navigation: React.FC<NavigationProps> = ({
                     </label>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
                       currentTheme === 'amber'
-                        ? 'bg-amber-500 text-stone-950 border border-amber-600 font-extrabold shadow-xs'
+                        ? 'bg-[#EDE8D0] text-[#2C241D] border border-[#D2C79E] font-extrabold shadow-xs'
                         : isDarkMode
                         ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                         : 'bg-stone-100 text-stone-600 border border-stone-200'
                     }`}>
-                      {currentTheme === 'amber' ? 'Amber 500 Active' : isDarkMode ? 'Dark Active' : 'Light Active'}
+                      {currentTheme === 'amber' ? 'Beige Active' : isDarkMode ? 'Dark Active' : 'Light Active'}
                     </span>
                   </div>
 
@@ -2101,7 +2148,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                     isDarkMode
                       ? 'bg-stone-800/90 border-stone-700/80'
                       : isAmberMode
-                      ? 'bg-amber-200/70 border-amber-300'
+                      ? 'bg-[#EFE8DD] border-[#DED3BC]'
                       : 'bg-stone-100 border-stone-200/80'
                   }`}>
                     {/* Light Mode Button */}
@@ -2115,7 +2162,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                           : isDarkMode
                           ? 'text-stone-400 hover:text-white hover:bg-stone-700/50'
                           : isAmberMode
-                          ? 'text-amber-900 hover:text-stone-950 hover:bg-amber-200'
+                          ? 'text-[#574A3D] hover:text-[#231C16] hover:bg-[#E2D7C5]'
                           : 'text-stone-600 hover:text-stone-950 hover:bg-stone-200/60'
                       }`}
                       title="Switch to Light Mode"
@@ -2124,22 +2171,22 @@ export const Navigation: React.FC<NavigationProps> = ({
                       <span className="text-[11px] sm:text-xs">Light</span>
                     </button>
 
-                    {/* Amber 500 Dominant Theme Button */}
+                    {/* Warm Beige Theme Button */}
                     <button
                       id="burger-theme-amber-btn"
                       type="button"
                       onClick={() => handleSelectTheme('amber')}
                       className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 sm:px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                         currentTheme === 'amber'
-                          ? 'bg-amber-500 text-stone-950 font-black shadow-xs border border-amber-600 ring-1 ring-amber-400/60'
+                          ? 'bg-[#EDE8D0] text-[#2C241D] font-black shadow-xs border border-[#D2C79E] ring-1 ring-[#DFD8BE]'
                           : isDarkMode
-                          ? 'text-amber-400/90 hover:text-amber-300 hover:bg-stone-700/50'
-                          : 'text-amber-800 hover:text-amber-950 hover:bg-amber-200/80'
+                          ? 'text-amber-300 hover:text-white hover:bg-stone-700/50'
+                          : 'text-[#574A3D] hover:text-[#231C16] hover:bg-[#EFE7DA]'
                       }`}
-                      title="Amber 500 Dominant Theme - Amber 500 is dominant over white"
+                      title="Warm Beige Café Theme - Artisan beige and coffee tones"
                     >
-                      <Sparkles className={`h-4 w-4 shrink-0 ${currentTheme === 'amber' ? 'text-stone-950 fill-stone-950' : 'text-amber-600'}`} />
-                      <span className="text-[11px] sm:text-xs font-black">Amber 500</span>
+                      <Sparkles className={`h-4 w-4 shrink-0 ${currentTheme === 'amber' ? 'text-[#2C241D] fill-[#2C241D]' : 'text-amber-700'}`} />
+                      <span className="text-[11px] sm:text-xs font-black">Beige</span>
                     </button>
 
                     {/* Dark Mode Button */}
