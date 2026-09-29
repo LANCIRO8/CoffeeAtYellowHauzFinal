@@ -810,21 +810,21 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
     return (
       <div
         key={`order-${order.id}`}
-        className="rounded-xl border border-stone-200 bg-white p-2.5 sm:p-3.5 shadow-2xs hover:border-emerald-300 transition space-y-2"
+        className="rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-850 dark:bg-stone-800 p-2.5 sm:p-3.5 shadow-2xs hover:border-emerald-300 dark:hover:border-emerald-600/60 transition space-y-2"
       >
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 flex-wrap">
             {showCategoryBadge && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 text-emerald-900 border border-emerald-300 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
-                <ClipboardList className="h-3 w-3 text-emerald-600" />
+              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
+                <ClipboardList className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
                 <span>Order Confirmation</span>
               </span>
             )}
             <span
               className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold ${
                 isOnline
-                  ? 'bg-blue-100 text-blue-900 border border-blue-200'
-                  : 'bg-amber-100 text-amber-900 border border-amber-200'
+                  ? 'bg-blue-100 dark:bg-blue-950/70 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                  : 'bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
               }`}
             >
               {isOnline ? <Globe className="h-2.5 w-2.5" /> : <Store className="h-2.5 w-2.5" />}
@@ -832,32 +832,32 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] text-stone-500 shrink-0 ml-auto">
-            <Clock className="h-3 w-3 text-amber-600" />
-            <span className="font-bold text-amber-900 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+          <div className="flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] text-stone-500 dark:text-stone-400 shrink-0 ml-auto">
+            <Clock className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+            <span className="font-bold text-amber-900 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 px-1.5 py-0.5 rounded">
               {formatRelativeTime(order.createdAt)}
             </span>
-            <span className="text-stone-400">{formatClockTime(order.createdAt)}</span>
+            <span className="text-stone-400 dark:text-stone-500">{formatClockTime(order.createdAt)}</span>
           </div>
         </div>
 
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="rounded-lg bg-stone-900 text-amber-400 px-2 py-0.5 font-mono font-black text-[10px] sm:text-xs">
+            <span className="rounded-lg bg-stone-900 dark:bg-stone-950 text-amber-400 px-2 py-0.5 font-mono font-black text-[10px] sm:text-xs border border-stone-800">
               #{order.orderNumber}
             </span>
-            <span className="font-extrabold text-stone-900 text-xs sm:text-sm">
+            <span className="font-extrabold text-stone-900 dark:text-stone-100 text-xs sm:text-sm">
               {order.customerName || 'Guest Customer'}
             </span>
           </div>
-          <span className="text-[10px] sm:text-xs text-stone-600">
+          <span className="text-[10px] sm:text-xs text-stone-600 dark:text-stone-400">
             {order.items.length} {order.items.length === 1 ? 'item' : 'items'} • Total:{' '}
-            <strong className="text-stone-900 font-extrabold">₱{order.totalAmount.toFixed(2)}</strong>
+            <strong className="text-stone-900 dark:text-stone-100 font-extrabold">₱{order.totalAmount.toFixed(2)}</strong>
           </span>
         </div>
 
         {/* Order Items Preview */}
-        <div className="bg-stone-50 rounded-lg p-2 text-[10px] sm:text-xs text-stone-700 space-y-1 max-h-24 overflow-y-auto border border-stone-100">
+        <div className="bg-stone-50 dark:bg-stone-900/80 rounded-lg p-2 text-[10px] sm:text-xs text-stone-700 dark:text-stone-300 space-y-1 max-h-24 overflow-y-auto border border-stone-100 dark:border-stone-800">
           {order.items.map((item, idx) => (
             <div key={idx} className="flex items-center justify-between">
               <span>
@@ -869,11 +869,11 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-between pt-1 gap-2 border-t border-stone-100">
+        <div className="flex items-center justify-between pt-1 gap-2 border-t border-stone-100 dark:border-stone-800">
           {onViewOrderReceipt && (
             <button
               onClick={() => onViewOrderReceipt(order)}
-              className="text-[10px] sm:text-xs font-bold text-stone-600 hover:text-stone-900 underline cursor-pointer"
+              className="text-[10px] sm:text-xs font-bold text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 underline cursor-pointer"
             >
               Details
             </button>
@@ -881,7 +881,7 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
           <div className="flex items-center gap-1.5 ml-auto">
             <button
               onClick={() => handleCancelOrder(order)}
-              className="rounded-xl border border-stone-300 text-stone-700 px-2.5 py-1 text-[10px] sm:text-xs font-bold hover:bg-stone-100 transition cursor-pointer"
+              className="rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 px-2.5 py-1 text-[10px] sm:text-xs font-bold hover:bg-stone-100 dark:hover:bg-stone-750 transition cursor-pointer"
             >
               Decline
             </button>
@@ -904,7 +904,7 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
     return (
       <div
         key={`cancellation-req-${order.id}`}
-        className="rounded-xl border-2 border-rose-300 bg-white p-2.5 sm:p-3.5 shadow-xs space-y-2"
+        className="rounded-xl border-2 border-rose-300 dark:border-rose-900/60 bg-white dark:bg-stone-850 dark:bg-stone-800 p-2.5 sm:p-3.5 shadow-xs space-y-2"
       >
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -915,8 +915,8 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
             <span
               className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold ${
                 isOnline
-                  ? 'bg-blue-100 text-blue-900 border border-blue-200'
-                  : 'bg-amber-100 text-amber-900 border border-amber-200'
+                  ? 'bg-blue-100 dark:bg-blue-950/70 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                  : 'bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
               }`}
             >
               {isOnline ? <Globe className="h-2.5 w-2.5" /> : <Store className="h-2.5 w-2.5" />}
@@ -924,46 +924,46 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] text-stone-500 shrink-0 ml-auto">
-            <Clock className="h-3 w-3 text-rose-600" />
-            <span className="font-bold text-rose-900 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
+          <div className="flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] text-stone-500 dark:text-stone-400 shrink-0 ml-auto">
+            <Clock className="h-3 w-3 text-rose-600 dark:text-rose-400" />
+            <span className="font-bold text-rose-900 dark:text-rose-200 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/60 px-1.5 py-0.5 rounded">
               {formatRelativeTime(cancelTime)}
             </span>
-            <span className="text-stone-400">{formatClockTime(cancelTime)}</span>
+            <span className="text-stone-400 dark:text-stone-500">{formatClockTime(cancelTime)}</span>
           </div>
         </div>
 
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="rounded-lg bg-rose-100 text-rose-900 border border-rose-200 px-2 py-0.5 font-mono font-black text-[10px] sm:text-xs">
+            <span className="rounded-lg bg-rose-100 dark:bg-rose-950/80 text-rose-900 dark:text-rose-200 border border-rose-200 dark:border-rose-800 px-2 py-0.5 font-mono font-black text-[10px] sm:text-xs">
               #{order.orderNumber}
             </span>
-            <span className="font-extrabold text-stone-900 text-xs sm:text-sm">
+            <span className="font-extrabold text-stone-900 dark:text-stone-100 text-xs sm:text-sm">
               {order.customerName || 'Guest Customer'}
             </span>
           </div>
-          <span className="text-[10px] sm:text-xs text-stone-600">
-            Total: <strong className="text-stone-900 font-extrabold">₱{order.totalAmount.toFixed(2)}</strong>
+          <span className="text-[10px] sm:text-xs text-stone-600 dark:text-stone-400">
+            Total: <strong className="text-stone-900 dark:text-stone-100 font-extrabold">₱{order.totalAmount.toFixed(2)}</strong>
           </span>
         </div>
 
         {/* Customer Reason Banner */}
-        <div className="rounded-lg bg-rose-50 border border-rose-200/80 p-2 text-[10px] sm:text-xs text-rose-900 space-y-0.5">
+        <div className="rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200/80 dark:border-rose-900/50 p-2 text-[10px] sm:text-xs text-rose-900 dark:text-rose-200 space-y-0.5">
           <div className="font-bold flex items-center gap-1">
-            <AlertTriangle className="h-3 w-3 text-rose-600" />
+            <AlertTriangle className="h-3 w-3 text-rose-600 dark:text-rose-400" />
             <span>Reason: "{order.cancellationReason || 'Requested cancellation'}"</span>
           </div>
           {order.cancellationNotes && (
-            <p className="text-stone-600 pl-4 italic">Customer Note: "{order.cancellationNotes}"</p>
+            <p className="text-stone-600 dark:text-stone-400 pl-4 italic">Customer Note: "{order.cancellationNotes}"</p>
           )}
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-between pt-1 gap-2 border-t border-stone-100">
+        <div className="flex items-center justify-between pt-1 gap-2 border-t border-stone-100 dark:border-stone-800">
           {onViewOrderReceipt && (
             <button
               onClick={() => onViewOrderReceipt(order)}
-              className="text-[10px] sm:text-xs font-bold text-stone-600 hover:text-stone-900 underline cursor-pointer"
+              className="text-[10px] sm:text-xs font-bold text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 underline cursor-pointer"
             >
               View Ticket
             </button>
@@ -971,7 +971,7 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
           <div className="flex items-center gap-1.5 ml-auto">
             <button
               onClick={() => handleDeclineCustomerCancellation(order)}
-              className="rounded-xl border border-stone-300 text-stone-700 px-2.5 py-1 text-[10px] sm:text-xs font-bold hover:bg-stone-100 transition cursor-pointer"
+              className="rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 px-2.5 py-1 text-[10px] sm:text-xs font-bold hover:bg-stone-100 dark:hover:bg-stone-750 transition cursor-pointer"
             >
               Decline Request
             </button>
@@ -1000,22 +1000,22 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
     return (
       <div
         key={`prepping-order-${order.id}`}
-        className="rounded-xl border border-amber-300 bg-white p-2.5 sm:p-3.5 shadow-2xs hover:border-amber-400 transition space-y-2.5"
+        className="rounded-xl border border-amber-300 dark:border-amber-700/60 bg-white dark:bg-stone-850 dark:bg-stone-800 p-2.5 sm:p-3.5 shadow-2xs hover:border-amber-400 transition space-y-2.5"
       >
         {/* Top bar with category & channel badges, and timestamp */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 flex-wrap">
             {showCategoryBadge && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
-                <Flame className="h-3 w-3 text-amber-600" />
+              <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
+                <Flame className="h-3 w-3 text-amber-600 dark:text-amber-400" />
                 <span>Prepping Food & Drinks</span>
               </span>
             )}
             <span
               className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold ${
                 isOnline
-                  ? 'bg-blue-100 text-blue-900 border border-blue-200'
-                  : 'bg-amber-100 text-amber-900 border border-amber-200'
+                  ? 'bg-blue-100 dark:bg-blue-950/70 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                  : 'bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
               }`}
             >
               {isOnline ? <Globe className="h-2.5 w-2.5" /> : <Store className="h-2.5 w-2.5" />}
@@ -1023,28 +1023,28 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] text-stone-500 shrink-0 ml-auto">
-            <Clock className="h-3 w-3 text-amber-600" />
-            <span className="font-bold text-amber-900 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+          <div className="flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] text-stone-500 dark:text-stone-400 shrink-0 ml-auto">
+            <Clock className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+            <span className="font-bold text-amber-900 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 px-1.5 py-0.5 rounded">
               Prep: {formatRelativeTime(prepStartTime)}
             </span>
-            <span className="text-stone-400">{formatClockTime(prepStartTime)}</span>
+            <span className="text-stone-400 dark:text-stone-500">{formatClockTime(prepStartTime)}</span>
           </div>
         </div>
 
         {/* Order Ticket header */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="rounded-lg bg-stone-900 text-amber-400 px-2 py-0.5 font-mono font-black text-[10px] sm:text-xs">
+            <span className="rounded-lg bg-stone-900 dark:bg-stone-950 text-amber-400 px-2 py-0.5 font-mono font-black text-[10px] sm:text-xs border border-stone-800">
               #{order.orderNumber}
             </span>
-            <span className="font-extrabold text-stone-900 text-xs sm:text-sm">
+            <span className="font-extrabold text-stone-900 dark:text-stone-100 text-xs sm:text-sm">
               {order.customerName || 'Guest Customer'}
             </span>
           </div>
-          <span className="text-[10px] sm:text-xs text-stone-600">
+          <span className="text-[10px] sm:text-xs text-stone-600 dark:text-stone-400">
             {order.items.length} {order.items.length === 1 ? 'item' : 'items'} • Total:{' '}
-            <strong className="text-stone-900 font-extrabold">₱{order.totalAmount.toFixed(2)}</strong>
+            <strong className="text-stone-900 dark:text-stone-100 font-extrabold">₱{order.totalAmount.toFixed(2)}</strong>
           </span>
         </div>
 
@@ -1054,14 +1054,14 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
           {hasDrinks && (
             <div className={`rounded-xl border p-2 text-[10px] sm:text-xs space-y-1.5 ${
               drinksReady
-                ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+                ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-950 dark:text-emerald-200'
                 : isBaristaActive
-                ? 'bg-sky-50/70 border-sky-200 text-sky-950'
-                : 'bg-amber-50/50 border-amber-200 text-stone-800'
+                ? 'bg-sky-50/70 dark:bg-sky-950/40 border-sky-200 dark:border-sky-800/60 text-sky-950 dark:text-sky-200'
+                : 'bg-amber-50/50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/60 text-stone-800 dark:text-stone-200'
             }`}>
-              <div className="flex items-center justify-between border-b pb-1 border-stone-200/60">
+              <div className="flex items-center justify-between border-b pb-1 border-stone-200/60 dark:border-stone-700/60">
                 <div className="flex items-center gap-1.5 font-extrabold">
-                  <Coffee className="h-3.5 w-3.5 text-amber-700" />
+                  <Coffee className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400" />
                   <span>Drinks Station</span>
                 </div>
                 <span className={`px-1.5 py-0.2 rounded-md font-bold text-[9px] uppercase ${
@@ -1069,18 +1069,18 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
                     ? 'bg-emerald-600 text-white'
                     : isBaristaActive
                     ? 'bg-sky-600 text-white animate-pulse'
-                    : 'bg-amber-200 text-amber-950'
+                    : 'bg-amber-200 dark:bg-amber-800 text-amber-950 dark:text-amber-100'
                 }`}>
                   {drinksReady ? 'Drinks Ready' : isBaristaActive ? 'Prepping' : 'Queued'}
                 </span>
               </div>
               <div className="space-y-1 max-h-20 overflow-y-auto pr-0.5">
                 {drinkItems.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-[10px] text-stone-700">
+                  <div key={idx} className="flex items-center justify-between text-[10px] text-stone-700 dark:text-stone-300">
                     <span className="font-medium truncate max-w-[150px]">
                       {item.quantity}x {item.name}
                     </span>
-                    {drinksReady && <Check className="h-3 w-3 text-emerald-600 shrink-0" />}
+                    {drinksReady && <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400 shrink-0" />}
                   </div>
                 ))}
               </div>
@@ -1101,14 +1101,14 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
           {hasFood && (
             <div className={`rounded-xl border p-2 text-[10px] sm:text-xs space-y-1.5 ${
               foodReady
-                ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+                ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-950 dark:text-emerald-200'
                 : isCookActive
-                ? 'bg-amber-100/70 border-amber-300 text-amber-950'
-                : 'bg-stone-50 border-stone-200 text-stone-800'
+                ? 'bg-amber-100/70 dark:bg-amber-950/50 border-amber-300 dark:border-amber-700/60 text-amber-950 dark:text-amber-200'
+                : 'bg-stone-50 dark:bg-stone-800/70 border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200'
             }`}>
-              <div className="flex items-center justify-between border-b pb-1 border-stone-200/60">
+              <div className="flex items-center justify-between border-b pb-1 border-stone-200/60 dark:border-stone-700/60">
                 <div className="flex items-center gap-1.5 font-extrabold">
-                  <ChefHat className="h-3.5 w-3.5 text-amber-800" />
+                  <ChefHat className="h-3.5 w-3.5 text-amber-800 dark:text-amber-400" />
                   <span>Kitchen Food</span>
                 </div>
                 <span className={`px-1.5 py-0.2 rounded-md font-bold text-[9px] uppercase ${
@@ -1116,18 +1116,18 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
                     ? 'bg-emerald-600 text-white'
                     : isCookActive
                     ? 'bg-amber-500 text-stone-950 font-black animate-pulse'
-                    : 'bg-stone-200 text-stone-800'
+                    : 'bg-stone-200 dark:bg-stone-700 text-stone-800 dark:text-stone-200'
                 }`}>
                   {foodReady ? 'Food Ready' : isCookActive ? 'Cooking' : 'Queued'}
                 </span>
               </div>
               <div className="space-y-1 max-h-20 overflow-y-auto pr-0.5">
                 {foodItems.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-[10px] text-stone-700">
+                  <div key={idx} className="flex items-center justify-between text-[10px] text-stone-700 dark:text-stone-300">
                     <span className="font-medium truncate max-w-[150px]">
                       {item.quantity}x {item.name}
                     </span>
-                    {foodReady && <Check className="h-3 w-3 text-emerald-600 shrink-0" />}
+                    {foodReady && <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400 shrink-0" />}
                   </div>
                 ))}
               </div>
@@ -1146,13 +1146,13 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
         </div>
 
         {/* Action Buttons footer */}
-        <div className="flex items-center justify-between pt-1 gap-2 border-t border-stone-100">
+        <div className="flex items-center justify-between pt-1 gap-2 border-t border-stone-100 dark:border-stone-800">
           <div className="flex items-center gap-2">
             {onViewOrderReceipt && (
               <button
                 type="button"
                 onClick={() => onViewOrderReceipt(order)}
-                className="text-[10px] sm:text-xs font-bold text-stone-600 hover:text-stone-900 underline cursor-pointer"
+                className="text-[10px] sm:text-xs font-bold text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 underline cursor-pointer"
               >
                 Details
               </button>
@@ -1164,7 +1164,7 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
                   onClose();
                   onNavigateTab('tickets');
                 }}
-                className="text-[10px] sm:text-xs font-bold text-amber-800 hover:text-amber-950 underline flex items-center gap-0.5 cursor-pointer"
+                className="text-[10px] sm:text-xs font-bold text-amber-800 dark:text-amber-300 hover:text-amber-950 dark:hover:text-amber-100 underline flex items-center gap-0.5 cursor-pointer"
               >
                 <span>Tickets (KDS)</span>
                 <ChevronRight className="h-3 w-3" />
@@ -1179,7 +1179,7 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
               className={`flex items-center gap-1 rounded-xl px-2.5 py-1 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-extrabold transition cursor-pointer shadow-2xs ${
                 allApplicableReady
                   ? 'bg-emerald-600 text-white hover:bg-emerald-700 animate-bounce'
-                  : 'bg-stone-900 text-amber-400 hover:bg-stone-800'
+                  : 'bg-stone-900 dark:bg-stone-750 text-amber-400 hover:bg-stone-800'
               }`}
             >
               <CheckCircle2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 stroke-[2.4]" />
@@ -1198,7 +1198,7 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
     return (
       <div
         key={`to-serve-order-${order.id}`}
-        className="rounded-xl border-2 border-emerald-400 bg-white p-2.5 sm:p-3.5 shadow-2xs hover:border-emerald-500 transition space-y-2.5 ring-2 ring-emerald-400/10"
+        className="rounded-xl border-2 border-emerald-400 dark:border-emerald-600/70 bg-white dark:bg-stone-850 dark:bg-stone-800 p-2.5 sm:p-3.5 shadow-2xs hover:border-emerald-500 transition space-y-2.5 ring-2 ring-emerald-400/10"
       >
         {/* Top bar with category & channel badges, and timestamp */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1210,8 +1210,8 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
             <span
               className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold ${
                 isOnline
-                  ? 'bg-blue-100 text-blue-900 border border-blue-200'
-                  : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                  ? 'bg-blue-100 dark:bg-blue-950/70 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                  : 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
               }`}
             >
               {isOnline ? <Globe className="h-2.5 w-2.5" /> : <Store className="h-2.5 w-2.5" />}
@@ -1219,12 +1219,12 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] text-stone-500 shrink-0 ml-auto">
-            <Clock className="h-3 w-3 text-emerald-600" />
-            <span className="font-bold text-emerald-900 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+          <div className="flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] text-stone-500 dark:text-stone-400 shrink-0 ml-auto">
+            <Clock className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+            <span className="font-bold text-emerald-900 dark:text-emerald-200 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/60 px-1.5 py-0.5 rounded">
               Ready {formatRelativeTime(readyTime)}
             </span>
-            <span className="text-stone-400">{formatClockTime(readyTime)}</span>
+            <span className="text-stone-400 dark:text-stone-500">{formatClockTime(readyTime)}</span>
           </div>
         </div>
 
@@ -1234,40 +1234,40 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
             <span className="rounded-lg bg-emerald-600 text-white px-2 py-0.5 font-mono font-black text-[10px] sm:text-xs">
               #{order.orderNumber}
             </span>
-            <span className="font-extrabold text-stone-900 text-xs sm:text-sm">
+            <span className="font-extrabold text-stone-900 dark:text-stone-100 text-xs sm:text-sm">
               {order.customerName || 'Guest Customer'}
             </span>
           </div>
-          <span className="text-[10px] sm:text-xs text-stone-600">
+          <span className="text-[10px] sm:text-xs text-stone-600 dark:text-stone-400">
             {order.items.length} {order.items.length === 1 ? 'item' : 'items'} • Total:{' '}
-            <strong className="text-stone-900 font-extrabold">₱{order.totalAmount.toFixed(2)}</strong>
+            <strong className="text-stone-900 dark:text-stone-100 font-extrabold">₱{order.totalAmount.toFixed(2)}</strong>
           </span>
         </div>
 
         {/* Destination callout */}
-        <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-2 text-xs flex items-center justify-between">
+        <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 p-2 text-xs flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-            <span className="font-extrabold text-emerald-950">
+            <span className="font-extrabold text-emerald-950 dark:text-emerald-200">
               {order.tableNumber ? `Deliver to Table #${order.tableNumber}` : 'Handover to Customer / Courier'}
             </span>
           </div>
           {order.customerPhone && (
-            <span className="text-[10px] font-mono text-emerald-800">
+            <span className="text-[10px] font-mono text-emerald-800 dark:text-emerald-300">
               Tel: {order.customerPhone}
             </span>
           )}
         </div>
 
         {/* Order items preview with ready checkmarks */}
-        <div className="bg-stone-50 rounded-lg p-2 text-[10px] sm:text-xs text-stone-700 space-y-1 max-h-24 overflow-y-auto border border-stone-100">
+        <div className="bg-stone-50 dark:bg-stone-900/80 rounded-lg p-2 text-[10px] sm:text-xs text-stone-700 dark:text-stone-300 space-y-1 max-h-24 overflow-y-auto border border-stone-100 dark:border-stone-800">
           {order.items.map((item, idx) => (
             <div key={idx} className="flex items-center justify-between">
               <span className="flex items-center gap-1.5">
-                <Check className="h-3 w-3 text-emerald-600" />
+                <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
                 <span>{item.quantity}x {item.name}</span>
               </span>
-              <span className="font-mono text-stone-500">
+              <span className="font-mono text-stone-500 dark:text-stone-400">
                 ₱{((item.unitPrice ?? item.totalPrice / (item.quantity || 1)) * (item.quantity ?? 1)).toFixed(2)}
               </span>
             </div>
@@ -1275,13 +1275,13 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
         </div>
 
         {/* Action Buttons footer */}
-        <div className="flex items-center justify-between pt-1 gap-2 border-t border-stone-100">
+        <div className="flex items-center justify-between pt-1 gap-2 border-t border-stone-100 dark:border-stone-800">
           <div className="flex items-center gap-2">
             {onViewOrderReceipt && (
               <button
                 type="button"
                 onClick={() => onViewOrderReceipt(order)}
-                className="text-[10px] sm:text-xs font-bold text-stone-600 hover:text-stone-900 underline cursor-pointer"
+                className="text-[10px] sm:text-xs font-bold text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 underline cursor-pointer"
               >
                 Receipt
               </button>
@@ -1293,7 +1293,7 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
                   onClose();
                   onNavigateTab('tickets');
                 }}
-                className="text-[10px] sm:text-xs font-bold text-stone-600 hover:text-stone-900 underline flex items-center gap-0.5 cursor-pointer"
+                className="text-[10px] sm:text-xs font-bold text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 underline flex items-center gap-0.5 cursor-pointer"
               >
                 <span>Tickets</span>
                 <ChevronRight className="h-3 w-3" />
@@ -1318,53 +1318,53 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
     return (
       <div
         key={`table-req-${req.id}`}
-        className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-2.5 sm:p-3.5 shadow-2xs space-y-2"
+        className="rounded-xl border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50/40 dark:bg-indigo-950/30 p-2.5 sm:p-3.5 shadow-2xs space-y-2"
       >
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="inline-flex items-center gap-1 rounded-md bg-indigo-100 text-indigo-950 border border-indigo-300 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
-              <Utensils className="h-3 w-3 text-indigo-600" />
+            <span className="inline-flex items-center gap-1 rounded-md bg-indigo-100 dark:bg-indigo-950/70 text-indigo-950 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-700 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
+              <Utensils className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
               <span>Table Request</span>
             </span>
-            <span className="rounded-md bg-indigo-200/80 text-indigo-950 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold">
+            <span className="rounded-md bg-indigo-200/80 dark:bg-indigo-900/60 text-indigo-950 dark:text-indigo-200 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold">
               {req.type === 'change_table' ? 'Transfer Request' : 'Table Request'}
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] text-stone-500 shrink-0 ml-auto">
-            <Clock className="h-3 w-3 text-indigo-600" />
-            <span className="font-bold text-indigo-900 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded">
+          <div className="flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] text-stone-500 dark:text-stone-400 shrink-0 ml-auto">
+            <Clock className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
+            <span className="font-bold text-indigo-900 dark:text-indigo-200 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800/60 px-1.5 py-0.5 rounded">
               {formatRelativeTime(req.createdAt)}
             </span>
-            <span className="text-stone-400">{formatClockTime(req.createdAt)}</span>
+            <span className="text-stone-400 dark:text-stone-500">{formatClockTime(req.createdAt)}</span>
           </div>
         </div>
 
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="rounded-lg bg-indigo-900 text-indigo-100 px-2 py-0.5 font-mono font-black text-[10px] sm:text-xs">
+            <span className="rounded-lg bg-indigo-900 dark:bg-indigo-950 text-indigo-100 px-2 py-0.5 font-mono font-black text-[10px] sm:text-xs">
               Table #{req.requestedTableNumber}
             </span>
-            <span className="font-extrabold text-stone-900 text-xs sm:text-sm">
+            <span className="font-extrabold text-stone-900 dark:text-stone-100 text-xs sm:text-sm">
               {req.customerName || 'Guest'}
             </span>
           </div>
-          <span className="text-[10px] sm:text-xs text-stone-600 font-medium">
+          <span className="text-[10px] sm:text-xs text-stone-600 dark:text-stone-400 font-medium">
             {req.capacity ? `${req.capacity} guests` : 'Dine-In'}
             {req.currentTableNumber && ` (from Table #${req.currentTableNumber})`}
           </span>
         </div>
 
         {req.notes && (
-          <p className="text-[10px] sm:text-xs text-stone-600 bg-white/80 rounded-lg p-1.5 border border-indigo-100">
+          <p className="text-[10px] sm:text-xs text-stone-600 dark:text-stone-300 bg-white/80 dark:bg-stone-900/80 rounded-lg p-1.5 border border-indigo-100 dark:border-indigo-900/40">
             Note: {req.notes}
           </p>
         )}
 
-        <div className="flex items-center justify-end pt-1 gap-1.5 border-t border-indigo-100">
+        <div className="flex items-center justify-end pt-1 gap-1.5 border-t border-indigo-100 dark:border-indigo-900/40">
           <button
             onClick={() => handleDeclineTableRequest(req)}
-            className="rounded-xl border border-stone-300 bg-white text-stone-700 px-2.5 py-1 text-[10px] sm:text-xs font-bold hover:bg-stone-100 transition cursor-pointer"
+            className="rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 px-2.5 py-1 text-[10px] sm:text-xs font-bold hover:bg-stone-100 dark:hover:bg-stone-750 transition cursor-pointer"
           >
             Decline
           </button>
@@ -1384,40 +1384,40 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
     return (
       <div
         key={`res-${res.id}`}
-        className="rounded-xl border border-amber-200 bg-amber-50/40 p-2.5 sm:p-3.5 shadow-2xs space-y-2"
+        className="rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/40 dark:bg-amber-950/30 p-2.5 sm:p-3.5 shadow-2xs space-y-2"
       >
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 text-amber-950 border border-amber-300 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
-              <Calendar className="h-3 w-3 text-amber-800" />
+            <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 dark:bg-amber-950/70 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
+              <Calendar className="h-3 w-3 text-amber-800 dark:text-amber-400" />
               <span>Advance Reservation</span>
             </span>
-            <span className="rounded-md bg-amber-200/80 text-amber-950 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-mono font-bold">
+            <span className="rounded-md bg-amber-200/80 dark:bg-amber-900/60 text-amber-950 dark:text-amber-200 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-mono font-bold">
               #{res.reservationCode}
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] text-stone-500 shrink-0 ml-auto">
-            <Clock className="h-3 w-3 text-amber-600" />
-            <span className="font-bold text-amber-900 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+          <div className="flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] text-stone-500 dark:text-stone-400 shrink-0 ml-auto">
+            <Clock className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+            <span className="font-bold text-amber-900 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 px-1.5 py-0.5 rounded">
               {formatRelativeTime(res.createdAt)}
             </span>
-            <span className="text-stone-400">{formatClockTime(res.createdAt)}</span>
+            <span className="text-stone-400 dark:text-stone-500">{formatClockTime(res.createdAt)}</span>
           </div>
         </div>
 
         <div className="flex items-center justify-between gap-2">
-          <span className="font-extrabold text-stone-900 text-xs sm:text-sm">
+          <span className="font-extrabold text-stone-900 dark:text-stone-100 text-xs sm:text-sm">
             {res.customerName}
           </span>
-          <span className="text-[10px] sm:text-xs text-stone-600 font-medium">
+          <span className="text-[10px] sm:text-xs text-stone-600 dark:text-stone-400 font-medium">
             {res.guestCount} guests • Table #{res.tableNumber}
           </span>
         </div>
 
-        <div className="text-[10px] sm:text-xs text-stone-600 bg-white/80 rounded-lg p-1.5 border border-amber-100">
+        <div className="text-[10px] sm:text-xs text-stone-600 dark:text-stone-300 bg-white/80 dark:bg-stone-900/80 rounded-lg p-1.5 border border-amber-100 dark:border-amber-900/40">
           Date & Time:{' '}
-          <strong className="text-stone-900">
+          <strong className="text-stone-900 dark:text-stone-100">
             {new Date(res.reservationAt).toLocaleString([], {
               month: 'short',
               day: 'numeric',
@@ -1425,13 +1425,13 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
               minute: '2-digit',
             })}
           </strong>
-          {res.notes && <p className="mt-0.5 italic">Note: "{res.notes}"</p>}
+          {res.notes && <p className="mt-0.5 italic text-stone-600 dark:text-stone-400">Note: "{res.notes}"</p>}
         </div>
 
-        <div className="flex items-center justify-end pt-1 gap-1.5 border-t border-amber-100">
+        <div className="flex items-center justify-end pt-1 gap-1.5 border-t border-amber-100 dark:border-amber-900/40">
           <button
             onClick={() => handleDeclineReservation(res)}
-            className="rounded-xl border border-stone-300 bg-white text-stone-700 px-2.5 py-1 text-[10px] sm:text-xs font-bold hover:bg-stone-100 transition cursor-pointer"
+            className="rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 px-2.5 py-1 text-[10px] sm:text-xs font-bold hover:bg-stone-100 dark:hover:bg-stone-750 transition cursor-pointer"
           >
             Decline
           </button>
@@ -1453,12 +1453,12 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
     return (
       <div
         key={`no-stock-${item.id}`}
-        className="rounded-xl border border-rose-200 bg-rose-50/40 p-2.5 sm:p-3 shadow-2xs hover:border-rose-300 transition space-y-2"
+        className="rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/30 p-2.5 sm:p-3 shadow-2xs hover:border-rose-300 transition space-y-2"
       >
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="inline-flex items-center gap-1 rounded-md bg-rose-100 text-rose-950 border border-rose-300 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
-              <Ban className="h-3 w-3 text-rose-600" />
+            <span className="inline-flex items-center gap-1 rounded-md bg-rose-100 dark:bg-rose-950/70 text-rose-950 dark:text-rose-200 border border-rose-300 dark:border-rose-800 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
+              <Ban className="h-3 w-3 text-rose-600 dark:text-rose-400" />
               <span>Out of Stock</span>
             </span>
             <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[8px] sm:text-[9px] font-black text-white">
@@ -1466,9 +1466,9 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] text-stone-500 shrink-0 ml-auto">
-            <Clock className="h-3 w-3 text-rose-600" />
-            <span className="font-bold text-rose-900 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
+          <div className="flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] text-stone-500 dark:text-stone-400 shrink-0 ml-auto">
+            <Clock className="h-3 w-3 text-rose-600 dark:text-rose-400" />
+            <span className="font-bold text-rose-900 dark:text-rose-200 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/60 px-1.5 py-0.5 rounded">
               {formatRelativeTime(alertTime)}
             </span>
           </div>
@@ -1480,15 +1480,15 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
               <img
                 src={item.imageUrl}
                 alt={item.name}
-                className="h-9 w-9 rounded-lg object-cover border border-rose-200 shrink-0"
+                className="h-9 w-9 rounded-lg object-cover border border-rose-200 dark:border-rose-800 shrink-0"
                 referrerPolicy="no-referrer"
               />
             )}
             <div className="min-w-0">
-              <h4 className="font-extrabold text-stone-900 text-xs sm:text-sm truncate">
+              <h4 className="font-extrabold text-stone-900 dark:text-stone-100 text-xs sm:text-sm truncate">
                 {item.name}
               </h4>
-              <p className="text-[10px] sm:text-xs text-stone-500">
+              <p className="text-[10px] sm:text-xs text-stone-500 dark:text-stone-400">
                 {category?.name || 'Category'} • ₱{item.price.toFixed(2)}
               </p>
             </div>
@@ -1506,13 +1506,13 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
               </button>
               <button
                 onClick={() => handleCustomRestock(item)}
-                className="rounded-xl border border-stone-300 bg-white px-2 py-1 text-[10px] sm:text-xs font-bold text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+                className="rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 px-2 py-1 text-[10px] sm:text-xs font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-750 transition cursor-pointer"
               >
                 Custom
               </button>
             </div>
           ) : (
-            <span className="text-[10px] text-stone-500 italic">Notify Admin</span>
+            <span className="text-[10px] text-stone-500 dark:text-stone-400 italic">Notify Admin</span>
           )}
         </div>
       </div>
@@ -1525,22 +1525,22 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
     return (
       <div
         key={`low-stock-${item.id}`}
-        className="rounded-xl border border-amber-200 bg-amber-50/40 p-2.5 sm:p-3 shadow-2xs hover:border-amber-300 transition space-y-2"
+        className="rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/40 dark:bg-amber-950/30 p-2.5 sm:p-3 shadow-2xs hover:border-amber-300 transition space-y-2"
       >
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 text-amber-950 border border-amber-300 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
-              <AlertTriangle className="h-3 w-3 text-amber-700" />
+            <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 dark:bg-amber-950/70 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
+              <AlertTriangle className="h-3 w-3 text-amber-700 dark:text-amber-400" />
               <span>Low Stock Alert</span>
             </span>
-            <span className="rounded-full bg-amber-200 border border-amber-400 px-2 py-0.5 text-[8px] sm:text-[9px] font-black text-amber-950">
+            <span className="rounded-full bg-amber-200 dark:bg-amber-800 border border-amber-400 dark:border-amber-600 px-2 py-0.5 text-[8px] sm:text-[9px] font-black text-amber-950 dark:text-amber-100">
               {item.quantity} LEFT
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] text-stone-500 shrink-0 ml-auto">
-            <Clock className="h-3 w-3 text-amber-600" />
-            <span className="font-bold text-amber-900 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+          <div className="flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] text-stone-500 dark:text-stone-400 shrink-0 ml-auto">
+            <Clock className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+            <span className="font-bold text-amber-900 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 px-1.5 py-0.5 rounded">
               {formatRelativeTime(alertTime)}
             </span>
           </div>
@@ -1552,15 +1552,15 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
               <img
                 src={item.imageUrl}
                 alt={item.name}
-                className="h-9 w-9 rounded-lg object-cover border border-amber-200 shrink-0"
+                className="h-9 w-9 rounded-lg object-cover border border-amber-200 dark:border-amber-800 shrink-0"
                 referrerPolicy="no-referrer"
               />
             )}
             <div className="min-w-0">
-              <h4 className="font-extrabold text-stone-900 text-xs sm:text-sm truncate">
+              <h4 className="font-extrabold text-stone-900 dark:text-stone-100 text-xs sm:text-sm truncate">
                 {item.name}
               </h4>
-              <p className="text-[10px] sm:text-xs text-stone-500">
+              <p className="text-[10px] sm:text-xs text-stone-500 dark:text-stone-400">
                 {category?.name || 'Category'} • ₱{item.price.toFixed(2)}
               </p>
             </div>
@@ -1578,13 +1578,13 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
               </button>
               <button
                 onClick={() => handleCustomRestock(item)}
-                className="rounded-xl border border-stone-300 bg-white px-2 py-1 text-[10px] sm:text-xs font-bold text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+                className="rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 px-2 py-1 text-[10px] sm:text-xs font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-750 transition cursor-pointer"
               >
                 Custom
               </button>
             </div>
           ) : (
-            <span className="text-[10px] text-stone-500 italic">Notify Admin</span>
+            <span className="text-[10px] text-stone-500 dark:text-stone-400 italic">Notify Admin</span>
           )}
         </div>
       </div>
@@ -1601,44 +1601,44 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
       <div
         key={`refill-item-${refill.id}`}
         id={`refill-notif-${refill.id}`}
-        className="rounded-xl border border-amber-200 bg-amber-50/30 p-2.5 sm:p-3 shadow-2xs hover:border-amber-300 transition space-y-2"
+        className="rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/30 dark:bg-amber-950/30 p-2.5 sm:p-3 shadow-2xs hover:border-amber-300 transition space-y-2"
       >
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
-              <PackagePlus className="h-3 w-3 text-amber-700" />
+            <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
+              <PackagePlus className="h-3 w-3 text-amber-700 dark:text-amber-400" />
               <span>Refill</span>
             </span>
-            <h4 className="font-extrabold text-stone-900 text-xs sm:text-sm truncate">
+            <h4 className="font-extrabold text-stone-900 dark:text-stone-100 text-xs sm:text-sm truncate">
               {refill.itemName}
             </h4>
-            <span className="rounded-full bg-amber-200/80 px-1.5 py-0.2 text-[9px] sm:text-[10px] font-black text-amber-950 shrink-0">
+            <span className="rounded-full bg-amber-200/80 dark:bg-amber-900/60 px-1.5 py-0.2 text-[9px] sm:text-[10px] font-black text-amber-950 dark:text-amber-200 shrink-0">
               +{refill.suggestedQuantity}
             </span>
           </div>
 
-          <span className="text-[10px] sm:text-xs text-stone-400 shrink-0 font-medium">
+          <span className="text-[10px] sm:text-xs text-stone-400 dark:text-stone-500 shrink-0 font-medium">
             {formatRelativeTime(refill.createdAt)}
           </span>
         </div>
 
-        <div className="text-[11px] text-stone-600">
-          <span>From <strong className="text-stone-800">{refill.requestedBy.name}</strong></span>
-          <span className="mx-1.5 text-stone-300">•</span>
-          <span>Current stock: <strong className="text-stone-800">{refill.currentStock ?? 0}</strong></span>
+        <div className="text-[11px] text-stone-600 dark:text-stone-400">
+          <span>From <strong className="text-stone-800 dark:text-stone-200">{refill.requestedBy.name}</strong></span>
+          <span className="mx-1.5 text-stone-300 dark:text-stone-600">•</span>
+          <span>Current stock: <strong className="text-stone-800 dark:text-stone-200">{refill.currentStock ?? 0}</strong></span>
         </div>
 
         {hasCustomNotes && (
-          <p className="rounded bg-white/80 border border-amber-200/70 px-2 py-1 text-[10px] sm:text-[11px] text-amber-950 italic">
+          <p className="rounded bg-white/80 dark:bg-stone-900/80 border border-amber-200/70 dark:border-amber-800/60 px-2 py-1 text-[10px] sm:text-[11px] text-amber-950 dark:text-amber-200 italic">
             "{refill.notes}"
           </p>
         )}
 
         {/* Action Buttons for Admin */}
-        <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-amber-200/60">
+        <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-amber-200/60 dark:border-amber-800/60">
           <button
             onClick={() => handleDeclineRefill(refill)}
-            className="rounded-lg border border-stone-200 bg-white text-stone-600 px-2.5 py-1 text-[10px] sm:text-xs font-semibold hover:bg-stone-50 hover:text-rose-600 transition cursor-pointer"
+            className="rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 px-2.5 py-1 text-[10px] sm:text-xs font-semibold hover:bg-stone-50 dark:hover:bg-stone-750 hover:text-rose-600 transition cursor-pointer"
           >
             Decline
           </button>
@@ -1647,7 +1647,7 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
               setSelectedRefillForReview(refill);
               setIsReviewRefillModalOpen(true);
             }}
-            className="rounded-lg border border-amber-300 bg-white text-amber-900 px-2.5 py-1 text-[10px] sm:text-xs font-semibold hover:bg-amber-50 transition cursor-pointer"
+            className="rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-stone-800 text-amber-900 dark:text-amber-200 px-2.5 py-1 text-[10px] sm:text-xs font-semibold hover:bg-amber-50 dark:hover:bg-amber-950/40 transition cursor-pointer"
           >
             Adjust
           </button>
@@ -1677,10 +1677,10 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
           id="staff-notification-center-modal"
           role="dialog"
           aria-modal="true"
-          className="relative w-full max-w-3xl rounded-2xl bg-white text-stone-900 shadow-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200"
+          className="relative w-full max-w-3xl rounded-2xl bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-2xl border border-stone-200 dark:border-stone-800 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200"
         >
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-stone-200 bg-stone-900 text-white px-3.5 sm:px-6 py-3 sm:py-3.5">
+          <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 bg-stone-900 text-white px-3.5 sm:px-6 py-3 sm:py-3.5">
             <div className="flex items-center gap-2.5 sm:gap-3">
               <div className="relative grid h-7 w-7 sm:h-9 sm:w-9 place-items-center rounded-xl bg-amber-500 text-stone-950 font-black shadow-xs">
                 <Bell className="h-3.5 w-3.5 sm:h-4.5 sm:w-4.5 fill-stone-950" />
@@ -1722,205 +1722,17 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
             </div>
           </div>
 
-          {/* Quick Category Filter Pills Bar */}
-          <div className="flex items-center gap-1.5 px-3.5 sm:px-6 py-2 border-b border-stone-200 bg-stone-50 overflow-x-auto no-scrollbar shrink-0 text-xs">
-            {/* All */}
-            <button
-              type="button"
-              id="notif-tab-all"
-              onClick={() => setActiveTab('all')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold shrink-0 transition cursor-pointer text-[11px] ${
-                activeTab === 'all'
-                  ? 'bg-stone-900 text-white shadow-2xs'
-                  : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-100'
-              }`}
-            >
-              <span>All</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
-                activeTab === 'all' ? 'bg-amber-400 text-stone-950' : 'bg-stone-100 text-stone-700'
-              }`}>
-                {totalAlertsCount}
-              </span>
-            </button>
-
-            {/* Prepping (Food & Drinks) */}
-            <button
-              type="button"
-              id="notif-tab-prepping"
-              onClick={() => setActiveTab('prepping')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold shrink-0 transition cursor-pointer text-[11px] ${
-                activeTab === 'prepping'
-                  ? 'bg-amber-500 text-stone-950 shadow-2xs font-extrabold'
-                  : sortedPreppingOrders.length > 0
-                  ? 'bg-amber-50 border border-amber-300 text-amber-900 hover:bg-amber-100'
-                  : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
-              }`}
-            >
-              <Flame className="h-3 w-3 text-amber-600" />
-              <span>Prepping</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
-                activeTab === 'prepping' ? 'bg-stone-950 text-amber-300' : 'bg-amber-200 text-amber-950'
-              }`}>
-                {sortedPreppingOrders.length}
-              </span>
-            </button>
-
-            {/* To Serve */}
-            <button
-              type="button"
-              id="notif-tab-toserve"
-              onClick={() => setActiveTab('to_serve')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold shrink-0 transition cursor-pointer text-[11px] ${
-                activeTab === 'to_serve'
-                  ? 'bg-emerald-600 text-white shadow-2xs font-extrabold'
-                  : sortedToServeOrders.length > 0
-                  ? 'bg-emerald-50 border border-emerald-300 text-emerald-900 hover:bg-emerald-100'
-                  : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
-              }`}
-            >
-              <Utensils className="h-3 w-3 text-emerald-600" />
-              <span>To Serve</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
-                activeTab === 'to_serve' ? 'bg-white text-emerald-800' : 'bg-emerald-100 text-emerald-900'
-              }`}>
-                {sortedToServeOrders.length}
-              </span>
-            </button>
-
-            {/* Orders (To Confirm) */}
-            <button
-              type="button"
-              id="notif-tab-orders"
-              onClick={() => setActiveTab('order_confirm')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold shrink-0 transition cursor-pointer text-[11px] ${
-                activeTab === 'order_confirm'
-                  ? 'bg-emerald-700 text-white shadow-2xs'
-                  : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
-              }`}
-            >
-              <ClipboardList className="h-3 w-3 text-emerald-600" />
-              <span>Orders</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
-                activeTab === 'order_confirm' ? 'bg-white text-emerald-900' : 'bg-stone-100 text-stone-700'
-              }`}>
-                {sortedOrderConfirmations.length}
-              </span>
-            </button>
-
-            {/* Cancellations */}
-            <button
-              type="button"
-              id="notif-tab-cancellations"
-              onClick={() => setActiveTab('cancellations')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold shrink-0 transition cursor-pointer text-[11px] ${
-                activeTab === 'cancellations'
-                  ? 'bg-rose-600 text-white shadow-2xs'
-                  : sortedCancellationRequests.length > 0
-                  ? 'bg-rose-50 border border-rose-200 text-rose-800 hover:bg-rose-100'
-                  : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
-              }`}
-            >
-              <Ban className="h-3 w-3 text-rose-500" />
-              <span>Cancels</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
-                activeTab === 'cancellations' ? 'bg-white text-rose-800' : 'bg-rose-100 text-rose-900'
-              }`}>
-                {sortedCancellationRequests.length}
-              </span>
-            </button>
-
-            {/* Tables */}
-            <button
-              type="button"
-              id="notif-tab-tables"
-              onClick={() => setActiveTab('table_confirm')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold shrink-0 transition cursor-pointer text-[11px] ${
-                activeTab === 'table_confirm'
-                  ? 'bg-indigo-600 text-white shadow-2xs'
-                  : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
-              }`}
-            >
-              <Utensils className="h-3 w-3 text-indigo-500" />
-              <span>Tables</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
-                activeTab === 'table_confirm' ? 'bg-white text-indigo-900' : 'bg-stone-100 text-stone-700'
-              }`}>
-                {totalTableConfirmationsCount}
-              </span>
-            </button>
-
-            {/* No Stock */}
-            <button
-              type="button"
-              id="notif-tab-nostock"
-              onClick={() => setActiveTab('no_stock')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold shrink-0 transition cursor-pointer text-[11px] ${
-                activeTab === 'no_stock'
-                  ? 'bg-rose-700 text-white shadow-2xs'
-                  : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
-              }`}
-            >
-              <span>No Stock</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
-                activeTab === 'no_stock' ? 'bg-white text-rose-900' : 'bg-stone-100 text-stone-700'
-              }`}>
-                {noStockItems.length}
-              </span>
-            </button>
-
-            {/* Low Stock */}
-            <button
-              type="button"
-              id="notif-tab-lowstock"
-              onClick={() => setActiveTab('low_stock')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold shrink-0 transition cursor-pointer text-[11px] ${
-                activeTab === 'low_stock'
-                  ? 'bg-amber-600 text-white shadow-2xs'
-                  : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
-              }`}
-            >
-              <span>Low Stock</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
-                activeTab === 'low_stock' ? 'bg-white text-amber-900' : 'bg-stone-100 text-stone-700'
-              }`}>
-                {lowStockItems.length}
-              </span>
-            </button>
-
-            {/* Refills (Admin Only) */}
-            {isAdmin && (
-              <button
-                type="button"
-                id="notif-tab-refills"
-                onClick={() => setActiveTab('refills')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold shrink-0 transition cursor-pointer text-[11px] ${
-                  activeTab === 'refills'
-                    ? 'bg-amber-500 text-stone-950 font-black shadow-2xs'
-                    : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
-                }`}
-              >
-                <PackagePlus className="h-3 w-3 text-amber-600" />
-                <span>Refills</span>
-                <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
-                  activeTab === 'refills' ? 'bg-stone-950 text-amber-300' : 'bg-stone-100 text-stone-700'
-                }`}>
-                  {pendingRefillRequests.length}
-                </span>
-              </button>
-            )}
-          </div>
-
           {/* Scrollable Notification List Body */}
           <div className="flex-1 overflow-y-auto p-2.5 sm:p-5 space-y-3 text-[11px] sm:text-sm">
             {totalAlertsCount === 0 && (
               <div className="flex flex-col items-center justify-center py-8 sm:py-12 text-center">
-                <div className="grid h-10 w-10 sm:h-14 sm:w-14 place-items-center rounded-full bg-emerald-100 text-emerald-700 mb-2 border border-emerald-200">
+                <div className="grid h-10 w-10 sm:h-14 sm:w-14 place-items-center rounded-full bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 mb-2 border border-emerald-200 dark:border-emerald-800">
                   <CheckCircle2 className="h-5 w-5 sm:h-7 sm:w-7 stroke-[2.2]" />
                 </div>
-                <h3 className="font-display font-extrabold text-xs sm:text-base text-stone-900">
+                <h3 className="font-display font-extrabold text-xs sm:text-base text-stone-900 dark:text-stone-100">
                   All Systems Clear
                 </h3>
-                <p className="text-[10px] sm:text-xs text-stone-500 max-w-sm mt-0.5">
+                <p className="text-[10px] sm:text-xs text-stone-500 dark:text-stone-400 max-w-sm mt-0.5">
                   No active stock warnings, table requests, or pending orders.
                 </p>
               </div>
@@ -2276,15 +2088,15 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
             className="fixed inset-0 bg-stone-950/60 backdrop-blur-2xs"
             onClick={() => setIsFilterModalOpen(false)}
           />
-          <div className="relative w-full max-w-xs rounded-2xl bg-white p-4 shadow-2xl border border-stone-200 space-y-3.5 animate-in zoom-in-95 duration-150 text-stone-900">
-            <div className="flex items-center justify-between border-b border-stone-100 pb-2">
-              <h3 className="font-display font-extrabold text-sm text-stone-900">
+          <div className="relative w-full max-w-xs rounded-2xl bg-white dark:bg-stone-900 p-4 shadow-2xl border border-stone-200 dark:border-stone-800 space-y-3.5 animate-in zoom-in-95 duration-150 text-stone-900 dark:text-stone-100">
+            <div className="flex items-center justify-between border-b border-stone-100 dark:border-stone-800 pb-2">
+              <h3 className="font-display font-extrabold text-sm text-stone-900 dark:text-stone-100">
                 Filter & Sort
               </h3>
               <button
                 id="close-filter-modal-btn"
                 onClick={() => setIsFilterModalOpen(false)}
-                className="rounded-lg p-1 text-stone-400 hover:text-stone-700 transition cursor-pointer"
+                className="rounded-lg p-1 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition cursor-pointer"
                 title="Close"
               >
                 <X className="h-4 w-4" />
@@ -2296,15 +2108,15 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
               <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
                 Sort
               </span>
-              <div className="grid grid-cols-2 gap-1 p-0.5 bg-stone-100 rounded-xl">
+              <div className="grid grid-cols-2 gap-1 p-0.5 bg-stone-100 dark:bg-stone-800 rounded-xl">
                 <button
                   type="button"
                   id="filter-sort-newest-btn"
                   onClick={() => setSortOrder('newest')}
                   className={`py-1.5 px-2 rounded-lg text-xs font-bold transition cursor-pointer ${
                     sortOrder === 'newest'
-                      ? 'bg-white text-stone-900 shadow-xs'
-                      : 'text-stone-500 hover:text-stone-800'
+                      ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-xs'
+                      : 'text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200'
                   }`}
                 >
                   Newest
@@ -2315,8 +2127,8 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
                   onClick={() => setSortOrder('oldest')}
                   className={`py-1.5 px-2 rounded-lg text-xs font-bold transition cursor-pointer ${
                     sortOrder === 'oldest'
-                      ? 'bg-white text-stone-900 shadow-xs'
-                      : 'text-stone-500 hover:text-stone-800'
+                      ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-xs'
+                      : 'text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200'
                   }`}
                 >
                   Oldest
@@ -2339,15 +2151,15 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
                   }}
                   className={`w-full flex items-center justify-between p-2 rounded-xl border text-xs font-bold transition cursor-pointer ${
                     activeTab === 'all'
-                      ? 'bg-stone-900 text-white border-stone-900 shadow-2xs'
-                      : 'bg-stone-50 border-stone-200 text-stone-800 hover:bg-stone-100'
+                      ? 'bg-stone-900 dark:bg-amber-500 text-white dark:text-stone-950 border-stone-900 dark:border-amber-500 shadow-2xs'
+                      : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-750'
                   }`}
                 >
                   <span className="flex items-center gap-2">
                     <Bell className="h-3.5 w-3.5 text-amber-500" />
                     <span>All</span>
                   </span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'all' ? 'bg-amber-400 text-stone-950' : 'bg-stone-200 text-stone-800'}`}>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'all' ? 'bg-amber-400 dark:bg-stone-950 text-stone-950 dark:text-amber-300' : 'bg-stone-200 dark:bg-stone-700 text-stone-800 dark:text-stone-200'}`}>
                     {totalAlertsCount}
                   </span>
                 </button>
@@ -2362,14 +2174,14 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
                   className={`w-full flex items-center justify-between p-2 rounded-xl border text-xs font-bold transition cursor-pointer ${
                     activeTab === 'prepping'
                       ? 'bg-amber-500 text-stone-950 border-amber-500 font-extrabold shadow-2xs'
-                      : 'bg-stone-50 border-stone-200 text-stone-800 hover:bg-stone-100'
+                      : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-750'
                   }`}
                 >
                   <span className="flex items-center gap-2">
                     <Flame className="h-3.5 w-3.5 text-amber-600" />
                     <span>Prepping (Food & Drinks)</span>
                   </span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'prepping' ? 'bg-stone-950 text-amber-300' : 'bg-amber-100 text-amber-900'}`}>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'prepping' ? 'bg-stone-950 text-amber-300' : 'bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300'}`}>
                     {sortedPreppingOrders.length}
                   </span>
                 </button>
@@ -2384,14 +2196,14 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
                   className={`w-full flex items-center justify-between p-2 rounded-xl border text-xs font-bold transition cursor-pointer ${
                     activeTab === 'to_serve'
                       ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
-                      : 'bg-stone-50 border-stone-200 text-stone-800 hover:bg-stone-100'
+                      : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-750'
                   }`}
                 >
                   <span className="flex items-center gap-2">
                     <Utensils className="h-3.5 w-3.5 text-emerald-500" />
                     <span>To Serve</span>
                   </span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'to_serve' ? 'bg-white text-emerald-800' : 'bg-emerald-100 text-emerald-900'}`}>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'to_serve' ? 'bg-white text-emerald-800' : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-900 dark:text-emerald-300'}`}>
                     {sortedToServeOrders.length}
                   </span>
                 </button>
@@ -2407,14 +2219,14 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
                     className={`w-full flex items-center justify-between p-2 rounded-xl border text-xs font-bold transition cursor-pointer ${
                       activeTab === 'refills'
                         ? 'bg-amber-500 text-stone-950 border-amber-500 font-extrabold shadow-2xs'
-                        : 'bg-stone-50 border-stone-200 text-stone-800 hover:bg-stone-100'
+                        : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-750'
                     }`}
                   >
                     <span className="flex items-center gap-2">
                       <PackagePlus className="h-3.5 w-3.5 text-amber-600" />
                       <span>Refills</span>
                     </span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'refills' ? 'bg-stone-950 text-amber-300' : 'bg-amber-100 text-amber-900'}`}>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'refills' ? 'bg-stone-950 text-amber-300' : 'bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300'}`}>
                       {pendingRefillRequests.length}
                     </span>
                   </button>
@@ -2430,19 +2242,19 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
                   className={`w-full flex items-center justify-between p-2 rounded-xl border text-xs font-bold transition cursor-pointer ${
                     activeTab === 'order_confirm'
                       ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
-                      : 'bg-stone-50 border-stone-200 text-stone-800 hover:bg-stone-100'
+                      : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-750'
                   }`}
                 >
                   <span className="flex items-center gap-2">
                     <ClipboardList className="h-3.5 w-3.5 text-emerald-500" />
                     <span>Orders</span>
                   </span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'order_confirm' ? 'bg-white text-emerald-700' : 'bg-emerald-100 text-emerald-800'}`}>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'order_confirm' ? 'bg-white text-emerald-700' : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300'}`}>
                     {sortedOrderConfirmations.length}
                   </span>
                 </button>
 
-                {/* Option 4: Cancellations */}
+                {/* Option 6: Cancellations */}
                 <button
                   id="filter-opt-cancellations"
                   onClick={() => {
@@ -2452,19 +2264,19 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
                   className={`w-full flex items-center justify-between p-2 rounded-xl border text-xs font-bold transition cursor-pointer ${
                     activeTab === 'cancellations'
                       ? 'bg-rose-600 text-white border-rose-600 shadow-2xs'
-                      : 'bg-stone-50 border-stone-200 text-stone-800 hover:bg-stone-100'
+                      : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-750'
                   }`}
                 >
                   <span className="flex items-center gap-2">
                     <Ban className="h-3.5 w-3.5 text-rose-500" />
                     <span>Cancellations</span>
                   </span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'cancellations' ? 'bg-white text-rose-700' : 'bg-rose-100 text-rose-800'}`}>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'cancellations' ? 'bg-white text-rose-700' : 'bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300'}`}>
                     {sortedCancellationRequests.length}
                   </span>
                 </button>
 
-                {/* Option 5: Tables */}
+                {/* Option 7: Tables */}
                 <button
                   id="filter-opt-tables"
                   onClick={() => {
@@ -2474,19 +2286,19 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
                   className={`w-full flex items-center justify-between p-2 rounded-xl border text-xs font-bold transition cursor-pointer ${
                     activeTab === 'table_confirm'
                       ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
-                      : 'bg-stone-50 border-stone-200 text-stone-800 hover:bg-stone-100'
+                      : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-750'
                   }`}
                 >
                   <span className="flex items-center gap-2">
                     <Utensils className="h-3.5 w-3.5 text-indigo-500" />
                     <span>Tables</span>
                   </span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'table_confirm' ? 'bg-white text-indigo-700' : 'bg-indigo-100 text-indigo-800'}`}>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'table_confirm' ? 'bg-white text-indigo-700' : 'bg-indigo-100 dark:bg-indigo-950/80 text-indigo-800 dark:text-indigo-300'}`}>
                     {totalTableConfirmationsCount}
                   </span>
                 </button>
 
-                {/* Option 6: No Stock */}
+                {/* Option 8: No Stock */}
                 <button
                   id="filter-opt-nostock"
                   onClick={() => {
@@ -2496,19 +2308,19 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
                   className={`w-full flex items-center justify-between p-2 rounded-xl border text-xs font-bold transition cursor-pointer ${
                     activeTab === 'no_stock'
                       ? 'bg-rose-600 text-white border-rose-600 shadow-2xs'
-                      : 'bg-stone-50 border-stone-200 text-stone-800 hover:bg-stone-100'
+                      : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-750'
                   }`}
                 >
                   <span className="flex items-center gap-2">
                     <Ban className="h-3.5 w-3.5 text-rose-500" />
                     <span>No Stock</span>
                   </span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'no_stock' ? 'bg-white text-rose-700' : 'bg-rose-100 text-rose-800'}`}>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'no_stock' ? 'bg-white text-rose-700' : 'bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300'}`}>
                     {noStockItems.length}
                   </span>
                 </button>
 
-                {/* Option 7: Low Stock */}
+                {/* Option 9: Low Stock */}
                 <button
                   id="filter-opt-lowstock"
                   onClick={() => {
@@ -2518,14 +2330,14 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
                   className={`w-full flex items-center justify-between p-2 rounded-xl border text-xs font-bold transition cursor-pointer ${
                     activeTab === 'low_stock'
                       ? 'bg-amber-500 text-stone-950 border-amber-500 font-extrabold shadow-2xs'
-                      : 'bg-stone-50 border-stone-200 text-stone-800 hover:bg-stone-100'
+                      : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-750'
                   }`}
                 >
                   <span className="flex items-center gap-2">
                     <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
                     <span>Low Stock</span>
                   </span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'low_stock' ? 'bg-stone-950 text-amber-300' : 'bg-amber-100 text-amber-900'}`}>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'low_stock' ? 'bg-stone-950 text-amber-300' : 'bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300'}`}>
                     {lowStockItems.length}
                   </span>
                 </button>

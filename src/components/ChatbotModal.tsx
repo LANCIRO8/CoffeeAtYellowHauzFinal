@@ -47,7 +47,7 @@ const QUICK_PROMPTS = [
   { label: '🍳 Comfort Food', query: 'What meals or breakfast do you recommend?' },
   { label: '🍰 Desserts & Cakes', query: 'What cakes and desserts do you have?' },
   { label: '🌱 Dairy-Free Milks', query: 'What plant-based milk alternatives do you offer?' },
-  { label: '🏢 ₱300 Private Venue', query: 'Tell me about the Private Venue / Function Studio rental' },
+  { label: '🏢 ₱3,500 Studio Rental', query: 'Tell me about the Private Venue / Function Studio rental' },
   { label: '🪑 Reserve Table', query: 'How do I reserve a dining table?' },
   { label: '🏷️ 20% Senior/PWD', query: 'How does the Senior Citizen and PWD discount work?' },
   { label: '💳 Payment Methods', query: 'What payment options do you accept (GCash, Card, Cash)?' },
@@ -74,7 +74,7 @@ export const ChatbotModal: React.FC<ChatbotModalProps> = ({
       {
         id: 'msg-welcome',
         sender: 'bot',
-        text: `Hi! ${welcomeGreeting}${tableNote}\n\nI am your dedicated **Yellow Hauz AI Concierge & Barista**. I'm here to assist you exclusively with anything you need as our guest:\n\n• Tailored coffee & drink recommendations (sweet, bold, or dairy-free)\n• Filipino comfort meals, pizzas, pastas & freshly baked pastries\n• Reserving a table or booking our **₱300 / 3-Hour Private Venue**\n• Store hours (7 AM - 10 PM), complimentary Wi-Fi, and payment methods\n\nWhat can I prepare or find for you today?`,
+        text: `Hi! ${welcomeGreeting}${tableNote}\n\nI am **Brewmate AI**, your dedicated Yellow Hauz barista & concierge assistant. I'm here to assist you exclusively with anything you need as our guest:\n\n• Tailored coffee & drink recommendations (sweet, bold, or dairy-free)\n• Filipino comfort meals, pizzas, pastas & freshly baked pastries\n• Free dining table reservations or booking our **₱3,500 / 3-Hour Private Studio** (100% consumable on food & drinks)\n• Store hours (7 AM - 10 PM), complimentary Wi-Fi, and payment methods\n\nWhat can I prepare or find for you today?`,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         suggestedAction: 'menu',
         source: 'local',
@@ -186,7 +186,7 @@ export const ChatbotModal: React.FC<ChatbotModalProps> = ({
               <div className="relative h-11 w-11 overflow-hidden rounded-2xl bg-amber-500 text-stone-950 border border-amber-300/40 flex items-center justify-center shrink-0 shadow-md">
                 <img
                   src="/images/Coffeatyellowhauz_logo.jpg"
-                  alt="Yellow Hauz Concierge"
+                  alt="Brewmate AI"
                   className="h-full w-full object-cover"
                   onError={(e) => {
                     (e.currentTarget as HTMLElement).style.display = 'none';
@@ -197,13 +197,13 @@ export const ChatbotModal: React.FC<ChatbotModalProps> = ({
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="font-bold text-base tracking-wide text-amber-100 flex items-center gap-1.5">
-                    <span>Yellow Hauz Concierge</span>
+                    <span>Brewmate AI</span>
                     <Sparkles className="h-3.5 w-3.5 text-amber-400 animate-pulse" />
                   </h2>
                 </div>
                 <div className="flex items-center gap-2 text-[11px] text-amber-200/80">
                   <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 ring-2 ring-emerald-950/50" />
-                  <span>AI Barista &amp; Guest Assistant</span>
+                  <span>Yellow Hauz Virtual Barista &amp; Concierge</span>
                   {activeTableNumber && (
                     <>
                       <span>•</span>
@@ -334,7 +334,7 @@ export const ChatbotModal: React.FC<ChatbotModalProps> = ({
                               className="h-full w-full object-cover"
                               onError={(e) => {
                                 (e.currentTarget as HTMLImageElement).src =
-                                  'https://images.unsplash.com/photo-1509042239860-f550ce710b93?q=80&w=300';
+                                  '/images/food_and_drinks_images/Hot Coffee/Spanish_latte.jpeg';
                               }}
                             />
                           </div>

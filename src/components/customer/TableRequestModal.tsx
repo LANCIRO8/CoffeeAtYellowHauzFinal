@@ -41,13 +41,29 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
   const activeTableBinding = propActiveBinding !== undefined ? propActiveBinding : currentTableBinding;
   const storeTables = useMemo(() => AppStore.getTables(), []);
   const tables = propTables || storeTables;
+
+  const onTableConfirmedRef = useRef(onTableConfirmed);
+  const onConfirmedRef = useRef(onConfirmed);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onTableConfirmedRef.current = onTableConfirmed;
+    onConfirmedRef.current = onConfirmed;
+    onCloseRef.current = onClose;
+  });
+
   const handleConfirmedCallback = (binding: TableBinding) => {
-    if (onTableConfirmed) onTableConfirmed(binding);
-    if (onConfirmed) onConfirmed(binding);
+    if (onTableConfirmedRef.current) onTableConfirmedRef.current(binding);
+    if (onConfirmedRef.current) onConfirmedRef.current(binding);
   };
-  const [selectedTableNumber, setSelectedTableNumber] = useState<number | null>(
-    initialSelectedTable || activeTableBinding?.tableNumber || null
-  );
+
+  const [selectedTableNumber, setSelectedTableNumber] = useState<number | null>(() => {
+    const activeReq = AppStore.getMyActiveTableRequest();
+    if (activeReq && activeReq.status === 'pending') {
+      return activeReq.requestedTableNumber;
+    }
+    return initialSelectedTable || null;
+  });
+
   const [currentRequest, setCurrentRequest] = useState<TableRequest | null>(() =>
     AppStore.getMyActiveTableRequest()
   );
@@ -58,36 +74,66 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
   const isCashierOnline = AppStore.isCashierOnline();
   const onlineCashiers = AppStore.getOnlineCashiers();
 
+  const prevIsOpenRef = useRef(false);
+
+  // Initialize or synchronize state when modal opens
   useEffect(() => {
-    if (initialSelectedTable) {
-      setSelectedTableNumber(initialSelectedTable);
+    if (isOpen && !prevIsOpenRef.current) {
       const activeReq = AppStore.getMyActiveTableRequest();
-      // If user navigated to a different URL table while a previous different request was pending, reset
-      if (
+      if (activeReq && activeReq.status === 'pending') {
+        setCurrentRequest(activeReq);
+        setSelectedTableNumber(activeReq.requestedTableNumber);
+      } else if (
         activeReq &&
-        activeReq.requestedTableNumber !== initialSelectedTable &&
-        activeReq.status === 'pending'
+        activeReq.status === 'approved' &&
+        activeTableBinding?.tableNumber !== activeReq.requestedTableNumber
       ) {
-        AppStore.cancelTableRequest(activeReq.id);
+        setCurrentRequest(activeReq);
+        setSelectedTableNumber(activeReq.requestedTableNumber);
+      } else if (activeReq && activeReq.status === 'rejected') {
+        setCurrentRequest(activeReq);
+        setSelectedTableNumber(activeReq.requestedTableNumber);
+      } else {
+        // Fresh open without active request
         setCurrentRequest(null);
+        if (initialSelectedTable) {
+          setSelectedTableNumber(initialSelectedTable);
+        } else {
+          // Keep null so user picks the destination table they wish to switch to
+          setSelectedTableNumber(null);
+        }
       }
-    } else if (activeTableBinding?.tableNumber && !selectedTableNumber) {
-      setSelectedTableNumber(activeTableBinding.tableNumber);
     }
-  }, [initialSelectedTable, activeTableBinding]);
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, initialSelectedTable, activeTableBinding?.tableNumber]);
 
   const processedApprovedReqIdsRef = useRef<Set<string>>(new Set());
 
-  // Check store state on mount and subscribe to real-time updates
+  // Check store state and subscribe to real-time cashier approvals/rejections
   useEffect(() => {
     const checkState = () => {
       const activeReq = AppStore.getMyActiveTableRequest();
-      setCurrentRequest(activeReq);
+      if (activeReq) {
+        setCurrentRequest((prev) => {
+          if (prev && prev.status === 'pending' && activeReq.status !== 'pending') {
+            const prevTime = new Date(prev.createdAt).getTime();
+            const activeTime = new Date(activeReq.createdAt).getTime();
+            if (prevTime > activeTime) {
+              return prev;
+            }
+          }
+          return activeReq;
+        });
+      } else {
+        // If request was completed or removed elsewhere, do not wipe a newly submitted pending request
+        setCurrentRequest((prev) => (prev?.status === 'pending' ? prev : null));
+      }
 
       if (
         activeReq &&
         activeReq.status === 'approved' &&
-        !processedApprovedReqIdsRef.current.has(activeReq.id)
+        !processedApprovedReqIdsRef.current.has(activeReq.id) &&
+        activeTableBinding?.tableNumber !== activeReq.requestedTableNumber
       ) {
         processedApprovedReqIdsRef.current.add(activeReq.id);
         // Auto bind table on cashier approval
@@ -99,7 +145,7 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
         if (binding) {
           setTimeout(() => {
             handleConfirmedCallback(binding);
-            onClose();
+            if (onCloseRef.current) onCloseRef.current();
           }, 1800);
         }
       }
@@ -108,7 +154,7 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
     checkState();
     const unsub = AppStore.subscribe(checkState);
     return () => unsub();
-  }, [onTableConfirmed, onConfirmed, onClose]);
+  }, [activeTableBinding?.tableNumber]);
 
   // Live timer for pending requests
   useEffect(() => {
@@ -130,6 +176,12 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
 
   if (!isOpen) return null;
 
+  const isSameAsCurrent = Boolean(
+    activeTableBinding &&
+      selectedTableNumber &&
+      activeTableBinding.tableNumber === selectedTableNumber
+  );
+
   const isChangingTable = Boolean(
     activeTableBinding &&
       selectedTableNumber &&
@@ -146,6 +198,7 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
   const handleSubmitRequest = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTableNumber) return;
+    if (isSameAsCurrent) return;
 
     setIsSubmitting(true);
     try {
@@ -173,35 +226,36 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
   };
 
   const handleSelectAnotherTable = () => {
-    if (currentRequest) {
+    if (currentRequest && currentRequest.status === 'pending') {
       AppStore.cancelTableRequest(currentRequest.id);
     }
     setCurrentRequest(null);
+    setSelectedTableNumber(null);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="w-full max-w-xl rounded-3xl bg-white p-6 sm:p-7 shadow-2xl border border-stone-200 my-8 animate-in fade-in zoom-in-95 duration-150">
+      <div className="w-full max-w-xl rounded-3xl bg-white dark:bg-stone-900 p-6 sm:p-7 shadow-2xl border border-stone-200 dark:border-stone-800 my-8 animate-in fade-in zoom-in-95 duration-150">
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-stone-100 pb-4">
+        <div className="flex items-center justify-between border-b border-stone-100 dark:border-stone-800 pb-4">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-2xl bg-amber-500 text-stone-950 font-black shadow-xs">
               <Utensils className="h-5 w-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-bold text-stone-950 font-display">
+                <h3 className="text-lg font-bold text-stone-950 dark:text-stone-100 font-display">
                   {currentRequest?.status === 'pending'
                     ? 'Awaiting Cashier Approval'
                     : isChangingTable
                     ? 'Change Dine-In Table'
                     : 'Choose Your Table Number'}
                 </h3>
-                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-900 border border-amber-200">
+                <span className="rounded-full bg-amber-100 dark:bg-amber-950/80 px-2 py-0.5 text-[10px] font-black text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-700/60">
                   Cashier Confirmed
                 </span>
               </div>
-              <p className="text-xs text-stone-500">
+              <p className="text-xs text-stone-500 dark:text-stone-400">
                 {activeTableBinding
                   ? `Currently seated at Table #${activeTableBinding.tableNumber}`
                   : 'Binds your in-house session to a physical dining table'}
@@ -210,7 +264,7 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="rounded-full p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-700 transition cursor-pointer"
+            className="rounded-full p-2 text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-700 dark:hover:text-stone-200 transition cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
@@ -228,45 +282,45 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
             </div>
 
             <div className="space-y-1.5 max-w-md mx-auto">
-              <div className="inline-flex items-center gap-2 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-bold text-amber-900">
-                <Clock className="h-3.5 w-3.5 text-amber-600 animate-spin" />
+              <div className="inline-flex items-center gap-2 rounded-full bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 px-3 py-1 text-xs font-bold text-amber-900 dark:text-amber-200">
+                <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 animate-spin" />
                 <span>Waiting for Online Cashier Confirmation ({elapsedSeconds}s)</span>
               </div>
-              <h4 className="text-base font-extrabold text-stone-900">
+              <h4 className="text-base font-extrabold text-stone-900 dark:text-stone-100">
                 Table #{currentRequest.requestedTableNumber} Request Sent
               </h4>
-              <p className="text-xs text-stone-600 leading-relaxed">
-                Your request has been transmitted to our on-duty cashier. Please wait a moment while the cashier verifies and confirms your seating at <strong>Table #{currentRequest.requestedTableNumber}</strong>.
+              <p className="text-xs text-stone-600 dark:text-stone-350 leading-relaxed">
+                Your request has been transmitted to our on-duty cashier. Please wait a moment while the cashier verifies and confirms your seating at <strong className="text-stone-900 dark:text-stone-100">Table #{currentRequest.requestedTableNumber}</strong>.
               </p>
             </div>
 
             {/* Request Summary Card */}
-            <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4 text-left space-y-2 text-xs">
-              <div className="flex items-center justify-between text-stone-600">
+            <div className="rounded-2xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/60 p-4 text-left space-y-2 text-xs">
+              <div className="flex items-center justify-between text-stone-600 dark:text-stone-400">
                 <span className="font-medium">Request Reference:</span>
-                <span className="font-mono font-bold text-stone-900">{currentRequest.id}</span>
+                <span className="font-mono font-bold text-stone-900 dark:text-stone-100">{currentRequest.id}</span>
               </div>
-              <div className="flex items-center justify-between text-stone-600">
+              <div className="flex items-center justify-between text-stone-600 dark:text-stone-400">
                 <span className="font-medium">Guest Name:</span>
-                <span className="font-bold text-stone-900">{currentRequest.customerName}</span>
+                <span className="font-bold text-stone-900 dark:text-stone-100">{currentRequest.customerName}</span>
               </div>
               {currentRequest.currentTableNumber && (
-                <div className="flex items-center justify-between text-stone-600">
+                <div className="flex items-center justify-between text-stone-600 dark:text-stone-400">
                   <span className="font-medium">Action:</span>
-                  <span className="font-bold text-amber-900">
+                  <span className="font-bold text-amber-800 dark:text-amber-300">
                     Table #{currentRequest.currentTableNumber} ➔ Table #{currentRequest.requestedTableNumber}
                   </span>
                 </div>
               )}
-              <div className="flex items-center justify-between text-stone-600">
+              <div className="flex items-center justify-between text-stone-600 dark:text-stone-400">
                 <span className="font-medium">Table Area:</span>
-                <span className="font-bold text-stone-900">
+                <span className="font-bold text-stone-900 dark:text-stone-100">
                   {currentRequest.area === 'airconditioned' ? 'Air-Con' : 'Non-A/C'}
                 </span>
               </div>
-              <div className="flex items-center justify-between text-stone-600 pt-1 border-t border-stone-200/60">
+              <div className="flex items-center justify-between text-stone-600 dark:text-stone-400 pt-1 border-t border-stone-200/60 dark:border-stone-700/60">
                 <span className="font-medium">Cashier Status:</span>
-                <span className="inline-flex items-center gap-1.5 font-bold text-emerald-700">
+                <span className="inline-flex items-center gap-1.5 font-bold text-emerald-700 dark:text-emerald-400">
                   <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                   {isCashierOnline ? 'Cashier Online & Alerted' : 'Cashier on Standby'}
                 </span>
@@ -278,14 +332,14 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
               <button
                 type="button"
                 onClick={handleCancelRequest}
-                className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition cursor-pointer"
+                className="rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/40 px-4 py-2.5 text-xs font-bold text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition cursor-pointer"
               >
                 Cancel Request
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-xl bg-stone-100 px-5 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-200 transition cursor-pointer"
+                className="rounded-xl bg-stone-100 dark:bg-stone-800 px-5 py-2.5 text-xs font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition cursor-pointer"
               >
                 Keep Waiting in Background
               </button>
@@ -294,33 +348,33 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
         ) : currentRequest && currentRequest.status === 'approved' ? (
           /* 2. STATE: APPROVED SUCCESS */
           <div className="mt-5 space-y-4 text-center py-4">
-            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-100 text-emerald-600 border border-emerald-300">
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700">
               <CheckCircle2 className="h-9 w-9" />
             </div>
             <div className="space-y-1">
-              <h4 className="text-lg font-extrabold text-stone-950 font-display">
+              <h4 className="text-lg font-extrabold text-stone-950 dark:text-stone-100 font-display">
                 🎉 Table #{currentRequest.requestedTableNumber} Confirmed!
               </h4>
-              <p className="text-xs text-stone-600 max-w-sm mx-auto">
+              <p className="text-xs text-stone-600 dark:text-stone-350 max-w-sm mx-auto">
                 Approved by <strong>{currentRequest.cashierName || 'Cashier'}</strong>. Your in-house session is now bound to Table #{currentRequest.requestedTableNumber}.
               </p>
             </div>
-            <div className="inline-flex items-center gap-2 rounded-2xl bg-emerald-50 border border-emerald-200 px-4 py-2 text-xs font-bold text-emerald-900">
-              <Sparkles className="h-4 w-4 text-emerald-600" />
+            <div className="inline-flex items-center gap-2 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/60 px-4 py-2 text-xs font-bold text-emerald-900 dark:text-emerald-300">
+              <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               <span>Orders placed will now go directly to the kitchen queue</span>
             </div>
           </div>
         ) : currentRequest && currentRequest.status === 'rejected' ? (
           /* 3. STATE: REJECTED / DECLINED */
           <div className="mt-5 space-y-4 text-center py-3">
-            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-rose-100 text-rose-600 border border-rose-300">
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-300 dark:border-rose-700">
               <XCircle className="h-9 w-9" />
             </div>
             <div className="space-y-1.5">
-              <h4 className="text-base font-extrabold text-stone-950 font-display">
+              <h4 className="text-base font-extrabold text-stone-950 dark:text-stone-100 font-display">
                 Table #{currentRequest.requestedTableNumber} Not Approved
               </h4>
-              <p className="text-xs text-rose-800 bg-rose-50 border border-rose-200 rounded-2xl p-3 max-w-md mx-auto">
+              <p className="text-xs text-rose-800 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl p-3 max-w-md mx-auto">
                 {currentRequest.rejectionReason ||
                   'The requested table is currently reserved or unavailable. Please choose another table or ask our on-duty staff.'}
               </p>
@@ -340,7 +394,7 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
                     onSwitchToOnline();
                     onClose();
                   }}
-                  className="w-full sm:w-auto rounded-xl border border-stone-200 bg-stone-100 px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-200 transition cursor-pointer"
+                  className="w-full sm:w-auto rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 px-4 py-2.5 text-xs font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition cursor-pointer"
                 >
                   Switch to Online Ordering
                 </button>
@@ -351,7 +405,7 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
           /* 4. STATE: TABLE SELECTION & REQUEST FORM */
           <div className="mt-4 space-y-5">
             {/* Cashier Status Notice */}
-            <div className="rounded-2xl border p-3 flex items-center justify-between gap-3 text-xs bg-stone-50 border-stone-200">
+            <div className="rounded-2xl border p-3 flex items-center justify-between gap-3 text-xs bg-stone-50 dark:bg-stone-800/60 border-stone-200 dark:border-stone-700">
               <div className="flex items-center gap-2.5">
                 <div
                   className={`h-3 w-3 rounded-full ${
@@ -359,30 +413,30 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
                   }`}
                 />
                 <div>
-                  <span className="font-bold text-stone-900">
+                  <span className="font-bold text-stone-900 dark:text-stone-100">
                     {isCashierOnline ? 'Cashier On Duty (Online)' : 'Cashier on Standby'}
                   </span>
-                  <p className="text-[11px] text-stone-500">
+                  <p className="text-[11px] text-stone-500 dark:text-stone-400">
                     {isCashierOnline
                       ? `${onlineCashiers.map((c) => c.fullName).join(', ')} is online and will verify your table request.`
                       : 'A cashier will confirm your table seating upon login.'}
                   </p>
                 </div>
               </div>
-              <span className="rounded-full bg-stone-200/80 px-2 py-0.5 text-[10px] font-black text-stone-700 shrink-0">
+              <span className="rounded-full bg-stone-200/80 dark:bg-stone-700 px-2 py-0.5 text-[10px] font-black text-stone-700 dark:text-stone-300 shrink-0">
                 Live Verification
               </span>
             </div>
 
             {/* Area Filter Tabs */}
-            <div className="flex items-center gap-1.5 border-b border-stone-100 pb-2">
+            <div className="flex items-center gap-1.5 border-b border-stone-100 dark:border-stone-800 pb-2">
               <button
                 type="button"
                 onClick={() => setAreaFilter('all')}
                 className={`rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
                   areaFilter === 'all'
-                    ? 'bg-amber-500 text-stone-950 shadow-2xs'
-                    : 'text-stone-600 hover:bg-stone-100'
+                    ? 'bg-amber-500 text-stone-950 shadow-2xs font-extrabold'
+                    : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'
                 }`}
               >
                 All Tables ({tables.length})
@@ -392,8 +446,8 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
                 onClick={() => setAreaFilter('normal')}
                 className={`rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
                   areaFilter === 'normal'
-                    ? 'bg-amber-500 text-stone-950 shadow-2xs'
-                    : 'text-stone-600 hover:bg-stone-100'
+                    ? 'bg-amber-500 text-stone-950 shadow-2xs font-extrabold'
+                    : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'
                 }`}
               >
                 Non-A/C ({tables.filter((t) => t.area === 'normal').length})
@@ -403,8 +457,8 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
                 onClick={() => setAreaFilter('airconditioned')}
                 className={`rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
                   areaFilter === 'airconditioned'
-                    ? 'bg-amber-500 text-stone-950 shadow-2xs'
-                    : 'text-stone-600 hover:bg-stone-100'
+                    ? 'bg-amber-500 text-stone-950 shadow-2xs font-extrabold'
+                    : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'
                 }`}
               >
                 Air-Con ({tables.filter((t) => t.area === 'airconditioned').length})
@@ -426,10 +480,10 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
                     onClick={() => setSelectedTableNumber(tbl.tableNumber)}
                     className={`relative flex flex-col items-center justify-center p-3.5 rounded-2xl border text-center transition-all cursor-pointer ${
                       isSelected
-                        ? 'border-amber-500 bg-amber-500/15 shadow-xs ring-2 ring-amber-500/40'
+                        ? 'border-amber-500 bg-amber-500/15 dark:bg-amber-950/60 shadow-xs ring-2 ring-amber-500/40 text-stone-950 dark:text-stone-50'
                         : isCurrentBound
-                        ? 'border-emerald-400 bg-emerald-50/80 text-emerald-950'
-                        : 'border-stone-200 bg-stone-50 hover:bg-amber-50/60 hover:border-amber-300'
+                        ? 'border-emerald-400 dark:border-emerald-600/70 bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-200'
+                        : 'border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 hover:bg-amber-50/60 dark:hover:bg-amber-950/30 hover:border-amber-300 dark:hover:border-amber-600/60'
                     }`}
                   >
                     {isCurrentBound && (
@@ -437,13 +491,13 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
                         Current
                       </div>
                     )}
-                    <span className="font-mono text-xl font-black text-stone-900">
+                    <span className="font-mono text-xl font-black text-stone-900 dark:text-stone-100">
                       #{tbl.tableNumber}
                     </span>
-                    <span className="text-xs font-bold text-amber-950 mt-0.5">
+                    <span className="text-xs font-bold text-amber-950 dark:text-amber-300 mt-0.5">
                       {tbl.name || `Table #${tbl.tableNumber}`}
                     </span>
-                    <div className="mt-1 flex items-center gap-1 text-[10px] text-stone-500 font-medium">
+                    <div className="mt-1 flex items-center gap-1 text-[10px] text-stone-500 dark:text-stone-400 font-medium">
                       <Users className="h-3 w-3" />
                       <span>{tbl.capacity} Seats</span>
                       <span>•</span>
@@ -451,12 +505,12 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
                     </div>
 
                     {isOccupied && (
-                      <span className="mt-1 rounded-full bg-rose-100 text-rose-700 px-1.5 py-0.2 text-[9px] font-bold">
+                      <span className="mt-1 rounded-full bg-rose-100 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 px-1.5 py-0.2 text-[9px] font-bold">
                         Occupied
                       </span>
                     )}
                     {isReserved && (
-                      <span className="mt-1 rounded-full bg-purple-100 text-purple-700 px-1.5 py-0.2 text-[9px] font-bold">
+                      <span className="mt-1 rounded-full bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 px-1.5 py-0.2 text-[9px] font-bold">
                         Reserved
                       </span>
                     )}
@@ -467,29 +521,29 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
 
             {/* Selected Table Confirmation Action */}
             {selectedTableNumber && (
-              <form onSubmit={handleSubmitRequest} className="space-y-3 pt-3 border-t border-stone-100">
+              <form onSubmit={handleSubmitRequest} className="space-y-3 pt-3 border-t border-stone-100 dark:border-stone-800">
                 {/* Selected Table Summary Banner */}
-                <div className="flex items-center justify-between rounded-2xl bg-amber-50 border border-amber-200 p-3.5 text-xs">
+                <div className="flex items-center justify-between rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 p-3.5 text-xs">
                   <div className="flex items-center gap-3">
                     <div className="grid h-10 w-10 place-items-center rounded-xl bg-amber-500 text-stone-950 font-mono font-black text-base shadow-xs">
                       #{selectedTableNumber}
                     </div>
                     <div>
-                      <span className="font-extrabold text-stone-950 text-sm block">
-                        {isChangingTable
+                      <span className="font-extrabold text-stone-950 dark:text-stone-100 text-sm block">
+                        {isSameAsCurrent
+                          ? `Currently Seated at Table #${selectedTableNumber}`
+                          : isChangingTable
                           ? `Switch Table: #${activeTableBinding?.tableNumber} ➔ #${selectedTableNumber}`
                           : `Confirm Table #${selectedTableNumber}${targetTableObj?.name ? ` • ${targetTableObj.name}` : ''}`}
                       </span>
-                      <p className="text-xs text-stone-600">
-                        {targetTableObj?.area === 'airconditioned'
-                          ? 'Air-Con'
-                          : 'Non-A/C'}{' '}
-                        • {targetTableObj?.capacity || 4} Person Capacity
-                        {targetTableObj?.setup ? ` • ${targetTableObj.setup}` : ''}
+                      <p className="text-xs text-stone-600 dark:text-stone-350">
+                        {isSameAsCurrent
+                          ? 'Select any other table above to request switching tables.'
+                          : `${targetTableObj?.area === 'airconditioned' ? 'Air-Con' : 'Non-A/C'} • ${targetTableObj?.capacity || 4} Person Capacity${targetTableObj?.setup ? ` • ${targetTableObj.setup}` : ''}`}
                       </p>
                     </div>
                   </div>
-                  <span className="text-[11px] font-black text-amber-900 bg-amber-200/80 rounded-full px-2.5 py-1">
+                  <span className="text-[11px] font-black text-amber-900 dark:text-amber-200 bg-amber-200/80 dark:bg-amber-900/60 rounded-full px-2.5 py-1">
                     Cashier Verified
                   </span>
                 </div>
@@ -502,15 +556,15 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
                         onSwitchToOnline();
                         onClose();
                       }}
-                      className="text-stone-600 hover:text-stone-900 text-xs font-bold underline cursor-pointer"
+                      className="text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 text-xs font-bold underline cursor-pointer"
                     >
                       Use Online Ordering instead
                     </button>
                   )}
                   <button
                     type="submit"
-                    disabled={isSubmitting}
-                    className="ml-auto flex items-center gap-2 rounded-2xl bg-amber-500 px-6 py-2.5 text-xs font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition cursor-pointer disabled:opacity-50"
+                    disabled={isSubmitting || isSameAsCurrent}
+                    className="ml-auto flex items-center gap-2 rounded-2xl bg-amber-500 px-6 py-2.5 text-xs font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? (
                       <>
@@ -521,7 +575,9 @@ export const TableRequestModal: React.FC<TableRequestModalProps> = ({
                       <>
                         <ShieldCheck className="h-4 w-4" />
                         <span>
-                          {isChangingTable
+                          {isSameAsCurrent
+                            ? `Already at Table #${selectedTableNumber}`
+                            : isChangingTable
                             ? `Request Change to Table #${selectedTableNumber}`
                             : `Request Table #${selectedTableNumber} Confirmation`}
                         </span>

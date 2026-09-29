@@ -461,6 +461,13 @@ export const SEED_SETTINGS: StoreSettings = {
       ],
     },
   ],
+  customer_gallery: {
+    heroBackground: '/images/red_brick_bg.png',
+    heroFeaturedImage: '/images/food_and_drinks_images/Hot Coffee/flat_white.jpeg',
+    reservationBanner: '/images/venue.webp',
+    menuDrinksBackground: '/images/food_and_drinks_images/Hot Coffee/Spanish_latte.jpeg',
+    menuFoodBackground: '/images/food_and_drinks_images/Cakes_Pastries/burnt_cheesecake.jpg',
+  },
 };
 
 export const SEED_INTENTS: ChatIntent[] = [
@@ -468,7 +475,7 @@ export const SEED_INTENTS: ChatIntent[] = [
     tag: 'help',
     patterns: ['help', 'what can you do', 'guide me', 'customer guide', 'how does this work', 'what can i ask', 'hello', 'hi'],
     keywords: ['help', 'guide', 'assist', 'support', 'question', 'ask', 'hello', 'hi', 'hey'],
-    response: 'Hi there! ☕ Welcome to Coffee at Yellow Hauz! I am your personal AI Barista & Café Concierge.\n\nI can help you with:\n⭐ Hand-picked drink & food recommendations\n☕ Coffee guides (sweet, bold, iced, dairy-free)\n🥪 Comfort meals, pastas, pizzas & artisan pastries\n🪑 Reserving a dining table or our Private Function Studio (₱300 for 3 hours!)\n💳 Payment methods (Cash, GCash, Card) & 20% Senior/PWD discounts\n⏰ Café hours (7 AM - 10 PM), location & free Wi-Fi\n\nHow can I treat you today?',
+    response: 'Hi there! ☕ Welcome to Coffee at Yellow Hauz! I am your personal AI Barista & Café Concierge.\n\nI can help you with:\n⭐ Hand-picked drink & food recommendations\n☕ Coffee guides (sweet, bold, iced, dairy-free)\n🥪 Comfort meals, pastas, pizzas & artisan pastries\n🪑 Reserving a dining table (Free) or our Private Function Studio (₱3,500 for 3 hours, 100% consumable on food & drinks!)\n💳 Payment methods (Cash, GCash, Card) & 20% Senior/PWD discounts\n⏰ Café hours (7 AM - 10 PM), location & free Wi-Fi\n\nHow can I treat you today?',
     suggestedAction: 'menu',
   },
   {
@@ -559,9 +566,19 @@ export const SEED_INTENTS: ChatIntent[] = [
   },
   {
     tag: 'reservations',
-    patterns: ['how to reserve', 'reserve a table', 'table reservation', 'book a table', 'reserve seat'],
-    keywords: ['reserve', 'reservation', 'book', 'booking', 'guests', 'seats', 'table'],
-    response: 'Planning to visit? We welcome table reservations! 🪑\n\n- Main Dining Area (Tables 1-4, 4-6 seats) — Cozy, relaxed café ambiance.\n- Air-Conditioned Room (Tables 5-8, 2-8 seats) — Quiet, cool, and comfortable for small groups or focus.\n\nTo reserve, head to the "Reservations" tab, select your preferred date, time, and table, and submit. You will receive an instant booking confirmation code!',
+    patterns: [
+      'how much is the reservation',
+      'reservation fee',
+      'how much to reserve',
+      'is reservation free',
+      'how to reserve',
+      'reserve a table',
+      'table reservation',
+      'book a table',
+      'reserve seat',
+    ],
+    keywords: ['reserve', 'reservation', 'book', 'booking', 'fee', 'cost', 'free', 'price', 'guests', 'seats', 'table'],
+    response: 'Here is how our reservation pricing works at Coffee at Yellow Hauz! ☕\n\n⭐ Regular Dining Tables (Dine-In):\n• Cost: 100% FREE! There is no reservation fee.\n• Areas: Main Dining Area (Tables 1-4, 4-6 seats) or Air-Conditioned Room (Tables 5-8, 2-8 seats).\n• Simply head to the "Reservations" tab to pick your date & time for instant confirmation!\n\n🏢 Private Venue / Function Studio (For meetings, parties, workshops & gatherings):\n• Base Rate: ₱3,500 for 3 hours (100% fully consumable on food and drinks!)\n• Extension Rate: ₱1,000 per extra hour (also consumable)\n• 25 Heads only\n• Includes: Aircon, HD TV display with HDMI, Whiteboard, High-speed Fiber Wi-Fi, power stations, and in-room café dining service.',
     suggestedAction: 'reservation',
   },
   {
@@ -584,7 +601,7 @@ export const SEED_INTENTS: ChatIntent[] = [
       'consumable',
     ],
     keywords: ['venue', 'function', 'event', 'room', 'rent', 'rental', '3500', '1000', 'consumable', 'workshop', 'studio', 'meeting', 'private', 'amenities', 'capacity'],
-    response: '🏢 Yellow Hauz Private Venue & Studio Rental:\n\n💰 Base Rate: ₱3,500 for 3 hours (fully consumable on food and drinks).\n⏱️ Extension Rate: ₱1,000 per extra hour (also consumable).\n👥 Capacity: 25 persons only.\n\n🎁 Inclusions & Venue Amenities:\n• Air conditioning\n• TV HDMI display hookup\n• Whiteboard & dry-erase markers\n\n✨ Extended Stays / Special Hours:\nLong durations or bulk packages are subject to negotiation/approval from the owner. Customers can contact directly via phone (+63 912 345 6789) or our Facebook page (facebook.com/yellowhauzcafe) to discuss.\n\nReady to book? Head over to our "Reservations" tab under "Private Venue Rental" to secure your slot!',
+    response: '🏢 Yellow Hauz Private Venue & Studio Rental:\n\n💰 Base Rate: ₱3,500 for 3 hours (fully consumable on food and drinks).\n⏱️ Extension Rate: ₱1,000 per extra hour (also consumable).\n👥 25 Heads only.\n\n🎁 Inclusions & Venue Amenities:\n• Air conditioning\n• TV HDMI display hookup\n• Whiteboard & dry-erase markers\n\n✨ Extended Stays / Special Hours:\nLong durations or bulk packages are subject to negotiation/approval from the owner. Customers can contact directly via phone (+63 912 345 6789) or our Facebook page (facebook.com/yellowhauzcafe) to discuss.\n\nReady to book? Head over to our "Reservations" tab under "Private Venue Rental" to secure your slot!',
     suggestedAction: 'reservation',
   },
   {

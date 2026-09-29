@@ -451,6 +451,189 @@ html.dark body {
   color: #ffffff !important;
 }
 
+/* Venue booking flow & Reservation dark mode overrides */
+.dark #venue-booking-flow .bg-emerald-50 {
+  background-color: rgba(6, 78, 59, 0.45) !important;
+  border-color: rgba(6, 95, 70, 0.6) !important;
+  color: #a7f3d0 !important;
+}
+.dark #venue-booking-flow .bg-emerald-50 * {
+  color: #a7f3d0 !important;
+}
+.dark #venue-booking-flow .bg-emerald-200 {
+  background-color: rgba(6, 95, 70, 0.75) !important;
+  color: #6ee7b7 !important;
+}
+.dark .bg-stone-200\/80 {
+  background-color: #1c1917 !important;
+}
+
+/* Button hover and chosen state darkmode overrides in venue booking flow */
+.dark #venue-booking-flow button:hover,
+.dark #venue-booking-flow .hover\:bg-stone-100:hover,
+.dark #venue-booking-flow button.hover\:bg-stone-100:hover {
+  background-color: #292524 !important;
+  border-color: #44403c !important;
+}
+.dark #venue-booking-flow button[class*="border-amber-500"],
+.dark #venue-booking-flow button[class*="border-amber-400"],
+.dark #venue-booking-flow button[class*="border-amber"] {
+  background-color: #2b1a0d !important;
+  border-color: #fbbf24 !important;
+  color: #fef3c7 !important;
+}
+.dark #venue-booking-flow button[class*="border-amber"] .font-mono,
+.dark #venue-booking-flow button[class*="border-amber"] .font-bold {
+  color: #fef3c7 !important;
+}
+.dark #venue-booking-flow button[class*="border-amber"] span:not([class*="bg-amber-500"]) {
+  color: #fef3c7 !important;
+}
+.dark #venue-booking-flow button[class*="border-amber"] .text-stone-500,
+.dark #venue-booking-flow button[class*="border-amber"] .dark\:text-stone-400 {
+  color: #d6c7b2 !important;
+}
+.dark #venue-booking-flow button[class*="border-amber"]:hover {
+  background-color: #3b2414 !important;
+  border-color: #fcd34d !important;
+}
+
+/* Payment Preference & GCash callout darkmode overrides */
+.dark #venue-booking-flow .bg-blue-50 {
+  background-color: rgba(30, 58, 138, 0.4) !important;
+  border-color: rgba(59, 130, 246, 0.5) !important;
+  color: #bfdbfe !important;
+}
+.dark #venue-booking-flow .bg-blue-50 * {
+  color: #bfdbfe !important;
+}
+.dark #venue-booking-flow .bg-blue-50 svg {
+  color: #60a5fa !important;
+}
+.dark #venue-booking-flow button[class*="border-blue-500"],
+.dark #venue-booking-flow button[class*="border-blue-400"] {
+  background-color: rgba(30, 58, 138, 0.45) !important;
+  border-color: #3b82f6 !important;
+  color: #dbeafe !important;
+}
+.dark #venue-booking-flow button[class*="border-blue-500"] *,
+.dark #venue-booking-flow button[class*="border-blue-400"] * {
+  color: #dbeafe !important;
+}
+.dark #venue-booking-flow button[class*="border-blue-500"] svg,
+.dark #venue-booking-flow button[class*="border-blue-400"] svg {
+  color: #60a5fa !important;
+}
+.dark #venue-booking-flow button[class*="border-emerald-500"],
+.dark #venue-booking-flow button[class*="border-emerald-400"] {
+  background-color: rgba(6, 78, 59, 0.45) !important;
+  border-color: #10b981 !important;
+  color: #d1fae5 !important;
+}
+.dark #venue-booking-flow button[class*="border-emerald-500"] *,
+.dark #venue-booking-flow button[class*="border-emerald-400"] * {
+  color: #d1fae5 !important;
+}
+.dark #venue-booking-flow button[class*="border-purple-500"],
+.dark #venue-booking-flow button[class*="border-purple-400"] {
+  background-color: rgba(88, 28, 135, 0.45) !important;
+  border-color: #a855f7 !important;
+  color: #f3e8ff !important;
+}
+.dark #venue-booking-flow button[class*="border-purple-500"] *,
+.dark #venue-booking-flow button[class*="border-purple-400"] * {
+  color: #f3e8ff !important;
+}
+
+/* Mobile responsive step navigation bar containment */
+@media (max-width: 639px) {
+  #venue-booking-flow .grid-cols-4 button {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+  #venue-booking-flow .grid-cols-4 button span {
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+  }
+}
+
+/* Floor Plan Architectural Stage & Table Hover Dark Mode Overrides */
+.dark .bg-\[\#fbf9f5\],
+.dark [class*="bg-[#fbf9f5]"] {
+  background-color: #171513 !important;
+}
+
+/* Table Hover and Active states in dark mode */
+.dark div.group:hover > div[class*="bg-amber-50"],
+.dark div.group:hover > div[class*="bg-amber-100"],
+.dark div.group:hover > div[class*="border-amber-400"] {
+  background-color: #2b1a0d !important;
+  border-color: #fbbf24 !important;
+  color: #fef3c7 !important;
+}
+
+.dark div.group:hover .bg-amber-100,
+.dark div.group:hover .border-amber-400 {
+  background-color: #451a03 !important;
+  border-color: #fbbf24 !important;
+}
+
+.dark div.group:hover span.text-stone-900,
+.dark div.group:hover span.text-stone-800 {
+  color: #fef3c7 !important;
+}
+
+/* Customer Modal & Form Dark Mode Input Styling */
+.dark .customer-mode input[type="text"],
+.dark .customer-mode input[type="email"],
+.dark .customer-mode input[type="tel"],
+.dark .customer-mode input[type="password"] {
+  background-color: #1c1917 !important;
+  color: #f5f5f4 !important;
+  border-color: #44403c !important;
+}
+.dark .customer-mode input[type="text"]::placeholder,
+.dark .customer-mode input[type="email"]::placeholder,
+.dark .customer-mode input[type="tel"]::placeholder,
+.dark .customer-mode input[type="password"]::placeholder {
+  color: #78716c !important;
+}
+.dark .customer-mode input[type="text"]:focus,
+.dark .customer-mode input[type="email"]:focus,
+.dark .customer-mode input[type="tel"]:focus,
+.dark .customer-mode input[type="password"]:focus {
+  background-color: #292524 !important;
+  border-color: #f59e0b !important;
+}
+
+/* Customer Modal Badges and Strength indicators in Dark Mode */
+.dark .customer-mode .bg-rose-50 {
+  background-color: rgba(136, 19, 55, 0.45) !important;
+  border-color: rgba(225, 29, 72, 0.5) !important;
+  color: #fecdd3 !important;
+}
+.dark .customer-mode .bg-amber-50 {
+  background-color: rgba(120, 53, 15, 0.45) !important;
+  border-color: rgba(217, 119, 6, 0.5) !important;
+  color: #fde68a !important;
+}
+.dark .customer-mode .bg-lime-50 {
+  background-color: rgba(54, 83, 20, 0.45) !important;
+  border-color: rgba(101, 163, 13, 0.5) !important;
+  color: #d9f99d !important;
+}
+.dark .customer-mode .bg-emerald-50 {
+  background-color: rgba(6, 78, 59, 0.45) !important;
+  border-color: rgba(5, 150, 105, 0.5) !important;
+  color: #a7f3d0 !important;
+}
+.dark .customer-mode .bg-stone-100 {
+  background-color: #292524 !important;
+  border-color: #44403c !important;
+  color: #d6d3d1 !important;
+}
+
 /* ==========================================================================
    Beige Warm Café Theme (replacing Amber 500 theme)
    In this theme, warm, cozy, artisanal beige/cream tones (#E8DEC8, #EDE8D0, #E0D5BE)

@@ -19,16 +19,16 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, settings, onC
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl animate-in fade-in zoom-in duration-200">
-        <div className="flex items-center justify-between border-b border-stone-200 pb-3">
-          <div className="flex items-center gap-2 text-emerald-700">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-xs p-4 overflow-y-auto">
+      <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-6 shadow-2xl animate-in fade-in zoom-in duration-200 text-stone-900 dark:text-stone-100">
+        <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-3">
+          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
             <CheckCircle className="h-5 w-5" />
-            <h3 className="font-bold text-stone-900">Official Receipt</h3>
+            <h3 className="font-bold text-stone-900 dark:text-stone-100">Official Receipt</h3>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
+            className="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-700 dark:hover:text-stone-200"
           >
             <X className="h-5 w-5" />
           </button>
@@ -173,7 +173,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, settings, onC
           </button>
           <button
             onClick={onClose}
-            className="rounded-xl border border-stone-200 px-4 py-2.5 font-semibold text-stone-700 hover:bg-stone-50 transition"
+            className="rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-4 py-2.5 font-semibold text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 transition cursor-pointer"
           >
             Close
           </button>

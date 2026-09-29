@@ -161,7 +161,7 @@ export const Footer: React.FC<FooterProps> = ({
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-stone-500">
             <span className="flex items-center gap-1">
               <MapPin className="h-3 w-3 text-stone-400 shrink-0" />
-              <span>{settings.shop_address || 'V. Mapa St, Davao City'}</span>
+              <span>{settings.shop_address || 'V. Mapa Street, Corner Mabini St.'}</span>
             </span>
             <span className="flex items-center gap-1">
               <Phone className="h-3 w-3 text-stone-400 shrink-0" />

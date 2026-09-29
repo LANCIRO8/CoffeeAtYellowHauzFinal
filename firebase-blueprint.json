@@ -9,7 +9,8 @@
         "name": { "type": "string", "description": "Category name", "maxLength": 100 },
         "icon": { "type": "string", "description": "Icon identifier" },
         "order": { "type": "number", "description": "Display sort order" },
-        "color": { "type": "string", "description": "Badge color code" }
+        "color": { "type": "string", "description": "Badge color code" },
+        "imageUrl": { "type": "string", "description": "Category banner or thumbnail image URL" }
       },
       "required": ["id", "name"]
     },
@@ -109,6 +110,7 @@
         "email": { "type": "string", "description": "Staff email" },
         "role": { "type": "string", "description": "Staff role", "enum": ["admin", "cashier", "barista", "cook"] },
         "pin": { "type": "string", "description": "POS lock PIN" },
+        "password": { "type": "string", "description": "Account password or security PIN" },
         "createdAt": { "type": "string", "description": "Account creation timestamp" }
       },
       "required": ["id", "name", "role"]

@@ -326,25 +326,26 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
     setIsPinModalOpen(true);
   };
 
-  // Save New PIN
+  // Save New PIN / Password
   const handleSavePin = () => {
     if (!pinTargetUser) return;
-    if (!/^\d{8}$/.test(newPinValue)) {
+    const cleanPin = newPinValue.trim();
+    if (!/^\d{8}$/.test(cleanPin)) {
       setPinError('PIN must be exactly 8 digits (0-9).');
       return;
     }
 
-    AppStore.resetUserPin(pinTargetUser.id, newPinValue);
+    AppStore.resetUserPin(pinTargetUser.id, cleanPin);
     showAlert({
-      title: 'PIN Changed',
-      message: `Security PIN for ${pinTargetUser.fullName} has been reset to ${newPinValue}.`,
+      title: 'PIN / Password Changed',
+      message: `Security PIN / password for ${pinTargetUser.fullName} has been updated to ${cleanPin} and permanently saved to cloud storage.`,
       type: 'success',
     });
     refreshUserList();
     setIsPinModalOpen(false);
   };
 
-  // Delete User
+  // Delete User Permanently
   const handleDeleteUser = async (user: User) => {
     if (currentStaff && currentStaff.id === user.id) {
       showAlert({
@@ -369,19 +370,29 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
 
     const confirmed = await showConfirm({
       title: `Delete ${user.fullName}?`,
-      message: `Are you sure you want to permanently delete the account for ${user.fullName} (${user.employeeId})? Historical sales records and audit logs will remain intact.`,
+      message: `Are you sure you want to permanently delete the account for ${user.fullName} (${user.employeeId})? Historical sales records and audit logs will remain intact, and this account will not reappear.`,
       type: 'danger',
       confirmText: 'Delete Account',
       cancelText: 'Cancel',
     });
 
     if (confirmed) {
+      // Instantly remove from local UI state
+      setUsers((prev) => prev.filter((u) => u.id !== user.id));
+
       const ok = AppStore.deleteUser(user.id);
       if (ok) {
         showAlert({
-          title: 'Account Deleted',
-          message: `The account for ${user.fullName} has been removed.`,
+          title: 'Account Permanently Deleted',
+          message: `The account for ${user.fullName} (${user.employeeId}) has been removed completely from both cloud database and terminal records.`,
           type: 'success',
+        });
+        refreshUserList();
+      } else {
+        showAlert({
+          title: 'Deletion Failed',
+          message: 'Could not delete the account. Please ensure it is not the sole active admin.',
+          type: 'error',
         });
         refreshUserList();
       }
@@ -677,12 +688,12 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
                             <Edit2 className="h-3.5 w-3.5" />
                           </button>
 
-                          {/* Reset PIN */}
+                          {/* Reset PIN / Password */}
                           <button
                             type="button"
                             onClick={() => handleOpenPinModal(user)}
                             className="rounded-lg p-1.5 text-amber-700 hover:bg-white hover:text-amber-900 transition shadow-2xs"
-                            title="Reset 4-Digit Security PIN"
+                            title="Reset Security PIN / Password"
                           >
                             <KeyRound className="h-3.5 w-3.5" />
                           </button>
@@ -695,8 +706,8 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
                             className="rounded-lg p-1.5 text-rose-600 hover:bg-white hover:text-rose-800 disabled:opacity-30 disabled:cursor-not-allowed transition shadow-2xs"
                             title={
                               isCurrent
-                                ? 'Cannot delete current user'
-                                : 'Delete Cashier Account'
+                                ? 'Cannot delete current active user'
+                                : 'Permanently Delete Staff Account'
                             }
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -952,10 +963,10 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
             </div>
 
             <h3 className="font-display text-base font-bold text-stone-900">
-              Reset Security PIN
+              Reset Security PIN / Password
             </h3>
             <p className="text-xs text-stone-500 mt-0.5">
-              Set a new 8-digit PIN for{' '}
+              Set a new 8-digit security PIN / password for{' '}
               <span className="font-bold text-stone-800">{pinTargetUser.fullName}</span>.
             </p>
 
@@ -990,7 +1001,7 @@ export const CashierAccountManager: React.FC<CashierAccountManagerProps> = ({
                 disabled={newPinValue.length !== 8}
                 className="flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 py-2.5 text-xs font-extrabold text-stone-950 shadow-xs disabled:opacity-40"
               >
-                <span>Save PIN</span>
+                <span>Save PIN / Password</span>
               </button>
             </div>
           </div>

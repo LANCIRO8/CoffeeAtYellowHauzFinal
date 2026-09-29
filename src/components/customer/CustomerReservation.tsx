@@ -37,16 +37,16 @@ export const CustomerReservation: React.FC<CustomerReservationProps> = ({
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-16">
       {/* Header & Section Chooser (Side-by-side Layout) */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 sm:gap-4 border-b border-stone-200/80 pb-3.5 sm:pb-5">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 sm:gap-4 border-b border-stone-200/80 dark:border-stone-800 pb-3.5 sm:pb-5">
         <div className="space-y-0.5 sm:space-y-1 max-w-xl">
-          <h1 className="font-display text-lg sm:text-3xl font-extrabold text-stone-900 leading-tight">
+          <h1 className="font-display text-lg sm:text-3xl font-extrabold text-stone-900 dark:text-stone-100 leading-tight">
             Reservations
           </h1>
         </div>
 
         {/* Inline Type Selector */}
         <div className="shrink-0">
-          <div className="inline-flex rounded-xl sm:rounded-2xl bg-stone-200/80 p-1 sm:p-1.5 border border-stone-300 shadow-inner w-full sm:w-auto">
+          <div className="inline-flex rounded-xl sm:rounded-2xl bg-stone-200/80 dark:bg-stone-900 p-1 sm:p-1.5 border border-stone-300 dark:border-stone-700 shadow-inner w-full sm:w-auto">
             <button
               id="btn-reservation-venue"
               type="button"
@@ -57,7 +57,7 @@ export const CustomerReservation: React.FC<CustomerReservationProps> = ({
               className={`flex-1 sm:flex-initial py-1.5 px-2.5 sm:py-2.5 sm:px-4 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap cursor-pointer ${
                 activeReservationType === 'venue'
                   ? 'bg-amber-500 text-stone-950 shadow-md ring-1 ring-amber-600/30'
-                  : 'text-stone-700 hover:text-stone-950 hover:bg-stone-100/60'
+                  : 'text-stone-700 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white hover:bg-stone-100/60 dark:hover:bg-stone-800/80'
               }`}
             >
               <Building className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -73,8 +73,8 @@ export const CustomerReservation: React.FC<CustomerReservationProps> = ({
               }}
               className={`flex-1 sm:flex-initial py-1.5 px-2.5 sm:py-2.5 sm:px-4 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap cursor-pointer ${
                 activeReservationType === 'tables'
-                  ? 'bg-stone-950 text-amber-400 shadow-md'
-                  : 'text-stone-700 hover:text-stone-950 hover:bg-stone-100/60'
+                  ? 'bg-stone-950 dark:bg-amber-500 text-amber-400 dark:text-stone-950 shadow-md'
+                  : 'text-stone-700 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white hover:bg-stone-100/60 dark:hover:bg-stone-800/80'
               }`}
             >
               <UtensilsCrossed className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -98,40 +98,40 @@ export const CustomerReservation: React.FC<CustomerReservationProps> = ({
         </div>
       ) : confirmedReservation ? (
         /* Confirmation Success Box for Table */
-        <div className="rounded-3xl border border-emerald-200 bg-white p-8 shadow-xl text-center space-y-5 animate-in fade-in zoom-in duration-200">
-          <div className="grid h-16 w-16 place-items-center rounded-full bg-emerald-100 text-emerald-700 mx-auto">
+        <div className="rounded-3xl border border-emerald-200 dark:border-emerald-800/60 bg-white dark:bg-stone-900 p-8 shadow-xl text-center space-y-5 animate-in fade-in zoom-in duration-200">
+          <div className="grid h-16 w-16 place-items-center rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 mx-auto">
             <CheckCircle className="h-8 w-8" />
           </div>
 
           <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
               Table Reservation Submitted
             </span>
-            <h2 className="text-2xl font-bold font-display text-stone-900 mt-1">
+            <h2 className="text-2xl font-bold font-display text-stone-900 dark:text-stone-100 mt-1">
               We Look Forward to Welcoming You!
             </h2>
-            <div className="mt-3 inline-block rounded-2xl bg-amber-50 border border-amber-200 px-5 py-2">
-              <span className="text-xs text-stone-500 font-bold uppercase tracking-wider block">
+            <div className="mt-3 inline-block rounded-2xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 px-5 py-2">
+              <span className="text-xs text-stone-500 dark:text-stone-400 font-bold uppercase tracking-wider block">
                 Your Confirmation Code
               </span>
-              <span className="font-mono text-xl font-extrabold text-amber-900">
+              <span className="font-mono text-xl font-extrabold text-amber-900 dark:text-amber-200">
                 {confirmedReservation.reservationCode}
               </span>
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 max-w-lg mx-auto text-left text-xs bg-stone-50 p-4 rounded-2xl border border-stone-200">
+          <div className="grid gap-3 sm:grid-cols-2 max-w-lg mx-auto text-left text-xs bg-stone-50 dark:bg-stone-850 p-4 rounded-2xl border border-stone-200 dark:border-stone-800">
             <div>
-              <span className="text-stone-500 block">Name:</span>
-              <span className="font-bold text-stone-800">{confirmedReservation.customerName}</span>
+              <span className="text-stone-500 dark:text-stone-400 block">Name:</span>
+              <span className="font-bold text-stone-800 dark:text-stone-200">{confirmedReservation.customerName}</span>
             </div>
             <div>
-              <span className="text-stone-500 block">Contact:</span>
-              <span className="font-bold text-stone-800">{confirmedReservation.contactNumber}</span>
+              <span className="text-stone-500 dark:text-stone-400 block">Contact:</span>
+              <span className="font-bold text-stone-800 dark:text-stone-200">{confirmedReservation.contactNumber}</span>
             </div>
             <div>
-              <span className="text-stone-500 block">Date &amp; Time:</span>
-              <span className="font-bold text-stone-800">
+              <span className="text-stone-500 dark:text-stone-400 block">Date &amp; Time:</span>
+              <span className="font-bold text-stone-800 dark:text-stone-200">
                 {new Date(confirmedReservation.reservationAt).toLocaleString('en-PH', {
                   dateStyle: 'medium',
                   timeStyle: 'short',
@@ -139,15 +139,15 @@ export const CustomerReservation: React.FC<CustomerReservationProps> = ({
               </span>
             </div>
             <div>
-              <span className="text-stone-500 block">Table:</span>
-              <span className="font-bold text-stone-800">
+              <span className="text-stone-500 dark:text-stone-400 block">Table:</span>
+              <span className="font-bold text-stone-800 dark:text-stone-200">
                 Table #{confirmedReservation.tableNumber} ({confirmedReservation.guestCount} Guests)
               </span>
             </div>
             {confirmedReservation.notes && (
-              <div className="sm:col-span-2 pt-2 border-t border-stone-200">
-                <span className="text-stone-500 block">Special Requests:</span>
-                <span className="italic text-stone-700">{confirmedReservation.notes}</span>
+              <div className="sm:col-span-2 pt-2 border-t border-stone-200 dark:border-stone-800">
+                <span className="text-stone-500 dark:text-stone-400 block">Special Requests:</span>
+                <span className="italic text-stone-700 dark:text-stone-300">{confirmedReservation.notes}</span>
               </div>
             )}
           </div>
@@ -157,7 +157,7 @@ export const CustomerReservation: React.FC<CustomerReservationProps> = ({
               <button
                 type="button"
                 onClick={onNavigateAccount}
-                className="rounded-xl bg-stone-900 px-6 py-2.5 text-xs font-bold text-amber-400 hover:bg-stone-800 transition"
+                className="rounded-xl bg-stone-900 dark:bg-stone-800 border dark:border-stone-700 px-6 py-2.5 text-xs font-bold text-amber-400 hover:bg-stone-800 dark:hover:bg-stone-700 transition"
               >
                 View My Reservations
               </button>

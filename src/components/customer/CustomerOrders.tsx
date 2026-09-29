@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { CustomerAccount, Order, StoreSettings, CartItem, MenuItem, TableBinding } from '../../types';
 import { AppStore } from '../../services/store';
 import {
@@ -65,6 +65,8 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
   const [now, setNow] = useState(Date.now());
   const [cancellingOrder, setCancellingOrder] = useState<Order | null>(null);
   const [withdrawSuccessMsg, setWithdrawSuccessMsg] = useState<string | null>(null);
+  const [declinedAlertOrder, setDeclinedAlertOrder] = useState<Order | null>(null);
+  const notifiedRejectionsRef = useRef<Set<string>>(new Set());
   const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
   const [exitSuccessMsg, setExitSuccessMsg] = useState<string | null>(null);
 
@@ -97,6 +99,37 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
   const visibleOrders = useMemo(() => {
     return AppStore.getCustomerVisibleOrders(customer, tableBinding);
   }, [orders, customer, tableBinding]);
+
+  // Monitor for newly declined cancellation requests and trigger proactive alert
+  useEffect(() => {
+    visibleOrders.forEach((o) => {
+      if (o.cancellationRejectedAt && !o.cancellationRequested && o.status !== 'cancelled') {
+        const rejectionKey = `${o.id}_${o.cancellationRejectedAt}`;
+        // Check if customer already dismissed this specific rejection notification
+        try {
+          const dismissedInStorage = localStorage.getItem(`yh_declined_cancellation_seen_${rejectionKey}`);
+          if (dismissedInStorage) {
+            notifiedRejectionsRef.current.add(rejectionKey);
+          }
+        } catch {}
+
+        if (!notifiedRejectionsRef.current.has(rejectionKey)) {
+          notifiedRejectionsRef.current.add(rejectionKey);
+          setDeclinedAlertOrder(o);
+        }
+      }
+    });
+  }, [visibleOrders]);
+
+  const handleDismissDeclinedAlert = (order: Order) => {
+    if (order.cancellationRejectedAt) {
+      const rejectionKey = `${order.id}_${order.cancellationRejectedAt}`;
+      try {
+        localStorage.setItem(`yh_declined_cancellation_seen_${rejectionKey}`, 'true');
+      } catch {}
+    }
+    setDeclinedAlertOrder(null);
+  };
 
   // Filter orders for active customer or searched order
   const filteredOrders = useMemo(() => {
@@ -315,7 +348,7 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search ticket # or item..."
-                className="w-48 sm:w-64 rounded-xl border border-stone-900/20 bg-white pl-8 pr-7 py-1.5 text-xs font-medium text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-950 shadow-sm"
+                className="w-48 sm:w-64 rounded-xl border border-stone-900/20 dark:border-stone-700 bg-white dark:bg-stone-900 pl-8 pr-7 py-1.5 text-xs font-medium text-stone-900 dark:text-stone-100 placeholder-stone-400 dark:placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-950 dark:focus:ring-amber-400 shadow-sm"
               />
               <button
                 type="button"
@@ -323,7 +356,7 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
                   setSearchQuery('');
                   setIsSearchOpen(false);
                 }}
-                className="absolute right-2 text-stone-500 hover:text-stone-800 cursor-pointer p-0.5"
+                className="absolute right-2 text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 cursor-pointer p-0.5"
                 title="Close Search"
               >
                 <X className="h-3.5 w-3.5" />
@@ -353,19 +386,19 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl border border-stone-200 space-y-4 animate-in zoom-in-95 duration-150"
+            className="w-full max-w-sm rounded-2xl bg-white dark:bg-stone-900 p-5 shadow-2xl border border-stone-200 dark:border-stone-800 space-y-4 animate-in zoom-in-95 duration-150"
           >
-            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+            <div className="flex items-center justify-between border-b border-stone-100 dark:border-stone-800 pb-3">
               <div className="flex items-center gap-2">
-                <div className="grid h-7 w-7 place-items-center rounded-lg bg-amber-500/20 text-amber-900">
+                <div className="grid h-7 w-7 place-items-center rounded-lg bg-amber-500/20 text-amber-900 dark:text-amber-400">
                   <ListFilter className="h-4 w-4" />
                 </div>
-                <h3 className="text-sm font-black text-stone-900 font-display">Filter Orders</h3>
+                <h3 className="text-sm font-black text-stone-900 dark:text-stone-100 font-display">Filter Orders</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsFilterModalOpen(false)}
-                className="grid h-7 w-7 place-items-center rounded-full bg-stone-100 hover:bg-stone-200 text-stone-600 transition cursor-pointer"
+                className="grid h-7 w-7 place-items-center rounded-full bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 transition cursor-pointer"
                 title="Close"
               >
                 <X className="h-4 w-4" />
@@ -382,15 +415,15 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
                 }}
                 className={`w-full flex items-center justify-between p-3 rounded-xl border text-xs font-bold transition cursor-pointer ${
                   filterTab === 'all'
-                    ? 'bg-amber-50 border-amber-400 text-stone-950 font-black'
-                    : 'bg-stone-50 border-stone-200/80 text-stone-700 hover:bg-stone-100'
+                    ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-400 dark:border-amber-500 text-stone-950 dark:text-amber-200 font-black'
+                    : 'bg-stone-50 dark:bg-stone-850 border-stone-200/80 dark:border-stone-750 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <ShoppingBag className="h-4 w-4 text-stone-500" />
+                  <ShoppingBag className="h-4 w-4 text-stone-500 dark:text-stone-400" />
                   <span>All Orders</span>
                 </div>
-                <span className="rounded-full bg-stone-200 px-2 py-0.5 text-[10px] text-stone-700">
+                <span className="rounded-full bg-stone-200 dark:bg-stone-750 px-2 py-0.5 text-[10px] text-stone-700 dark:text-stone-300">
                   {visibleOrders.length}
                 </span>
               </button>
@@ -404,12 +437,12 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
                 }}
                 className={`w-full flex items-center justify-between p-3 rounded-xl border text-xs font-bold transition cursor-pointer ${
                   filterTab === 'active'
-                    ? 'bg-amber-50 border-amber-400 text-stone-950 font-black'
-                    : 'bg-stone-50 border-stone-200/80 text-stone-700 hover:bg-stone-100'
+                    ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-400 dark:border-amber-500 text-stone-950 dark:text-amber-200 font-black'
+                    : 'bg-stone-50 dark:bg-stone-850 border-stone-200/80 dark:border-stone-750 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <Clock className="h-4 w-4 text-amber-600" />
+                  <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                   <span>In-Progress Orders</span>
                 </div>
                 {activeCount > 0 && (
@@ -428,12 +461,12 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
                 }}
                 className={`w-full flex items-center justify-between p-3 rounded-xl border text-xs font-bold transition cursor-pointer ${
                   filterTab === 'completed'
-                    ? 'bg-amber-50 border-amber-400 text-stone-950 font-black'
-                    : 'bg-stone-50 border-stone-200/80 text-stone-700 hover:bg-stone-100'
+                    ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-400 dark:border-amber-500 text-stone-950 dark:text-amber-200 font-black'
+                    : 'bg-stone-50 dark:bg-stone-850 border-stone-200/80 dark:border-stone-750 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                   <span>Completed / Past Orders</span>
                 </div>
               </button>
@@ -475,7 +508,7 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
 
       {/* Session & Table Status Banner */}
       {tableBinding ? (
-        <div className="rounded-2xl border border-stone-200 bg-white p-3.5 sm:p-4 shadow-2xs">
+        <div className="rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-3.5 sm:p-4 shadow-2xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-start gap-3">
               <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-500 text-stone-950 font-black text-sm">
@@ -483,21 +516,21 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
               </div>
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-black text-amber-900 uppercase tracking-wide">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950/70 border border-amber-200 dark:border-amber-800/60 px-2.5 py-0.5 text-[10px] font-black text-amber-900 dark:text-amber-300 uppercase tracking-wide">
                     Dine-In • Table #{tableBinding.tableNumber}
                   </span>
                   {customer ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-900">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-200 dark:border-emerald-800/60 px-2 py-0.5 text-[10px] font-bold text-emerald-900 dark:text-emerald-300">
                       <UserCheck className="h-3 w-3" />
                       <span>Saved to Account ({customer.fullName})</span>
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-bold text-stone-700">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 px-2 py-0.5 text-[10px] font-bold text-stone-700 dark:text-stone-300">
                       <span>Guest Session</span>
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-stone-600 leading-relaxed">
+                <p className="text-[11px] text-stone-600 dark:text-stone-300 leading-relaxed">
                   {customer ? (
                     <>
                       You are seated at Table #{tableBinding.tableNumber}. Your orders are permanently saved to your account.
@@ -526,19 +559,19 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
               <button
                 type="button"
                 onClick={handleExitTableClick}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-800 px-3 py-1.5 text-xs font-bold transition active:scale-95 cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-stone-300 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-800 dark:text-stone-200 px-3 py-1.5 text-xs font-bold transition active:scale-95 cursor-pointer"
                 title={customer ? 'Exit table (orders remain saved in account)' : 'Exit table (clears guest history)'}
               >
-                <DoorOpen className="h-3.5 w-3.5 text-stone-500" />
+                <DoorOpen className="h-3.5 w-3.5 text-stone-500 dark:text-stone-400" />
                 <span>Exit Table</span>
               </button>
             </div>
           </div>
         </div>
       ) : !customer ? (
-        <div className="rounded-2xl border border-amber-200/80 bg-amber-50/70 p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2 text-[11px] text-stone-700">
-            <Info className="h-4 w-4 text-amber-700 shrink-0" />
+        <div className="rounded-2xl border border-amber-200/80 dark:border-amber-900/40 bg-amber-50/70 dark:bg-stone-900 p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2 text-[11px] text-stone-700 dark:text-stone-300">
+            <Info className="h-4 w-4 text-amber-700 dark:text-amber-400 shrink-0" />
             <span>
               Ordering as a guest. Different tables and guests do not share orders. Sign up or sign in to access your permanent order history across devices.
             </span>
@@ -556,13 +589,13 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
 
       {/* Orders List */}
       {filteredOrders.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-8 sm:p-10 text-center space-y-3 shadow-2xs">
-          <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-amber-100 text-amber-700">
+        <div className="rounded-2xl border border-dashed border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 p-8 sm:p-10 text-center space-y-3 shadow-2xs">
+          <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-amber-100 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/40 text-amber-700 dark:text-amber-400">
             <ShoppingBag className="h-6 w-6" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-base font-bold text-stone-900 font-display">No Orders Found</h3>
-            <p className="text-[11px] text-stone-500 max-w-sm mx-auto">
+            <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 font-display">No Orders Found</h3>
+            <p className="text-[11px] text-stone-500 dark:text-stone-400 max-w-sm mx-auto">
               {searchQuery
                 ? `No orders matching "${searchQuery}". Try a different ticket number.`
                 : filterTab === 'active'
@@ -579,9 +612,9 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
               <button
                 type="button"
                 onClick={onRequireLogin}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400 bg-amber-50 px-3.5 py-2 text-xs font-bold text-stone-900 hover:bg-amber-100 transition shadow-2xs cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400 dark:border-amber-500/50 bg-amber-50 dark:bg-stone-800 px-3.5 py-2 text-xs font-bold text-stone-900 dark:text-stone-200 hover:bg-amber-100 dark:hover:bg-stone-750 transition shadow-2xs cursor-pointer"
               >
-                <LogIn className="h-3.5 w-3.5 text-amber-700" />
+                <LogIn className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400" />
                 <span>Sign In / Sign Up</span>
               </button>
             )}
@@ -612,38 +645,38 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
             return (
               <div
                 key={ord.id}
-                className={`rounded-2xl border bg-white p-4 sm:p-5 shadow-xs transition-all space-y-3 ${
+                className={`rounded-2xl border bg-white dark:bg-stone-900 p-4 sm:p-5 shadow-xs transition-all space-y-3 ${
                   isPending
-                    ? 'border-amber-300 ring-2 ring-amber-400/20'
+                    ? 'border-amber-300 dark:border-amber-600/50 ring-2 ring-amber-400/20'
                     : isProcessing
-                    ? 'border-sky-300 ring-2 ring-sky-400/20'
-                    : 'border-stone-200 hover:border-stone-300'
+                    ? 'border-sky-300 dark:border-sky-600/50 ring-2 ring-sky-400/20'
+                    : 'border-stone-200 dark:border-stone-800 hover:border-stone-300 dark:hover:border-stone-700'
                 }`}
               >
                 {/* Top Row: Ticket Number, Date, Status Badge */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-stone-100 pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-stone-100 dark:border-stone-800 pb-3">
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="font-mono text-sm font-black text-stone-900 bg-stone-100 border border-stone-200 px-2 py-0.5 rounded-lg">
+                      <span className="font-mono text-sm font-black text-stone-900 dark:text-stone-100 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 px-2 py-0.5 rounded-lg">
                         {ord.orderNumber}
                       </span>
                       {ord.orderClassification === 'live_in_house' || ord.tableNumber ? (
-                        <span className="rounded-md bg-emerald-100 border border-emerald-300 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-950 flex items-center gap-1">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                        <span className="rounded-md bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-950 dark:text-emerald-300 flex items-center gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400 animate-pulse" />
                           <span>Table #{ord.tableNumber || 1}</span>
                         </span>
                       ) : (
-                        <span className="rounded-md bg-amber-500/15 border border-amber-300 px-2 py-0.5 text-[10px] font-extrabold uppercase text-amber-950 flex items-center gap-1">
-                          <Calendar className="h-3 w-3 text-amber-700" />
+                        <span className="rounded-md bg-amber-500/15 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-800/60 px-2 py-0.5 text-[10px] font-extrabold uppercase text-amber-950 dark:text-amber-300 flex items-center gap-1">
+                          <Calendar className="h-3 w-3 text-amber-700 dark:text-amber-400" />
                           <span>Advance Booking</span>
                         </span>
                       )}
-                      <span className="rounded-md bg-stone-100 px-2 py-0.5 text-[10px] font-bold text-stone-700 capitalize">
+                      <span className="rounded-md bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 px-2 py-0.5 text-[10px] font-bold text-stone-700 dark:text-stone-300 capitalize">
                         {ord.orderType.replace('_', ' ')}
                       </span>
                     </div>
                     {ord.advanceBooking && (
-                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-amber-900 font-bold bg-amber-50 rounded-lg px-2 py-0.5 border border-amber-200/80 w-fit">
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-amber-900 dark:text-amber-300 font-bold bg-amber-50 dark:bg-amber-950/60 rounded-lg px-2 py-0.5 border border-amber-200/80 dark:border-amber-800/60 w-fit">
                         <span>📅 {ord.advanceBooking.bookingDate} at {ord.advanceBooking.arrivalTime}</span>
                         {ord.advanceBooking.partySize && (
                           <span>• 👥 {ord.advanceBooking.partySize} Guests</span>
@@ -653,13 +686,13 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
                         )}
                       </div>
                     )}
-                    <div className="flex items-center gap-1.5 text-[11px] text-stone-500">
-                      <Clock className="h-3 w-3 text-stone-400" />
+                    <div className="flex items-center gap-1.5 text-[11px] text-stone-500 dark:text-stone-400">
+                      <Clock className="h-3 w-3 text-stone-400 dark:text-stone-500" />
                       <span>{dateStr}</span>
                       {ord.customerName && (
                         <>
                           <span>•</span>
-                          <span className="font-semibold text-stone-700">
+                          <span className="font-semibold text-stone-700 dark:text-stone-300">
                             {ord.customerName}
                           </span>
                         </>
@@ -675,15 +708,15 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
 
                 {/* Cancellation Request Banner */}
                 {ord.cancellationRequested && ord.status !== 'cancelled' && (
-                  <div className="rounded-xl border border-rose-300 bg-rose-50/90 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-rose-950 animate-in fade-in duration-150">
+                  <div className="rounded-xl border border-rose-300 dark:border-rose-900/60 bg-rose-50/90 dark:bg-rose-950/60 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-rose-950 dark:text-rose-200 animate-in fade-in duration-150">
                     <div className="flex items-start gap-2">
-                      <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                      <AlertTriangle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                       <div>
-                        <p className="font-bold text-rose-950">
+                        <p className="font-bold text-rose-950 dark:text-rose-200">
                           Cancellation Requested • Awaiting Staff / Admin Approval
                         </p>
-                        <p className="text-[11px] text-rose-800">
-                          Reason: <span className="font-semibold text-rose-900">"{ord.cancellationReason}"</span>
+                        <p className="text-[11px] text-rose-800 dark:text-rose-300">
+                          Reason: <span className="font-semibold text-rose-900 dark:text-rose-100">"{ord.cancellationReason}"</span>
                           {ord.cancellationNotes && <span> — Note: {ord.cancellationNotes}</span>}
                         </p>
                       </div>
@@ -691,7 +724,7 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
                     <button
                       type="button"
                       onClick={() => handleWithdrawCancellation(ord.id)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-rose-300 bg-white px-2.5 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-100 transition cursor-pointer self-start sm:self-center shrink-0"
+                      className="inline-flex items-center gap-1 rounded-lg border border-rose-300 dark:border-rose-800 bg-white dark:bg-stone-900 px-2.5 py-1 text-[11px] font-bold text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-stone-800 transition cursor-pointer self-start sm:self-center shrink-0"
                     >
                       Withdraw Request
                     </button>
@@ -700,21 +733,29 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
 
                 {/* Staff declined note if any */}
                 {ord.cancellationRejectedAt && !ord.cancellationRequested && ord.status !== 'cancelled' && (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-2.5 flex items-start gap-2 text-[11px] text-amber-900">
-                    <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-bold">Cancellation Request Declined: </span>
-                      <span>{ord.cancellationRejectReason || 'Your order is already being prepared by our barista and kitchen team.'}</span>
+                  <div className="rounded-xl border border-amber-300 dark:border-amber-800/60 bg-amber-50/90 dark:bg-amber-950/60 p-3 flex items-start justify-between gap-2.5 text-xs text-amber-950 dark:text-amber-200 shadow-2xs">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <div className="grid h-6 w-6 place-items-center rounded-lg bg-amber-500/20 text-amber-800 dark:text-amber-400 shrink-0 mt-0.5">
+                        <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+                      </div>
+                      <div>
+                        <span className="font-extrabold text-amber-900 dark:text-amber-300 block text-xs">
+                          Cancellation Request Declined by Staff
+                        </span>
+                        <p className="text-[11px] text-amber-800 dark:text-amber-300/80 mt-0.5 leading-relaxed">
+                          {ord.cancellationRejectReason || 'Your order is already being freshly prepared by our barista and kitchen team.'}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
 
                 {/* Items Summary */}
-                <div className="space-y-1.5 rounded-xl bg-stone-50/80 p-3 border border-stone-100">
-                  <div className="text-[10px] font-extrabold uppercase tracking-wider text-stone-500 mb-1">
+                <div className="space-y-1.5 rounded-xl bg-stone-50/80 dark:bg-stone-850 p-3 border border-stone-100 dark:border-stone-800">
+                  <div className="text-[10px] font-extrabold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-1">
                     Ordered Items ({ord.items.reduce((s, i) => s + i.quantity, 0)})
                   </div>
-                  <div className="space-y-1.5 divide-y divide-stone-200/60">
+                  <div className="space-y-1.5 divide-y divide-stone-200/60 dark:divide-stone-750">
                     {ord.items.map((it, idx) => {
                       const variantName =
                         typeof it.selectedVariant === 'string'
@@ -729,24 +770,24 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
                           }`}
                         >
                           <div className="space-y-0.5">
-                            <div className="font-bold text-stone-800 flex items-center gap-1.5 flex-wrap">
-                              <span className="rounded-md bg-amber-100 text-amber-900 font-extrabold px-1.5 py-0.2 text-[10px]">
+                            <div className="font-bold text-stone-800 dark:text-stone-200 flex items-center gap-1.5 flex-wrap">
+                              <span className="rounded-md bg-amber-100 dark:bg-amber-950/70 border border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-300 font-extrabold px-1.5 py-0.2 text-[10px]">
                                 {it.quantity}x
                               </span>
                               <span>{it.name}</span>
                               {variantName && (
-                                <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.2 rounded-md bg-amber-100/80 text-amber-800">
+                                <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.2 rounded-md bg-amber-100/80 dark:bg-amber-950/70 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-300">
                                   {variantName}
                                 </span>
                               )}
                             </div>
                             {it.specialInstructions && (
-                              <p className="text-[10px] text-stone-500 italic pl-5">
+                              <p className="text-[10px] text-stone-500 dark:text-stone-400 italic pl-5">
                                 Note: "{it.specialInstructions}"
                               </p>
                             )}
                           </div>
-                          <span className="font-bold text-stone-900 font-mono shrink-0 text-xs">
+                          <span className="font-bold text-stone-900 dark:text-stone-100 font-mono shrink-0 text-xs">
                             ₱{(it.totalPrice || it.unitPrice * it.quantity || 0).toFixed(2)}
                           </span>
                         </div>
@@ -759,16 +800,16 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
                   <div className="flex items-center gap-3 text-xs">
                     <div>
-                      <span className="text-stone-400 block text-[9px] uppercase font-bold">Total</span>
-                      <span className="font-display text-base font-extrabold text-stone-900">
+                      <span className="text-stone-400 dark:text-stone-500 block text-[9px] uppercase font-bold">Total</span>
+                      <span className="font-display text-base font-extrabold text-stone-900 dark:text-stone-100">
                         ₱{ord.totalAmount.toFixed(2)}
                       </span>
                     </div>
-                    <div className="h-6 w-px bg-stone-200" />
+                    <div className="h-6 w-px bg-stone-200 dark:bg-stone-750" />
                     <div>
-                      <span className="text-stone-400 block text-[9px] uppercase font-bold">Payment</span>
-                      <span className="font-bold text-stone-700 uppercase flex items-center gap-1 text-[11px]">
-                        <CreditCard className="h-3 w-3 text-stone-400" />
+                      <span className="text-stone-400 dark:text-stone-500 block text-[9px] uppercase font-bold">Payment</span>
+                      <span className="font-bold text-stone-700 dark:text-stone-300 uppercase flex items-center gap-1 text-[11px]">
+                        <CreditCard className="h-3 w-3 text-stone-400 dark:text-stone-500" />
                         {ord.paymentMethod || 'Cash'}
                       </span>
                     </div>
@@ -778,7 +819,7 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
                     {isPending ? (
                       <button
                         onClick={() => onViewReviewStatus(ord)}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 px-3 py-1.5 text-xs font-extrabold text-stone-950 transition shadow-2xs cursor-pointer active:scale-95"
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 px-3 py-1.5 text-xs font-extrabold transition shadow-2xs cursor-pointer active:scale-95"
                       >
                         <Clock className="h-3 w-3 text-stone-950" />
                         <span>Track Status</span>
@@ -786,7 +827,7 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
                     ) : (
                       <button
                         onClick={() => onViewReceipt(ord)}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 px-3 py-1.5 text-xs font-bold text-stone-800 transition cursor-pointer active:scale-95"
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 hover:bg-stone-100 dark:hover:bg-stone-750 px-3 py-1.5 text-xs font-bold text-stone-800 dark:text-stone-200 transition cursor-pointer active:scale-95"
                       >
                         <Printer className="h-3 w-3 text-stone-600" />
                         <span>Receipt</span>
@@ -902,6 +943,83 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
           setOrders(AppStore.getOrders());
         }}
       />
+
+      {/* Proactive Notification Modal: Cancellation Declined by Staff / Admin */}
+      {declinedAlertOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in-0 duration-200">
+          <div className="relative w-full max-w-md rounded-2xl bg-white p-5 sm:p-6 shadow-2xl border border-stone-200 animate-in zoom-in-95 duration-200">
+            {/* Header Icon */}
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+              <div className="flex items-center gap-2.5">
+                <div className="grid h-10 w-10 place-items-center rounded-xl bg-amber-500/20 text-amber-900">
+                  <AlertTriangle className="h-5 w-5 text-amber-700" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-stone-900 leading-tight">
+                    Cancellation Request Declined
+                  </h3>
+                  <span className="text-[11px] font-mono text-stone-500">
+                    Order #{declinedAlertOrder.orderNumber}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleDismissDeclinedAlert(declinedAlertOrder)}
+                className="rounded-lg p-1 text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+                title="Dismiss"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Notification Body */}
+            <div className="py-4 space-y-3">
+              <p className="text-xs text-stone-700 leading-relaxed">
+                The staff or admin has reviewed your request to cancel Order{' '}
+                <strong className="font-mono text-stone-900">#{declinedAlertOrder.orderNumber}</strong>{' '}
+                and was unable to cancel it because preparation is already underway.
+              </p>
+
+              <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs text-amber-950">
+                <span className="font-bold text-amber-900 block text-[11px] uppercase tracking-wide mb-0.5">
+                  Staff Note / Reason:
+                </span>
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  "{declinedAlertOrder.cancellationRejectReason || 'Your order is already being freshly prepared by our barista and kitchen team.'}"
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 rounded-xl bg-stone-50 p-2.5 border border-stone-200/80 text-xs">
+                <span className="text-stone-600 font-medium">Order Status:</span>
+                <span className="font-bold text-amber-900 flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                  <span>
+                    {declinedAlertOrder.status === 'to_prep'
+                      ? 'In Kitchen Prep'
+                      : declinedAlertOrder.status === 'processing'
+                      ? 'Preparing in Bar / Kitchen'
+                      : declinedAlertOrder.status === 'to_serve'
+                      ? 'Ready to Serve'
+                      : 'Active in Queue'}
+                  </span>
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="pt-2 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => handleDismissDeclinedAlert(declinedAlertOrder)}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 px-4 py-2.5 text-xs font-black shadow-xs transition active:scale-95 cursor-pointer"
+              >
+                <span>Understood, Continue Order</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

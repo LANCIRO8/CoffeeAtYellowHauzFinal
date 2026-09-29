@@ -149,7 +149,7 @@ export const DiscountModal: React.FC<DiscountModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="relative w-full max-w-2xl bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 rounded-3xl shadow-2xl border border-stone-200 dark:border-stone-800 overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="bg-stone-900 text-white px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -518,14 +518,14 @@ export const DiscountModal: React.FC<DiscountModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="bg-stone-50 px-6 py-3 border-t border-stone-200 flex items-center justify-between text-xs text-stone-600">
+        <div className="bg-stone-50 dark:bg-stone-850 dark:bg-stone-900 px-6 py-3 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between text-xs text-stone-600 dark:text-stone-300">
           <div>
-            Subtotal: <strong className="font-mono text-stone-900">₱{subtotal.toFixed(2)}</strong>
+            Subtotal: <strong className="font-mono text-stone-900 dark:text-stone-100">₱{subtotal.toFixed(2)}</strong>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl bg-stone-900 text-white font-bold px-5 py-2 hover:bg-stone-800 transition"
+            className="rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold px-5 py-2 transition cursor-pointer"
           >
             Done
           </button>

@@ -96,8 +96,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   const { showConfirm, showAlert, showPrompt } = useModal();
 
-  // Selected date filtering preset for executive metrics
-  const [timeRange, setTimeRange] = useState<'today' | '7days' | '30days' | 'all'>('today');
+  // Selected date filtering preset for executive metrics - defaults to all time
+  const [timeRange, setTimeRange] = useState<'today' | '7days' | '30days' | 'all'>('all');
   const [dashboardChartTab, setDashboardChartTab] = useState<'category' | 'bestSellers'>('category');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
@@ -580,7 +580,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* 1. Header Banner & Executive Controls */}
       <div
         id="admin-dashboard-header"
-        className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white text-stone-900 p-4 sm:p-6 shadow-xs transition-all"
+        className="rounded-2xl sm:rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 p-4 sm:p-6 shadow-xs transition-all"
       >
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6">
           <div className="flex items-center gap-3 sm:gap-4">
@@ -776,9 +776,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         lowStockItems.length > 0 ||
         pendingReservations.length > 0 ||
         pendingTicketsCount > 0) && (
-        <div className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-4 shadow-xs">
+        <div className="rounded-2xl sm:rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-3.5 sm:p-4 shadow-xs">
           <div className="flex items-center justify-between gap-2 mb-2 sm:mb-2.5">
-            <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-stone-700 flex items-center gap-1.5">
+            <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-stone-700 dark:text-stone-300 flex items-center gap-1.5">
               <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
               <span>Real-Time Operation Status &amp; Action Queue</span>
             </span>

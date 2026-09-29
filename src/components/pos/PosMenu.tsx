@@ -83,7 +83,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
   const { showAlert, showConfirm } = useModal();
   const [categoryType, setCategoryType] = useState<'drinks' | 'food'>('drinks');
   const [selectedCategory, setSelectedCategory] = useState<number | 'all'>(9);
-  const [filterMode, setFilterMode] = useState<'all' | 'bestsellers'>('all');
+  const [filterMode, setFilterMode] = useState<'all' | 'bestsellers'>('bestsellers');
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -261,9 +261,21 @@ export const PosMenu: React.FC<PosMenuProps> = ({
 
   // Filter Items
   const filteredItems = useMemo(() => {
+    const trimmedQuery = searchQuery.trim().toLowerCase();
+
     return menuItems.filter((item) => {
       if (!item.isAvailable) return false;
-      
+
+      // When the cashier is searching, search globally across all items
+      // (not restricted by current category, drinks/food tab, or best-sellers filter)
+      if (trimmedQuery) {
+        return (
+          item.name.toLowerCase().includes(trimmedQuery) ||
+          item.description.toLowerCase().includes(trimmedQuery)
+        );
+      }
+
+      // When not searching, apply the current category and best sellers filter
       if (selectedCategory !== 'all') {
         if (item.categoryId !== selectedCategory) return false;
       } else {
@@ -278,10 +290,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
       if (filterMode === 'bestsellers' && !item.isBestSeller) {
         return false;
       }
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        return item.name.toLowerCase().includes(q) || item.description.toLowerCase().includes(q);
-      }
+
       return true;
     });
   }, [menuItems, categories, selectedCategory, categoryType, filterMode, searchQuery]);
@@ -729,12 +738,12 @@ export const PosMenu: React.FC<PosMenuProps> = ({
   return (
     <div className="flex flex-col lg:flex-row h-auto lg:h-[calc(100vh-140px)] lg:min-h-[600px] gap-4 relative pb-20 lg:pb-0 transition-all duration-300">
       {/* Left: Product Catalog with Vertical Categories */}
-      <div className="flex-1 min-w-0 flex flex-col lg:flex-row rounded-3xl border border-stone-200 bg-white shadow-xs overflow-hidden transition-all duration-300">
+      <div className="flex-1 min-w-0 flex flex-col lg:flex-row rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 shadow-xs overflow-hidden transition-all duration-300">
         {/* Desktop Vertical Category Sidebar */}
-        <div className="hidden lg:flex w-40 lg:w-44 shrink-0 border-r border-stone-200/90 bg-stone-50/70 flex-col h-full">
+        <div className="hidden lg:flex w-40 lg:w-44 shrink-0 border-r border-stone-200/90 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-900/60 flex-col h-full">
           {/* Segmented Pill Toggle: Drinks vs Food */}
           <div className="p-2 pb-1.5">
-            <div className="grid grid-cols-2 rounded-full bg-white p-0.5 border border-stone-200 shadow-2xs">
+            <div className="grid grid-cols-2 rounded-full bg-white dark:bg-stone-800 p-0.5 border border-stone-200 dark:border-stone-700 shadow-2xs">
               <button
                 type="button"
                 onClick={() => {
@@ -747,7 +756,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                 className={`flex items-center justify-center gap-1 rounded-full py-1.5 text-[11px] font-black transition-all duration-150 ${
                   categoryType === 'drinks'
                     ? 'bg-amber-500 text-stone-950 shadow-xs'
-                    : 'text-stone-400 hover:text-stone-700 hover:bg-stone-50'
+                    : 'text-stone-400 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-700/50'
                 }`}
               >
                 <Coffee className="h-3.5 w-3.5 shrink-0 stroke-[2.2]" />
@@ -766,7 +775,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                 className={`flex items-center justify-center gap-1 rounded-full py-1.5 text-[11px] font-black transition-all duration-150 ${
                   categoryType === 'food'
                     ? 'bg-amber-500 text-stone-950 shadow-xs'
-                    : 'text-stone-400 hover:text-stone-700 hover:bg-stone-50'
+                    : 'text-stone-400 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-700/50'
                 }`}
               >
                 <Utensils className="h-3.5 w-3.5 shrink-0 stroke-[2.2]" />
@@ -788,10 +797,10 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                   className={`w-full flex items-center gap-2 text-left rounded-full px-3 py-2 text-xs font-black transition-all duration-150 border ${
                     isSelected
                       ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-xs'
-                      : 'bg-white text-stone-900 border-stone-200 hover:bg-stone-50 hover:border-stone-300 shadow-2xs active:scale-[0.98]'
+                      : 'bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-200 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-700/60 hover:border-stone-300 dark:hover:border-stone-600 shadow-2xs active:scale-[0.98]'
                   }`}
                 >
-                  <span className={isSelected ? 'text-stone-950' : 'text-stone-900'}>
+                  <span className={isSelected ? 'text-stone-950' : 'text-stone-900 dark:text-stone-200'}>
                     {renderCategoryIcon(cat.name, categoryType === 'drinks', cat.icon)}
                   </span>
                   <span className="truncate flex-1 tracking-tight font-black text-[11px]">{cat.name}</span>
@@ -802,10 +811,10 @@ export const PosMenu: React.FC<PosMenuProps> = ({
         </div>
 
         {/* Mobile Collapsible Categories Header & Drawer */}
-        <div className="lg:hidden border-b border-stone-200 bg-stone-50/90 p-2.5 sm:p-3">
+        <div className="lg:hidden border-b border-stone-200 dark:border-stone-800 bg-stone-50/90 dark:bg-stone-900/90 p-2.5 sm:p-3">
           <div className="flex items-center justify-between gap-2">
             {/* Drinks / Food pill toggle on mobile */}
-            <div className="grid grid-cols-2 rounded-full bg-white p-0.5 border border-stone-200 shadow-2xs shrink-0 w-36 sm:w-40">
+            <div className="grid grid-cols-2 rounded-full bg-white dark:bg-stone-800 p-0.5 border border-stone-200 dark:border-stone-700 shadow-2xs shrink-0 w-36 sm:w-40">
               <button
                 type="button"
                 onClick={() => {
@@ -816,7 +825,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                 className={`flex items-center justify-center gap-1 rounded-full py-1 text-[11px] font-black transition-all ${
                   categoryType === 'drinks'
                     ? 'bg-amber-500 text-stone-950 shadow-xs'
-                    : 'text-stone-500 hover:text-stone-800'
+                    : 'text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200'
                 }`}
               >
                 <Coffee className="h-3 w-3 shrink-0 stroke-[2.2]" />
@@ -832,7 +841,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                 className={`flex items-center justify-center gap-1 rounded-full py-1 text-[11px] font-black transition-all ${
                   categoryType === 'food'
                     ? 'bg-amber-500 text-stone-950 shadow-xs'
-                    : 'text-stone-500 hover:text-stone-800'
+                    : 'text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200'
                 }`}
               >
                 <Utensils className="h-3 w-3 shrink-0 stroke-[2.2]" />
@@ -844,31 +853,31 @@ export const PosMenu: React.FC<PosMenuProps> = ({
             <button
               type="button"
               onClick={() => setIsMobileCategoriesOpen(!isMobileCategoriesOpen)}
-              className="flex items-center gap-1.5 rounded-xl border border-amber-300/80 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-950 shadow-2xs transition shrink-0"
+              className="flex items-center gap-1.5 rounded-xl border border-amber-300/80 dark:border-amber-600/60 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 dark:hover:bg-amber-900/60 px-2.5 py-1 text-xs font-bold text-amber-950 dark:text-amber-200 shadow-2xs transition shrink-0"
             >
-              <span className="text-amber-800">
+              <span className="text-amber-800 dark:text-amber-300">
                 {renderCategoryIcon(
                   categories.find((c) => c.id === selectedCategory)?.name || '',
                   categoryType === 'drinks',
                   categories.find((c) => c.id === selectedCategory)?.icon
                 )}
               </span>
-              <span className="truncate max-w-[120px] text-xs font-black text-amber-950">
+              <span className="truncate max-w-[120px] text-xs font-black text-amber-950 dark:text-amber-200">
                 {selectedCategory === 'all'
                   ? `All ${categoryType}`
                   : categories.find((c) => c.id === selectedCategory)?.name || 'Categories'}
               </span>
               {isMobileCategoriesOpen ? (
-                <ChevronUp className="h-3.5 w-3.5 text-amber-800" />
+                <ChevronUp className="h-3.5 w-3.5 text-amber-800 dark:text-amber-300" />
               ) : (
-                <ChevronDown className="h-3.5 w-3.5 text-amber-800" />
+                <ChevronDown className="h-3.5 w-3.5 text-amber-800 dark:text-amber-300" />
               )}
             </button>
           </div>
 
           {/* Expanded Mobile Categories Grid */}
           {isMobileCategoriesOpen && (
-            <div className="mt-2.5 pt-2.5 border-t border-stone-200 grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-56 overflow-y-auto pr-1">
+            <div className="mt-2.5 pt-2.5 border-t border-stone-200 dark:border-stone-800 grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-56 overflow-y-auto pr-1">
               {currentCategoriesList.map((cat) => {
                 const isSelected = selectedCategory === cat.id;
                 return (
@@ -882,7 +891,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                     className={`flex items-center gap-2 text-left rounded-xl px-2.5 py-2 text-xs font-bold transition-all border ${
                       isSelected
                         ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-xs'
-                        : 'bg-white text-stone-800 border-stone-200 hover:bg-stone-50 shadow-2xs'
+                        : 'bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-700 shadow-2xs'
                     }`}
                   >
                     <span>{renderCategoryIcon(cat.name, categoryType === 'drinks', cat.icon)}</span>
@@ -946,14 +955,14 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                   isMobileSearchOpen || searchQuery ? 'block' : 'hidden sm:block'
                 }`}
               >
-                <Search className="absolute left-2.5 sm:left-3 top-2 sm:top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-400" />
+                <Search className="absolute left-2.5 sm:left-3 top-2 sm:top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-400 dark:text-stone-500" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search menu items..."
+                  placeholder="Search all menu items..."
                   autoFocus={isMobileSearchOpen}
-                  className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-8 sm:pl-9 pr-7 sm:pr-8 py-1.5 sm:py-2 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none transition-colors"
+                  className="w-full rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 pl-8 sm:pl-9 pr-7 sm:pr-8 py-1.5 sm:py-2 text-xs sm:text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:border-amber-500 focus:bg-white dark:focus:bg-stone-800 focus:outline-none transition-colors"
                 />
                 {(searchQuery || isMobileSearchOpen) && (
                   <button
@@ -962,7 +971,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                       setSearchQuery('');
                       setIsMobileSearchOpen(false);
                     }}
-                    className="absolute right-2 top-2 sm:top-2.5 text-stone-400 hover:text-stone-600 cursor-pointer p-0.5 rounded-md hover:bg-stone-200/60 transition"
+                    className="absolute right-2 top-2 sm:top-2.5 text-stone-400 hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300 cursor-pointer p-0.5 rounded-md hover:bg-stone-200/60 dark:hover:bg-stone-700/60 transition"
                     title="Clear search"
                   >
                     <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -980,16 +989,16 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                     title="Change Catalog Grid Columns (1 to 5)"
                     className={`relative flex items-center gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 rounded-xl border transition active:scale-95 cursor-pointer shadow-2xs font-bold text-xs ${
                       isGridModalOpen
-                        ? 'border-amber-400 bg-amber-50 text-amber-950 ring-2 ring-amber-400/30'
-                        : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50 hover:text-stone-950'
+                        ? 'border-amber-400 dark:border-amber-500 bg-amber-50 dark:bg-amber-950/60 text-amber-950 dark:text-amber-200 ring-2 ring-amber-400/30'
+                        : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 hover:text-stone-950 dark:hover:text-stone-100'
                     }`}
                   >
                     {gridColumns === 1 ? (
-                      <Square className="h-3.5 w-3.5 text-amber-600 stroke-[2.2]" />
+                      <Square className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 stroke-[2.2]" />
                     ) : gridColumns === 2 ? (
-                      <Grid2X2 className="h-3.5 w-3.5 text-amber-600 stroke-[2.2]" />
+                      <Grid2X2 className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 stroke-[2.2]" />
                     ) : (
-                      <Grid3X3 className="h-3.5 w-3.5 text-amber-600 stroke-[2.2]" />
+                      <Grid3X3 className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 stroke-[2.2]" />
                     )}
                     <span className="font-extrabold text-[11px] hidden sm:inline">
                       {gridColumns} Col
@@ -1145,14 +1154,14 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                   )}
                 </div>
 
-                <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl shrink-0">
+                <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-800 p-1 rounded-xl shrink-0">
                   <button
                     type="button"
                     onClick={() => setFilterMode('all')}
                     className={`px-2.5 sm:px-3 py-1 text-[11px] font-bold rounded-lg transition cursor-pointer ${
                       filterMode === 'all'
-                        ? 'bg-white text-stone-900 shadow-xs'
-                        : 'text-stone-600 hover:text-stone-900'
+                        ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-xs'
+                        : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
                     }`}
                   >
                     All
@@ -1163,7 +1172,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                     className={`px-2.5 sm:px-3 py-1 text-[11px] font-bold rounded-lg transition flex items-center gap-1 sm:gap-1.5 cursor-pointer ${
                       filterMode === 'bestsellers'
                         ? 'bg-amber-500 text-stone-950 font-extrabold shadow-xs'
-                        : 'text-stone-600 hover:text-stone-900'
+                        : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
                     }`}
                   >
                     <Sparkles className={`h-3 w-3 ${filterMode === 'bestsellers' ? 'text-stone-950' : 'text-amber-500'}`} />
@@ -1173,6 +1182,28 @@ export const PosMenu: React.FC<PosMenuProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Active Global Search Notice when query exists */}
+          {searchQuery.trim() && (
+            <div className="flex items-center justify-between px-3 py-1.5 mb-1 rounded-xl bg-amber-500/10 border border-amber-300/50 text-amber-950 text-xs">
+              <div className="flex items-center gap-1.5 font-medium truncate">
+                <Search className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                <span>
+                  Searching all items for <strong className="font-black text-amber-900">"{searchQuery.trim()}"</strong> ({filteredItems.length} found)
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setIsMobileSearchOpen(false);
+                }}
+                className="ml-2 text-[11px] font-bold text-amber-800 hover:text-amber-950 hover:underline shrink-0 cursor-pointer"
+              >
+                Clear
+              </button>
+            </div>
+          )}
 
           {/* Product Grid */}
           <div className="flex-1 overflow-y-auto pt-3 pr-1 min-h-[300px] lg:min-h-0">
@@ -1206,15 +1237,15 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                     <button
                       key={item.id}
                       onClick={() => addToCart(item)}
-                      className={`group flex flex-col justify-between text-left rounded-2xl border bg-white p-2 sm:p-2.5 shadow-2xs transition active:scale-95 cursor-pointer ${
+                      className={`group flex flex-col justify-between text-left rounded-2xl border p-2 sm:p-2.5 shadow-2xs transition active:scale-95 cursor-pointer ${
                         isOutOfStock
-                          ? 'border-rose-200 bg-rose-50/20 opacity-75 hover:border-rose-400'
+                          ? 'border-rose-200 dark:border-rose-900/40 bg-rose-50/20 dark:bg-rose-950/20 opacity-75 hover:border-rose-400'
                           : isLowStock
-                          ? 'border-amber-300 hover:border-amber-500 hover:shadow-md'
-                          : 'border-stone-200 hover:border-amber-400 hover:shadow-md'
+                          ? 'border-amber-300 dark:border-amber-600/50 bg-white dark:bg-stone-800 hover:border-amber-500 hover:shadow-md'
+                          : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 hover:border-amber-400 dark:hover:border-amber-500 hover:shadow-md'
                       }`}
                     >
-                      <div className="relative aspect-4/3 w-full rounded-xl overflow-hidden bg-stone-100 mb-1.5 sm:mb-2">
+                      <div className="relative aspect-4/3 w-full rounded-xl overflow-hidden bg-stone-100 dark:bg-stone-900 mb-1.5 sm:mb-2">
                         <img
                           src={item.imageUrl || '/images/latte.webp'}
                           alt={item.name}
@@ -1243,15 +1274,15 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                         </span>
                       </div>
                       <div>
-                        <h4 className="font-bold text-xs text-stone-900 line-clamp-1 group-hover:text-amber-800">
+                        <h4 className="font-bold text-xs text-stone-900 dark:text-stone-100 line-clamp-1 group-hover:text-amber-800 dark:group-hover:text-amber-400">
                           {item.name}
                         </h4>
-                        <div className="mt-0.5 flex items-center justify-between text-[10px] text-stone-500">
+                        <div className="mt-0.5 flex items-center justify-between text-[10px] text-stone-500 dark:text-stone-400">
                           <span className="capitalize">{item.temperature}</span>
                           {isOutOfStock ? (
                             <span className="font-bold text-rose-600">Out of Stock</span>
                           ) : isLowStock ? (
-                            <span className="font-bold text-amber-700">Low: {item.quantity}</span>
+                            <span className="font-bold text-amber-700 dark:text-amber-400">Low: {item.quantity}</span>
                           ) : (
                             <span>Qty: {item.quantity}</span>
                           )}
@@ -1270,13 +1301,13 @@ export const PosMenu: React.FC<PosMenuProps> = ({
       {!isTicketSidebarOpen && (
         <aside
           onClick={() => setIsTicketSidebarOpen(true)}
-          className="hidden lg:flex w-14 shrink-0 rounded-3xl border border-stone-200 bg-white p-2 flex-col items-center justify-between shadow-xs hover:border-amber-400 hover:shadow-md transition-all cursor-pointer group select-none"
+          className="hidden lg:flex w-14 shrink-0 rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-2 flex-col items-center justify-between shadow-xs hover:border-amber-400 dark:hover:border-amber-500 hover:shadow-md transition-all cursor-pointer group select-none"
           title="Click to open Ticket Sidebar"
         >
           <div className="flex flex-col items-center gap-2 pt-2">
             <button
               type="button"
-              className="grid h-9 w-9 place-items-center rounded-2xl bg-amber-50 text-amber-900 border border-amber-200 group-hover:bg-amber-500 group-hover:text-stone-950 group-hover:border-amber-500 transition shadow-2xs"
+              className="grid h-9 w-9 place-items-center rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-700/60 group-hover:bg-amber-500 group-hover:text-stone-950 group-hover:border-amber-500 transition shadow-2xs"
             >
               <ChevronLeft className="h-4 w-4 stroke-[2.5]" />
             </button>
@@ -1289,7 +1320,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
 
           {/* Vertical Rotated Text */}
           <div className="py-6 flex items-center justify-center">
-            <span className="text-[11px] font-black uppercase tracking-widest text-stone-500 group-hover:text-stone-900 transition [writing-mode:vertical-rl] rotate-180">
+            <span className="text-[11px] font-black uppercase tracking-widest text-stone-500 dark:text-stone-400 group-hover:text-stone-900 dark:group-hover:text-stone-200 transition [writing-mode:vertical-rl] rotate-180">
               Current Ticket
             </span>
           </div>
@@ -1308,7 +1339,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                 <Banknote className="h-5 w-5" />
               </button>
             ) : (
-              <div className="h-8 w-8 rounded-full bg-stone-100 grid place-items-center text-stone-400">
+              <div className="h-8 w-8 rounded-full bg-stone-100 dark:bg-stone-800 grid place-items-center text-stone-400 dark:text-stone-500">
                 <ShoppingCart className="h-3.5 w-3.5" />
               </div>
             )}
@@ -1328,17 +1359,17 @@ export const PosMenu: React.FC<PosMenuProps> = ({
       <aside
         className={`${
           isTicketSidebarOpen ? 'flex' : 'hidden'
-        } fixed inset-y-0 right-0 z-50 w-full sm:max-w-md lg:static lg:z-auto lg:w-[380px] xl:w-[420px] shrink-0 flex-col rounded-none sm:rounded-l-3xl lg:rounded-3xl border-l lg:border border-stone-200 bg-white p-4 sm:p-5 shadow-2xl lg:shadow-xs overflow-hidden transition-all duration-300`}
+        } fixed inset-y-0 right-0 z-50 w-full sm:max-w-md lg:static lg:z-auto lg:w-[380px] xl:w-[420px] shrink-0 flex-col rounded-none sm:rounded-l-3xl lg:rounded-3xl border-l lg:border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-4 sm:p-5 shadow-2xl lg:shadow-xs overflow-hidden transition-all duration-300`}
       >
         {/* Ticket Header with Collapse Toggle */}
-        <div className="space-y-3 pb-3 border-b border-stone-200">
+        <div className="space-y-3 pb-3 border-b border-stone-200 dark:border-stone-800">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="font-display font-bold text-base text-stone-900">Current Ticket</span>
+              <span className="font-display font-bold text-base text-stone-900 dark:text-stone-100">Current Ticket</span>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold text-stone-500 bg-stone-100 px-2.5 py-1 rounded-lg hidden sm:inline-block">
+              <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 px-2.5 py-1 rounded-lg hidden sm:inline-block">
                 Cashier: {(activeStaff?.fullName || activeStaff?.name || 'Staff').split(' ')[0]}
               </span>
 
@@ -1346,10 +1377,10 @@ export const PosMenu: React.FC<PosMenuProps> = ({
               <button
                 type="button"
                 onClick={() => setIsTicketSidebarOpen(false)}
-                className="flex items-center gap-1 rounded-xl border border-stone-200 bg-stone-100 hover:bg-stone-200 px-2.5 py-1.5 text-xs font-bold text-stone-700 transition cursor-pointer"
+                className="flex items-center gap-1 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 px-2.5 py-1.5 text-xs font-bold text-stone-700 dark:text-stone-300 transition cursor-pointer"
                 title="Collapse Ticket Sidebar"
               >
-                <PanelRightClose className="h-4 w-4 text-stone-600" />
+                <PanelRightClose className="h-4 w-4 text-stone-600 dark:text-stone-300" />
                 <span className="text-[11px]">Collapse</span>
               </button>
             </div>
@@ -1363,7 +1394,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                 className={`rounded-xl py-2 text-xs font-bold border transition ${
                   orderType === 'dine_in'
                     ? 'bg-amber-500 text-stone-950 border-amber-500 font-extrabold'
-                    : 'bg-stone-50 text-stone-700 border-stone-200'
+                    : 'bg-stone-50 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-750'
                 }`}
               >
                 🍽️ Dine-In
@@ -1376,7 +1407,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                 className={`rounded-xl py-2 text-xs font-bold border transition ${
                   orderType === 'take_away'
                     ? 'bg-amber-500 text-stone-950 border-amber-500 font-extrabold'
-                    : 'bg-stone-50 text-stone-700 border-stone-200'
+                    : 'bg-stone-50 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-750'
                 }`}
               >
                 🛍️ Take-Out
@@ -1389,7 +1420,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                 className={`rounded-xl py-2 text-xs font-bold border transition ${
                   orderType === 'delivery'
                     ? 'bg-amber-500 text-stone-950 border-amber-500 font-extrabold'
-                    : 'bg-stone-50 text-stone-700 border-stone-200'
+                    : 'bg-stone-50 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-750'
                 }`}
               >
                 🛵 Delivery
@@ -1401,7 +1432,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsTableModalOpen(true)}
-                  className="w-full flex items-center gap-1.5 rounded-xl border border-stone-300 bg-stone-50 px-3 py-1.5 text-xs text-stone-900 font-bold hover:border-amber-500 hover:bg-amber-50/40 transition text-left"
+                  className="w-full flex items-center gap-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 px-3 py-1.5 text-xs text-stone-900 dark:text-stone-100 font-bold hover:border-amber-500 hover:bg-amber-50/40 dark:hover:bg-amber-950/40 transition text-left"
                 >
                   <Utensils className="h-3.5 w-3.5 text-amber-600 shrink-0" />
                   <span className="truncate">
@@ -1409,7 +1440,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                   </span>
                 </button>
               ) : (
-                <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-1.5 text-xs text-stone-500 font-medium">
+                <div className="rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 px-3 py-1.5 text-xs text-stone-500 dark:text-stone-400 font-medium">
                   No Table (Takeaway)
                 </div>
               )}
@@ -1419,7 +1450,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
                 placeholder="Guest Name (Optional)"
-                className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-1.5 text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
+                className="w-full rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 px-3 py-1.5 text-xs text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:border-amber-500 focus:outline-none"
               />
             </div>
           </div>
@@ -1430,10 +1461,10 @@ export const PosMenu: React.FC<PosMenuProps> = ({
           {/* Cart Items List */}
           <div className="flex-1 overflow-y-auto py-2 space-y-2 pr-1 max-h-[350px] lg:max-h-none">
             {cart.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-4 text-stone-400 text-xs min-h-[140px]">
-                <Sparkles className="h-8 w-8 text-stone-300 mb-1" />
-                <p className="font-bold text-stone-600">Ticket is empty</p>
-                <p className="text-[11px]">Click items from the catalog to add</p>
+              <div className="h-full flex flex-col items-center justify-center text-center p-4 text-stone-400 dark:text-stone-500 text-xs min-h-[140px]">
+                <Sparkles className="h-8 w-8 text-stone-300 dark:text-stone-600 mb-1" />
+                <p className="font-bold text-stone-600 dark:text-stone-300">Ticket is empty</p>
+                <p className="text-[11px] text-stone-400 dark:text-stone-500">Click items from the catalog to add</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -1457,27 +1488,27 @@ export const PosMenu: React.FC<PosMenuProps> = ({
           {/* Side-by-Side: Total Summary Container & Discount Container */}
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-1.5 my-1.5 items-stretch">
             {/* Left Container: Calculation Summary & Total Due */}
-            <div className={`${discountedItems.length > 0 ? 'sm:col-span-7' : 'sm:col-span-8'} rounded-xl bg-stone-50 p-2 sm:p-2.5 border border-stone-200/80 flex flex-col justify-between space-y-0.5 text-xs text-stone-600`}>
+            <div className={`${discountedItems.length > 0 ? 'sm:col-span-7' : 'sm:col-span-8'} rounded-xl bg-stone-50 dark:bg-stone-800/80 p-2 sm:p-2.5 border border-stone-200/80 dark:border-stone-700/80 flex flex-col justify-between space-y-0.5 text-xs text-stone-600 dark:text-stone-300`}>
               <div className="space-y-0.5">
                 <div className="flex justify-between items-center text-[10px] sm:text-[11px]">
                   <span>Subtotal:</span>
-                  <span className="font-mono font-medium">₱{subtotal.toFixed(2)}</span>
+                  <span className="font-mono font-medium text-stone-800 dark:text-stone-200">₱{subtotal.toFixed(2)}</span>
                 </div>
                 {discountAmount > 0 && (
-                  <div className="flex justify-between items-center text-emerald-700 font-bold text-[10px] sm:text-[11px]">
+                  <div className="flex justify-between items-center text-emerald-700 dark:text-emerald-400 font-bold text-[10px] sm:text-[11px]">
                     <span className="truncate pr-1">Discount:</span>
                     <span className="font-mono shrink-0">-₱{discountAmount.toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between items-center text-[10px] sm:text-[11px]">
                   <span>VAT ({taxRate}%):</span>
-                  <span className="font-mono font-medium">₱{taxAmount.toFixed(2)}</span>
+                  <span className="font-mono font-medium text-stone-800 dark:text-stone-200">₱{taxAmount.toFixed(2)}</span>
                 </div>
               </div>
 
-              <div className="flex justify-between items-baseline font-bold text-stone-900 pt-1 border-t border-stone-200 mt-0.5">
+              <div className="flex justify-between items-baseline font-bold text-stone-900 dark:text-stone-100 pt-1 border-t border-stone-200 dark:border-stone-700 mt-0.5">
                 <span className="text-[11px] sm:text-xs">Total Due:</span>
-                <span className="font-mono text-amber-700 font-extrabold text-sm sm:text-base">
+                <span className="font-mono text-amber-700 dark:text-amber-400 font-extrabold text-sm sm:text-base">
                   ₱{totalAmount.toFixed(2)}
                 </span>
               </div>
@@ -1486,7 +1517,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
             {/* Right Container: Discount / Coupon Control Side-by-Side */}
             <div className={`${discountedItems.length > 0 ? 'sm:col-span-5' : 'sm:col-span-4'} flex flex-col`}>
               {discountedItems.length > 0 ? (
-                <div className="h-full rounded-2xl border border-emerald-400 bg-emerald-50/90 p-2 flex flex-col justify-between shadow-2xs">
+                <div className="h-full rounded-2xl border border-emerald-400 dark:border-emerald-600/50 bg-emerald-50/90 dark:bg-emerald-950/40 p-2 flex flex-col justify-between shadow-2xs">
                   <div>
                     <div className="flex items-center justify-between gap-1">
                       <span className="inline-flex items-center gap-0.5 rounded bg-emerald-600 px-1.5 py-0.5 text-[8px] font-black text-white uppercase tracking-wider">
@@ -1496,15 +1527,15 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                         type="button"
                         onClick={handleClearAllDiscounts}
                         title="Clear all item discounts"
-                        className="rounded p-0.5 text-stone-400 hover:bg-rose-100 hover:text-rose-600 transition cursor-pointer"
+                        className="rounded p-0.5 text-stone-400 hover:bg-rose-100 dark:hover:bg-rose-950/50 hover:text-rose-600 dark:hover:text-rose-400 transition cursor-pointer"
                       >
                         <X className="h-3 w-3" />
                       </button>
                     </div>
-                    <div className="mt-1 text-[11px] font-bold text-emerald-950 truncate">
+                    <div className="mt-1 text-[11px] font-bold text-emerald-950 dark:text-emerald-200 truncate">
                       {discountedItems.length} of {cart.length} {discountedItems.length === 1 ? 'item' : 'items'} discounted
                     </div>
-                    <div className="text-[10px] text-emerald-700 font-mono font-bold">
+                    <div className="text-[10px] text-emerald-700 dark:text-emerald-400 font-mono font-bold">
                       -₱{discountAmount.toFixed(2)}
                     </div>
                   </div>
@@ -1518,7 +1549,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                         setIsItemSelectModalOpen(true);
                       }
                     }}
-                    className="mt-1 w-full rounded-lg bg-white border border-emerald-300 py-1 text-[9px] font-bold text-emerald-800 hover:bg-emerald-100 transition text-center shadow-2xs cursor-pointer"
+                    className="mt-1 w-full rounded-lg bg-white dark:bg-stone-800 border border-emerald-300 dark:border-emerald-600/60 py-1 text-[9px] font-bold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-stone-700 transition text-center shadow-2xs cursor-pointer"
                   >
                     Manage / Add
                   </button>
@@ -1541,15 +1572,15 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                       setIsItemSelectModalOpen(true);
                     }
                   }}
-                  className="h-full min-h-[58px] w-full flex flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50/90 hover:bg-amber-100 hover:border-amber-400 p-2 text-center text-amber-950 transition active:scale-98 shadow-2xs group cursor-pointer"
+                  className="h-full min-h-[58px] w-full flex flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-amber-300 dark:border-amber-500/40 bg-amber-50/90 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/40 hover:border-amber-400 dark:hover:border-amber-500/60 p-2 text-center text-amber-950 dark:text-amber-200 transition active:scale-98 shadow-2xs group cursor-pointer"
                   title="Apply discount to an item"
                 >
                   <div className="grid h-6 w-6 place-items-center rounded-full bg-amber-500 group-hover:bg-amber-400 shadow-2xs transition text-stone-950">
                     <Ticket className="h-3.5 w-3.5 stroke-[2.5]" />
                   </div>
                   <div className="flex flex-col items-center leading-none">
-                    <span className="text-[11px] font-extrabold text-amber-950">Item Discount</span>
-                    <span className="text-[9px] font-bold text-amber-700 mt-0.5">Apply to Item</span>
+                    <span className="text-[11px] font-extrabold text-amber-950 dark:text-amber-300">Item Discount</span>
+                    <span className="text-[9px] font-bold text-amber-700 dark:text-amber-400 mt-0.5">Apply to Item</span>
                   </div>
                 </button>
               )}
@@ -1561,7 +1592,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
             <button
               onClick={clearCart}
               disabled={cart.length === 0}
-              className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-bold text-stone-600 hover:bg-stone-100 disabled:opacity-40"
+              className="rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-3 py-2 text-xs font-bold text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 disabled:opacity-40 cursor-pointer"
             >
               Clear
             </button>
@@ -1614,23 +1645,23 @@ export const PosMenu: React.FC<PosMenuProps> = ({
       {/* Tender Modal */}
       {isTenderModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
-          <div className="w-full max-w-lg md:max-w-xl rounded-2xl sm:rounded-3xl bg-white p-3.5 sm:p-5 md:p-6 shadow-2xl border border-stone-200 animate-in zoom-in-95 duration-150 my-auto">
-            <div className="flex items-center justify-between border-b border-stone-200 pb-2 sm:pb-3">
+          <div className="w-full max-w-lg md:max-w-xl rounded-2xl sm:rounded-3xl bg-white dark:bg-stone-900 p-3.5 sm:p-5 md:p-6 shadow-2xl border border-stone-200 dark:border-stone-800 animate-in zoom-in-95 duration-150 my-auto">
+            <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-2 sm:pb-3">
               <div>
-                <h3 className="font-display text-sm sm:text-base md:text-lg font-bold text-stone-900">
+                <h3 className="font-display text-sm sm:text-base md:text-lg font-bold text-stone-900 dark:text-stone-100">
                   Tender &amp; Receipt
                 </h3>
               </div>
               <button
                 onClick={() => setIsTenderModalOpen(false)}
-                className="rounded-full p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
+                className="rounded-full p-1.5 text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-700 dark:hover:text-stone-200 transition cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             {/* Total Display */}
-            <div className="my-2.5 sm:my-3 rounded-xl sm:rounded-2xl bg-stone-950 px-3.5 py-2 sm:py-2.5 text-center text-white flex items-center justify-between shadow-xs">
+            <div className="my-2.5 sm:my-3 rounded-xl sm:rounded-2xl bg-stone-950 px-3.5 py-2 sm:py-2.5 text-center text-white flex items-center justify-between shadow-xs border border-stone-800">
               <div className="text-left">
                 <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-amber-400 block">
                   Total
@@ -1649,7 +1680,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                 className={`flex items-center justify-center gap-1 rounded-lg sm:rounded-xl py-1.5 sm:py-2 text-[11px] sm:text-xs font-bold border transition ${
                   paymentMethod === 'cash'
                     ? 'bg-amber-500 text-stone-950 border-amber-500 font-extrabold shadow-xs'
-                    : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                    : 'bg-stone-50 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-750'
                 }`}
               >
                 <Banknote className="h-3.5 w-3.5" />
@@ -1661,7 +1692,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                 className={`flex items-center justify-center gap-1 rounded-lg sm:rounded-xl py-1.5 sm:py-2 text-[11px] sm:text-xs font-bold border transition ${
                   paymentMethod === 'gcash'
                     ? 'bg-sky-500 text-white border-sky-500 font-extrabold shadow-xs'
-                    : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                    : 'bg-stone-50 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-750'
                 }`}
               >
                 <QrCode className="h-3.5 w-3.5" />
@@ -1672,8 +1703,8 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                 onClick={() => setPaymentMethod('card')}
                 className={`flex items-center justify-center gap-1 rounded-lg sm:rounded-xl py-1.5 sm:py-2 text-[11px] sm:text-xs font-bold border transition ${
                   paymentMethod === 'card'
-                    ? 'bg-stone-900 text-white border-stone-900 font-extrabold shadow-xs'
-                    : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                    ? 'bg-stone-900 dark:bg-stone-700 text-white border-stone-900 dark:border-stone-600 font-extrabold shadow-xs'
+                    : 'bg-stone-50 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-750'
                 }`}
               >
                 <CreditCard className="h-3.5 w-3.5" />
@@ -1688,7 +1719,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                 <div className="md:col-span-6 space-y-2 sm:space-y-2.5">
                   <div>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono font-bold text-stone-500 text-base sm:text-lg">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono font-bold text-stone-500 dark:text-stone-400 text-base sm:text-lg">
                         ₱
                       </span>
                       <input
@@ -1696,7 +1727,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                         value={amountPaidInput}
                         onChange={(e) => setAmountPaidInput(e.target.value)}
                         placeholder="0.00"
-                        className="w-full rounded-xl sm:rounded-2xl border border-stone-300 bg-stone-50 pl-7 pr-3 py-1.5 sm:py-2 text-base sm:text-lg font-mono font-bold text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none text-right shadow-inner"
+                        className="w-full rounded-xl sm:rounded-2xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 pl-7 pr-3 py-1.5 sm:py-2 text-base sm:text-lg font-mono font-bold text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:border-amber-500 focus:bg-white dark:focus:bg-stone-800 focus:outline-none text-right shadow-inner"
                       />
                     </div>
                   </div>
@@ -1709,9 +1740,9 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                           key={bill}
                           type="button"
                           onClick={() => handleAddPredeterminedAmount(bill)}
-                          className="rounded-lg sm:rounded-xl border border-stone-200 bg-stone-50 hover:bg-amber-50 hover:border-amber-400 py-1 sm:py-1.5 text-[11px] sm:text-xs font-extrabold text-stone-800 hover:text-amber-950 transition active:scale-95 shadow-2xs font-mono flex items-center justify-center gap-0.5"
+                          className="rounded-lg sm:rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:border-amber-400 dark:hover:border-amber-600/60 py-1 sm:py-1.5 text-[11px] sm:text-xs font-extrabold text-stone-800 dark:text-stone-200 hover:text-amber-950 dark:hover:text-amber-200 transition active:scale-95 shadow-2xs font-mono flex items-center justify-center gap-0.5"
                         >
-                          <span className="text-[9px] font-sans text-amber-600 font-bold">+</span>
+                          <span className="text-[9px] font-sans text-amber-600 dark:text-amber-400 font-bold">+</span>
                           <span>₱{bill}</span>
                         </button>
                       ))}
@@ -1719,25 +1750,25 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                   </div>
 
                   {/* Live Change Box */}
-                  <div className="flex items-center justify-between rounded-xl sm:rounded-2xl bg-emerald-50 border border-emerald-200 px-3 py-2 text-emerald-950">
+                  <div className="flex items-center justify-between rounded-xl sm:rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 px-3 py-2 text-emerald-950 dark:text-emerald-200">
                     <div>
-                      <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-800 block">
+                      <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-400 block">
                         Change Due
                       </span>
                     </div>
-                    <span className={`font-mono text-lg sm:text-xl font-black ${tenderedNumber < totalAmount ? 'text-stone-400' : 'text-emerald-700'}`}>
+                    <span className={`font-mono text-lg sm:text-xl font-black ${tenderedNumber < totalAmount ? 'text-stone-400 dark:text-stone-500' : 'text-emerald-700 dark:text-emerald-300'}`}>
                       ₱{changeAmount.toFixed(2)}
                     </span>
                   </div>
                 </div>
 
                 {/* Right Side: Tactile POS Numpad */}
-                <div className="md:col-span-6 bg-stone-50 border border-stone-200/80 rounded-xl sm:rounded-2xl p-2 sm:p-2.5 flex flex-col justify-between">
+                <div className="md:col-span-6 bg-stone-50 dark:bg-stone-800/80 border border-stone-200/80 dark:border-stone-700/80 rounded-xl sm:rounded-2xl p-2 sm:p-2.5 flex flex-col justify-between">
                   <div className="flex items-center justify-end px-1 mb-1">
                     <button
                       type="button"
                       onClick={() => handleNumpadInput('CLEAR')}
-                      className="text-[10px] font-extrabold text-rose-600 hover:text-rose-700 hover:underline"
+                      className="text-[10px] font-extrabold text-rose-600 dark:text-rose-400 hover:text-rose-700 hover:underline cursor-pointer"
                     >
                       Clear
                     </button>
@@ -1750,7 +1781,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                         key={n}
                         type="button"
                         onClick={() => handleNumpadInput(n)}
-                        className="rounded-lg sm:rounded-xl bg-white border border-stone-200/90 py-1.5 sm:py-2 text-sm sm:text-base font-mono font-bold text-stone-900 shadow-2xs hover:bg-stone-100 active:bg-amber-100 active:border-amber-400 active:scale-95 transition"
+                        className="rounded-lg sm:rounded-xl bg-white dark:bg-stone-700 border border-stone-200/90 dark:border-stone-600 py-1.5 sm:py-2 text-sm sm:text-base font-mono font-bold text-stone-900 dark:text-stone-100 shadow-2xs hover:bg-stone-100 dark:hover:bg-stone-600/80 active:bg-amber-100 dark:active:bg-amber-950/60 active:border-amber-400 active:scale-95 transition cursor-pointer"
                       >
                         {n}
                       </button>
@@ -1762,7 +1793,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                         key={n}
                         type="button"
                         onClick={() => handleNumpadInput(n)}
-                        className="rounded-lg sm:rounded-xl bg-white border border-stone-200/90 py-1.5 sm:py-2 text-sm sm:text-base font-mono font-bold text-stone-900 shadow-2xs hover:bg-stone-100 active:bg-amber-100 active:border-amber-400 active:scale-95 transition"
+                        className="rounded-lg sm:rounded-xl bg-white dark:bg-stone-700 border border-stone-200/90 dark:border-stone-600 py-1.5 sm:py-2 text-sm sm:text-base font-mono font-bold text-stone-900 dark:text-stone-100 shadow-2xs hover:bg-stone-100 dark:hover:bg-stone-600/80 active:bg-amber-100 dark:active:bg-amber-950/60 active:border-amber-400 active:scale-95 transition cursor-pointer"
                       >
                         {n}
                       </button>
@@ -1774,7 +1805,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                         key={n}
                         type="button"
                         onClick={() => handleNumpadInput(n)}
-                        className="rounded-lg sm:rounded-xl bg-white border border-stone-200/90 py-1.5 sm:py-2 text-sm sm:text-base font-mono font-bold text-stone-900 shadow-2xs hover:bg-stone-100 active:bg-amber-100 active:border-amber-400 active:scale-95 transition"
+                        className="rounded-lg sm:rounded-xl bg-white dark:bg-stone-700 border border-stone-200/90 dark:border-stone-600 py-1.5 sm:py-2 text-sm sm:text-base font-mono font-bold text-stone-900 dark:text-stone-100 shadow-2xs hover:bg-stone-100 dark:hover:bg-stone-600/80 active:bg-amber-100 dark:active:bg-amber-950/60 active:border-amber-400 active:scale-95 transition cursor-pointer"
                       >
                         {n}
                       </button>
@@ -1784,21 +1815,21 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                     <button
                       type="button"
                       onClick={() => handleNumpadInput('.')}
-                      className="rounded-lg sm:rounded-xl bg-white border border-stone-200/90 py-1.5 sm:py-2 text-sm sm:text-base font-mono font-bold text-stone-900 shadow-2xs hover:bg-stone-100 active:bg-amber-100 active:scale-95 transition"
+                      className="rounded-lg sm:rounded-xl bg-white dark:bg-stone-700 border border-stone-200/90 dark:border-stone-600 py-1.5 sm:py-2 text-sm sm:text-base font-mono font-bold text-stone-900 dark:text-stone-100 shadow-2xs hover:bg-stone-100 dark:hover:bg-stone-600/80 active:bg-amber-100 active:scale-95 transition cursor-pointer"
                     >
                       .
                     </button>
                     <button
                       type="button"
                       onClick={() => handleNumpadInput('0')}
-                      className="rounded-lg sm:rounded-xl bg-white border border-stone-200/90 py-1.5 sm:py-2 text-sm sm:text-base font-mono font-bold text-stone-900 shadow-2xs hover:bg-stone-100 active:bg-amber-100 active:scale-95 transition"
+                      className="rounded-lg sm:rounded-xl bg-white dark:bg-stone-700 border border-stone-200/90 dark:border-stone-600 py-1.5 sm:py-2 text-sm sm:text-base font-mono font-bold text-stone-900 dark:text-stone-100 shadow-2xs hover:bg-stone-100 dark:hover:bg-stone-600/80 active:bg-amber-100 active:scale-95 transition cursor-pointer"
                     >
                       0
                     </button>
                     <button
                       type="button"
                       onClick={() => handleNumpadInput('BACKSPACE')}
-                      className="rounded-lg sm:rounded-xl bg-stone-100 border border-stone-200 py-1.5 sm:py-2 flex items-center justify-center text-stone-700 shadow-2xs hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 active:scale-95 transition"
+                      className="rounded-lg sm:rounded-xl bg-stone-100 dark:bg-stone-700 border border-stone-200 dark:border-stone-600 py-1.5 sm:py-2 flex items-center justify-center text-stone-700 dark:text-stone-300 shadow-2xs hover:bg-rose-50 dark:hover:bg-rose-950/50 hover:text-rose-700 dark:hover:text-rose-300 hover:border-rose-300 active:scale-95 transition cursor-pointer"
                     >
                       <Delete className="h-3.5 w-3.5" />
                     </button>
@@ -1807,14 +1838,14 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                     <button
                       type="button"
                       onClick={() => handleNumpadInput('00')}
-                      className="rounded-lg sm:rounded-xl bg-white border border-stone-200/90 py-1 sm:py-1.5 text-[11px] sm:text-xs font-mono font-bold text-stone-700 shadow-2xs hover:bg-stone-100 active:bg-amber-100 active:scale-95 transition"
+                      className="rounded-lg sm:rounded-xl bg-white dark:bg-stone-700 border border-stone-200/90 dark:border-stone-600 py-1 sm:py-1.5 text-[11px] sm:text-xs font-mono font-bold text-stone-700 dark:text-stone-300 shadow-2xs hover:bg-stone-100 dark:hover:bg-stone-600/80 active:bg-amber-100 active:scale-95 transition cursor-pointer"
                     >
                       00
                     </button>
                     <button
                       type="button"
                       onClick={() => handleNumpadInput('EXACT')}
-                      className="col-span-2 rounded-lg sm:rounded-xl bg-amber-500 border border-amber-600/50 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold text-stone-950 shadow-xs hover:bg-amber-400 active:scale-95 transition flex items-center justify-center"
+                      className="col-span-2 rounded-lg sm:rounded-xl bg-amber-500 border border-amber-600/50 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold text-stone-950 shadow-xs hover:bg-amber-400 active:scale-95 transition flex items-center justify-center cursor-pointer"
                     >
                       Exact (₱{totalAmount.toFixed(2)})
                     </button>
@@ -1822,35 +1853,35 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                 </div>
               </div>
             ) : paymentMethod === 'gcash' ? (
-              <div className="rounded-xl sm:rounded-2xl border border-sky-200 bg-sky-50/50 p-4 sm:p-6 text-center space-y-2 sm:space-y-3">
-                <QrCode className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-sky-600" />
-                <h4 className="text-xs sm:text-sm font-bold text-sky-950">Scan Yellow Hauz Merchant GCash QR</h4>
-                <p className="text-[11px] sm:text-xs text-stone-600 max-w-sm mx-auto">
-                  Customer will transfer exact <strong className="text-sky-900 font-mono">₱{totalAmount.toFixed(2)}</strong>. Verify reference number before completing.
+              <div className="rounded-xl sm:rounded-2xl border border-sky-200 dark:border-sky-800/60 bg-sky-50/50 dark:bg-sky-950/40 p-4 sm:p-6 text-center space-y-2 sm:space-y-3">
+                <QrCode className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-sky-600 dark:text-sky-400" />
+                <h4 className="text-xs sm:text-sm font-bold text-sky-950 dark:text-sky-200">Scan Yellow Hauz Merchant GCash QR</h4>
+                <p className="text-[11px] sm:text-xs text-stone-600 dark:text-stone-400 max-w-sm mx-auto">
+                  Customer will transfer exact <strong className="text-sky-900 dark:text-sky-300 font-mono">₱{totalAmount.toFixed(2)}</strong>. Verify reference number before completing.
                 </p>
               </div>
             ) : (
-              <div className="rounded-xl sm:rounded-2xl border border-stone-200 bg-stone-50 p-4 sm:p-6 text-center space-y-2 sm:space-y-3">
-                <CreditCard className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-stone-700" />
-                <h4 className="text-xs sm:text-sm font-bold text-stone-900">Swipe / Tap on POS Card Terminal</h4>
-                <p className="text-[11px] sm:text-xs text-stone-600 max-w-sm mx-auto">
-                  Insert or tap customer card for <strong className="text-stone-900 font-mono">₱{totalAmount.toFixed(2)}</strong> on the terminal.
+              <div className="rounded-xl sm:rounded-2xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/60 p-4 sm:p-6 text-center space-y-2 sm:space-y-3">
+                <CreditCard className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-stone-700 dark:text-stone-300" />
+                <h4 className="text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100">Swipe / Tap on POS Card Terminal</h4>
+                <p className="text-[11px] sm:text-xs text-stone-600 dark:text-stone-400 max-w-sm mx-auto">
+                  Insert or tap customer card for <strong className="text-stone-900 dark:text-stone-100 font-mono">₱{totalAmount.toFixed(2)}</strong> on the terminal.
                 </p>
               </div>
             )}
 
-            <div className="mt-3 sm:mt-4 flex gap-2.5 sm:gap-3 pt-2 border-t border-stone-100">
+            <div className="mt-3 sm:mt-4 flex gap-2.5 sm:gap-3 pt-2 border-t border-stone-100 dark:border-stone-800">
               <button
                 type="button"
                 onClick={() => setIsTenderModalOpen(false)}
-                className="rounded-xl border border-stone-200 px-3.5 py-2 text-xs font-bold text-stone-700 hover:bg-stone-50"
+                className="rounded-xl border border-stone-200 dark:border-stone-700 px-3.5 py-2 text-xs font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition cursor-pointer"
               >
                 Back
               </button>
               <button
                 type="button"
                 onClick={handleProcessOrder}
-                className="flex-1 rounded-xl bg-amber-500 py-2 sm:py-2.5 text-xs sm:text-sm font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition active:scale-98"
+                className="flex-1 rounded-xl bg-amber-500 py-2 sm:py-2.5 text-xs sm:text-sm font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition active:scale-98 cursor-pointer"
               >
                 Confirm
               </button>
@@ -1909,8 +1940,8 @@ export const PosMenu: React.FC<PosMenuProps> = ({
       {/* Select Item to Discount Modal (for when user clicks the Item Discount button with multiple items) */}
       {isItemSelectModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[85vh]">
-            <div className="bg-stone-900 text-white px-5 py-4 flex items-center justify-between">
+          <div className="relative w-full max-w-md bg-white dark:bg-stone-900 rounded-3xl shadow-2xl border border-stone-200 dark:border-stone-800 overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="bg-stone-900 dark:bg-stone-950 text-white px-5 py-4 flex items-center justify-between border-b border-stone-800">
               <div className="flex items-center gap-2.5">
                 <div className="grid h-8 w-8 place-items-center rounded-xl bg-amber-500 text-stone-950 font-bold">
                   <Ticket className="h-4 w-4" />
@@ -1942,24 +1973,24 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                     }}
                     className={`w-full flex items-center justify-between p-3 rounded-2xl border text-left transition cursor-pointer ${
                       ci.discount
-                        ? 'border-emerald-300 bg-emerald-50/50 hover:bg-emerald-50'
-                        : 'border-stone-200 hover:border-amber-400 hover:bg-amber-50/40'
+                        ? 'border-emerald-300 dark:border-emerald-700/80 bg-emerald-50/50 dark:bg-emerald-950/30 hover:bg-emerald-50 dark:hover:bg-emerald-950/50'
+                        : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800/80 hover:border-amber-400 dark:hover:border-amber-500 hover:bg-amber-50/40 dark:hover:bg-amber-950/40'
                     }`}
                   >
                   <div>
-                    <div className="font-bold text-xs text-stone-900">{ci.item.name}</div>
-                    <div className="text-[11px] text-stone-500 font-mono">
+                    <div className="font-bold text-xs text-stone-900 dark:text-stone-100">{ci.item.name}</div>
+                    <div className="text-[11px] text-stone-500 dark:text-stone-400 font-mono">
                       ₱{ci.item.price.toFixed(2)} × {ci.quantity}
                     </div>
                     {ci.discount && (
-                      <span className="inline-block mt-1 text-[10px] font-extrabold text-emerald-800 bg-emerald-100 rounded px-1.5 py-0.5">
+                      <span className="inline-block mt-1 text-[10px] font-extrabold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 rounded px-1.5 py-0.5">
                         🏷️ {ci.discount.name} ({ci.discount.type === 'percent' ? `${ci.discount.value}%` : `₱${ci.discount.value}`})
                       </span>
                     )}
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 px-2.5 py-1.5 text-xs font-bold transition">
+                    <span className="rounded-xl bg-amber-100 dark:bg-amber-950/80 text-amber-950 dark:text-amber-200 px-2.5 py-1.5 text-xs font-bold transition">
                       {ci.discount ? 'Change' : 'Discount'}
                     </span>
                   </div>

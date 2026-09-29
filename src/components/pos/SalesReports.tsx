@@ -186,7 +186,7 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
   };
 
   // Date Filter States
-  const [datePreset, setDatePreset] = useState<DatePreset>('today');
+  const [datePreset, setDatePreset] = useState<DatePreset>('all');
   const [startDate, setStartDate] = useState<string>(todayStr);
   const [endDate, setEndDate] = useState<string>(todayStr);
 
@@ -198,7 +198,7 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
   // Count active filters modifying from default
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (datePreset !== 'today') count++;
+    if (datePreset !== 'all') count++;
     if (channelFilter !== 'all') count++;
     if (cashierFilter !== 'all') count++;
     if (filterType !== 'all') count++;
@@ -208,7 +208,7 @@ export const SalesReports: React.FC<SalesReportsProps> = ({ settings, onViewRece
   const isFilterModified = activeFilterCount > 0;
 
   const handleResetFilters = () => {
-    setDatePreset('today');
+    setDatePreset('all');
     setStartDate(todayStr);
     setEndDate(todayStr);
     setChannelFilter('all');

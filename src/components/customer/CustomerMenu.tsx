@@ -88,31 +88,36 @@ interface CustomerMenuProps {
   onBack?: () => void;
 }
 
-// Background images for split view & category aesthetic (High quality drinks and food closeups)
+// Background images for split view & category aesthetic (High quality drinks and food closeups from Yellow Hauz catalog)
 const DRINKS_HERO_BG =
-  'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=1600&auto=format&fit=crop';
+  '/images/food_and_drinks_images/Hot Coffee/Spanish_latte.jpeg';
 const FOOD_HERO_BG =
-  'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=1600&auto=format&fit=crop';
+  '/images/food_and_drinks_images/Cakes_Pastries/burnt_cheesecake.jpg';
 
-// Category fallback thumbnails
+// Category fallback thumbnails from local Yellow Hauz collection
 const CATEGORY_IMAGES: Record<string, string> = {
-  'hot coffee': 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=800&auto=format&fit=crop',
-  'on the rocks': 'https://images.unsplash.com/photo-1517256064527-09c73fc73e38?q=80&w=800&auto=format&fit=crop',
-  'blended coffee': 'https://images.unsplash.com/photo-1572442388796-11668a67e53d?q=80&w=800&auto=format&fit=crop',
-  'cream blended': 'https://images.unsplash.com/photo-1579954115545-a95591f28bfc?q=80&w=800&auto=format&fit=crop',
-  'hot drinks': 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?q=80&w=800&auto=format&fit=crop',
-  'refreshers': 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?q=80&w=800&auto=format&fit=crop',
-  'milkshakes': 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?q=80&w=800&auto=format&fit=crop',
-  'milk tea': 'https://images.unsplash.com/photo-1558857563-b371f31ca704?q=80&w=800&auto=format&fit=crop',
-  'drink add-ons': 'https://images.unsplash.com/photo-1563227812-0ea4c22e6cc8?q=80&w=800&auto=format&fit=crop',
-  'breakfast': 'https://images.unsplash.com/photo-1525351484163-7529414344d8?q=80&w=800&auto=format&fit=crop',
-  'appetizer': 'https://images.unsplash.com/photo-1541529086526-db283c563270?q=80&w=800&auto=format&fit=crop',
-  'meal': 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=800&auto=format&fit=crop',
-  'pasta': 'https://images.unsplash.com/photo-1551183053-bf91a1d81141?q=80&w=800&auto=format&fit=crop',
-  'pizza': 'https://images.unsplash.com/photo-1513104890138-7c749659a591?q=80&w=800&auto=format&fit=crop',
-  'sandwich': 'https://images.unsplash.com/photo-1509722747041-619f35d503cc?q=80&w=800&auto=format&fit=crop',
-  'cakes/pastries': 'https://images.unsplash.com/photo-1551024601-bec78aea704b?q=80&w=800&auto=format&fit=crop',
-  'add-on food': 'https://images.unsplash.com/photo-1516684732162-798a0062be99?q=80&w=800&auto=format&fit=crop',
+  'hot coffee': '/images/food_and_drinks_images/Hot Coffee/Spanish_latte.jpeg',
+  'on the rocks': '/images/food_and_drinks_images/On The Rocks/Milk_coffee_with_Jelly.jpeg',
+  'blended coffee': '/images/food_and_drinks_images/Blended Coffee/Coffeeteria.jpeg',
+  'cream blended': '/images/food_and_drinks_images/Cream Blended/Caramela.jpeg',
+  'hot drinks': '/images/food_and_drinks_images/Hot Drinks/babyccino.jpg',
+  'refreshers': '/images/food_and_drinks_images/Refreshers/lemon_fiz.jpg',
+  'milkshakes': '/images/food_and_drinks_images/Milkshakes/Strawberry_milkshake.jpg',
+  'milk tea': '/images/food_and_drinks_images/Milk Tea/oolong.jpg',
+  'drink add-ons': '/images/food_and_drinks_images/On The Rocks/Milk_coffee_with_Jelly.jpeg',
+  'drink addons': '/images/food_and_drinks_images/On The Rocks/Milk_coffee_with_Jelly.jpeg',
+  'breakfast': '/images/food_and_drinks_images/Breakfast/Waffles.jpeg',
+  'appetizer': '/images/food_and_drinks_images/Appetizer/potato_wedges.jpeg',
+  'meal': '/images/food_and_drinks_images/Meal/Chicken_pesto.jpeg',
+  'pasta': '/images/food_and_drinks_images/Pasta/spaghetti_balognese.jpeg',
+  'pizza': '/images/food_and_drinks_images/Pizza/yellow_hauz_special_pizza.jpg',
+  'sandwich': '/images/food_and_drinks_images/Sandwich/club_sandwich.jpeg',
+  'cakes/pastries': '/images/food_and_drinks_images/Cakes_Pastries/burnt_cheesecake.jpg',
+  'cakes_pastries': '/images/food_and_drinks_images/Cakes_Pastries/burnt_cheesecake.jpg',
+  'pastries': '/images/food_and_drinks_images/Cakes_Pastries/cheesecake_flan.jpg',
+  'cakes': '/images/food_and_drinks_images/Cakes_Pastries/Blueberry_cheesecake.jpeg',
+  'add-on food': '/images/food_and_drinks_images/Appetizer/garlic_bread.jpg',
+  'add on food': '/images/food_and_drinks_images/Appetizer/garlic_bread.jpg',
 };
 
 export const CustomerMenu: React.FC<CustomerMenuProps> = ({
@@ -140,6 +145,12 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
   onBack,
 }) => {
   const { showAlert, showConfirm } = useModal();
+
+  // Dynamic hero backgrounds configurable via Admin Gallery Settings
+  const drinksHeroBg =
+    settings?.customer_gallery?.menuDrinksBackground || DRINKS_HERO_BG;
+  const foodHeroBg =
+    settings?.customer_gallery?.menuFoodBackground || FOOD_HERO_BG;
 
   // Navigation hierarchy:
   // selectedType: null (Stage 1: Split View) | 'drinks' | 'food' (Stage 2 & 3)
@@ -439,6 +450,154 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
     return categories.filter((c) => !isDrinkCategory(c));
   }, [categories]);
 
+  // Dynamic rotating covers for Split View derived from respected category images
+  const drinkCategoryCovers = useMemo(() => {
+    const list: { url: string; categoryName: string; categoryId: number }[] = [];
+    const seen = new Set<string>();
+
+    // If admin uploaded a custom background specifically for Menu Drinks Cover, include it first
+    const customCover = settings?.customer_gallery?.menuDrinksBackground;
+    const isCustomCoverUploaded = customCover && customCover.startsWith('data:');
+    if (isCustomCoverUploaded) {
+      list.push({
+        url: customCover,
+        categoryName: 'Drinks & Coffee',
+        categoryId: -1,
+      });
+      seen.add(customCover);
+    }
+
+    // Include every drink category and its respective image
+    drinkCategories.forEach((cat) => {
+      const imgUrl =
+        cat.imageUrl ||
+        CATEGORY_IMAGES[cat.name.toLowerCase()] ||
+        menuItems.find((i) => i.categoryId === cat.id && i.imageUrl && i.isAvailable)?.imageUrl ||
+        DRINKS_HERO_BG;
+
+      if (imgUrl) {
+        list.push({
+          url: imgUrl,
+          categoryName: cat.name,
+          categoryId: cat.id,
+        });
+        seen.add(imgUrl);
+      }
+    });
+
+    // If customCover is a system URL that wasn't already in the drink categories
+    if (customCover && !seen.has(customCover) && !isCustomCoverUploaded) {
+      list.unshift({
+        url: customCover,
+        categoryName: 'Drinks & Coffee',
+        categoryId: -1,
+      });
+    }
+
+    if (list.length === 0) {
+      list.push({
+        url: DRINKS_HERO_BG,
+        categoryName: 'Drinks & Coffee',
+        categoryId: 0,
+      });
+    }
+
+    return list;
+  }, [drinkCategories, menuItems, settings?.customer_gallery?.menuDrinksBackground]);
+
+  const foodCategoryCovers = useMemo(() => {
+    const list: { url: string; categoryName: string; categoryId: number }[] = [];
+    const seen = new Set<string>();
+
+    // If admin uploaded a custom background specifically for Menu Food Cover, include it first
+    const customCover = settings?.customer_gallery?.menuFoodBackground;
+    const isCustomCoverUploaded = customCover && customCover.startsWith('data:');
+    if (isCustomCoverUploaded) {
+      list.push({
+        url: customCover,
+        categoryName: 'Food & Pastries',
+        categoryId: -1,
+      });
+      seen.add(customCover);
+    }
+
+    // Include every food category and its respective image
+    foodCategories.forEach((cat) => {
+      const imgUrl =
+        cat.imageUrl ||
+        CATEGORY_IMAGES[cat.name.toLowerCase()] ||
+        menuItems.find((i) => i.categoryId === cat.id && i.imageUrl && i.isAvailable)?.imageUrl ||
+        FOOD_HERO_BG;
+
+      if (imgUrl) {
+        list.push({
+          url: imgUrl,
+          categoryName: cat.name,
+          categoryId: cat.id,
+        });
+        seen.add(imgUrl);
+      }
+    });
+
+    // If customCover is a system URL that wasn't already in the food categories
+    if (customCover && !seen.has(customCover) && !isCustomCoverUploaded) {
+      list.unshift({
+        url: customCover,
+        categoryName: 'Food & Pastries',
+        categoryId: -1,
+      });
+    }
+
+    if (list.length === 0) {
+      list.push({
+        url: FOOD_HERO_BG,
+        categoryName: 'Food & Pastries',
+        categoryId: 0,
+      });
+    }
+
+    return list;
+  }, [foodCategories, menuItems, settings?.customer_gallery?.menuFoodBackground]);
+
+  // Rotating slide indexes for Drinks and Food covers
+  const [drinkSlideIndex, setDrinkSlideIndex] = useState(0);
+  const [foodSlideIndex, setFoodSlideIndex] = useState(0);
+
+  // Auto-advance slideshow every 4.5 seconds for both covers, with food offset by 2.25s
+  useEffect(() => {
+    if (selectedType !== null) return; // Only rotate in Stage 1 Split View
+
+    let foodInterval: NodeJS.Timeout | null = null;
+
+    const drinkInterval = setInterval(() => {
+      if (drinkCategoryCovers.length > 1) {
+        setDrinkSlideIndex((prev) => (prev + 1) % drinkCategoryCovers.length);
+      }
+    }, 4500);
+
+    const foodTimeout = setTimeout(() => {
+      if (foodCategoryCovers.length > 1) {
+        setFoodSlideIndex((prev) => (prev + 1) % foodCategoryCovers.length);
+      }
+      foodInterval = setInterval(() => {
+        if (foodCategoryCovers.length > 1) {
+          setFoodSlideIndex((prev) => (prev + 1) % foodCategoryCovers.length);
+        }
+      }, 4500);
+    }, 2250);
+
+    return () => {
+      clearInterval(drinkInterval);
+      clearTimeout(foodTimeout);
+      if (foodInterval) clearInterval(foodInterval);
+    };
+  }, [selectedType, drinkCategoryCovers.length, foodCategoryCovers.length]);
+
+  const activeDrinkCover =
+    drinkCategoryCovers[drinkSlideIndex % drinkCategoryCovers.length] || drinkCategoryCovers[0];
+  const activeFoodCover =
+    foodCategoryCovers[foodSlideIndex % foodCategoryCovers.length] || foodCategoryCovers[0];
+
   const currentCategoriesList = selectedType === 'drinks' ? drinkCategories : foodCategories;
 
   // Category Icon resolver
@@ -540,6 +699,27 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
 
   // Cart operations
   const handleAddToCart = (item: MenuItem) => {
+    const currentStock = typeof item.quantity === 'number' ? item.quantity : 0;
+
+    if (currentStock <= 0) {
+      showAlert({
+        title: 'Item Out of Stock',
+        message: `Sorry, "${item.name}" is currently out of stock.`,
+        type: 'warning',
+      });
+      return;
+    }
+
+    const currentInCart = (cart.find((ci) => ci.item.id === item.id)?.quantity) || 0;
+    if (currentInCart + 1 > currentStock) {
+      showAlert({
+        title: 'Stock Limit Reached',
+        message: `You cannot add more than ${currentStock} of "${item.name}". Only ${currentStock} unit${currentStock === 1 ? '' : 's'} available in stock.`,
+        type: 'warning',
+      });
+      return;
+    }
+
     setAddedItemAnimationId(item.id);
     setTimeout(() => setAddedItemAnimationId(null), 1200);
 
@@ -559,6 +739,22 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
   };
 
   const handleUpdateQuantity = (itemId: number, delta: number) => {
+    if (delta > 0) {
+      const existing = cart.find((ci) => ci.item.id === itemId);
+      if (existing) {
+        const menuItem = menuItems.find((m) => m.id === itemId) || existing.item;
+        const currentStock = typeof menuItem.quantity === 'number' ? menuItem.quantity : 0;
+        if (existing.quantity + delta > currentStock) {
+          showAlert({
+            title: 'Stock Limit Reached',
+            message: `Only ${currentStock} unit${currentStock === 1 ? '' : 's'} of "${menuItem.name}" available in stock.`,
+            type: 'warning',
+          });
+          return;
+        }
+      }
+    }
+
     if (externalOnUpdateQuantity) {
       externalOnUpdateQuantity(itemId, delta);
     } else {
@@ -897,9 +1093,24 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                 </span>
                 <button
                   type="button"
-                  onClick={() => handleUpdateQuantity(item.id, 1)}
-                  className="grid h-8 w-8 place-items-center rounded-xl bg-amber-500 text-stone-950 shadow-xs hover:bg-amber-400 transition active:scale-90 cursor-pointer"
-                  title="Increase quantity"
+                  onClick={() => {
+                    if (inCartQty >= item.quantity) {
+                      showAlert({
+                        title: 'Stock Limit Reached',
+                        message: `Only ${item.quantity} unit${item.quantity === 1 ? '' : 's'} of "${item.name}" available in stock.`,
+                        type: 'warning',
+                      });
+                      return;
+                    }
+                    handleUpdateQuantity(item.id, 1);
+                  }}
+                  disabled={inCartQty >= item.quantity}
+                  className={`grid h-8 w-8 place-items-center rounded-xl shadow-xs transition active:scale-90 ${
+                    inCartQty >= item.quantity
+                      ? 'bg-stone-200 text-stone-400 cursor-not-allowed'
+                      : 'bg-amber-500 text-stone-950 shadow-xs hover:bg-amber-400 cursor-pointer'
+                  }`}
+                  title={inCartQty >= item.quantity ? 'Stock limit reached' : 'Increase quantity'}
                 >
                   <Plus className="h-3.5 w-3.5" />
                 </button>
@@ -908,17 +1119,22 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
               <button
                 type="button"
                 id={`add-btn-${item.id}`}
+                disabled={item.quantity <= 0}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleAddToCart(item);
                 }}
-                className={`inline-flex items-center gap-2 rounded-2xl px-5 py-2.5 text-xs font-black transition-all duration-200 active:scale-95 cursor-pointer shadow-md ${
-                  isJustAdded
-                    ? 'bg-emerald-600 text-white scale-105'
-                    : 'bg-amber-500 text-stone-950 hover:bg-amber-400 hover:shadow-amber-500/20'
+                className={`inline-flex items-center gap-2 rounded-2xl px-5 py-2.5 text-xs font-black transition-all duration-200 shadow-md ${
+                  item.quantity <= 0
+                    ? 'bg-stone-200 text-stone-400 cursor-not-allowed'
+                    : isJustAdded
+                    ? 'bg-emerald-600 text-white scale-105 active:scale-95 cursor-pointer'
+                    : 'bg-amber-500 text-stone-950 hover:bg-amber-400 hover:shadow-amber-500/20 active:scale-95 cursor-pointer'
                 }`}
               >
-                {isJustAdded ? (
+                {item.quantity <= 0 ? (
+                  <span>Out of Stock</span>
+                ) : isJustAdded ? (
                   <>
                     <Check className="h-4 w-4 stroke-[3]" />
                     <span>Added!</span>
@@ -964,10 +1180,10 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
             }
             className={`relative flex items-center gap-1.5 px-2.5 sm:px-3 h-10 rounded-2xl border transition active:scale-95 cursor-pointer shadow-2xs font-bold text-xs ${
               activeTableBinding
-                ? 'border-emerald-500/80 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/20'
+                ? 'border-emerald-500/80 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-950 dark:text-emerald-200 ring-2 ring-emerald-500/20'
                 : selectedTable && selectedTable !== 'auto'
-                ? 'border-amber-400 bg-amber-50 text-amber-950 ring-2 ring-amber-400/30'
-                : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-100 hover:text-stone-950'
+                ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/60 text-amber-950 dark:text-amber-200 ring-2 ring-amber-400/30'
+                : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-850 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-750 hover:text-stone-950 dark:hover:text-stone-100'
             }`}
           >
             <Utensils className="h-4 w-4 text-amber-600 stroke-[2.2]" />
@@ -1099,20 +1315,61 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                   }}
                   className="group relative cursor-pointer overflow-hidden shadow-xs transition-all duration-500 hover:shadow-2xl flex items-center justify-center p-4 sm:p-7 lg:p-10 border-b md:border-b-0 md:border-r border-stone-200/80"
                 >
-                  {/* High Quality Background Image with subtle zoom */}
-                  <img
-                    src={DRINKS_HERO_BG}
-                    alt="Handcrafted Coffee & Drinks"
-                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
-                  />
+                  {/* Stacked background images from respected drink categories for smooth crossfade transition */}
+                  <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    {drinkCategoryCovers.map((item, idx) => {
+                      const isActive = idx === (drinkSlideIndex % drinkCategoryCovers.length);
+                      return (
+                        <img
+                          key={item.url + '-' + idx}
+                          src={item.url}
+                          alt={item.categoryName}
+                          className={`absolute inset-0 h-full w-full object-cover transition-all duration-1000 ease-in-out ${
+                            isActive
+                              ? 'opacity-100 scale-105 z-1'
+                              : 'opacity-0 scale-100 z-0'
+                          }`}
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src = DRINKS_HERO_BG;
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+
                   {/* Rich Gradient Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-stone-950/90 via-stone-950/60 to-stone-950/40 group-hover:via-stone-950/50 transition-colors duration-300" />
+                  <div className="absolute inset-0 z-2 bg-gradient-to-t from-stone-950/90 via-stone-950/60 to-stone-950/40 group-hover:via-stone-950/50 transition-colors duration-300 pointer-events-none" />
 
                   {/* Centered Information */}
-                  <div className="relative z-10 text-center flex flex-col items-center justify-center">
-                    <h3 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white font-display tracking-tight group-hover:text-amber-300 transition-colors">
+                  <div className="relative z-10 text-center flex flex-col items-center justify-center space-y-2.5 max-w-sm px-4">
+                    <h3 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white font-display tracking-tight group-hover:text-amber-300 transition-colors drop-shadow-md">
                       Drinks &amp; Coffee
                     </h3>
+
+                    {/* Dynamic Category Showcase Chip */}
+                    {activeDrinkCover && (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/20 text-white/90 text-xs sm:text-sm font-semibold transition-all duration-500 shadow-sm animate-in fade-in">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                        <span className="tracking-wide">Featuring: {activeDrinkCover.categoryName}</span>
+                      </div>
+                    )}
+
+                    {/* Category Indicator Dots */}
+                    {drinkCategoryCovers.length > 1 && (
+                      <div className="flex items-center gap-1.5 pt-1">
+                        {drinkCategoryCovers.map((item, idx) => (
+                          <span
+                            key={idx}
+                            title={item.categoryName}
+                            className={`h-1.5 rounded-full transition-all duration-500 ${
+                              idx === (drinkSlideIndex % drinkCategoryCovers.length)
+                                ? 'w-6 bg-amber-400 shadow-xs'
+                                : 'w-1.5 bg-white/40'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1125,20 +1382,61 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                   }}
                   className="group relative cursor-pointer overflow-hidden shadow-xs transition-all duration-500 hover:shadow-2xl flex items-center justify-center p-4 sm:p-7 lg:p-10"
                 >
-                  {/* High Quality Background Image with subtle zoom */}
-                  <img
-                    src={FOOD_HERO_BG}
-                    alt="Artisanal Food & Pastries"
-                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
-                  />
+                  {/* Stacked background images from respected food categories for smooth crossfade transition */}
+                  <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    {foodCategoryCovers.map((item, idx) => {
+                      const isActive = idx === (foodSlideIndex % foodCategoryCovers.length);
+                      return (
+                        <img
+                          key={item.url + '-' + idx}
+                          src={item.url}
+                          alt={item.categoryName}
+                          className={`absolute inset-0 h-full w-full object-cover transition-all duration-1000 ease-in-out ${
+                            isActive
+                              ? 'opacity-100 scale-105 z-1'
+                              : 'opacity-0 scale-100 z-0'
+                          }`}
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src = FOOD_HERO_BG;
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+
                   {/* Rich Gradient Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-stone-950/90 via-stone-950/60 to-stone-950/40 group-hover:via-stone-950/50 transition-colors duration-300" />
+                  <div className="absolute inset-0 z-2 bg-gradient-to-t from-stone-950/90 via-stone-950/60 to-stone-950/40 group-hover:via-stone-950/50 transition-colors duration-300 pointer-events-none" />
 
                   {/* Centered Information */}
-                  <div className="relative z-10 text-center flex flex-col items-center justify-center">
-                    <h3 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white font-display tracking-tight group-hover:text-amber-300 transition-colors">
+                  <div className="relative z-10 text-center flex flex-col items-center justify-center space-y-2.5 max-w-sm px-4">
+                    <h3 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white font-display tracking-tight group-hover:text-amber-300 transition-colors drop-shadow-md">
                       Food &amp; Pastries
                     </h3>
+
+                    {/* Dynamic Category Showcase Chip */}
+                    {activeFoodCover && (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/20 text-white/90 text-xs sm:text-sm font-semibold transition-all duration-500 shadow-sm animate-in fade-in">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                        <span className="tracking-wide">Featuring: {activeFoodCover.categoryName}</span>
+                      </div>
+                    )}
+
+                    {/* Category Indicator Dots */}
+                    {foodCategoryCovers.length > 1 && (
+                      <div className="flex items-center gap-1.5 pt-1">
+                        {foodCategoryCovers.map((item, idx) => (
+                          <span
+                            key={idx}
+                            title={item.categoryName}
+                            className={`h-1.5 rounded-full transition-all duration-500 ${
+                              idx === (foodSlideIndex % foodCategoryCovers.length)
+                                ? 'w-6 bg-amber-400 shadow-xs'
+                                : 'w-1.5 bg-white/40'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1153,7 +1451,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
               {/* ------------------------------------------------------------- */}
               {/* MOBILE TRIGGER: OPEN CATEGORY MODAL ON MOBILE SCREENS */}
               {/* ------------------------------------------------------------- */}
-              <div className="lg:hidden w-full flex items-center justify-between gap-1.5 p-1 rounded-2xl bg-white border border-stone-200 shadow-xs mb-0.5">
+              <div className="lg:hidden w-full flex items-center justify-between gap-1.5 p-1 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs mb-0.5">
                 <button
                   type="button"
                   id="mobile-back-above-categories-btn"
@@ -1166,7 +1464,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       onBack();
                     }
                   }}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold transition active:scale-95 cursor-pointer shrink-0"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 text-xs font-bold transition active:scale-95 cursor-pointer shrink-0"
                   title="Back"
                 >
                   <ArrowLeft className="h-3.5 w-3.5 stroke-[2.5]" />
@@ -1177,19 +1475,19 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                   type="button"
                   id="mobile-category-modal-trigger-btn"
                   onClick={() => setIsMobileCategoryModalOpen(true)}
-                  className="flex-1 min-w-0 flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-xl bg-stone-50 hover:bg-stone-100 border border-stone-200/80 text-xs font-bold text-stone-900 transition active:scale-[0.98] cursor-pointer"
+                  className="flex-1 min-w-0 flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-xl bg-stone-50 dark:bg-stone-850 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200/80 dark:border-stone-700 text-xs font-bold text-stone-900 dark:text-stone-100 transition active:scale-[0.98] cursor-pointer"
                 >
                   <div className="flex items-center gap-1.5 truncate">
                     <span className="grid h-5 w-5 place-items-center rounded-lg bg-amber-500 text-stone-950 shrink-0">
                       {selectedType === 'drinks' ? <Coffee className="h-3 w-3" /> : <Utensils className="h-3 w-3" />}
                     </span>
-                    <span className="font-extrabold text-stone-950 capitalize shrink-0">{selectedType}</span>
-                    <span className="text-stone-300 shrink-0">•</span>
-                    <span className="truncate text-stone-600 font-semibold text-xs">
+                    <span className="font-extrabold text-stone-950 dark:text-stone-100 capitalize shrink-0">{selectedType}</span>
+                    <span className="text-stone-300 dark:text-stone-600 shrink-0">•</span>
+                    <span className="truncate text-stone-600 dark:text-stone-400 font-semibold text-xs">
                       {selectedCategory !== null && currentCategoryObj ? currentCategoryObj.name : 'All Categories'}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1 text-amber-700 bg-amber-100/70 px-1.5 py-0.5 rounded-lg text-[9px] font-black shrink-0">
+                  <div className="flex items-center gap-1 text-amber-700 dark:text-amber-300 bg-amber-100/70 dark:bg-amber-950/70 px-1.5 py-0.5 rounded-lg text-[9px] font-black shrink-0">
                     <span>Change</span>
                     <ChevronDown className="h-3 w-3" />
                   </div>
@@ -1204,8 +1502,8 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                     title={`Layout: ${gridColumns} column${gridColumns > 1 ? 's' : ''}. Tap to change.`}
                     className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs ${
                       isGridModalOpen
-                        ? 'border-amber-400 bg-amber-50 text-amber-950 ring-2 ring-amber-400/30'
-                        : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100 hover:text-stone-950'
+                        ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/60 text-amber-950 dark:text-amber-200 ring-2 ring-amber-400/30'
+                        : 'border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 hover:text-stone-950 dark:hover:text-stone-100'
                     }`}
                   >
                     {gridColumns === 1 ? (
@@ -1221,23 +1519,23 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                   {isGridModalOpen && (
                     <div
                       id="grid-layout-filter-modal"
-                      className="absolute right-0 top-11 z-50 w-72 rounded-2xl border border-stone-200 bg-white p-3.5 shadow-xl animate-in fade-in-0 zoom-in-95 duration-150 font-sans"
+                      className="absolute right-0 top-11 z-50 w-72 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-3.5 shadow-xl animate-in fade-in-0 zoom-in-95 duration-150 font-sans"
                     >
-                      <div className="flex items-center justify-between pb-2.5 border-b border-stone-100 mb-3">
-                        <div className="flex items-center gap-1.5 font-black text-xs text-stone-900">
+                      <div className="flex items-center justify-between pb-2.5 border-b border-stone-100 dark:border-stone-800 mb-3">
+                        <div className="flex items-center gap-1.5 font-black text-xs text-stone-900 dark:text-stone-100">
                           <LayoutGrid className="h-4 w-4 text-amber-600" />
                           <span>Grid Display Layout</span>
                         </div>
                         <button
                           type="button"
                           onClick={() => setIsGridModalOpen(false)}
-                          className="p-1 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer"
+                          className="p-1 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer"
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>
                       </div>
 
-                      <div className="text-[11px] text-stone-500 mb-3 font-medium">
+                      <div className="text-[11px] text-stone-500 dark:text-stone-400 mb-3 font-medium">
                         Choose your preferred catalog view:
                       </div>
 
@@ -1250,14 +1548,14 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                             onClick={() => handleSetGridColumns(col)}
                             className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl border text-center transition cursor-pointer ${
                               gridColumns === col
-                                ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
-                                : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
+                                ? 'bg-amber-500/10 dark:bg-amber-950/60 border-amber-500 text-stone-950 dark:text-amber-200 font-black shadow-xs ring-2 ring-amber-500/20'
+                                : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 font-semibold'
                             }`}
                           >
                             <div className="text-xs font-bold">{col}</div>
-                            <div className="text-[9px] text-stone-500">Col</div>
+                            <div className="text-[9px] text-stone-500 dark:text-stone-400">Col</div>
                             {gridColumns === col && (
-                              <span className="flex items-center gap-0.5 text-[9px] font-black text-amber-700">
+                              <span className="flex items-center gap-0.5 text-[9px] font-black text-amber-700 dark:text-amber-400">
                                 <Check className="h-2.5 w-2.5 stroke-[3]" />
                               </span>
                             )}
@@ -1274,7 +1572,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
               {/* ------------------------------------------------------------- */}
               <aside
                 id="type-navbar-column"
-                className="hidden lg:block w-48 shrink-0 rounded-3xl border border-stone-200 bg-white/95 backdrop-blur-md p-2 shadow-md space-y-2 sticky top-20 lg:top-24 z-30 transition-all duration-200"
+                className="hidden lg:block w-52 shrink-0 rounded-3xl border border-stone-200 dark:border-stone-800 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md p-2.5 shadow-md space-y-2 sticky top-20 lg:top-24 z-30 transition-all duration-200"
               >
                 {/* Back Button Above Categories in Desktop Sidebar */}
                 <button
@@ -1289,7 +1587,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       onBack();
                     }
                   }}
-                  className="flex items-center gap-1.5 rounded-2xl px-2.5 py-1.5 text-xs font-bold text-stone-600 hover:text-stone-950 hover:bg-stone-100 border border-stone-200/60 hover:border-stone-300 transition cursor-pointer w-full mb-0.5"
+                  className="flex items-center gap-1.5 rounded-2xl px-2.5 py-1.5 text-xs font-bold text-stone-600 dark:text-stone-300 hover:text-stone-950 dark:hover:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200/60 dark:border-stone-700/60 hover:border-stone-300 dark:hover:border-stone-600 transition cursor-pointer w-full mb-0.5"
                   title="Back"
                 >
                   <ArrowLeft className="h-3.5 w-3.5 stroke-[2.5]" />
@@ -1306,14 +1604,25 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       setSelectedType('drinks');
                       setSelectedCategory(null);
                     }}
-                    className={`flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-black transition-all duration-200 border cursor-pointer whitespace-nowrap w-full ${
+                    className={`flex items-center justify-between rounded-2xl px-3 py-2 text-xs font-black transition-all duration-200 border cursor-pointer whitespace-nowrap w-full ${
                       selectedType === 'drinks'
                         ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-md scale-[1.01]'
-                        : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                        : 'bg-stone-50 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-750'
                     }`}
                   >
-                    <Coffee className="h-3.5 w-3.5 shrink-0" />
-                    <span>Drinks</span>
+                    <div className="flex items-center gap-2">
+                      <Coffee className="h-3.5 w-3.5 shrink-0" />
+                      <span>Drinks</span>
+                    </div>
+                    <span
+                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                        selectedType === 'drinks'
+                          ? 'bg-stone-950/20 text-stone-950'
+                          : 'bg-stone-200/70 dark:bg-stone-700 text-stone-600 dark:text-stone-300'
+                      }`}
+                    >
+                      {drinkCategories.length}
+                    </span>
                   </button>
 
                   {/* Food Button */}
@@ -1324,49 +1633,94 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       setSelectedType('food');
                       setSelectedCategory(null);
                     }}
-                    className={`flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-black transition-all duration-200 border cursor-pointer whitespace-nowrap w-full ${
+                    className={`flex items-center justify-between rounded-2xl px-3 py-2 text-xs font-black transition-all duration-200 border cursor-pointer whitespace-nowrap w-full ${
                       selectedType === 'food'
                         ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-md scale-[1.01]'
-                        : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                        : 'bg-stone-50 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-750'
                     }`}
                   >
-                    <Utensils className="h-3.5 w-3.5 shrink-0" />
-                    <span>Food</span>
+                    <div className="flex items-center gap-2">
+                      <Utensils className="h-3.5 w-3.5 shrink-0" />
+                      <span>Food</span>
+                    </div>
+                    <span
+                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                        selectedType === 'food'
+                          ? 'bg-stone-950/20 text-stone-950'
+                          : 'bg-stone-200/70 dark:bg-stone-700 text-stone-600 dark:text-stone-300'
+                      }`}
+                    >
+                      {foodCategories.length}
+                    </span>
                   </button>
                 </div>
 
-                {/* Category Pills Below Food and Drinks */}
-                {selectedCategory !== null && (
-                  <div
-                    id="category-navbar-column"
-                    className="pt-1.5 border-t border-stone-100 animate-in fade-in duration-200 w-full"
-                  >
-                    <div className="flex flex-col gap-1 max-h-[calc(100vh-340px)] overflow-y-auto pr-1 w-full">
-                      {currentCategoriesList.map((cat) => {
-                        const isCurrent = selectedCategory === cat.id;
+                {/* Category Pills Below Food and Drinks - ALWAYS DISPLAYED FOR SELECTED TYPE */}
+                <div
+                  id="category-navbar-column"
+                  className="pt-2 border-t border-stone-100 dark:border-stone-800 animate-in fade-in duration-200 w-full"
+                >
+                  <div className="flex items-center justify-between px-1 mb-1.5 text-[10px] font-bold text-stone-400 dark:text-stone-400 uppercase tracking-wider">
+                    <span>{selectedType === 'drinks' ? 'Drink' : 'Food'} Categories</span>
+                    <span className="text-amber-700 dark:text-amber-400 font-black">{currentCategoriesList.length}</span>
+                  </div>
+                  <div className="flex flex-col gap-1 max-h-[calc(100vh-370px)] overflow-y-auto pr-0.5 w-full no-scrollbar">
+                    {/* All Categories Option */}
+                    <button
+                      type="button"
+                      id="category-nav-pill-all"
+                      onClick={() => setSelectedCategory(null)}
+                      className={`flex items-center justify-between rounded-2xl px-2.5 py-1.5 text-xs font-bold transition-all duration-150 border cursor-pointer whitespace-nowrap w-full text-left ${
+                        selectedCategory === null
+                          ? 'bg-amber-500 text-stone-950 border-amber-500 font-black shadow-xs'
+                          : 'bg-stone-50 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-750 hover:border-stone-300 dark:hover:border-stone-600'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <span className={`shrink-0 ${selectedCategory === null ? 'text-stone-950' : 'text-amber-700 dark:text-amber-400'}`}>
+                          <Layers className="h-3.5 w-3.5" />
+                        </span>
+                        <span className="truncate">All {selectedType === 'drinks' ? 'Drinks' : 'Food'}</span>
+                      </div>
+                    </button>
 
-                        return (
-                          <button
-                            key={cat.id}
-                            type="button"
-                            id={`category-nav-pill-${cat.id}`}
-                            onClick={() => setSelectedCategory(cat.id)}
-                            className={`flex items-center gap-2 rounded-2xl px-2.5 py-1.5 text-xs font-bold transition-all duration-150 border cursor-pointer whitespace-nowrap w-full text-left ${
-                              isCurrent
-                                ? 'bg-amber-500 text-stone-950 border-amber-500 font-black shadow-xs'
-                                : 'bg-stone-50 text-stone-800 border-stone-200 hover:bg-stone-100 hover:border-stone-300'
-                            }`}
-                          >
-                            <span className={`shrink-0 ${isCurrent ? 'text-stone-950' : 'text-amber-700'}`}>
+                    {/* All Individual Category Pills */}
+                    {currentCategoriesList.map((cat) => {
+                      const isCurrent = selectedCategory === cat.id;
+                      const itemCount = menuItems.filter((i) => i.categoryId === cat.id && i.isAvailable).length;
+
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          id={`category-nav-pill-${cat.id}`}
+                          onClick={() => setSelectedCategory(cat.id)}
+                          className={`flex items-center justify-between rounded-2xl px-2.5 py-1.5 text-xs font-bold transition-all duration-150 border cursor-pointer whitespace-nowrap w-full text-left ${
+                            isCurrent
+                              ? 'bg-amber-500 text-stone-950 border-amber-500 font-black shadow-xs'
+                              : 'bg-stone-50 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-750 hover:border-stone-300 dark:hover:border-stone-600'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 truncate min-w-0">
+                            <span className={`shrink-0 ${isCurrent ? 'text-stone-950' : 'text-amber-700 dark:text-amber-400'}`}>
                               {renderCategoryIcon(cat.name, selectedType === 'drinks', cat.icon)}
                             </span>
                             <span className="truncate">{cat.name}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                          </div>
+                          <span
+                            className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full shrink-0 ml-1 ${
+                              isCurrent
+                                ? 'bg-stone-950 text-amber-300'
+                                : 'bg-stone-200/70 dark:bg-stone-700 text-stone-500 dark:text-stone-300'
+                            }`}
+                          >
+                            {itemCount}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
-                )}
+                </div>
 
                 {/* Column Layout Filter for Desktop Sidebar */}
                 <div className="pt-2 border-t border-stone-100">
@@ -1403,19 +1757,19 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                 <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-950/60 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
                   <div
                     id="mobile-category-selection-modal"
-                    className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl bg-white p-5 shadow-2xl space-y-4 border border-stone-200 max-h-[85vh] flex flex-col"
+                    className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl bg-white dark:bg-stone-900 p-5 shadow-2xl space-y-4 border border-stone-200 dark:border-stone-800 max-h-[85vh] flex flex-col"
                   >
                     {/* Modal Header */}
-                    <div className="flex items-center justify-between pb-3 border-b border-stone-100 shrink-0">
+                    <div className="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-stone-800 shrink-0">
                       <div className="flex items-center gap-2.5">
                         <span className="grid h-8 w-8 place-items-center rounded-xl bg-amber-500 text-stone-950">
                           {selectedType === 'drinks' ? <Coffee className="h-4 w-4" /> : <Utensils className="h-4 w-4" />}
                         </span>
                         <div>
-                          <h3 className="font-display font-extrabold text-sm text-stone-900">
+                          <h3 className="font-display font-extrabold text-sm text-stone-900 dark:text-stone-100">
                             Select Category
                           </h3>
-                          <p className="text-[11px] text-stone-500 font-medium capitalize">
+                          <p className="text-[11px] text-stone-500 dark:text-stone-400 font-medium capitalize">
                             {selectedType} menu streams
                           </p>
                         </div>
@@ -1423,14 +1777,14 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       <button
                         type="button"
                         onClick={() => setIsMobileCategoryModalOpen(false)}
-                        className="rounded-xl p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700 transition cursor-pointer"
+                        className="rounded-xl p-1.5 text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-700 dark:hover:text-stone-200 transition cursor-pointer"
                       >
                         <X className="h-5 w-5" />
                       </button>
                     </div>
 
                     {/* Drinks vs Food Switcher Tabs */}
-                    <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-stone-100 shrink-0">
+                    <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-stone-100 dark:bg-stone-800 shrink-0">
                       <button
                         type="button"
                         onClick={() => {
@@ -1439,11 +1793,11 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                         }}
                         className={`flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-black transition cursor-pointer ${
                           selectedType === 'drinks'
-                            ? 'bg-white text-stone-950 shadow-xs ring-1 ring-stone-200'
-                            : 'text-stone-600 hover:text-stone-900'
+                            ? 'bg-white dark:bg-stone-700 text-stone-950 dark:text-stone-100 shadow-xs ring-1 ring-stone-200 dark:ring-stone-600'
+                            : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
                         }`}
                       >
-                        <Coffee className="h-4 w-4 text-amber-700" />
+                        <Coffee className="h-4 w-4 text-amber-700 dark:text-amber-400" />
                         <span>Drinks</span>
                       </button>
                       <button
@@ -1454,11 +1808,11 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                         }}
                         className={`flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-black transition cursor-pointer ${
                           selectedType === 'food'
-                            ? 'bg-white text-stone-950 shadow-xs ring-1 ring-stone-200'
-                            : 'text-stone-600 hover:text-stone-900'
+                            ? 'bg-white dark:bg-stone-700 text-stone-950 dark:text-stone-100 shadow-xs ring-1 ring-stone-200 dark:ring-stone-600'
+                            : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
                         }`}
                       >
-                        <Utensils className="h-4 w-4 text-orange-700" />
+                        <Utensils className="h-4 w-4 text-orange-700 dark:text-orange-400" />
                         <span>Food</span>
                       </button>
                     </div>
@@ -1475,16 +1829,16 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                         className={`w-full flex items-center justify-between p-3 rounded-2xl border text-left text-xs font-bold transition cursor-pointer ${
                           selectedCategory === null
                             ? 'bg-amber-500 border-amber-500 text-stone-950 shadow-xs font-black'
-                            : 'bg-stone-50 border-stone-200 text-stone-800 hover:bg-stone-100'
+                            : 'bg-stone-50 dark:bg-stone-850 border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800'
                         }`}
                       >
                         <div className="flex items-center gap-2.5">
-                          <span className={`grid h-7 w-7 place-items-center rounded-xl ${selectedCategory === null ? 'bg-white/30 text-stone-950' : 'bg-white border border-stone-200 text-stone-700'}`}>
+                          <span className={`grid h-7 w-7 place-items-center rounded-xl ${selectedCategory === null ? 'bg-white/30 text-stone-950' : 'bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300'}`}>
                             <Layers className="h-3.5 w-3.5" />
                           </span>
                           <div>
                             <div>All {selectedType === 'drinks' ? 'Drinks' : 'Food'} Categories</div>
-                            <div className={`text-[10px] font-normal ${selectedCategory === null ? 'text-stone-900/80' : 'text-stone-400'}`}>
+                            <div className={`text-[10px] font-normal ${selectedCategory === null ? 'text-stone-900/80' : 'text-stone-400 dark:text-stone-500'}`}>
                               View category overview cards
                             </div>
                           </div>
@@ -1508,17 +1862,17 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                             className={`w-full flex items-center justify-between p-3 rounded-2xl border text-left text-xs font-bold transition cursor-pointer ${
                               isCurrent
                                 ? 'bg-amber-500 border-amber-500 text-stone-950 shadow-xs font-black'
-                                : 'bg-stone-50 border-stone-200 text-stone-800 hover:bg-stone-100'
+                                : 'bg-stone-50 dark:bg-stone-850 border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800'
                             }`}
                           >
                             <div className="flex items-center gap-2.5">
-                              <span className={`grid h-7 w-7 place-items-center rounded-xl ${isCurrent ? 'bg-white/30 text-stone-950' : 'bg-white border border-stone-200 text-amber-700'}`}>
+                              <span className={`grid h-7 w-7 place-items-center rounded-xl ${isCurrent ? 'bg-white/30 text-stone-950' : 'bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-amber-700 dark:text-amber-400'}`}>
                                 {renderCategoryIcon(cat.name, selectedType === 'drinks', cat.icon)}
                               </span>
                               <span>{cat.name}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${isCurrent ? 'bg-stone-950 text-amber-400' : 'bg-stone-200/80 text-stone-700'}`}>
+                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${isCurrent ? 'bg-stone-950 text-amber-400' : 'bg-stone-200/80 dark:bg-stone-700 text-stone-700 dark:text-stone-300'}`}>
                                 {count}
                               </span>
                               {isCurrent && <Check className="h-4 w-4 stroke-[3]" />}
@@ -1529,13 +1883,13 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                     </div>
 
                     {/* Column Layout Filter inside Category Selection Modal */}
-                    <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200 shrink-0">
-                      <div className="flex items-center justify-between text-[11px] font-black text-stone-700 mb-2">
+                    <div className="p-3 rounded-2xl bg-stone-50 dark:bg-stone-850 border border-stone-200 dark:border-stone-700 shrink-0">
+                      <div className="flex items-center justify-between text-[11px] font-black text-stone-700 dark:text-stone-300 mb-2">
                         <span className="flex items-center gap-1.5">
-                          <LayoutGrid className="h-3.5 w-3.5 text-amber-600" />
+                          <LayoutGrid className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
                           <span>Catalog Columns</span>
                         </span>
-                        <span className="text-[10px] text-amber-700 font-extrabold">{gridColumns} Column View</span>
+                        <span className="text-[10px] text-amber-700 dark:text-amber-400 font-extrabold">{gridColumns} Column View</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <button
@@ -1545,7 +1899,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                           className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
                             gridColumns === 1
                               ? 'bg-amber-500 text-stone-950 font-black shadow-xs'
-                              : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-100'
+                              : 'bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700'
                           }`}
                         >
                           <Square className="h-3.5 w-3.5" />
@@ -1558,7 +1912,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                           className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
                             gridColumns === 2
                               ? 'bg-amber-500 text-stone-950 font-black shadow-xs'
-                              : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-100'
+                              : 'bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700'
                           }`}
                         >
                           <Grid2X2 className="h-3.5 w-3.5" />
@@ -1586,8 +1940,9 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       {currentCategoriesList.map((cat) => {
                         const count = menuItems.filter((i) => i.categoryId === cat.id && i.isAvailable).length;
                         const catImg =
+                          cat.imageUrl ||
                           CATEGORY_IMAGES[cat.name.toLowerCase()] ||
-                          (selectedType === 'drinks' ? DRINKS_HERO_BG : FOOD_HERO_BG);
+                          (selectedType === 'drinks' ? drinksHeroBg : foodHeroBg);
 
                         return (
                           <div
@@ -1732,11 +2087,11 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
 
       {/* Checkout Modal */}
       {isCheckoutOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2.5 sm:p-4 overflow-y-auto">
-          <div className="w-full max-w-lg rounded-2xl sm:rounded-3xl bg-white p-3.5 sm:p-7 shadow-2xl border border-stone-200 my-2 sm:my-8 max-h-[94vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-stone-200 pb-2.5 sm:pb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-xs p-2.5 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-lg rounded-2xl sm:rounded-3xl bg-white dark:bg-stone-900 p-3.5 sm:p-7 shadow-2xl border border-stone-200 dark:border-stone-800 my-2 sm:my-8 max-h-[94vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-2.5 sm:pb-4">
               <div>
-                <h3 className="text-sm sm:text-xl font-bold text-stone-900 font-display">
+                <h3 className="text-sm sm:text-xl font-bold text-stone-900 dark:text-stone-100 font-display">
                   <span className="sm:hidden">Checkout</span>
                   <span className="hidden sm:inline">Order Details &amp; Checkout</span>
                 </h3>
@@ -1744,7 +2099,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
               <button
                 type="button"
                 onClick={() => setIsCheckoutOpen(false)}
-                className="rounded-full p-1 sm:p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-700 cursor-pointer"
+                className="rounded-full p-1 sm:p-2 text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-700 dark:hover:text-stone-200 cursor-pointer"
               >
                 <X className="h-4 w-4 sm:h-5 sm:w-5" />
               </button>
@@ -1753,17 +2108,17 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
             <form onSubmit={handlePlaceOrder} className="mt-2.5 sm:mt-5 space-y-2.5 sm:space-y-4">
               {activeTableBinding ? (
                 <div className="rounded-xl sm:rounded-2xl bg-gradient-to-r from-amber-500/15 via-emerald-500/10 to-amber-500/15 border border-amber-500/40 p-2 sm:p-3 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 font-extrabold text-amber-950 text-[10px] sm:text-xs">
+                  <div className="flex items-center gap-1.5 font-extrabold text-amber-950 dark:text-amber-200 text-[10px] sm:text-xs">
                     <span className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-emerald-500 animate-pulse" />
                     <span>DINE-IN • TABLE #{activeTableBinding.tableNumber}</span>
-                    <span className="text-[10px] text-stone-600 font-medium">
+                    <span className="text-[10px] text-stone-600 dark:text-stone-400 font-medium">
                       ({tables.find((t) => t.tableNumber === activeTableBinding.tableNumber)?.name || 'In-House Dining'})
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setIsTableSelectorModalOpen(true)}
-                    className="text-[10px] font-bold text-amber-800 hover:text-amber-950 underline cursor-pointer"
+                    className="text-[10px] font-bold text-amber-800 dark:text-amber-400 hover:text-amber-950 dark:hover:text-amber-300 underline cursor-pointer"
                   >
                     Change Table
                   </button>
@@ -1773,7 +2128,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
               {!activeTableBinding && (
                 <>
                   <div>
-                    <label className="block text-[9px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                    <label className="block text-[9px] sm:text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1">
                       Ordering Method
                     </label>
                     <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
@@ -1786,7 +2141,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                         className={`rounded-lg sm:rounded-xl py-1.5 sm:py-2.5 text-[10px] sm:text-xs font-bold border transition cursor-pointer ${
                           orderType === 'dine_in'
                             ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-xs'
-                            : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
+                            : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-750'
                         }`}
                       >
                         <span className="sm:hidden">🍽️ Dine In</span>
@@ -1798,7 +2153,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                         className={`rounded-lg sm:rounded-xl py-1.5 sm:py-2.5 text-[10px] sm:text-xs font-bold border transition cursor-pointer ${
                           orderType === 'take_away'
                             ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-xs'
-                            : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
+                            : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-750'
                         }`}
                       >
                         🛍️ Pick-Up
@@ -1807,18 +2162,18 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                   </div>
 
                   {orderType === 'dine_in' && (
-                    <div className="rounded-xl sm:rounded-2xl border border-amber-300/90 bg-amber-50/70 p-2.5 sm:p-3.5 space-y-2.5">
+                    <div className="rounded-xl sm:rounded-2xl border border-amber-300/90 dark:border-amber-800/80 bg-amber-50/70 dark:bg-amber-950/40 p-2.5 sm:p-3.5 space-y-2.5">
                       <div className="flex items-center justify-between">
-                        <label className="flex items-center gap-1.5 text-[9px] sm:text-xs font-bold text-stone-900 uppercase tracking-wider">
-                          <Utensils className="h-3.5 w-3.5 text-amber-700" />
+                        <label className="flex items-center gap-1.5 text-[9px] sm:text-xs font-bold text-stone-900 dark:text-stone-100 uppercase tracking-wider">
+                          <Utensils className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400" />
                           <span>Select Table Number</span>
                         </label>
                         <button
                           type="button"
                           onClick={() => setIsTableSelectorModalOpen(true)}
-                          className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 hover:text-amber-950 underline cursor-pointer"
+                          className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 dark:text-amber-300 hover:text-amber-950 underline cursor-pointer"
                         >
-                          <MapPin className="h-3 w-3 text-amber-600" />
+                          <MapPin className="h-3 w-3 text-amber-600 dark:text-amber-400" />
                           <span>Floor Map</span>
                         </button>
                       </div>
@@ -1839,16 +2194,16 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                               className={`flex flex-col items-center justify-center p-1.5 rounded-lg sm:rounded-xl border transition cursor-pointer text-center ${
                                 isSelected
                                   ? 'bg-amber-500 text-stone-950 border-amber-600 font-black shadow-xs ring-2 ring-amber-500/40'
-                                  : 'bg-white border-stone-200 text-stone-700 hover:border-amber-300 hover:bg-amber-50/50'
+                                  : 'bg-white dark:bg-stone-850 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:border-amber-300 hover:bg-amber-50/50 dark:hover:bg-stone-750'
                               }`}
                             >
                               <span className="text-[11px] sm:text-xs font-black font-mono">T#{t.tableNumber}</span>
-                              <span className="text-[8px] sm:text-[9px] truncate max-w-full leading-tight text-stone-600">
+                              <span className="text-[8px] sm:text-[9px] truncate max-w-full leading-tight text-stone-600 dark:text-stone-400">
                                 {t.name || `Table ${t.tableNumber}`}
                               </span>
                               <span
                                 className={`text-[7px] sm:text-[8px] uppercase font-bold mt-0.5 px-1 rounded-xs ${
-                                  t.area === 'airconditioned' ? 'bg-sky-100 text-sky-800' : 'bg-stone-100 text-stone-600'
+                                  t.area === 'airconditioned' ? 'bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300' : 'bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-300'
                                 }`}
                               >
                                 {t.area === 'airconditioned' ? 'A/C' : 'Main'}
@@ -1867,10 +2222,10 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                           className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg sm:rounded-xl border text-[10px] sm:text-xs font-bold transition cursor-pointer ${
                             selectedTable === 'auto'
                               ? 'bg-amber-500 text-stone-950 border-amber-600 font-black shadow-xs ring-2 ring-amber-500/40'
-                              : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
+                              : 'bg-white dark:bg-stone-850 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-750'
                           }`}
                         >
-                          <Sparkles className="h-3 w-3 text-amber-700" />
+                          <Sparkles className="h-3 w-3 text-amber-700 dark:text-amber-400" />
                           <span>✨ Auto-Assign on Arrival</span>
                         </button>
 
@@ -1888,7 +2243,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                               }
                             }
                           }}
-                          className="w-full rounded-lg sm:rounded-xl border border-stone-300 bg-white px-2 py-1.5 text-[10px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
+                          className="w-full rounded-lg sm:rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 px-2 py-1.5 text-[10px] sm:text-xs text-stone-900 dark:text-stone-100 focus:border-amber-500 focus:outline-none"
                         >
                           <option value="auto">✨ Auto-Assign Table (First Available)</option>
                           {tables.map((t) => (
@@ -1900,19 +2255,19 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       </div>
 
                       {/* Active Selection Indicator */}
-                      <div className="flex items-center justify-between text-[10px] sm:text-[11px] bg-white rounded-lg p-1.5 sm:p-2 border border-amber-200/80">
-                        <div className="flex items-center gap-1.5 text-stone-800">
-                          <Check className="h-3.5 w-3.5 text-emerald-600 font-bold shrink-0" />
+                      <div className="flex items-center justify-between text-[10px] sm:text-[11px] bg-white dark:bg-stone-850 dark:bg-stone-800 rounded-lg p-1.5 sm:p-2 border border-amber-200/80 dark:border-amber-800/60">
+                        <div className="flex items-center gap-1.5 text-stone-800 dark:text-stone-200">
+                          <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 font-bold shrink-0" />
                           <span>
                             Selected:{' '}
-                            <strong className="text-amber-900 font-black">
+                            <strong className="text-amber-900 dark:text-amber-300 font-black">
                               {selectedTable === 'auto'
                                 ? 'Auto-Assign upon arrival'
                                 : `Table #${selectedTable} (${tables.find((t) => t.tableNumber === selectedTable)?.name || 'Dine-In'})`}
                             </strong>
                           </span>
                         </div>
-                        <span className="text-[9px] text-stone-500 hidden sm:inline">
+                        <span className="text-[9px] text-stone-500 dark:text-stone-400 hidden sm:inline">
                           {selectedTable === 'auto'
                             ? 'Staff will assign first available table'
                             : `${tables.find((t) => t.tableNumber === selectedTable)?.area === 'airconditioned' ? 'Air-Conditioned' : 'Indoor Main'} • ${tables.find((t) => t.tableNumber === selectedTable)?.capacity || 4} Guests`}
@@ -1921,10 +2276,10 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                     </div>
                   )}
 
-                  <div className="rounded-xl sm:rounded-2xl border border-stone-200 bg-stone-50/80 p-2 sm:p-3.5 space-y-2 sm:space-y-3">
+                  <div className="rounded-xl sm:rounded-2xl border border-stone-200 dark:border-stone-800 bg-stone-50/80 dark:bg-stone-800/60 p-2 sm:p-3.5 space-y-2 sm:space-y-3">
                     <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                       <div>
-                        <label className="block text-[8px] sm:text-[10px] font-bold text-stone-600 uppercase mb-0.5">
+                        <label className="block text-[8px] sm:text-[10px] font-bold text-stone-600 dark:text-stone-400 uppercase mb-0.5">
                           Date
                         </label>
                         <input
@@ -1933,11 +2288,11 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                           value={bookingDate}
                           onChange={(e) => setBookingDate(e.target.value)}
                           required
-                          className="w-full rounded-lg sm:rounded-xl border border-stone-300 bg-white px-2 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
+                          className="w-full rounded-lg sm:rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 px-2 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-xs text-stone-900 dark:text-stone-100 focus:border-amber-500 focus:outline-none"
                         />
                       </div>
                       <div>
-                        <label className="block text-[8px] sm:text-[10px] font-bold text-stone-600 uppercase mb-0.5">
+                        <label className="block text-[8px] sm:text-[10px] font-bold text-stone-600 dark:text-stone-400 uppercase mb-0.5">
                           <span className="sm:hidden">Time</span>
                           <span className="hidden sm:inline">Arrival / Target Time</span>
                         </label>
@@ -1946,7 +2301,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                           value={arrivalTime}
                           onChange={(e) => setArrivalTime(e.target.value)}
                           required
-                          className="w-full rounded-lg sm:rounded-xl border border-stone-300 bg-white px-2 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
+                          className="w-full rounded-lg sm:rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 px-2 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-xs text-stone-900 dark:text-stone-100 focus:border-amber-500 focus:outline-none"
                         />
                       </div>
                     </div>
@@ -1954,7 +2309,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                     {orderType === 'dine_in' && (
                       <div className="grid grid-cols-2 gap-1.5 sm:gap-2 pt-0.5">
                         <div>
-                          <label className="block text-[8px] sm:text-[10px] font-bold text-stone-600 uppercase mb-0.5">
+                          <label className="block text-[8px] sm:text-[10px] font-bold text-stone-600 dark:text-stone-400 uppercase mb-0.5">
                             <span className="sm:hidden">Guests</span>
                             <span className="hidden sm:inline">Party Size (Guests)</span>
                           </label>
@@ -1963,7 +2318,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                             <select
                               value={partySize}
                               onChange={(e) => setPartySize(Number(e.target.value))}
-                              className="w-full rounded-lg sm:rounded-xl border border-stone-300 bg-white px-1.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
+                              className="w-full rounded-lg sm:rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 px-1.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs text-stone-900 dark:text-stone-100 focus:border-amber-500 focus:outline-none"
                             >
                               {[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 16, 20].map((n) => (
                                 <option key={n} value={n}>
@@ -1975,7 +2330,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                         </div>
 
                         <div>
-                          <label className="block text-[8px] sm:text-[10px] font-bold text-stone-600 uppercase mb-0.5">
+                          <label className="block text-[8px] sm:text-[10px] font-bold text-stone-600 dark:text-stone-400 uppercase mb-0.5">
                             Seating Area
                           </label>
                           <select
@@ -1985,7 +2340,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                                 e.target.value as 'indoor_main' | 'airconditioned' | 'outdoor_patio' | 'any'
                               )
                             }
-                            className="w-full rounded-lg sm:rounded-xl border border-stone-300 bg-white px-1.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
+                            className="w-full rounded-lg sm:rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 px-1.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs text-stone-900 dark:text-stone-100 focus:border-amber-500 focus:outline-none"
                           >
                             <option value="indoor_main">Indoor Main</option>
                             <option value="airconditioned">Air-Con</option>
@@ -1997,7 +2352,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                     )}
 
                     <div>
-                      <label className="block text-[8px] sm:text-[10px] font-bold text-stone-600 uppercase mb-0.5">
+                      <label className="block text-[8px] sm:text-[10px] font-bold text-stone-600 dark:text-stone-400 uppercase mb-0.5">
                         <span className="sm:hidden">Notes (Optional)</span>
                         <span className="hidden sm:inline">Special Requests / Notes (Optional)</span>
                       </label>
@@ -2006,7 +2361,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                         value={specialRequests}
                         onChange={(e) => setSpecialRequests(e.target.value)}
                         placeholder="e.g. High chair, quiet corner"
-                        className="w-full rounded-lg sm:rounded-xl border border-stone-300 bg-white px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none"
+                        className="w-full rounded-lg sm:rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -2016,7 +2371,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
               {!activeCustomer && !activeTableBinding && !(orderType === 'dine_in' && selectedTable) && (
                 <div className="grid gap-2 sm:gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="block text-[9px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                    <label className="block text-[9px] sm:text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1">
                       Name
                     </label>
                     <input
@@ -2025,11 +2380,11 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
                       placeholder="e.g. Juan Dela Cruz"
-                      className="w-full rounded-lg sm:rounded-xl border border-stone-300 bg-stone-50 px-2.5 sm:px-4 py-1.5 sm:py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
+                      className="w-full rounded-lg sm:rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 px-2.5 sm:px-4 py-1.5 sm:py-2.5 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:border-amber-500 focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-[9px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                    <label className="block text-[9px] sm:text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1">
                       Phone
                     </label>
                     <input
@@ -2038,14 +2393,14 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
                       placeholder="+63 912 345 6789"
-                      className="w-full rounded-lg sm:rounded-xl border border-stone-300 bg-stone-50 px-2.5 sm:px-4 py-1.5 sm:py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
+                      className="w-full rounded-lg sm:rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 px-2.5 sm:px-4 py-1.5 sm:py-2.5 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:border-amber-500 focus:outline-none"
                     />
                   </div>
                 </div>
               )}
 
               <div>
-                <label className="block text-[9px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1 sm:mb-1.5">
+                <label className="block text-[9px] sm:text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1 sm:mb-1.5">
                   Payment Method
                 </label>
                 <div className="grid grid-cols-3 gap-1 sm:gap-2">
@@ -2055,7 +2410,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                     className={`rounded-lg sm:rounded-xl py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold border transition cursor-pointer ${
                       paymentMethod === 'cash'
                         ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-2xs'
-                        : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
+                        : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-750'
                     }`}
                   >
                     💵 Cash
@@ -2066,7 +2421,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                     className={`rounded-lg sm:rounded-xl py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold border transition cursor-pointer ${
                       paymentMethod === 'gcash'
                         ? 'bg-sky-500 text-white border-sky-500 shadow-2xs'
-                        : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
+                        : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-750'
                     }`}
                   >
                     📱 GCash
@@ -2076,8 +2431,8 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                     onClick={() => setPaymentMethod('card')}
                     className={`rounded-lg sm:rounded-xl py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold border transition cursor-pointer ${
                       paymentMethod === 'card'
-                        ? 'bg-stone-900 text-white border-stone-900 shadow-2xs'
-                        : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
+                        ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-950 border-stone-900 dark:border-stone-100 shadow-2xs'
+                        : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-750'
                     }`}
                   >
                     💳 Card
@@ -2085,22 +2440,22 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                 </div>
               </div>
 
-              <div className="rounded-xl sm:rounded-2xl bg-stone-50 p-2.5 sm:p-4 border border-stone-200 text-[10px] sm:text-xs space-y-1 sm:space-y-1.5">
-                <div className="flex justify-between text-stone-600">
+              <div className="rounded-xl sm:rounded-2xl bg-stone-50 dark:bg-stone-800/70 p-2.5 sm:p-4 border border-stone-200 dark:border-stone-750 text-[10px] sm:text-xs space-y-1 sm:space-y-1.5">
+                <div className="flex justify-between text-stone-600 dark:text-stone-400">
                   <span>Items:</span>
                   <span>{totalItemCount}</span>
                 </div>
-                <div className="flex justify-between text-stone-600">
+                <div className="flex justify-between text-stone-600 dark:text-stone-400">
                   <span>Subtotal:</span>
                   <span>₱{subtotal.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-stone-600">
+                <div className="flex justify-between text-stone-600 dark:text-stone-400">
                   <span>VAT ({taxRate}%):</span>
                   <span>₱{taxAmount.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between font-bold text-xs sm:text-sm text-stone-900 pt-1 sm:pt-1.5 border-t border-stone-200">
+                <div className="flex justify-between font-bold text-xs sm:text-sm text-stone-900 dark:text-stone-100 pt-1 sm:pt-1.5 border-t border-stone-200 dark:border-stone-700">
                   <span>Total:</span>
-                  <span className="font-mono text-amber-700">₱{totalAmount.toFixed(2)}</span>
+                  <span className="font-mono text-amber-700 dark:text-amber-400">₱{totalAmount.toFixed(2)}</span>
                 </div>
               </div>
 
@@ -2108,7 +2463,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsCheckoutOpen(false)}
-                  className="flex items-center justify-center gap-1 rounded-xl border border-stone-200 bg-white px-3 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-bold text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition cursor-pointer shadow-2xs"
+                  className="flex items-center justify-center gap-1 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-3 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 hover:text-stone-950 dark:hover:text-stone-100 transition cursor-pointer shadow-2xs"
                 >
                   <ArrowLeft className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                   <span>Back</span>
@@ -2187,10 +2542,17 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       {item.temperature}
                     </span>
                   )}
-                  <span className="flex items-center gap-1 rounded-full bg-stone-900/85 backdrop-blur-md px-2.5 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-[11px] font-bold text-emerald-400 shadow-md">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                    {item.quantity > 0 ? `In Stock (${item.quantity})` : 'Available'}
-                  </span>
+                  {item.quantity <= 0 ? (
+                    <span className="flex items-center gap-1 rounded-full bg-rose-950/85 border border-rose-500/40 backdrop-blur-md px-2.5 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-[11px] font-black text-rose-300 shadow-md">
+                      <span className="h-1.5 w-1.5 rounded-full bg-rose-400 animate-pulse" />
+                      Out of Stock
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 rounded-full bg-stone-900/85 backdrop-blur-md px-2.5 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-[11px] font-bold text-emerald-400 shadow-md">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                      {`In Stock (${item.quantity})`}
+                    </span>
+                  )}
                 </div>
 
                 {/* Floating Bottom Left: Compact Price Pill */}
@@ -2309,9 +2671,24 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                           </span>
                           <button
                             type="button"
-                            onClick={() => handleUpdateQuantity(item.id, 1)}
-                            className="grid h-7 w-7 sm:h-9 sm:w-9 place-items-center rounded-lg sm:rounded-xl bg-amber-500 text-stone-950 shadow-xs hover:bg-amber-400 transition active:scale-90 cursor-pointer"
-                            title="Increase quantity"
+                            onClick={() => {
+                              if (inCartQty >= item.quantity) {
+                                showAlert({
+                                  title: 'Stock Limit Reached',
+                                  message: `Only ${item.quantity} unit${item.quantity === 1 ? '' : 's'} of "${item.name}" available in stock.`,
+                                  type: 'warning',
+                                });
+                                return;
+                              }
+                              handleUpdateQuantity(item.id, 1);
+                            }}
+                            disabled={inCartQty >= item.quantity}
+                            className={`grid h-7 w-7 sm:h-9 sm:w-9 place-items-center rounded-lg sm:rounded-xl shadow-xs transition active:scale-90 ${
+                              inCartQty >= item.quantity
+                                ? 'bg-stone-200 text-stone-400 cursor-not-allowed'
+                                : 'bg-amber-500 text-stone-950 hover:bg-amber-400 cursor-pointer'
+                            }`}
+                            title={inCartQty >= item.quantity ? 'Stock limit reached' : 'Increase quantity'}
                           >
                             <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           </button>
@@ -2337,16 +2714,21 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       <button
                         type="button"
                         id="modal-add-to-cart-button"
+                        disabled={item.quantity <= 0}
                         onClick={() => {
                           handleAddToCart(item);
                         }}
-                        className={`inline-flex items-center gap-1.5 sm:gap-2 rounded-xl sm:rounded-2xl px-4 py-2.5 sm:px-7 sm:py-3.5 text-xs sm:text-sm font-black transition-all duration-200 active:scale-95 cursor-pointer shadow-md ${
-                          isJustAdded
-                            ? 'bg-emerald-600 text-white scale-105'
-                            : 'bg-amber-500 text-stone-950 hover:bg-amber-400 hover:shadow-amber-500/20'
+                        className={`inline-flex items-center gap-1.5 sm:gap-2 rounded-xl sm:rounded-2xl px-4 py-2.5 sm:px-7 sm:py-3.5 text-xs sm:text-sm font-black transition-all duration-200 shadow-md ${
+                          item.quantity <= 0
+                            ? 'bg-stone-200 text-stone-400 cursor-not-allowed'
+                            : isJustAdded
+                            ? 'bg-emerald-600 text-white scale-105 active:scale-95 cursor-pointer'
+                            : 'bg-amber-500 text-stone-950 hover:bg-amber-400 hover:shadow-amber-500/20 active:scale-95 cursor-pointer'
                         }`}
                       >
-                        {isJustAdded ? (
+                        {item.quantity <= 0 ? (
+                          <span>Out of Stock</span>
+                        ) : isJustAdded ? (
                           <>
                             <Check className="h-4 w-4 sm:h-5 sm:w-5 stroke-[3]" />
                             <span>Added to Cart!</span>

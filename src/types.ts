@@ -7,6 +7,8 @@ export interface User {
   role: 'cashier' | 'admin' | 'cook' | 'barista';
   status: 'active' | 'inactive';
   pin?: string;
+  password?: string;
+  passwordUpdatedAt?: string;
   phone?: string;
   email?: string;
   lastLogin?: string;
@@ -19,6 +21,7 @@ export interface Category {
   icon: string;
   sortOrder: number;
   status: 'active' | 'inactive';
+  imageUrl?: string;
 }
 
 export type TemperatureType = 'hot' | 'iced' | 'cold' | 'room temp' | 'both' | 'blended' | 'blended iced';
@@ -91,7 +94,7 @@ export interface Reservation {
   tableNumber?: number;
   venueName?: string;
   venueDurationHours?: number; // e.g. 3, 4, 5, 6
-  venueRate?: number; // base rate, e.g. 300 for 3 hours
+  venueRate?: number; // base rate, e.g. 3500 for 3 hours (fully consumable)
   venueAddons?: VenueAddon[];
   totalAmount?: number;
   eventType?: string; // e.g. Meeting, Workshop, Birthday, Party, Co-working
@@ -249,6 +252,14 @@ export interface TimeBasedMenu {
   item_names: string[];
 }
 
+export interface CustomerGallerySettings {
+  heroBackground?: string; // Landing page hero section wallpaper / background
+  heroFeaturedImage?: string; // Landing page hero collage spotlight image
+  reservationBanner?: string; // Reservation page & private studio banner
+  menuDrinksBackground?: string; // Customer Menu "Drinks & Coffee" card background
+  menuFoodBackground?: string; // Customer Menu "Food & Pastries" card background
+}
+
 export interface StoreSettings {
   tax_rate: number;
   currency: string;
@@ -260,6 +271,7 @@ export interface StoreSettings {
   receipt_footer: string;
   business_hours: string;
   time_based_menus: TimeBasedMenu[];
+  customer_gallery?: CustomerGallerySettings;
 }
 
 export interface ChatIntent {

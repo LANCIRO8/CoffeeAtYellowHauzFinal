@@ -198,6 +198,7 @@ const STORAGE_KEYS = {
   CLIENT_SESSION_ID: 'yh_client_session_id',
   GUEST_ORDERS: 'yh_guest_orders',
   REFILL_REQUESTS: 'yh_refill_requests',
+  DELETED_USERS: 'yh_deleted_users',
 };
 
 // Defensive helper to strip undefined values so Firestore never throws 'Unsupported field value: undefined'
@@ -404,7 +405,14 @@ export class AppStore {
             items.forEach((item) => {
               const seed = seedMap.get(item.id);
               let changed = false;
-              if (seed && seed.imageUrl && seed.imageUrl.startsWith('/images/') && item.imageUrl !== seed.imageUrl) {
+              // Do not overwrite user-customized images (e.g. data:image/ base64 uploads)
+              if (
+                seed &&
+                seed.imageUrl &&
+                seed.imageUrl.startsWith('/images/') &&
+                item.imageUrl !== seed.imageUrl &&
+                !item.imageUrl?.startsWith('data:image/')
+              ) {
                 item.imageUrl = seed.imageUrl;
                 changed = true;
               }
@@ -527,30 +535,59 @@ export class AppStore {
         }
       );
 
-      // 7. Listen to Users
+      // 7a. Listen to Deleted Users Record
+      onSnapshot(
+        doc(db, 'settings', 'deleted_users'),
+        (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data() as { ids?: number[]; usernames?: string[] };
+            const current = this.getDeletedUsers();
+            const mergedIds = Array.from(new Set([...current.ids, ...(data.ids || [])]));
+            const mergedUsernames = Array.from(
+              new Set([
+                ...current.usernames.map((u) => u.toLowerCase().trim()),
+                ...(data.usernames || []).map((u) => u.toLowerCase().trim()),
+              ])
+            );
+            setStored(STORAGE_KEYS.DELETED_USERS, { ids: mergedIds, usernames: mergedUsernames });
+          }
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, 'settings/deleted_users');
+        }
+      );
+
+      // 7b. Listen to Users
       onSnapshot(
         collection(db, 'users'),
         (snapshot) => {
+          const deletedRecord = this.getDeletedUsers();
+          const deletedIds = new Set(deletedRecord.ids);
+          const deletedUsernames = new Set(deletedRecord.usernames.map((u) => u.toLowerCase().trim()));
+
           if (!snapshot.empty) {
-            const rawUsers = snapshot.docs.map((doc) => {
-              const u = doc.data() as User;
+            const rawUsers = snapshot.docs
+              .map((doc) => doc.data() as User)
+              .filter(
+                (u) =>
+                  !deletedIds.has(u.id) &&
+                  !deletedUsernames.has((u.username || '').toLowerCase().trim())
+              );
+
+            const processedUsers = rawUsers.map((u) => {
               if (u.fullName === 'System Administrator') {
                 u.fullName = 'Admin';
               }
               if ((u as any).role === 'chef') {
                 u.role = 'cook';
               }
-              // Auto-pad or convert legacy 4-digit PINs to 8 digits if present
-              if (u.pin && u.pin.length === 4) {
-                if (u.role === 'admin' && u.pin === '1234') {
-                  u.pin = '12345678';
-                } else if (u.pin === '0000') {
-                  u.pin = '00000000';
-                } else {
-                  u.pin = u.pin.repeat(2);
-                }
-              } else if (!u.pin) {
-                u.pin =
+              // Preserve pin or password without resetting to defaults
+              const currentPin = u.pin || u.password;
+              if (currentPin) {
+                u.pin = currentPin;
+                u.password = currentPin;
+              } else {
+                const defaultPin =
                   u.role === 'admin'
                     ? '12345678'
                     : u.role === 'cook'
@@ -558,25 +595,18 @@ export class AppStore {
                     : u.role === 'barista'
                     ? '33445566'
                     : '00000000';
+                u.pin = defaultPin;
+                u.password = defaultPin;
               }
               return u;
             });
 
             // Deduplicate by id and username
             const userMap = new Map<string, User>();
-            rawUsers.forEach((u) => {
+            processedUsers.forEach((u) => {
               const uKey = (u.username || u.fullName || String(u.id)).toLowerCase().trim();
               if (!userMap.has(uKey)) {
                 userMap.set(uKey, u);
-              }
-            });
-
-            // Ensure any default seed users (e.g. cook) are present
-            SEED_USERS.forEach((seedU) => {
-              const uKey = seedU.username.toLowerCase().trim();
-              if (!userMap.has(uKey)) {
-                userMap.set(uKey, seedU);
-                setDoc(doc(db, 'users', String(seedU.id)), cleanForFirestore(seedU)).catch(() => {});
               }
             });
 
@@ -584,9 +614,17 @@ export class AppStore {
             setStored(STORAGE_KEYS.USERS, users);
             this.notify();
           } else {
-            SEED_USERS.forEach((u) => {
+            // Initial seed only for non-deleted seed users
+            const toSeed = SEED_USERS.filter(
+              (u) =>
+                !deletedIds.has(u.id) &&
+                !deletedUsernames.has((u.username || '').toLowerCase().trim())
+            );
+            toSeed.forEach((u) => {
               setDoc(doc(db, 'users', String(u.id)), cleanForFirestore(u)).catch(() => {});
             });
+            setStored(STORAGE_KEYS.USERS, toSeed);
+            this.notify();
           }
         },
         (error) => {
@@ -623,12 +661,21 @@ export class AppStore {
       onSnapshot(
         collection(db, 'table_requests'),
         (snapshot) => {
+          const localList = getStored<TableRequest[]>(STORAGE_KEYS.TABLE_REQUESTS, []);
           if (!snapshot.empty) {
             const list = snapshot.docs.map((doc) => doc.data() as TableRequest);
-            list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-            setStored(STORAGE_KEYS.TABLE_REQUESTS, list);
+            const firestoreIds = new Set(list.map((r) => r.id));
+            // Keep local pending requests that haven't synced yet
+            const pendingLocal = localList.filter(
+              (r) => !firestoreIds.has(r.id) && r.status === 'pending'
+            );
+            const merged = [...list, ...pendingLocal];
+            merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            setStored(STORAGE_KEYS.TABLE_REQUESTS, merged);
           } else {
-            setStored(STORAGE_KEYS.TABLE_REQUESTS, []);
+            // Keep local pending requests even if firestore snapshot is empty
+            const pendingLocal = localList.filter((r) => r.status === 'pending');
+            setStored(STORAGE_KEYS.TABLE_REQUESTS, pendingLocal);
           }
           this.notify();
         },
@@ -658,6 +705,29 @@ export class AppStore {
         },
         (error) => {
           handleFirestoreError(error, OperationType.GET, 'refill_requests');
+        }
+      );
+
+      // 11. Listen to Registered Customer Accounts
+      onSnapshot(
+        collection(db, 'customers'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const list = snapshot.docs.map((doc) => doc.data() as CustomerAccount);
+            const localCusts = getStored<CustomerAccount[]>(STORAGE_KEYS.CUSTOMERS, []);
+            const map = new Map<string, CustomerAccount>();
+            localCusts.forEach((c) => {
+              if (c.email) map.set(c.email.toLowerCase().trim(), c);
+            });
+            list.forEach((c) => {
+              if (c.email) map.set(c.email.toLowerCase().trim(), c);
+            });
+            setStored(STORAGE_KEYS.CUSTOMERS, Array.from(map.values()));
+            this.notify();
+          }
+        },
+        () => {
+          // ignore gracefully if collection isn't yet created
         }
       );
     } catch (err) {
@@ -744,10 +814,16 @@ export class AppStore {
     const seedMap = new Map(SEED_MENU_ITEMS.map((s) => [s.id, s]));
     let modified = false;
 
-    // Synchronize updated image paths from the seed catalog
+    // Synchronize updated image paths from the seed catalog (without overwriting custom uploads)
     items.forEach((item) => {
       const seed = seedMap.get(item.id);
-      if (seed && seed.imageUrl && seed.imageUrl.startsWith('/images/') && item.imageUrl !== seed.imageUrl) {
+      if (
+        seed &&
+        seed.imageUrl &&
+        seed.imageUrl.startsWith('/images/') &&
+        item.imageUrl !== seed.imageUrl &&
+        !item.imageUrl?.startsWith('data:image/')
+      ) {
         item.imageUrl = seed.imageUrl;
         modified = true;
       }
@@ -776,7 +852,13 @@ export class AppStore {
     let count = 0;
     items.forEach((item) => {
       const seed = seedMap.get(item.id);
-      if (seed && seed.imageUrl && seed.imageUrl.startsWith('/images/') && item.imageUrl !== seed.imageUrl) {
+      if (
+        seed &&
+        seed.imageUrl &&
+        seed.imageUrl.startsWith('/images/') &&
+        item.imageUrl !== seed.imageUrl &&
+        !item.imageUrl?.startsWith('data:image/')
+      ) {
         item.imageUrl = seed.imageUrl;
         count++;
         setDoc(doc(db, 'menu_items', String(item.id)), cleanForFirestore(item)).catch(() => {});
@@ -1657,9 +1739,9 @@ export class AppStore {
       bookingType: isVenue ? 'venue' : 'table',
       venueName: isVenue ? (data.venueName || 'The Yellow Hauz Private Studio & Event Nook') : undefined,
       venueDurationHours: isVenue ? (Number(data.venueDurationHours) || 3) : undefined,
-      venueRate: isVenue ? (Number(data.venueRate) || 300) : undefined,
+      venueRate: isVenue ? (Number(data.venueRate) || 3500) : undefined,
       venueAddons: isVenue ? (data.venueAddons || []) : undefined,
-      totalAmount: isVenue ? (Number(data.totalAmount) || 300) : undefined,
+      totalAmount: isVenue ? (Number(data.totalAmount) || 3500) : undefined,
       eventType: isVenue ? (data.eventType || 'Private Gathering') : undefined,
       seatingLayout: isVenue ? (data.seatingLayout || 'boardroom') : undefined,
       paymentStatus: isVenue ? (data.paymentStatus || 'unpaid') : undefined,
@@ -1724,12 +1806,44 @@ export class AppStore {
     setDoc(doc(db, 'settings', 'general'), cleanForFirestore(settings)).catch(() => {});
   }
 
+  // Deleted Users Record Helpers (Prevents resurrecting deleted staff accounts)
+  static getDeletedUsers(): { ids: number[]; usernames: string[] } {
+    return getStored<{ ids: number[]; usernames: string[] }>(STORAGE_KEYS.DELETED_USERS, {
+      ids: [],
+      usernames: [],
+    });
+  }
+
+  static setDeletedUsers(record: { ids: number[]; usernames: string[] }): void {
+    setStored(STORAGE_KEYS.DELETED_USERS, record);
+    setDoc(doc(db, 'settings', 'deleted_users'), cleanForFirestore(record)).catch((err) => {
+      console.warn('Error saving deleted users record to Firestore:', err);
+    });
+  }
+
+  static addDeletedUser(id: number, username?: string): void {
+    const current = this.getDeletedUsers();
+    const nextIds = Array.from(new Set([...current.ids, id]));
+    const nextUsernames = username
+      ? Array.from(new Set([...current.usernames, username.toLowerCase().trim()]))
+      : current.usernames;
+    const updated = { ids: nextIds, usernames: nextUsernames };
+    this.setDeletedUsers(updated);
+  }
+
   // Users and Auth State
   static getUsers(): User[] {
+    const deletedRecord = this.getDeletedUsers();
+    const deletedIds = new Set(deletedRecord.ids);
+    const deletedUsernames = new Set(deletedRecord.usernames.map((u) => u.toLowerCase().trim()));
+
     const list = getStored<User[]>(STORAGE_KEYS.USERS, SEED_USERS);
     const userMap = new Map<string, User>();
 
     list.forEach((u) => {
+      if (deletedIds.has(u.id) || deletedUsernames.has((u.username || '').toLowerCase().trim())) {
+        return;
+      }
       if ((u as any).role === 'chef') {
         u.role = 'cook';
       }
@@ -1739,12 +1853,17 @@ export class AppStore {
       }
     });
 
-    SEED_USERS.forEach((seedU) => {
-      const uKey = seedU.username.toLowerCase().trim();
-      if (!userMap.has(uKey)) {
-        userMap.set(uKey, seedU);
-      }
-    });
+    // Only inject seed users if there are ZERO users stored AND nothing has been deleted
+    if (userMap.size === 0 && deletedIds.size === 0) {
+      SEED_USERS.forEach((seedU) => {
+        if (!deletedIds.has(seedU.id) && !deletedUsernames.has(seedU.username.toLowerCase().trim())) {
+          const uKey = seedU.username.toLowerCase().trim();
+          if (!userMap.has(uKey)) {
+            userMap.set(uKey, seedU);
+          }
+        }
+      });
+    }
 
     return Array.from(userMap.values()).map((u) => {
       let updated = u;
@@ -1754,18 +1873,27 @@ export class AppStore {
       if ((updated as any).role === 'chef') {
         updated = { ...updated, role: 'cook' };
       }
-      // Ensure fallback PINs if missing
-      if (!updated.pin) {
+      // Ensure fallback PINs / passwords if missing
+      const effectivePin = updated.pin || updated.password;
+      if (!effectivePin) {
+        const defaultPin =
+          updated.role === 'admin'
+            ? '12345678'
+            : updated.role === 'cook'
+            ? '55667788'
+            : updated.role === 'barista'
+            ? '33445566'
+            : '00000000';
         updated = {
           ...updated,
-          pin:
-            updated.role === 'admin'
-              ? '12345678'
-              : updated.role === 'cook'
-              ? '55667788'
-              : updated.role === 'barista'
-              ? '33445566'
-              : '00000000',
+          pin: defaultPin,
+          password: defaultPin,
+        };
+      } else {
+        updated = {
+          ...updated,
+          pin: effectivePin,
+          password: effectivePin,
         };
       }
       return updated;
@@ -1776,17 +1904,21 @@ export class AppStore {
     setStored(STORAGE_KEYS.USERS, users);
     this.notify();
     users.forEach((u) => {
-      setDoc(doc(db, 'users', String(u.id)), cleanForFirestore(u)).catch(() => {});
+      setDoc(doc(db, 'users', String(u.id)), cleanForFirestore(u), { merge: true }).catch((err) => {
+        console.warn('Could not save user to Firestore:', err);
+      });
     });
   }
 
   static createUser(userData: Omit<User, 'id'>): User {
     const users = this.getUsers();
     const nextId = users.length > 0 ? Math.max(...users.map((u) => u.id)) + 1 : 1;
+    const pin = userData.pin || userData.password || (userData.role === 'admin' ? '12345678' : '00000000');
     const newUser: User = {
       id: nextId,
       ...userData,
-      pin: userData.pin || (userData.role === 'admin' ? '12345678' : '00000000'),
+      pin,
+      password: pin,
       createdAt: userData.createdAt || new Date().toISOString(),
     };
     const updatedUsers = [...users, newUser];
@@ -1799,7 +1931,17 @@ export class AppStore {
     const index = users.findIndex((u) => u.id === id);
     if (index === -1) return null;
 
-    const updatedUser: User = { ...users[index], ...updates };
+    const mergedPin = updates.pin || updates.password || users[index].pin || users[index].password;
+    const updatedUser: User = {
+      ...users[index],
+      ...updates,
+      pin: mergedPin,
+      password: mergedPin,
+      passwordUpdatedAt:
+        updates.pin || updates.password
+          ? new Date().toISOString()
+          : users[index].passwordUpdatedAt,
+    };
     users[index] = updatedUser;
     this.saveUsers(users);
 
@@ -1808,6 +1950,10 @@ export class AppStore {
     if (currentActive && currentActive.id === id) {
       this.setActiveStaff(updatedUser);
     }
+
+    setDoc(doc(db, 'users', String(id)), cleanForFirestore(updatedUser), { merge: true }).catch((err) => {
+      console.warn('Could not update user doc in Firestore:', err);
+    });
 
     return updatedUser;
   }
@@ -1818,18 +1964,25 @@ export class AppStore {
     if (!userToDelete) return false;
 
     // Safety guard: Cannot delete if it's the only admin
-    const adminCount = users.filter((u) => u.role === 'admin' && u.status === 'active').length;
-    if (userToDelete.role === 'admin' && adminCount <= 1) {
+    const activeAdmins = users.filter((u) => u.role === 'admin' && u.status === 'active');
+    if (userToDelete.role === 'admin' && activeAdmins.length <= 1) {
       return false;
     }
 
+    // 1. Add to permanent deleted users record (both ID and username)
+    this.addDeletedUser(id, userToDelete.username);
+
+    // 2. Filter from stored list immediately
     const filtered = users.filter((u) => u.id !== id);
     setStored(STORAGE_KEYS.USERS, filtered);
     this.notify();
 
-    deleteDoc(doc(db, 'users', String(id))).catch(() => {});
+    // 3. Delete doc from Firestore
+    deleteDoc(doc(db, 'users', String(id))).catch((err) => {
+      console.warn('Could not delete user doc from Firestore:', err);
+    });
 
-    // If deleting current active staff, log them out
+    // 4. If deleting current active staff, log them out
     const currentActive = this.getActiveStaff();
     if (currentActive && currentActive.id === id) {
       this.setActiveStaff(null);
@@ -1839,8 +1992,9 @@ export class AppStore {
   }
 
   static resetUserPin(id: number, newPin: string): boolean {
-    if (!/^\d{8}$/.test(newPin)) return false;
-    const res = this.updateUser(id, { pin: newPin });
+    if (!newPin || newPin.trim().length < 4 || newPin.trim().length > 20) return false;
+    const trimmed = newPin.trim();
+    const res = this.updateUser(id, { pin: trimmed, password: trimmed });
     return res !== null;
   }
 
@@ -1886,15 +2040,37 @@ export class AppStore {
     const customers = this.getCustomers();
     return (
       customers.find(
-        (c) => c.email && c.email.toLowerCase() === email.trim().toLowerCase()
+        (c) => c.email && c.email.trim().toLowerCase() === email.trim().toLowerCase()
       ) || null
     );
+  }
+
+  static isEmailRegistered(email: string, excludeCustomerId?: number): boolean {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) return false;
+    const customers = this.getCustomers();
+    const customerExists = customers.some(
+      (c) =>
+        c.email &&
+        c.email.trim().toLowerCase() === cleanEmail &&
+        (!excludeCustomerId || c.id !== excludeCustomerId)
+    );
+    if (customerExists) return true;
+
+    // Also check staff/admin accounts to prevent collision
+    const users = this.getUsers();
+    const userExists = users.some(
+      (u) =>
+        (u.email && u.email.trim().toLowerCase() === cleanEmail) ||
+        (u.username && u.username.trim().toLowerCase() === cleanEmail)
+    );
+    return userExists;
   }
 
   static saveCustomerAccount(customer: CustomerAccount): void {
     const customers = getStored<CustomerAccount[]>(STORAGE_KEYS.CUSTOMERS, []);
     const idx = customers.findIndex(
-      (c) => c.id === customer.id || (c.email && customer.email && c.email.toLowerCase() === customer.email.toLowerCase())
+      (c) => c.id === customer.id || (c.email && customer.email && c.email.trim().toLowerCase() === customer.email.trim().toLowerCase())
     );
     if (idx >= 0) {
       customers[idx] = customer;
@@ -1902,6 +2078,9 @@ export class AppStore {
       customers.push(customer);
     }
     setStored(STORAGE_KEYS.CUSTOMERS, customers);
+    if (db) {
+      setDoc(doc(db, 'customers', String(customer.id)), cleanForFirestore(customer)).catch(() => {});
+    }
   }
 
   static setActiveCustomer(cust: CustomerAccount | null): void {
@@ -2242,17 +2421,23 @@ export class AppStore {
 
   static getMyActiveTableRequest(sessionId?: string): TableRequest | null {
     const sid = sessionId || this.getClientSessionId();
+    const customer = this.getActiveCustomer();
     const requests = this.getTableRequests();
-    // Return pending request first, or a recently resolved one (within 45s)
-    const pending = requests.find((r) => r.sessionId === sid && r.status === 'pending');
+    // Return pending request first (by session or customer id)
+    const pending = requests.find(
+      (r) =>
+        (r.sessionId === sid || (customer && r.customerId && r.customerId === customer.id)) &&
+        r.status === 'pending'
+    );
     if (pending) return pending;
 
     const recent = requests.find(
       (r) =>
-        r.sessionId === sid &&
+        (r.sessionId === sid || (customer && r.customerId && r.customerId === customer.id)) &&
         (r.status === 'approved' || r.status === 'rejected') &&
+        (r as any).status !== 'superseded' &&
         r.respondedAt &&
-        Date.now() - new Date(r.respondedAt).getTime() < 45000
+        Date.now() - new Date(r.respondedAt).getTime() < 30000
     );
     return recent || null;
   }
@@ -2302,17 +2487,32 @@ export class AppStore {
       respondedAt: null,
     };
 
-    // Replace any old pending request from this same session
-    const list = this.getTableRequests().filter(
-      (r) => !(r.sessionId === sid && r.status === 'pending')
-    );
+    // Supersede any old request from this same session or customer so it doesn't immediately match past approved requests
+    const supersededIds: string[] = [];
+    const list = this.getTableRequests().map((r) => {
+      const isSameClient =
+        r.sessionId === sid ||
+        (params.customerId && r.customerId === params.customerId) ||
+        (r.customerId && this.getActiveCustomer()?.id === r.customerId) ||
+        (params.currentTableNumber && r.requestedTableNumber === params.currentTableNumber);
+      if (isSameClient && (r.status === 'pending' || r.status === 'approved' || r.status === 'rejected')) {
+        supersededIds.push(r.id);
+        return { ...r, status: 'superseded' as any };
+      }
+      return r;
+    });
     list.unshift(newRequest);
     this.saveTableRequests(list);
 
-    // Sync to Firestore
+    // Sync new request to Firestore
     setDoc(doc(db, 'table_requests', reqId), cleanForFirestore(newRequest)).catch((e) =>
       console.error('Firestore create table request error:', e)
     );
+
+    // Also update any superseded requests in Firestore
+    supersededIds.forEach((oldId) => {
+      updateDoc(doc(db, 'table_requests', oldId), { status: 'superseded' }).catch(() => {});
+    });
 
     return newRequest;
   }
@@ -2343,15 +2543,44 @@ export class AppStore {
     req.respondedAt = new Date().toISOString();
     this.saveTableRequests(list);
 
-    // Update target table to occupied in floor plan
-    this.updateTableStatus(req.requestedTableId, 'occupied');
-
-    // If changing tables, free the previous table if it has no active order
+    // If changing tables, free the previous table and transfer active order
+    let activeOrderIdToTransfer: number | null = null;
     if (req.currentTableNumber && req.currentTableNumber !== req.requestedTableNumber) {
       const oldTable = this.getTables().find((t) => t.tableNumber === req.currentTableNumber);
-      if (oldTable && oldTable.status === 'occupied' && !oldTable.currentOrderId) {
+      if (oldTable) {
+        activeOrderIdToTransfer = oldTable.currentOrderId || null;
         this.updateTableStatus(oldTable.id, 'available', null);
       }
+
+      // Transfer active orders from old table to new table
+      const orders = this.getOrders();
+      let ordersUpdated = false;
+      orders.forEach((o) => {
+        if (
+          o.tableNumber === req.currentTableNumber &&
+          ['pending', 'to_prep', 'processing', 'to_serve'].includes(o.status)
+        ) {
+          o.tableNumber = req.requestedTableNumber;
+          ordersUpdated = true;
+          updateDoc(doc(db, 'orders', String(o.id)), { tableNumber: req.requestedTableNumber }).catch(() => {});
+        }
+      });
+      if (ordersUpdated) {
+        this.saveOrders(orders);
+      }
+    }
+
+    // Update target table to occupied in floor plan with active order
+    this.updateTableStatus(req.requestedTableId, 'occupied', activeOrderIdToTransfer);
+
+    // If this browser session requested it, auto-bind new table
+    const clientSid = this.getClientSessionId();
+    const activeCustomer = this.getActiveCustomer();
+    if (
+      req.sessionId === clientSid ||
+      (activeCustomer && req.customerId && req.customerId === activeCustomer.id)
+    ) {
+      this.bindTableByNumber(req.requestedTableNumber, false, cashier.fullName);
     }
 
     // Firestore sync
@@ -2503,7 +2732,7 @@ export class AppStore {
     const topPicks = allItems.filter((i) => i.isBestSeller && i.isAvailable).slice(0, 4);
     return {
       reply:
-        "I'm delighted to assist you at Coffee at Yellow Hauz! ☕ You can ask me for drink recommendations (sweet or bold coffee, iced favorites, milk teas), hearty meals (Pork Adobo Flakes, pastas, sandwiches), table reservations, our ₱300/3hr Private Venue, discounts (20% Senior/PWD), or our operating hours (7:00 AM - 10:00 PM).",
+        "I'm Brewmate AI, and I'm delighted to assist you at Coffee at Yellow Hauz! ☕ You can ask me for drink recommendations (sweet or bold coffee, iced favorites, milk teas), hearty meals (Pork Adobo Flakes, pastas, sandwiches), free table reservations, our ₱3,500/3hr consumable Private Venue package, discounts (20% Senior/PWD), or our operating hours (7:00 AM - 10:00 PM).",
       recommendedItems: topPicks.length > 0 ? topPicks : undefined,
       suggestedAction: 'menu',
       source: 'local',

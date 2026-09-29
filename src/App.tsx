@@ -49,7 +49,7 @@ export default function App() {
 }
 
 function MainApp() {
-  const { showConfirm } = useModal();
+  const { showConfirm, showAlert } = useModal();
 
   // App navigation state initialized from current URL route (e.g. /admin, /staff, /cook, /menu, /reservation)
   const initialRoute = useMemo(() => AppRouter.parseCurrentRoute(), []);
@@ -141,7 +141,7 @@ function MainApp() {
       const saved = localStorage.getItem('theme');
       if (saved === 'dark' || saved === 'amber' || saved === 'light') return saved;
       if (document.documentElement.classList.contains('dark')) return 'dark';
-      if (document.documentElement.classList.contains('theme-amber')) return 'amber';
+      if (document.documentElement.classList.contains('theme-amber') || document.documentElement.classList.contains('theme-beige')) return 'amber';
     }
     return 'light';
   });
@@ -149,21 +149,47 @@ function MainApp() {
   const isDarkMode = currentTheme === 'dark';
 
   useEffect(() => {
-    document.documentElement.classList.remove('dark', 'theme-amber');
-    document.body.classList.remove('dark', 'theme-amber');
+    document.documentElement.classList.remove('dark', 'theme-amber', 'theme-beige');
+    document.body.classList.remove('dark', 'theme-amber', 'theme-beige');
 
     if (currentTheme === 'dark') {
       document.documentElement.classList.add('dark');
       document.body.classList.add('dark');
       localStorage.setItem('theme', 'dark');
     } else if (currentTheme === 'amber') {
-      document.documentElement.classList.add('theme-amber');
-      document.body.classList.add('theme-amber');
+      document.documentElement.classList.add('theme-amber', 'theme-beige');
+      document.body.classList.add('theme-amber', 'theme-beige');
       localStorage.setItem('theme', 'amber');
     } else {
       localStorage.setItem('theme', 'light');
     }
   }, [currentTheme]);
+
+  const handleThemeChange = (newTheme: 'light' | 'amber' | 'dark') => {
+    if (newTheme === currentTheme) return;
+
+    try {
+      localStorage.setItem('theme', newTheme);
+    } catch (e) {
+      console.error('Failed to save theme in localStorage:', e);
+    }
+
+    document.documentElement.classList.remove('dark', 'theme-amber', 'theme-beige');
+    document.body.classList.remove('dark', 'theme-amber', 'theme-beige');
+
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.body.classList.add('dark');
+    } else if (newTheme === 'amber') {
+      document.documentElement.classList.add('theme-amber', 'theme-beige');
+      document.body.classList.add('theme-amber', 'theme-beige');
+    }
+
+    setCurrentTheme(newTheme);
+
+    // Refresh page for full change as requested
+    window.location.reload();
+  };
 
   // Synchronize cart with localStorage whenever customerCart updates
   useEffect(() => {
@@ -180,9 +206,35 @@ function MainApp() {
   );
 
   const handleCustomerAddToCart = (item: MenuItem) => {
+    // Determine available stock for the item
+    const currentStock = typeof item.quantity === 'number' ? item.quantity : 0;
+    
+    // Check if the item is out of stock
+    if (currentStock <= 0) {
+      showAlert({
+        title: 'Item Out of Stock',
+        message: `Sorry, "${item.name}" is currently out of stock.`,
+        type: 'warning',
+      });
+      return;
+    }
+
+    // Check if adding exceeds available stock
+    const existing = customerCart.find((ci) => ci.item.id === item.id);
+    const currentInCart = existing ? existing.quantity : 0;
+
+    if (currentInCart + 1 > currentStock) {
+      showAlert({
+        title: 'Stock Limit Reached',
+        message: `You cannot add more than ${currentStock} of "${item.name}". Only ${currentStock} unit${currentStock === 1 ? '' : 's'} available in stock.`,
+        type: 'warning',
+      });
+      return;
+    }
+
     setCustomerCart((prev) => {
-      const existing = prev.find((ci) => ci.item.id === item.id);
-      if (existing) {
+      const exists = prev.find((ci) => ci.item.id === item.id);
+      if (exists) {
         return prev.map((ci) =>
           ci.item.id === item.id ? { ...ci, quantity: ci.quantity + 1 } : ci
         );
@@ -192,6 +244,24 @@ function MainApp() {
   };
 
   const handleCustomerUpdateQuantity = (itemId: number, delta: number) => {
+    if (delta > 0) {
+      const existing = customerCart.find((ci) => ci.item.id === itemId);
+      if (existing) {
+        // Look up latest item info from menuItems if available
+        const menuItem = menuItems.find((m) => m.id === itemId) || existing.item;
+        const currentStock = typeof menuItem.quantity === 'number' ? menuItem.quantity : 0;
+        
+        if (existing.quantity + delta > currentStock) {
+          showAlert({
+            title: 'Stock Limit Reached',
+            message: `Only ${currentStock} unit${currentStock === 1 ? '' : 's'} of "${menuItem.name}" available in stock.`,
+            type: 'warning',
+          });
+          return;
+        }
+      }
+    }
+
     setCustomerCart((prev) =>
       prev
         .map((ci) => {
@@ -360,6 +430,41 @@ function MainApp() {
     }
   }, [activeStaff, staffTab]);
 
+  // Proactive notification listener: if a customer's order cancellation was declined by staff/admin
+  const lastCheckedRejectionsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (appMode !== 'customer') return;
+
+    const visibleOrders = AppStore.getCustomerVisibleOrders(activeCustomer, activeTableBinding);
+    visibleOrders.forEach((o) => {
+      if (o.cancellationRejectedAt && !o.cancellationRequested && o.status !== 'cancelled') {
+        const rejectionKey = `${o.id}_${o.cancellationRejectedAt}`;
+        let alreadyNotified = lastCheckedRejectionsRef.current.has(rejectionKey);
+        if (!alreadyNotified) {
+          try {
+            if (localStorage.getItem(`yh_declined_cancellation_alert_${rejectionKey}`)) {
+              alreadyNotified = true;
+              lastCheckedRejectionsRef.current.add(rejectionKey);
+            }
+          } catch {}
+        }
+
+        if (!alreadyNotified) {
+          lastCheckedRejectionsRef.current.add(rejectionKey);
+          try {
+            localStorage.setItem(`yh_declined_cancellation_alert_${rejectionKey}`, 'true');
+          } catch {}
+
+          showAlert({
+            title: `Cancellation Declined: Order #${o.orderNumber}`,
+            message: `Your cancellation request was declined by the staff.\n\nReason: "${o.cancellationRejectReason || 'Our kitchen/barista is already preparing your order.'}"\n\nYour order remains active and will be served shortly.`,
+            type: 'warning',
+          });
+        }
+      }
+    });
+  }, [appMode, activeCustomer, activeTableBinding, showAlert]);
+
   const bestSellers = useMemo(() => {
     return menuItems.filter((i) => i.isBestSeller && i.isAvailable).slice(0, 12);
   }, [menuItems]);
@@ -461,12 +566,19 @@ function MainApp() {
         }}
         onViewOrderReceipt={(order) => setSelectedReceiptOrder(order)}
         theme={currentTheme}
-        onSetTheme={setCurrentTheme}
+        onSetTheme={handleThemeChange}
         isDarkMode={isDarkMode}
       />
 
       {/* Main Content Area */}
-      <main id="app-main-content" className="flex-1 mx-auto w-full max-w-7xl px-1 sm:px-3 py-1 sm:py-2 pb-16 sm:pb-2">
+      <main
+        id="app-main-content"
+        className={`flex-1 w-full ${
+          appMode === 'staff' && !activeStaff
+            ? 'p-0 m-0 max-w-none'
+            : 'mx-auto max-w-7xl px-1 sm:px-3 py-1 sm:py-2 pb-16 sm:pb-2'
+        }`}
+      >
         {appMode === 'customer' ? (
           /* Customer Experience */
           <>
@@ -570,15 +682,15 @@ function MainApp() {
 
             {customerTab === 'account' && !activeCustomer && (
               <div className="max-w-2xl mx-auto px-4 py-12 text-center animate-in fade-in duration-300">
-                <div className="rounded-3xl border border-stone-200 bg-white p-8 sm:p-12 shadow-xs space-y-6">
-                  <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-amber-500/10 text-amber-600">
+                <div className="rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-8 sm:p-12 shadow-xs space-y-6">
+                  <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-amber-500/10 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400">
                     <UserIcon className="h-10 w-10" />
                   </div>
                   <div className="space-y-2">
-                    <h2 className="font-display text-2xl sm:text-3xl font-bold text-stone-900">
+                    <h2 className="font-display text-2xl sm:text-3xl font-bold text-stone-900 dark:text-stone-100">
                       Sign In to Your Yellow Hauz Account
                     </h2>
-                    <p className="text-sm text-stone-600 max-w-md mx-auto leading-relaxed">
+                    <p className="text-sm text-stone-600 dark:text-stone-400 max-w-md mx-auto leading-relaxed">
                       View your saved favorites, track live orders, and manage your account credentials.
                     </p>
                   </div>
@@ -594,7 +706,7 @@ function MainApp() {
                     <button
                       type="button"
                       onClick={() => setCustomerTab('menu')}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-stone-50 px-6 py-3 text-sm font-bold text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 px-6 py-3 text-sm font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-750 transition cursor-pointer"
                     >
                       <Utensils className="h-4 w-4" />
                       <span>Browse Menu</span>
@@ -609,6 +721,7 @@ function MainApp() {
           <>
             {!activeStaff ? (
               <StaffLogin
+                theme={currentTheme}
                 initialRoleTarget={targetLoginRole}
                 onBackToCustomer={() => {
                   setAppMode('customer');
@@ -762,22 +875,22 @@ function MainApp() {
 
       {/* Floating Customer AI Concierge Button (Customer Mode) - Halfway hidden circle on side */}
       {appMode === 'customer' && !isChatbotOpen && (
-        <aside aria-label="Customer AI Concierge">
+        <aside aria-label="Brewmate AI Concierge">
           <button
             id="floating-customer-concierge-btn"
             onClick={() => setIsChatbotOpen(true)}
-            className="fixed bottom-28 sm:bottom-32 right-0 z-40 translate-x-1/2 hover:translate-x-0 focus:translate-x-0 transition-transform duration-300 ease-out flex items-center justify-start pl-2 sm:pl-2.5 w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 hover:from-amber-300 hover:to-amber-500 text-stone-950 font-bold shadow-2xl border-2 border-amber-300/90 hover:shadow-amber-500/40 active:scale-95 cursor-pointer group select-none"
-            title="Ask Yellow Hauz AI Concierge"
-            aria-label="Ask Yellow Hauz AI Concierge"
+            className="fixed bottom-28 sm:bottom-32 right-0 z-40 translate-x-1/2 hover:translate-x-0 focus:translate-x-0 transition-transform duration-300 ease-out flex items-center justify-start pl-2 sm:pl-2.5 w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 hover:from-amber-300 hover:to-amber-500 dark:from-stone-850 dark:via-stone-900 dark:to-stone-950 dark:hover:from-stone-800 dark:hover:to-stone-900 text-stone-950 dark:text-amber-300 font-bold shadow-2xl border-2 border-amber-300/90 dark:border-amber-500/60 dark:hover:border-amber-400 dark:shadow-[0_8px_30px_rgba(0,0,0,0.75)] hover:shadow-amber-500/40 active:scale-95 cursor-pointer group select-none"
+            title="Ask Brewmate AI"
+            aria-label="Ask Brewmate AI"
           >
             <div className="relative flex flex-col items-center justify-center w-7 h-7 sm:w-8 sm:h-8 shrink-0">
-              <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-950 animate-pulse" />
-              <span className="text-[8px] sm:text-[9px] font-black leading-none tracking-tighter text-stone-950 mt-0.5">
+              <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-950 dark:text-amber-400 animate-pulse" />
+              <span className="text-[8px] sm:text-[9px] font-black leading-none tracking-tighter text-stone-950 dark:text-amber-300 mt-0.5">
                 AI
               </span>
             </div>
-            <span className="text-[10px] sm:text-xs font-bold tracking-tight text-stone-950 ml-1 opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity duration-200 whitespace-nowrap pr-2">
-              Concierge
+            <span className="text-[10px] sm:text-xs font-bold tracking-tight text-stone-950 dark:text-stone-200 ml-1 opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity duration-200 whitespace-nowrap pr-2">
+              Brewmate AI
             </span>
           </button>
         </aside>
@@ -842,7 +955,7 @@ function MainApp() {
       <TableRequestModal
         isOpen={manualTableModalOpen}
         onClose={() => setManualTableModalOpen(false)}
-        initialSelectedTable={activeTableBinding?.tableNumber || null}
+        initialSelectedTable={null}
         onConfirmed={(binding) => {
           handleBindTable(binding.tableNumber);
           setManualTableModalOpen(false);

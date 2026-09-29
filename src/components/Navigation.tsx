@@ -119,7 +119,7 @@ export const Navigation: React.FC<NavigationProps> = ({
       const saved = localStorage.getItem('theme');
       if (saved === 'dark' || saved === 'amber' || saved === 'light') return saved;
       if (document.documentElement.classList.contains('dark')) return 'dark';
-      if (document.documentElement.classList.contains('theme-amber')) return 'amber';
+      if (document.documentElement.classList.contains('theme-amber') || document.documentElement.classList.contains('theme-beige')) return 'amber';
     }
     return isDarkModeProp ? 'dark' : 'light';
   });
@@ -129,26 +129,32 @@ export const Navigation: React.FC<NavigationProps> = ({
   const isAmberMode = currentTheme === 'amber';
 
   const handleSelectTheme = (newTheme: 'light' | 'amber' | 'dark') => {
+    if (newTheme === currentTheme) return;
+
+    try {
+      localStorage.setItem('theme', newTheme);
+    } catch (e) {
+      console.error('Failed to save theme in localStorage:', e);
+    }
+
+    document.documentElement.classList.remove('dark', 'theme-amber', 'theme-beige');
+    document.body.classList.remove('dark', 'theme-amber', 'theme-beige');
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.body.classList.add('dark');
+    } else if (newTheme === 'amber') {
+      document.documentElement.classList.add('theme-amber', 'theme-beige');
+      document.body.classList.add('theme-amber', 'theme-beige');
+    }
+
     if (onSetTheme) {
       onSetTheme(newTheme);
     } else {
       setInternalTheme(newTheme);
-      document.documentElement.classList.remove('dark', 'theme-amber');
-      document.body.classList.remove('dark', 'theme-amber');
-      if (newTheme === 'dark') {
-        document.documentElement.classList.add('dark');
-        document.body.classList.add('dark');
-        localStorage.setItem('theme', 'dark');
-      } else if (newTheme === 'amber') {
-        document.documentElement.classList.add('theme-amber');
-        document.body.classList.add('theme-amber');
-        localStorage.setItem('theme', 'amber');
-      } else {
-        localStorage.setItem('theme', 'light');
-      }
       if (onSetDarkMode) {
         onSetDarkMode(newTheme === 'dark');
       }
+      window.location.reload();
     }
   };
 
@@ -327,9 +333,20 @@ export const Navigation: React.FC<NavigationProps> = ({
     };
   }, [isCustomerNotificationsOpen]);
 
-  // Derived customer notifications
+  // Derived customer notifications: include active orders or unacknowledged cancellation rejections
+  const hasDeclinedCancellationAlert = useMemo(() => {
+    return customerOrders.some(
+      (o) =>
+        o.cancellationRejectedAt &&
+        !o.cancellationRequested &&
+        o.status !== 'cancelled'
+    );
+  }, [customerOrders]);
+
   const hasUnreadCustomerAlerts =
-    activeCustomerOrdersCount > 0 || (!hasReadCustomerNotifications && customerOrders.length > 0);
+    activeCustomerOrdersCount > 0 ||
+    hasDeclinedCancellationAlert ||
+    (!hasReadCustomerNotifications && customerOrders.length > 0);
 
   const sortedCustomerOrders = useMemo(() => {
     const isActive = (st: string) =>
@@ -706,8 +723,18 @@ export const Navigation: React.FC<NavigationProps> = ({
                         : 'text-stone-700 hover:bg-stone-100'
                     }`}
                   >
-                    <ShoppingBag className={`h-4 w-4 ${customerTab === 'orders' ? (isDarkMode ? 'text-white' : 'text-stone-950') : (isDarkMode ? 'text-stone-300' : 'text-stone-950')}`} />
+                    <div className="relative flex items-center">
+                      <ShoppingBag className={`h-4 w-4 ${customerTab === 'orders' ? (isDarkMode ? 'text-white' : 'text-stone-950') : (isDarkMode ? 'text-stone-300' : 'text-stone-950')}`} />
+                      {hasDeclinedCancellationAlert && (
+                        <span className="absolute -top-1 -right-1.5 flex h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-stone-900 animate-ping" />
+                      )}
+                    </div>
                     <span>Orders</span>
+                    {hasDeclinedCancellationAlert && (
+                      <span className="rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-700 dark:text-rose-300 text-[9px] px-1.5 py-0.2 font-black uppercase">
+                        Alert
+                      </span>
+                    )}
                   </button>
                   <button
                     onClick={() => onSetCustomerTab('reservation')}
@@ -886,13 +913,20 @@ export const Navigation: React.FC<NavigationProps> = ({
                   {/* Table Session / Mode Pill */}
                   {activeTableBinding && (
                     <div className="flex items-center gap-1 rounded-xl bg-amber-500/15 border border-amber-500/40 pl-2 sm:pl-2.5 pr-1 sm:pr-1.5 py-1 text-xs font-bold text-amber-950 shadow-2xs">
-                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                      <span className="text-[11px] sm:text-xs">
-                        Table #{activeTableBinding.tableNumber}
-                      </span>
-                      <span className="hidden md:inline text-[10px] text-amber-800/80 font-normal">
-                        ({activeTableBinding.area === 'airconditioned' ? 'AC Room' : 'Main Area'})
-                      </span>
+                      <button
+                        type="button"
+                        onClick={onOpenTableBindingModal || (() => setIsTableModalOpen(true))}
+                        title="Click to view or switch table"
+                        className="flex items-center gap-1 hover:opacity-85 transition cursor-pointer"
+                      >
+                        <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                        <span className="text-[11px] sm:text-xs">
+                          Table #{activeTableBinding.tableNumber}
+                        </span>
+                        <span className="hidden md:inline text-[10px] text-amber-800/80 font-normal">
+                          ({activeTableBinding.area === 'airconditioned' ? 'AC Room' : 'Main Area'})
+                        </span>
+                      </button>
                       {onClearTableBinding && (
                         <button
                           onClick={onClearTableBinding}
@@ -1106,6 +1140,19 @@ export const Navigation: React.FC<NavigationProps> = ({
                                     </p>
                                   </div>
 
+                                  {/* Declined Cancellation Alert Notice in popover */}
+                                  {order.cancellationRejectedAt && !order.cancellationRequested && order.status !== 'cancelled' && (
+                                    <div className="my-1.5 rounded-lg border border-amber-300 dark:border-amber-700/80 bg-amber-50 dark:bg-amber-950/40 p-2 text-[10px] text-amber-900 dark:text-amber-200">
+                                      <div className="font-black flex items-center gap-1">
+                                        <AlertTriangle className="h-3 w-3 text-amber-600 dark:text-amber-400 shrink-0" />
+                                        <span>Cancellation Request Declined</span>
+                                      </div>
+                                      <p className="mt-0.5 pl-4 text-[9px] text-amber-800 dark:text-amber-300 leading-tight">
+                                        {order.cancellationRejectReason || 'Our staff has already started preparing your items.'}
+                                      </p>
+                                    </div>
+                                  )}
+
                                   {/* Micro Progress Track */}
                                   {order.status !== 'cancelled' && (
                                     <div className="my-1.5 pl-3.5">
@@ -1216,12 +1263,18 @@ export const Navigation: React.FC<NavigationProps> = ({
                       type="button"
                       onClick={toggleFullscreen}
                       title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-                      className="flex items-center justify-center rounded-xl border border-stone-200 p-2 text-xs font-bold text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition cursor-pointer shadow-2xs active:scale-95"
+                      className={`flex items-center justify-center rounded-xl border p-2 text-xs font-bold transition cursor-pointer shadow-2xs active:scale-95 ${
+                        isDarkMode
+                          ? 'border-stone-700 bg-stone-800 text-stone-200 hover:bg-stone-700'
+                          : isAmberMode
+                          ? 'border-amber-600 bg-amber-400 text-stone-950 hover:bg-amber-300'
+                          : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-100 hover:text-stone-950'
+                      }`}
                     >
                       {isFullscreen ? (
-                        <Minimize2 className="h-4 w-4 text-stone-700" />
+                        <Minimize2 className={`h-4 w-4 ${isDarkMode ? 'text-stone-200' : 'text-stone-700'}`} />
                       ) : (
-                        <Maximize2 className="h-4 w-4 text-stone-700" />
+                        <Maximize2 className={`h-4 w-4 ${isDarkMode ? 'text-stone-200' : 'text-stone-700'}`} />
                       )}
                     </button>
                     {activeCustomer ? (
@@ -1252,7 +1305,13 @@ export const Navigation: React.FC<NavigationProps> = ({
                           <button
                             onClick={onCustomerLogout}
                             title="Sign Out of Customer Account"
-                            className="flex items-center gap-1 rounded-xl border border-stone-200 px-2 py-1.5 text-xs font-bold text-stone-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition cursor-pointer shadow-2xs active:scale-95"
+                            className={`flex items-center gap-1 rounded-xl border px-2 py-1.5 text-xs font-bold transition cursor-pointer shadow-2xs active:scale-95 ${
+                              isDarkMode
+                                ? 'border-stone-700 bg-stone-800 text-stone-300 hover:bg-rose-950/40 hover:text-rose-400 hover:border-rose-800'
+                                : isAmberMode
+                                ? 'border-amber-600 bg-amber-400 text-stone-950 hover:bg-rose-100 hover:text-rose-700'
+                                : 'border-stone-200 bg-white text-stone-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200'
+                            }`}
                           >
                             <LogOut className="h-3.5 w-3.5" />
                             <span className="hidden xl:inline">Sign Out</span>
@@ -1291,13 +1350,33 @@ export const Navigation: React.FC<NavigationProps> = ({
                     }}
                     className={`relative flex items-center justify-center rounded-xl border p-2 sm:px-2.5 sm:py-1.5 transition cursor-pointer shadow-2xs ${
                       totalStaffNotificationsCount > 0
-                        ? 'border-amber-400/90 bg-amber-50/90 text-stone-950 hover:bg-amber-100 ring-2 ring-amber-400/20'
+                        ? isDarkMode
+                          ? 'border-amber-500/60 bg-amber-950/60 text-amber-200 hover:bg-amber-900/60 ring-2 ring-amber-500/30'
+                          : isAmberMode
+                          ? 'border-amber-600 bg-amber-300 text-stone-950 hover:bg-amber-200 ring-2 ring-amber-600/30'
+                          : 'border-amber-400/90 bg-amber-50/90 text-stone-950 hover:bg-amber-100 ring-2 ring-amber-400/20'
+                        : isDarkMode
+                        ? 'border-stone-700 bg-stone-800 text-stone-300 hover:bg-stone-700 hover:text-stone-100'
+                        : isAmberMode
+                        ? 'border-amber-600 bg-amber-400 text-stone-950 hover:bg-amber-300'
                         : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100'
                     }`}
                     title={`Notifications (${totalStaffNotificationsCount} alerts)`}
                   >
                     <div className="relative">
-                      <Bell className={`h-4 w-4 sm:h-3.5 sm:w-3.5 ${totalStaffNotificationsCount > 0 ? 'text-amber-700 fill-amber-500' : 'text-stone-700'}`} />
+                      <Bell
+                        className={`h-4 w-4 sm:h-3.5 sm:w-3.5 ${
+                          totalStaffNotificationsCount > 0
+                            ? isDarkMode
+                              ? 'text-amber-400 fill-amber-400'
+                              : 'text-amber-700 fill-amber-500'
+                            : isDarkMode
+                            ? 'text-stone-300'
+                            : isAmberMode
+                            ? 'text-stone-950'
+                            : 'text-stone-700'
+                        }`}
+                      />
                       {totalStaffNotificationsCount > 0 && (
                         <span className="absolute -top-1.5 -right-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-rose-600 px-0.5 text-[8px] font-black text-white ring-1 ring-white animate-pulse">
                           {totalStaffNotificationsCount}
@@ -1312,12 +1391,18 @@ export const Navigation: React.FC<NavigationProps> = ({
                     type="button"
                     onClick={toggleFullscreen}
                     title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-                    className="flex items-center justify-center rounded-xl border border-stone-200 p-2 sm:px-2.5 sm:py-1.5 text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition cursor-pointer shadow-2xs active:scale-95"
+                    className={`flex items-center justify-center rounded-xl border p-2 sm:px-2.5 sm:py-1.5 transition cursor-pointer shadow-2xs active:scale-95 ${
+                      isDarkMode
+                        ? 'border-stone-700 bg-stone-800 text-stone-300 hover:bg-stone-700 hover:text-stone-100'
+                        : isAmberMode
+                        ? 'border-amber-600 bg-amber-400 text-stone-950 hover:bg-amber-300'
+                        : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100 hover:text-stone-950'
+                    }`}
                   >
                     {isFullscreen ? (
-                      <Minimize2 className="h-4 w-4 sm:h-3.5 sm:w-3.5 text-stone-700" />
+                      <Minimize2 className={`h-4 w-4 sm:h-3.5 sm:w-3.5 ${isDarkMode ? 'text-stone-300' : 'text-stone-700'}`} />
                     ) : (
-                      <Maximize2 className="h-4 w-4 sm:h-3.5 sm:w-3.5 text-stone-700" />
+                      <Maximize2 className={`h-4 w-4 sm:h-3.5 sm:w-3.5 ${isDarkMode ? 'text-stone-300' : 'text-stone-700'}`} />
                     )}
                   </button>
 
@@ -1325,7 +1410,13 @@ export const Navigation: React.FC<NavigationProps> = ({
                     id="staff-logout-btn"
                     onClick={onStaffLogout}
                     title="Logout Staff"
-                    className="flex items-center gap-1 rounded-xl border border-stone-200 p-2 sm:px-2.5 sm:py-1.5 text-xs font-bold text-stone-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition cursor-pointer shadow-2xs active:scale-95"
+                    className={`flex items-center gap-1 rounded-xl border p-2 sm:px-2.5 sm:py-1.5 text-xs font-bold transition cursor-pointer shadow-2xs active:scale-95 ${
+                      isDarkMode
+                        ? 'border-stone-700 bg-stone-800 text-stone-300 hover:bg-rose-950/40 hover:text-rose-400 hover:border-rose-800'
+                        : isAmberMode
+                        ? 'border-amber-600 bg-amber-400 text-stone-950 hover:bg-rose-100 hover:text-rose-700'
+                        : 'border-stone-200 bg-white text-stone-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200'
+                    }`}
                   >
                     <LogOut className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                     <span className="hidden sm:inline">Logout</span>
@@ -1448,7 +1539,12 @@ export const Navigation: React.FC<NavigationProps> = ({
                   : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
               }`}
             >
-              <ClipboardList className={`h-4.5 w-4.5 ${customerTab === 'orders' ? (isDarkMode ? 'text-white' : 'text-amber-800') : (isDarkMode ? 'text-stone-400' : 'text-stone-700')}`} />
+              <div className="relative">
+                <ClipboardList className={`h-4.5 w-4.5 ${customerTab === 'orders' ? (isDarkMode ? 'text-white' : 'text-amber-800') : (isDarkMode ? 'text-stone-400' : 'text-stone-700')}`} />
+                {hasDeclinedCancellationAlert && (
+                  <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-rose-500 ring-1 ring-white animate-pulse" />
+                )}
+              </div>
               <span className="text-[9px] leading-tight font-medium mt-0.5">Orders</span>
             </button>
 
@@ -1771,54 +1867,7 @@ export const Navigation: React.FC<NavigationProps> = ({
 
               {/* Drawer Scrollable Body */}
               <div className="p-4 sm:p-5 space-y-6 flex-1 overflow-y-auto">
-                {/* 1. App Experience Switcher */}
-                <div>
-                  <label className={`text-[11px] font-extrabold tracking-wider uppercase mb-2.5 block ${isDarkMode ? 'text-stone-400' : 'text-stone-500'}`}>
-                    App Experience Mode
-                  </label>
-                  <div className={`grid grid-cols-2 gap-2 p-1 rounded-2xl border transition-colors ${
-                    isDarkMode ? 'bg-stone-800/90 border-stone-700' : 'bg-stone-100 border-stone-200/80'
-                  }`}>
-                    <button
-                      id="burger-mode-customer-btn"
-                      onClick={() => {
-                        onSetAppMode('customer');
-                        setIsBurgerDrawerOpen(false);
-                      }}
-                      className={`flex flex-col items-center justify-center p-3 rounded-xl transition cursor-pointer ${
-                        appMode === 'customer'
-                          ? 'bg-amber-500 text-stone-950 font-black shadow-sm'
-                          : isDarkMode
-                            ? 'text-stone-400 hover:text-white hover:bg-stone-700/60'
-                            : 'text-stone-600 hover:text-stone-900 hover:bg-white/80'
-                      }`}
-                    >
-                      <ShoppingBag className="h-5 w-5 mb-1" />
-                      <span className="text-xs font-bold">Store Mode</span>
-                      <span className="text-[10px] opacity-80">Customer Ordering</span>
-                    </button>
-                    <button
-                      id="burger-mode-staff-btn"
-                      onClick={() => {
-                        onSetAppMode('staff');
-                        setIsBurgerDrawerOpen(false);
-                      }}
-                      className={`flex flex-col items-center justify-center p-3 rounded-xl transition cursor-pointer ${
-                        appMode === 'staff'
-                          ? 'bg-amber-500 text-stone-950 font-black shadow-sm'
-                          : isDarkMode
-                            ? 'text-stone-400 hover:text-white hover:bg-stone-700/60'
-                            : 'text-stone-600 hover:text-stone-900 hover:bg-white/80'
-                      }`}
-                    >
-                      <Monitor className="h-5 w-5 mb-1" />
-                      <span className="text-xs font-bold">Staff POS</span>
-                      <span className="text-[10px] opacity-80">Cashier / Admin / Cook</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* 2. Customer Dine-In vs Online Order (When in Customer Mode) */}
+                {/* 1. Customer Dine-In vs Online Order (When in Customer Mode) */}
                 {appMode === 'customer' && (
                   <div>
                     <label className={`text-[11px] font-extrabold tracking-wider uppercase mb-2.5 block ${isDarkMode ? 'text-stone-400' : 'text-stone-500'}`}>
@@ -1936,194 +1985,6 @@ export const Navigation: React.FC<NavigationProps> = ({
                       </div>
                     </button>
 
-                    {/* Admin / Staff System Settings */}
-                    {(activeStaff?.role === 'admin' || appMode === 'staff') && (
-                      <button
-                        id="burger-settings-btn"
-                        onClick={() => {
-                          setIsBurgerDrawerOpen(false);
-                          onSetStaffTab('settings');
-                        }}
-                        className={`w-full flex items-center justify-between p-3 rounded-2xl border transition cursor-pointer ${
-                          staffTab === 'settings' && appMode === 'staff'
-                            ? isDarkMode
-                              ? 'bg-amber-950/40 border-amber-500/60 text-amber-200'
-                              : 'bg-amber-50/80 border-amber-400 text-stone-950'
-                            : isDarkMode
-                              ? 'bg-stone-800/80 border-stone-700 text-stone-200 hover:bg-stone-800 hover:text-amber-300'
-                              : 'bg-stone-50 border-stone-200 text-stone-800 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-950'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-xl bg-amber-100 text-amber-800 border border-amber-300">
-                            <Settings className="h-4 w-4" />
-                          </div>
-                          <div className="text-left">
-                            <div className="text-xs font-bold">Store & System Settings</div>
-                            <div className={`text-[11px] ${isDarkMode ? 'text-stone-400' : 'text-stone-500'}`}>GCash/Maya payment QR, menu items, table configs</div>
-                          </div>
-                        </div>
-                        {staffTab === 'settings' && appMode === 'staff' && (
-                          <span className="rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2 py-0.5 border border-amber-300">
-                            Active
-                          </span>
-                        )}
-                      </button>
-                    )}
-
-                    {/* Staff Notifications & Alerts Hub */}
-                    {(activeStaff || appMode === 'staff') && (
-                      <div className={`space-y-2 pt-1 border-t ${isDarkMode ? 'border-stone-800' : 'border-stone-100'}`}>
-                        <button
-                          id="burger-notifications-hub-btn"
-                          onClick={() => {
-                            setIsBurgerDrawerOpen(false);
-                            setNotificationInitialTab('all');
-                            setIsStaffNotificationModalOpen(true);
-                          }}
-                          className={`w-full flex items-center justify-between p-3 rounded-2xl border transition cursor-pointer ${
-                            isDarkMode
-                              ? 'bg-stone-800/80 border-stone-700 text-stone-200 hover:bg-stone-800'
-                              : 'bg-stone-50 border-stone-200 text-stone-800 hover:bg-stone-100'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-xl bg-amber-500 text-stone-950 shadow-2xs">
-                              <Bell className="h-4 w-4 fill-stone-950" />
-                            </div>
-                            <div className="text-left">
-                              <div className="text-xs font-bold flex items-center gap-1.5">
-                                <span>Notifications</span>
-                                {totalStaffNotificationsCount > 0 && (
-                                  <span className="rounded-full bg-rose-600 px-1.5 py-0.2 text-[9px] font-black text-white">
-                                    {totalStaffNotificationsCount} active
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <ChevronRight className="h-4 w-4 text-stone-400" />
-                        </button>
-
-                        {/* 4 Quick Category Action Badges in Burger Drawer */}
-                        <div className="grid grid-cols-2 gap-1.5">
-                          {/* 1. No Stock */}
-                          <button
-                            id="burger-notif-nostock-btn"
-                            onClick={() => {
-                              setIsBurgerDrawerOpen(false);
-                              setNotificationInitialTab('no_stock');
-                              setIsStaffNotificationModalOpen(true);
-                            }}
-                            className={`flex items-center justify-between p-2 rounded-xl border text-[11px] font-bold transition cursor-pointer ${
-                              noStockCount > 0
-                                ? 'bg-rose-50 border-rose-200 text-rose-700'
-                                : 'bg-stone-50 border-stone-200 text-stone-500'
-                            }`}
-                          >
-                            <span className="flex items-center gap-1">
-                              <Ban className="h-3 w-3 text-rose-500" />
-                              <span>No Stock</span>
-                            </span>
-                            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${noStockCount > 0 ? 'bg-rose-600 text-white' : 'bg-stone-200 text-stone-600'}`}>
-                              {noStockCount}
-                            </span>
-                          </button>
-
-                          {/* 2. Low Stock */}
-                          <button
-                            id="burger-notif-lowstock-btn"
-                            onClick={() => {
-                              setIsBurgerDrawerOpen(false);
-                              setNotificationInitialTab('low_stock');
-                              setIsStaffNotificationModalOpen(true);
-                            }}
-                            className={`flex items-center justify-between p-2 rounded-xl border text-[11px] font-bold transition cursor-pointer ${
-                              lowStockCount > 0
-                                ? 'bg-amber-50 border-amber-300 text-amber-800'
-                                : 'bg-stone-50 border-stone-200 text-stone-500'
-                            }`}
-                          >
-                            <span className="flex items-center gap-1">
-                              <AlertTriangle className="h-3 w-3 text-amber-600" />
-                              <span>Low Stock</span>
-                            </span>
-                            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${lowStockCount > 0 ? 'bg-amber-500 text-stone-950' : 'bg-stone-200 text-stone-600'}`}>
-                              {lowStockCount}
-                            </span>
-                          </button>
-
-                          {/* 3. Table Confirmations */}
-                          <button
-                            id="burger-notif-tables-btn"
-                            onClick={() => {
-                              setIsBurgerDrawerOpen(false);
-                              setNotificationInitialTab('table_confirm');
-                              setIsStaffNotificationModalOpen(true);
-                            }}
-                            className={`flex items-center justify-between p-2 rounded-xl border text-[11px] font-bold transition cursor-pointer ${
-                              totalTableConfirmationsCount > 0
-                                ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
-                                : 'bg-stone-50 border-stone-200 text-stone-500'
-                            }`}
-                          >
-                            <span className="flex items-center gap-1">
-                              <Utensils className="h-3 w-3 text-indigo-600" />
-                              <span>Tables</span>
-                            </span>
-                            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${totalTableConfirmationsCount > 0 ? 'bg-indigo-600 text-white' : 'bg-stone-200 text-stone-600'}`}>
-                              {totalTableConfirmationsCount}
-                            </span>
-                          </button>
-
-                          {/* 4. Order Confirmations */}
-                          <button
-                            id="burger-notif-orders-btn"
-                            onClick={() => {
-                              setIsBurgerDrawerOpen(false);
-                              setNotificationInitialTab('order_confirm');
-                              setIsStaffNotificationModalOpen(true);
-                            }}
-                            className={`flex items-center justify-between p-2 rounded-xl border text-[11px] font-bold transition cursor-pointer ${
-                              pendingOrderConfirmationsCount > 0
-                                ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                                : 'bg-stone-50 border-stone-200 text-stone-500'
-                            }`}
-                          >
-                            <span className="flex items-center gap-1">
-                              <ClipboardList className="h-3 w-3 text-emerald-600" />
-                              <span>Orders</span>
-                            </span>
-                            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${pendingOrderConfirmationsCount > 0 ? 'bg-emerald-600 text-white' : 'bg-stone-200 text-stone-600'}`}>
-                              {pendingOrderConfirmationsCount}
-                            </span>
-                          </button>
-
-                          {/* 5. Customer Cancellation Requests */}
-                          <button
-                            id="burger-notif-cancellations-btn"
-                            onClick={() => {
-                              setIsBurgerDrawerOpen(false);
-                              setNotificationInitialTab('cancellations');
-                              setIsStaffNotificationModalOpen(true);
-                            }}
-                            className={`col-span-2 flex items-center justify-between p-2 rounded-xl border text-[11px] font-bold transition cursor-pointer ${
-                              pendingCancellationRequestsCount > 0
-                                ? 'bg-rose-50 border-rose-300 text-rose-700'
-                                : 'bg-stone-50 border-stone-200 text-stone-500'
-                            }`}
-                          >
-                            <span className="flex items-center gap-1.5">
-                              <Ban className="h-3.5 w-3.5 text-rose-600" />
-                              <span>Customer Cancellation Requests</span>
-                            </span>
-                            <span className={`px-2 py-0.2 rounded-full text-[10px] font-black ${pendingCancellationRequestsCount > 0 ? 'bg-rose-600 text-white animate-pulse' : 'bg-stone-200 text-stone-600'}`}>
-                              {pendingCancellationRequestsCount}
-                            </span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
 

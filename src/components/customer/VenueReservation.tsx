@@ -23,6 +23,8 @@ import {
   MessageCircle,
   UtensilsCrossed,
   FileText,
+  ArrowRight,
+  ArrowLeft,
 } from 'lucide-react';
 
 interface VenueReservationProps {
@@ -54,7 +56,7 @@ const EVENT_TYPES = [
   { id: 'other', name: '✨ Other Private Function', desc: 'Custom tailored layout for your special event' },
 ];
 
-// Capacity: 25 persons only.
+// 25 Heads only.
 const SEATING_LAYOUTS = [
   { id: 'boardroom', name: 'Boardroom / Conference', pax: '12-16 Pax', desc: 'Central conference table for discussions' },
   { id: 'classroom', name: 'Classroom / Seminar', pax: '15-20 Pax', desc: 'Rows facing TV HDMI & whiteboard' },
@@ -72,6 +74,8 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
   const { showAlert, showConfirm } = useModal();
   const allReservations = useMemo(() => AppStore.getReservations(), []);
 
+  const venueBannerUrl = settings?.customer_gallery?.reservationBanner || '/images/venue.webp';
+
   // Form State
   const [guestCount, setGuestCount] = useState<number>(12);
   const [selectedDuration, setSelectedDuration] = useState<number>(3); // 3 hours standard
@@ -87,6 +91,39 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
   });
   const [timeSlot, setTimeSlot] = useState<string>('14:00'); // 2:00 PM
   const [confirmedReservation, setConfirmedReservation] = useState<Reservation | null>(null);
+
+  // Gradual Step-by-Step State
+  const [currentStep, setCurrentStep] = useState<number>(1);
+  const [maxStepReached, setMaxStepReached] = useState<number>(1);
+
+  const goToStep = (stepNumber: number) => {
+    setCurrentStep(stepNumber);
+    if (stepNumber > maxStepReached) {
+      setMaxStepReached(stepNumber);
+    }
+    const flowEl = document.getElementById('venue-booking-flow');
+    if (flowEl) {
+      flowEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const handleNextStep = () => {
+    if (currentStep === 2 && conflictingBooking) {
+      showAlert({
+        title: 'Schedule Conflict Detected',
+        message: `The Yellow Hauz Private Studio is already reserved on this date around ${new Date(
+          conflictingBooking.reservationAt
+        ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Please adjust your time slot or pick a different date.`,
+        type: 'error',
+      });
+      return;
+    }
+    goToStep(Math.min(currentStep + 1, 4));
+  };
+
+  const handlePrevStep = () => {
+    goToStep(Math.max(currentStep - 1, 1));
+  };
 
   // Compute End Time based on selected duration
   const endTimeFormatted = useMemo(() => {
@@ -243,7 +280,7 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
           {/* Venue Visual Preview */}
           <div className="relative aspect-16/9 rounded-xl overflow-hidden border border-stone-200 shadow-xs">
             <img
-              src="/images/venue.webp"
+              src={venueBannerUrl}
               alt="The Yellow Hauz Private Studio Venue"
               className="h-full w-full object-cover"
               onError={(e) => {
@@ -370,7 +407,7 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
           <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-stone-200/80 bg-stone-900 shadow-md">
             <div className="relative aspect-16/9 sm:aspect-21/9 w-full overflow-hidden">
               <img
-                src="/images/venue.webp"
+                src={venueBannerUrl}
                 alt="The Yellow Hauz Private Studio Venue"
                 className="h-full w-full object-cover"
                 onError={(e) => {
@@ -398,24 +435,24 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
           </div>
 
           {/* Official Rates & Amenities Highlight Banner */}
-          <div className="rounded-2xl sm:rounded-3xl border border-amber-300 bg-gradient-to-br from-amber-500/10 via-amber-100/40 to-stone-50 p-4 sm:p-7 shadow-sm space-y-4">
-            <div className="flex flex-col md:flex-row md:items-start justify-between gap-3 sm:gap-4 border-b border-amber-200/80 pb-4">
+          <div className="rounded-2xl sm:rounded-3xl border border-amber-300 dark:border-amber-800/60 bg-gradient-to-br from-amber-500/10 via-amber-100/40 to-stone-50 dark:from-stone-900 dark:via-stone-900 dark:to-stone-950 p-4 sm:p-7 shadow-sm space-y-4">
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-3 sm:gap-4 border-b border-amber-200/80 dark:border-stone-800 pb-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 text-[10px] sm:text-xs font-extrabold text-emerald-900">
-                    <UtensilsCrossed className="h-3 w-3 text-emerald-700" />
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800/60 px-2.5 py-0.5 text-[10px] sm:text-xs font-extrabold text-emerald-900 dark:text-emerald-300">
+                    <UtensilsCrossed className="h-3 w-3 text-emerald-700 dark:text-emerald-400" />
                     100% Fully Consumable on Food &amp; Drinks
                   </span>
                 </div>
-                <h2 className="text-base sm:text-2xl font-black text-stone-950 font-display">
+                <h2 className="text-base sm:text-2xl font-black text-stone-950 dark:text-stone-100 font-display">
                   Private Studio Venue Rates &amp; Inclusions
                 </h2>
               </div>
 
               {/* Rate Badges */}
               <div className="flex flex-wrap sm:flex-nowrap gap-2 sm:gap-3 shrink-0">
-                <div className="rounded-xl sm:rounded-2xl bg-white border border-amber-300/80 p-2.5 sm:p-3 text-center min-w-[120px] shadow-2xs">
-                  <span className="text-[9px] sm:text-[10px] uppercase font-extrabold text-amber-800 block">
+                <div className="rounded-xl sm:rounded-2xl bg-white dark:bg-stone-850 border border-amber-300/80 dark:border-amber-700/60 p-2.5 sm:p-3 text-center min-w-[120px] shadow-2xs">
+                  <span className="text-[9px] sm:text-[10px] uppercase font-extrabold text-amber-800 dark:text-amber-300 block">
                     Base Rate (3 Hours)
                   </span>
                   <span className="font-mono text-base sm:text-xl font-black text-stone-950">
@@ -465,11 +502,8 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
               <div className="rounded-xl bg-amber-50 border border-amber-200 p-2.5 sm:p-3 space-y-1 shadow-2xs">
                 <div className="flex items-center gap-1.5 text-amber-900 font-bold text-[11px] sm:text-xs">
                   <Users className="h-4 w-4" />
-                  <span>Capacity</span>
+                  <span>25 Heads only</span>
                 </div>
-                <p className="text-[10px] sm:text-[11px] text-amber-950 font-extrabold leading-snug">
-                  25 persons only.
-                </p>
               </div>
             </div>
 
@@ -502,366 +536,571 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
             </div>
           </div>
 
-          <form onSubmit={handleBookVenue} className="grid gap-5 sm:gap-8 lg:grid-cols-[1.15fr_.85fr]">
-            {/* Left Column: Booking Form Parameters */}
-            <div className="space-y-4 sm:space-y-6 rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-8 shadow-xs">
-              {/* Step 1: Duration Selector */}
-              <div>
-                <div className="flex items-center justify-between border-b border-stone-100 pb-2 sm:pb-3 mb-2.5 sm:mb-3">
-                  <h3 className="font-display text-xs sm:text-lg font-bold text-stone-900 flex items-center gap-1.5 sm:gap-2">
-                    <Clock className="h-3.5 w-3.5 sm:h-5 sm:w-5 text-amber-600 shrink-0" />
-                    <span>1. Select Duration</span>
-                  </h3>
-                </div>
+          {/* Gradual Step-by-Step Venue Booking Flow */}
+          <div id="venue-booking-flow" className="space-y-4 sm:space-y-6">
+            {/* Step Navigation Bar */}
+            <div className="rounded-2xl sm:rounded-3xl border border-stone-200/90 dark:border-stone-800 bg-white dark:bg-stone-900 p-1.5 sm:p-4 shadow-xs">
+              <div className="grid grid-cols-4 gap-1 sm:gap-3">
+                {[
+                  { id: 1, label: 'Select Duration', short: 'Duration', icon: Clock },
+                  { id: 2, label: 'Choose Date & Start Time', short: 'Date & Time', icon: Calendar },
+                  { id: 3, label: 'Event Purpose & Layout', short: 'Purpose & Layout', icon: Layers },
+                  { id: 4, label: 'Reservation Summary', short: 'Summary & Pay', icon: CheckCircle2 },
+                ].map((s) => {
+                  const Icon = s.icon;
+                  const isCurrent = currentStep === s.id;
+                  const isCompleted = currentStep > s.id;
+                  const isClickable = s.id <= maxStepReached;
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2.5">
-                  {VENUE_HOURLY_OPTIONS.map((opt) => {
-                    const isSelected = selectedDuration === opt.hours;
-                    return (
-                      <button
-                        key={opt.hours}
-                        type="button"
-                        onClick={() => setSelectedDuration(opt.hours)}
-                        className={`relative rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 text-left border-2 transition-all cursor-pointer ${
-                          isSelected
-                            ? 'border-amber-500 bg-amber-50/90 shadow-xs ring-2 ring-amber-500/20'
-                            : 'border-stone-200 bg-stone-50 hover:bg-stone-100 hover:border-stone-300'
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      disabled={!isClickable}
+                      onClick={() => isClickable && goToStep(s.id)}
+                      className={`group w-full min-w-0 flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2.5 p-1.5 sm:p-3 rounded-xl sm:rounded-2xl transition-all overflow-hidden ${
+                        isCurrent
+                          ? 'bg-amber-500/10 dark:bg-amber-950/40 border-2 border-amber-500 text-stone-900 dark:text-stone-100 shadow-2xs ring-2 ring-amber-500/15'
+                          : isCompleted
+                          ? 'bg-stone-50 dark:bg-stone-850 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 cursor-pointer'
+                          : 'bg-stone-50/40 dark:bg-stone-850/40 border border-stone-200/60 dark:border-stone-800/60 text-stone-400 dark:text-stone-500 opacity-60 cursor-not-allowed'
+                      }`}
+                    >
+                      <div
+                        className={`w-5 h-5 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shrink-0 text-[10px] sm:text-xs font-black transition-colors ${
+                          isCurrent
+                            ? 'bg-amber-500 text-stone-950 font-extrabold shadow-2xs'
+                            : isCompleted
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-stone-200 dark:bg-stone-800 text-stone-500 dark:text-stone-400'
                         }`}
                       >
-                        {opt.isPopular && (
-                          <span className="absolute -top-2 right-1.5 sm:-top-2.5 sm:right-2 rounded-full bg-amber-500 px-1.5 py-0.2 sm:px-2 sm:py-0.5 text-[8px] sm:text-[9px] font-black uppercase text-stone-950 shadow-2xs">
-                            Base Block
-                          </span>
-                        )}
-                        <span className="font-mono text-xs sm:text-base font-black text-stone-900 block">
-                          ₱{opt.price.toLocaleString()}
+                        {isCompleted ? <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4" /> : s.id}
+                      </div>
+                      <div className="text-center sm:text-left min-w-0 w-full max-w-full overflow-hidden">
+                        <span className="hidden sm:block text-[9px] uppercase tracking-wider font-extrabold text-stone-400 dark:text-stone-500">
+                          Step 0{s.id}
                         </span>
-                        <span className="font-bold text-[10px] sm:text-xs text-stone-800 block mt-0.5">
-                          {opt.label}
-                        </span>
-                        <span className="text-[8px] sm:text-[10px] text-stone-500 block truncate">
-                          {opt.subtitle}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Step 2: Date & Time Slot */}
-              <div>
-                <h3 className="font-display text-xs sm:text-base font-bold text-stone-900 flex items-center gap-1.5 sm:gap-2 border-b border-stone-100 pb-2 sm:pb-3 mb-2.5 sm:mb-3">
-                  <Calendar className="h-3.5 w-3.5 sm:h-5 sm:w-5 text-amber-600 shrink-0" />
-                  <span>2. Choose Date &amp; Start Time</span>
-                </h3>
-
-                <div className="grid gap-2 sm:gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                      Event Date
-                    </label>
-                    <div className="relative">
-                      <Calendar className="absolute left-3 top-2 sm:top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-400" />
-                      <input
-                        type="date"
-                        required
-                        value={date}
-                        min={new Date().toISOString().slice(0, 10)}
-                        onChange={(e) => setDate(e.target.value)}
-                        className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-9 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2.5 text-[11px] sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                      Start Time
-                    </label>
-                    <div className="relative">
-                      <Clock className="absolute left-3 top-2 sm:top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-400" />
-                      <select
-                        value={timeSlot}
-                        onChange={(e) => setTimeSlot(e.target.value)}
-                        className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-9 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2.5 text-[11px] sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
-                      >
-                        <option value="08:00">08:00 AM (Morning Session)</option>
-                        <option value="09:00">09:00 AM (Morning Workshop)</option>
-                        <option value="10:30">10:30 AM (Late Morning / Lunch Block)</option>
-                        <option value="13:00">01:00 PM (Early Afternoon)</option>
-                        <option value="14:00">02:00 PM (Afternoon Workshop / Meeting)</option>
-                        <option value="16:00">04:00 PM (Late Afternoon / Merienda)</option>
-                        <option value="18:00">06:00 PM (Evening Gathering / Dinner)</option>
-                        <option value="19:00">07:00 PM (Night Function)</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Computed Time Slot Badge */}
-                <div className="mt-2.5 flex items-center justify-between rounded-xl bg-stone-100 p-2 sm:p-3 text-[10px] sm:text-xs">
-                  <span className="text-stone-600 font-medium">Reserved Window:</span>
-                  <span className="font-mono font-bold text-amber-900 bg-white px-2 py-0.5 sm:px-3 sm:py-1 rounded-lg border border-stone-200">
-                    {startTimeFormatted} – {endTimeFormatted} ({selectedDuration}h)
-                  </span>
-                </div>
-
-                {/* Conflict Alert if venue is already booked */}
-                {conflictingBooking && (
-                  <div className="mt-2.5 rounded-xl sm:rounded-2xl border border-rose-300 bg-rose-50 p-2.5 sm:p-4 text-[10px] sm:text-xs text-rose-800 space-y-1">
-                    <div className="flex items-center gap-1.5 font-bold text-rose-900">
-                      <AlertCircle className="h-3.5 w-3.5 text-rose-600 shrink-0" />
-                      <span>Slot Already Booked ({conflictingBooking.reservationCode})</span>
-                    </div>
-                    <p className="leading-relaxed">
-                      The studio is booked on {new Date(conflictingBooking.reservationAt).toLocaleDateString()} around{' '}
-                      {new Date(conflictingBooking.reservationAt).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                      . Please adjust your time slot or pick a different date.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Step 3: Event Purpose & Seating Configuration */}
-              <div>
-                <h3 className="font-display text-xs sm:text-base font-bold text-stone-900 flex items-center gap-1.5 sm:gap-2 border-b border-stone-100 pb-2 sm:pb-3 mb-2.5 sm:mb-3">
-                  <Layers className="h-3.5 w-3.5 sm:h-5 sm:w-5 text-amber-600 shrink-0" />
-                  <span>3. Event Purpose &amp; Layout</span>
-                </h3>
-
-                <div className="grid gap-2 sm:gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                      Event Type / Occasion
-                    </label>
-                    <select
-                      value={eventType}
-                      onChange={(e) => setEventType(e.target.value)}
-                      className="w-full rounded-xl border border-stone-300 bg-stone-50 px-2.5 sm:px-3.5 py-1.5 sm:py-2.5 text-[11px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
-                    >
-                      {EVENT_TYPES.map((t) => (
-                        <option key={t.id} value={t.name}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                      Expected Guests (Max 25 Pax)
-                    </label>
-                    <div className="relative">
-                      <Users className="absolute left-3 top-2 sm:top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-400" />
-                      <select
-                        value={guestCount}
-                        onChange={(e) => setGuestCount(Number(e.target.value))}
-                        className="w-full rounded-xl border border-stone-300 bg-stone-50 pl-9 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2.5 text-[11px] sm:text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
-                      >
-                        {[4, 6, 8, 10, 12, 15, 18, 20, 22, 25].map((n) => (
-                          <option key={n} value={n}>
-                            {n} Guests
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-2.5 sm:mt-3">
-                  <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                    Preferred Seating Arrangement
-                  </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
-                    {SEATING_LAYOUTS.map((lay) => {
-                      const isSelected = seatingLayout === lay.id;
-                      return (
-                        <button
-                          key={lay.id}
-                          type="button"
-                          onClick={() => setSeatingLayout(lay.id as any)}
-                          className={`p-2 sm:p-2.5 rounded-xl border text-left transition cursor-pointer ${
-                            isSelected
-                              ? 'border-amber-500 bg-amber-50 text-amber-950 ring-2 ring-amber-500/20 font-bold'
-                              : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100'
+                        <span
+                          className={`text-[9px] xs:text-[10px] sm:text-xs font-bold block leading-tight text-center sm:text-left break-words sm:truncate max-w-full ${
+                            isCurrent ? 'text-amber-950 dark:text-amber-200 font-black' : isCompleted ? 'text-stone-900 dark:text-stone-100' : 'text-stone-400 dark:text-stone-500'
                           }`}
                         >
-                          <span className="text-[10px] sm:text-xs font-bold block leading-tight">{lay.name}</span>
-                          <span className="text-[8px] sm:text-[10px] text-stone-500 block mt-0.5">{lay.pax}</span>
+                          {s.short}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <form onSubmit={handleBookVenue}>
+              {/* STEP 1: Select Duration */}
+              {currentStep === 1 && (
+                <div className="space-y-4 sm:space-y-6 rounded-2xl sm:rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-4 sm:p-8 shadow-xs animate-in fade-in duration-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-100 dark:border-stone-800 pb-3 mb-2">
+                    <div>
+                      <h3 className="font-display text-base sm:text-xl font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                        <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <span>1. Select Duration</span>
+                      </h3>
+                      <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 mt-0.5">
+                        Base rental includes 3 hours and is 100% consumable on all food &amp; drinks.
+                      </p>
+                    </div>
+                    <span className="self-start sm:self-auto rounded-full bg-amber-100 dark:bg-amber-950/70 border border-amber-200/60 dark:border-amber-800/60 px-3 py-1 text-xs font-bold text-amber-900 dark:text-amber-300">
+                      Step 1 of 4
+                    </span>
+                  </div>
+
+                  {/* Hourly options cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5">
+                    {VENUE_HOURLY_OPTIONS.map((opt) => {
+                      const isSelected = selectedDuration === opt.hours;
+                      return (
+                        <button
+                          key={opt.hours}
+                          type="button"
+                          onClick={() => setSelectedDuration(opt.hours)}
+                          className={`relative rounded-xl sm:rounded-2xl p-3 sm:p-4 text-left border-2 transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-amber-500 dark:border-amber-400 bg-amber-50 dark:bg-[#2e1d10] text-stone-900 dark:text-amber-100 shadow-xs ring-2 ring-amber-500/20 dark:ring-amber-400/30'
+                              : 'border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-850 hover:bg-stone-100 dark:hover:bg-stone-800 hover:border-stone-300 dark:hover:border-stone-700 text-stone-900 dark:text-stone-100'
+                          }`}
+                        >
+                          {opt.isPopular && (
+                            <span className="absolute -top-2.5 right-2 rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-black uppercase text-stone-950 shadow-2xs">
+                              Base Block
+                            </span>
+                          )}
+                          <span className="font-mono text-base sm:text-lg font-black text-stone-900 dark:text-stone-100 block">
+                            ₱{opt.price.toLocaleString()}
+                          </span>
+                          <span className="font-bold text-xs sm:text-sm text-stone-800 dark:text-stone-200 block mt-0.5">
+                            {opt.label}
+                          </span>
+                          <span className="text-[10px] sm:text-xs text-stone-500 dark:text-stone-400 block truncate mt-0.5">
+                            {opt.subtitle}
+                          </span>
                         </button>
                       );
                     })}
                   </div>
-                </div>
-              </div>
-            </div>
 
-            {/* Right Column: Order Summary & Checkout Card */}
-            <div className="space-y-3 sm:space-y-4">
-              <div className="sticky top-20 rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-6 shadow-md space-y-3.5 sm:space-y-5">
-                <div className="flex items-center justify-between border-b border-stone-100 pb-2 sm:pb-3">
-                  <h3 className="font-display text-sm sm:text-lg font-bold text-stone-900">
-                    Reservation Summary
-                  </h3>
-                </div>
-
-                {/* Schedule Snapshot */}
-                <div className="rounded-xl sm:rounded-2xl bg-stone-50 border border-stone-200/80 p-2.5 sm:p-4 space-y-1.5 sm:space-y-2 text-[10px] sm:text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-stone-500">Date:</span>
-                    <span className="font-bold text-stone-900">
-                      {new Date(date).toLocaleDateString('en-PH', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-stone-500">Schedule:</span>
-                    <span className="font-bold text-amber-900">
-                      {startTimeFormatted} – {endTimeFormatted}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-stone-500">Duration:</span>
-                    <span className="font-bold text-stone-900">{selectedDuration} Hours</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-stone-500">Guests:</span>
-                    <span className="font-bold text-stone-900">{guestCount} Pax</span>
-                  </div>
-                  {activeCustomer && (
-                    <div className="flex justify-between pt-1 border-t border-stone-200">
-                      <span className="text-stone-500">Customer:</span>
-                      <span className="font-bold text-stone-900">{activeCustomer.fullName}</span>
+                  {/* 100% Consumable Highlight Callout */}
+                  <div className="rounded-xl sm:rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/60 p-3 sm:p-4 text-xs sm:text-sm text-emerald-950 dark:text-emerald-200 flex items-start gap-3">
+                    <div className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-200 dark:bg-emerald-900/70 text-emerald-800 dark:text-emerald-300 shrink-0">
+                      <UtensilsCrossed className="h-4 w-4" />
                     </div>
-                  )}
-                </div>
-
-                {/* Itemized Price Breakdown */}
-                <div className="space-y-1.5 sm:space-y-2 text-[10px] sm:text-xs border-y border-stone-100 py-2 sm:py-3">
-                  <div className="flex justify-between text-stone-700">
-                    <span>Base Studio Rental (3 hrs)</span>
-                    <span className="font-mono font-bold">₱3,500.00</span>
-                  </div>
-
-                  {selectedDuration > 3 && (
-                    <div className="flex justify-between text-stone-700">
-                      <span>Extension ({selectedDuration - 3} extra hr{selectedDuration - 3 > 1 ? 's' : ''} @ ₱1,000/hr)</span>
-                      <span className="font-mono font-bold">₱{((selectedDuration - 3) * 1000).toFixed(2)}</span>
+                    <div className="space-y-0.5">
+                      <div className="font-bold text-emerald-900 dark:text-emerald-200">100% Fully Consumable on Food &amp; Drinks!</div>
+                      <p className="text-emerald-800 dark:text-emerald-300/80 text-xs">
+                        Your ₱{grandTotal.toLocaleString()} venue fee is fully consumable on all menu items during your reservation.
+                      </p>
                     </div>
-                  )}
-
-                  <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-2 text-[10px] text-emerald-900 font-medium">
-                    <span className="font-bold flex items-center gap-1 text-emerald-800">
-                      <UtensilsCrossed className="h-3 w-3" />
-                      100% Fully Consumable
-                    </span>
-                    Your ₱{grandTotal.toLocaleString()} venue fee is fully consumable on all food &amp; drinks during the reservation.
                   </div>
 
-                  <div className="pt-1.5 sm:pt-2 border-t border-stone-200 flex justify-between items-baseline">
-                    <span className="font-display font-bold text-xs sm:text-sm text-stone-900">Total Amount:</span>
-                    <span className="font-mono text-base sm:text-2xl font-black text-amber-950">
-                      ₱{grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                    </span>
+                  {/* Navigation footer */}
+                  <div className="flex items-center justify-between pt-4 border-t border-stone-100 gap-3">
+                    <div className="text-xs sm:text-sm text-stone-600">
+                      <span className="text-stone-400">Selected: </span>
+                      <strong className="text-stone-900">{selectedDuration} Hours (₱{grandTotal.toLocaleString()})</strong>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleNextStep}
+                      className="inline-flex items-center gap-2 rounded-xl sm:rounded-2xl bg-amber-500 px-5 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-extrabold text-stone-950 hover:bg-amber-400 active:scale-95 transition shadow-sm cursor-pointer ml-auto"
+                    >
+                      <span>Continue to Date &amp; Start Time</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
+              )}
 
-                {/* Payment Option */}
-                <div className="space-y-1.5 sm:space-y-2">
-                  <label className="block text-[10px] sm:text-xs font-bold text-stone-700 uppercase tracking-wider">
-                    Payment Preference
-                  </label>
-                  <div className="grid grid-cols-3 gap-1 sm:gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('gcash')}
-                      className={`p-1.5 sm:p-2 rounded-xl border text-center text-[10px] sm:text-xs font-bold transition flex flex-col items-center gap-0.5 sm:gap-1 cursor-pointer ${
-                        paymentMethod === 'gcash'
-                          ? 'border-blue-500 bg-blue-50 text-blue-900 ring-2 ring-blue-500/20'
-                          : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
-                      }`}
-                    >
-                      <QrCode className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600" />
-                      <span>GCash</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('cash')}
-                      className={`p-1.5 sm:p-2 rounded-xl border text-center text-[10px] sm:text-xs font-bold transition flex flex-col items-center gap-0.5 sm:gap-1 cursor-pointer ${
-                        paymentMethod === 'cash'
-                          ? 'border-emerald-500 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-500/20'
-                          : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
-                      }`}
-                    >
-                      <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600" />
-                      <span>Cash</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('card')}
-                      className={`p-1.5 sm:p-2 rounded-xl border text-center text-[10px] sm:text-xs font-bold transition flex flex-col items-center gap-0.5 sm:gap-1 cursor-pointer ${
-                        paymentMethod === 'card'
-                          ? 'border-purple-500 bg-purple-50 text-purple-900 ring-2 ring-purple-500/20'
-                          : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
-                      }`}
-                    >
-                      <CreditCard className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-purple-600" />
-                      <span>Card Tap</span>
-                    </button>
+              {/* STEP 2: Choose Date & Start Time */}
+              {currentStep === 2 && (
+                <div className="space-y-4 sm:space-y-6 rounded-2xl sm:rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-4 sm:p-8 shadow-xs animate-in fade-in duration-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-100 dark:border-stone-800 pb-3 mb-2">
+                    <div>
+                      <h3 className="font-display text-base sm:text-xl font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                        <Calendar className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <span>2. Choose Date &amp; Start Time</span>
+                      </h3>
+                      <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 mt-0.5">
+                        Choose your event date and arrival time. The reserved window updates automatically.
+                      </p>
+                    </div>
+                    <span className="self-start sm:self-auto rounded-full bg-amber-100 dark:bg-amber-950/70 border border-amber-200/60 dark:border-amber-800/60 px-3 py-1 text-xs font-bold text-amber-900 dark:text-amber-300">
+                      Step 2 of 4
+                    </span>
                   </div>
 
-                  {paymentMethod === 'gcash' && (
-                    <div className="rounded-xl bg-blue-50 border border-blue-200 p-2 sm:p-2.5 text-[9px] sm:text-[11px] text-blue-950 space-y-0.5">
-                      <div className="font-bold flex items-center gap-1">
-                        <QrCode className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-blue-700" />
-                        <span>GCash QR Available on Voucher</span>
+                  <div className="grid gap-3 sm:gap-5 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1.5">
+                        Event Date
+                      </label>
+                      <div className="relative">
+                        <Calendar className="absolute left-3.5 top-3 h-4 w-4 text-stone-400" />
+                        <input
+                          type="date"
+                          required
+                          value={date}
+                          min={new Date().toISOString().slice(0, 10)}
+                          onChange={(e) => setDate(e.target.value)}
+                          className="w-full rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-850 pl-10 pr-4 py-2.5 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:border-amber-500 focus:outline-none"
+                        />
                       </div>
-                      <p className="text-blue-800">
-                        Scan GCash QR or send to Yellow Hauz ({settings.shop_phone}) to settle your reservation fee.
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1.5">
+                        Start Time
+                      </label>
+                      <div className="relative">
+                        <Clock className="absolute left-3.5 top-3 h-4 w-4 text-stone-400" />
+                        <select
+                          value={timeSlot}
+                          onChange={(e) => setTimeSlot(e.target.value)}
+                          className="w-full rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-850 pl-10 pr-4 py-2.5 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:border-amber-500 focus:outline-none"
+                        >
+                          <option value="08:00">08:00 AM (Morning Session)</option>
+                          <option value="09:00">09:00 AM (Morning Workshop)</option>
+                          <option value="10:30">10:30 AM (Late Morning / Lunch Block)</option>
+                          <option value="13:00">01:00 PM (Early Afternoon)</option>
+                          <option value="14:00">02:00 PM (Afternoon Workshop / Meeting)</option>
+                          <option value="16:00">04:00 PM (Late Afternoon / Merienda)</option>
+                          <option value="18:00">06:00 PM (Evening Gathering / Dinner)</option>
+                          <option value="19:00">07:00 PM (Night Function)</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Reserved Window Badge */}
+                  <div className="flex items-center justify-between rounded-xl sm:rounded-2xl bg-stone-100 dark:bg-stone-850 border border-stone-200/80 dark:border-stone-700/80 p-3 sm:p-4 text-xs sm:text-sm">
+                    <span className="text-stone-600 dark:text-stone-400 font-medium">Reserved Window:</span>
+                    <span className="font-mono font-bold text-amber-900 dark:text-amber-300 bg-white dark:bg-stone-800 px-3 py-1 rounded-lg border border-stone-200 dark:border-stone-700">
+                      {startTimeFormatted} – {endTimeFormatted} ({selectedDuration}h)
+                    </span>
+                  </div>
+
+                  {/* Conflict Alert */}
+                  {conflictingBooking && (
+                    <div className="rounded-xl sm:rounded-2xl border border-rose-300 dark:border-rose-800/70 bg-rose-50 dark:bg-rose-950/50 p-3 sm:p-4 text-xs sm:text-sm text-rose-800 dark:text-rose-200 space-y-1">
+                      <div className="flex items-center gap-1.5 font-bold text-rose-900 dark:text-rose-200">
+                        <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                        <span>Slot Already Booked ({conflictingBooking.reservationCode})</span>
+                      </div>
+                      <p className="leading-relaxed">
+                        The studio is already reserved on {new Date(conflictingBooking.reservationAt).toLocaleDateString()} around{' '}
+                        {new Date(conflictingBooking.reservationAt).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                        . Please choose an alternate start time or date.
                       </p>
                     </div>
                   )}
-                </div>
 
-                {/* Submit / Sign-in Action */}
-                {activeCustomer ? (
-                  <button
-                    type="submit"
-                    disabled={!!conflictingBooking}
-                    className={`w-full rounded-xl sm:rounded-2xl py-2.5 sm:py-3.5 text-xs sm:text-sm font-black transition shadow-md flex items-center justify-center gap-1.5 sm:gap-2 ${
-                      conflictingBooking
-                        ? 'bg-stone-300 text-stone-500 cursor-not-allowed'
-                        : 'bg-amber-500 text-stone-950 hover:bg-amber-400 active:scale-[0.99] cursor-pointer'
-                    }`}
-                  >
-                    <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    <span>Reserve Studio for ₱{grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      showAlert({
-                        title: 'Sign In Required',
-                        message: 'Please sign in or create an account to finalize and reserve the private studio.',
-                        type: 'warning',
-                      });
-                      if (onRequireLogin) onRequireLogin();
-                    }}
-                    className="w-full rounded-xl sm:rounded-2xl bg-stone-950 py-2.5 sm:py-3.5 text-xs sm:text-sm font-extrabold text-amber-400 shadow-md hover:bg-stone-800 active:scale-[0.99] transition flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer"
-                  >
-                    <Lock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-400" />
-                    <span>Sign In to Reserve Studio</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          </form>
+                  {/* Navigation footer */}
+                  <div className="flex items-center justify-between pt-4 border-t border-stone-100 gap-3">
+                    <button
+                      type="button"
+                      onClick={handlePrevStep}
+                      className="inline-flex items-center gap-1.5 rounded-xl sm:rounded-2xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-850 px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      <span>Back to Duration</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNextStep}
+                      disabled={!!conflictingBooking}
+                      className={`inline-flex items-center gap-2 rounded-xl sm:rounded-2xl px-5 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-extrabold transition shadow-sm cursor-pointer ${
+                        conflictingBooking
+                          ? 'bg-stone-200 text-stone-400 cursor-not-allowed'
+                          : 'bg-amber-500 text-stone-950 hover:bg-amber-400 active:scale-95'
+                      }`}
+                    >
+                      <span>Continue to Purpose &amp; Layout</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3: Event Purpose & Layout */}
+              {currentStep === 3 && (
+                <div className="space-y-4 sm:space-y-6 rounded-2xl sm:rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-4 sm:p-8 shadow-xs animate-in fade-in duration-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-100 dark:border-stone-800 pb-3 mb-2">
+                    <div>
+                      <h3 className="font-display text-base sm:text-xl font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                        <Layers className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <span>3. Event Purpose &amp; Layout</span>
+                      </h3>
+                      <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 mt-0.5">
+                        Tell us about your event and preferred table arrangement.
+                      </p>
+                    </div>
+                    <span className="self-start sm:self-auto rounded-full bg-amber-100 dark:bg-amber-950/70 border border-amber-200/60 dark:border-amber-800/60 px-3 py-1 text-xs font-bold text-amber-900 dark:text-amber-300">
+                      Step 3 of 4
+                    </span>
+                  </div>
+
+                  <div className="grid gap-3 sm:gap-5 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1.5">
+                        Event Type / Occasion
+                      </label>
+                      <select
+                        value={eventType}
+                        onChange={(e) => setEventType(e.target.value)}
+                        className="w-full rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-850 px-3.5 py-2.5 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:border-amber-500 focus:outline-none"
+                      >
+                        {EVENT_TYPES.map((t) => (
+                          <option key={t.id} value={t.name}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1.5">
+                        Expected Guests (Max 25 Pax)
+                      </label>
+                      <div className="relative">
+                        <Users className="absolute left-3.5 top-3 h-4 w-4 text-stone-400" />
+                        <select
+                          value={guestCount}
+                          onChange={(e) => setGuestCount(Number(e.target.value))}
+                          className="w-full rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-850 pl-10 pr-4 py-2.5 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:border-amber-500 focus:outline-none"
+                        >
+                          {[4, 6, 8, 10, 12, 15, 18, 20, 22, 25].map((n) => (
+                            <option key={n} value={n}>
+                              {n} Guests
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1.5">
+                      Preferred Seating Arrangement
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                      {SEATING_LAYOUTS.map((lay) => {
+                        const isSelected = seatingLayout === lay.id;
+                        return (
+                          <button
+                            key={lay.id}
+                            type="button"
+                            onClick={() => setSeatingLayout(lay.id as any)}
+                            className={`p-3 sm:p-3.5 rounded-xl sm:rounded-2xl border text-left transition cursor-pointer ${
+                              isSelected
+                                ? 'border-amber-500 dark:border-amber-400 bg-amber-50 dark:bg-[#2e1d10] text-amber-950 dark:text-amber-200 ring-2 ring-amber-500/20 dark:ring-amber-400/30 font-bold'
+                                : 'border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-850 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 hover:border-stone-300 dark:hover:border-stone-700'
+                            }`}
+                          >
+                            <span className="text-xs sm:text-sm font-bold block leading-tight">{lay.name}</span>
+                            <span className="text-[10px] sm:text-xs text-stone-500 dark:text-stone-400 block mt-1">{lay.pax}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Navigation footer */}
+                  <div className="flex items-center justify-between pt-4 border-t border-stone-100 dark:border-stone-800 gap-3">
+                    <button
+                      type="button"
+                      onClick={handlePrevStep}
+                      className="inline-flex items-center gap-1.5 rounded-xl sm:rounded-2xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-850 px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      <span>Back to Date &amp; Time</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNextStep}
+                      className="inline-flex items-center gap-2 rounded-xl sm:rounded-2xl bg-amber-500 px-5 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-extrabold text-stone-950 hover:bg-amber-400 active:scale-95 transition shadow-sm cursor-pointer"
+                    >
+                      <span>Review Reservation &amp; Payment</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 4: Reservation Summary & Payment */}
+              {currentStep === 4 && (
+                <div className="space-y-4 sm:space-y-6 rounded-2xl sm:rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-4 sm:p-8 shadow-md animate-in fade-in duration-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-100 dark:border-stone-800 pb-3 mb-2">
+                    <div>
+                      <h3 className="font-display text-base sm:text-xl font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                        <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span>Reservation Summary</span>
+                      </h3>
+                      <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 mt-0.5">
+                        Review all details and choose your payment preference to finalize your studio booking.
+                      </p>
+                    </div>
+                    <span className="self-start sm:self-auto rounded-full bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300/80 dark:border-emerald-800/60 px-3 py-1 text-xs font-bold text-emerald-900 dark:text-emerald-300">
+                      Step 4 of 4
+                    </span>
+                  </div>
+
+                  <div className="grid gap-5 sm:gap-6 lg:grid-cols-2">
+                    {/* Left Details: Schedule & Inclusions */}
+                    <div className="space-y-3.5">
+                      <div className="rounded-xl sm:rounded-2xl bg-stone-50 dark:bg-stone-850 border border-stone-200/80 dark:border-stone-700/80 p-3 sm:p-4 space-y-2 text-xs sm:text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-stone-500 dark:text-stone-400">Date:</span>
+                          <span className="font-bold text-stone-900 dark:text-stone-100">
+                            {new Date(date).toLocaleDateString('en-PH', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-stone-500 dark:text-stone-400">Schedule:</span>
+                          <span className="font-bold text-amber-900 dark:text-amber-300">
+                            {startTimeFormatted} – {endTimeFormatted}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-stone-500 dark:text-stone-400">Duration:</span>
+                          <span className="font-bold text-stone-900 dark:text-stone-100">{selectedDuration} Hours</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-stone-500 dark:text-stone-400">Guests:</span>
+                          <span className="font-bold text-stone-900 dark:text-stone-100">{guestCount} Pax</span>
+                        </div>
+                        {activeCustomer && (
+                          <div className="flex justify-between pt-1.5 border-t border-stone-200 dark:border-stone-700">
+                            <span className="text-stone-500 dark:text-stone-400">Customer:</span>
+                            <span className="font-bold text-stone-900 dark:text-stone-100">{activeCustomer.fullName}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between pt-1.5 border-t border-stone-200 dark:border-stone-700">
+                          <span className="text-stone-500 dark:text-stone-400">Purpose:</span>
+                          <span className="font-bold text-stone-800 dark:text-stone-200 text-right truncate max-w-[180px]">{eventType}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-stone-500 dark:text-stone-400">Seating:</span>
+                          <span className="font-bold text-stone-800 dark:text-stone-200 capitalize">
+                            {SEATING_LAYOUTS.find((l) => l.id === seatingLayout)?.name || seatingLayout}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Pricing Breakdown */}
+                      <div className="rounded-xl sm:rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-850 p-3 sm:p-4 space-y-2 text-xs sm:text-sm">
+                        <div className="flex justify-between text-stone-700 dark:text-stone-300">
+                          <span>Base Studio Rental (3 hrs)</span>
+                          <span className="font-mono font-bold">₱3,500.00</span>
+                        </div>
+
+                        {selectedDuration > 3 && (
+                          <div className="flex justify-between text-stone-700 dark:text-stone-300">
+                            <span>Extension ({selectedDuration - 3} extra hr{selectedDuration - 3 > 1 ? 's' : ''} @ ₱1,000/hr)</span>
+                            <span className="font-mono font-bold">₱{((selectedDuration - 3) * 1000).toFixed(2)}</span>
+                          </div>
+                        )}
+
+                        <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/60 p-2.5 text-xs text-emerald-900 dark:text-emerald-200 font-medium">
+                          <span className="font-bold flex items-center gap-1 text-emerald-800 dark:text-emerald-300 mb-0.5">
+                            <UtensilsCrossed className="h-3.5 w-3.5" />
+                            100% Fully Consumable
+                          </span>
+                          Your ₱{grandTotal.toLocaleString()} venue fee is fully consumable on all food &amp; drinks during the reservation.
+                        </div>
+
+                        <div className="pt-2 border-t border-stone-200 dark:border-stone-700 flex justify-between items-baseline">
+                          <span className="font-display font-bold text-sm sm:text-base text-stone-900 dark:text-stone-100">Total Amount:</span>
+                          <span className="font-mono text-xl sm:text-2xl font-black text-amber-950 dark:text-amber-300">
+                            ₱{grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right Details: Payment Preference & Final Action */}
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider">
+                          Payment Preference
+                        </label>
+                        <div className="grid grid-cols-3 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPaymentMethod('gcash')}
+                            className={`p-2.5 rounded-xl border text-center text-xs font-bold transition flex flex-col items-center gap-1 cursor-pointer ${
+                              paymentMethod === 'gcash'
+                                ? 'border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-950/60 text-blue-900 dark:text-blue-200 ring-2 ring-blue-500/20 dark:ring-blue-500/30'
+                                : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-850 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800'
+                            }`}
+                          >
+                            <QrCode className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                            <span>GCash</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPaymentMethod('cash')}
+                            className={`p-2.5 rounded-xl border text-center text-xs font-bold transition flex flex-col items-center gap-1 cursor-pointer ${
+                              paymentMethod === 'cash'
+                                ? 'border-emerald-500 dark:border-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200 ring-2 ring-emerald-500/20 dark:ring-emerald-500/30'
+                                : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-850 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800'
+                            }`}
+                          >
+                            <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                            <span>Cash</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPaymentMethod('card')}
+                            className={`p-2.5 rounded-xl border text-center text-xs font-bold transition flex flex-col items-center gap-1 cursor-pointer ${
+                              paymentMethod === 'card'
+                                ? 'border-purple-500 dark:border-purple-400 bg-purple-50 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 ring-2 ring-purple-500/20 dark:ring-purple-500/30'
+                                : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-850 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800'
+                            }`}
+                          >
+                            <CreditCard className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                            <span>Card Tap</span>
+                          </button>
+                        </div>
+
+                        {paymentMethod === 'gcash' && (
+                          <div className="rounded-xl bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800/60 p-3 text-xs text-blue-950 dark:text-blue-200 space-y-1">
+                            <div className="font-bold flex items-center gap-1.5 text-blue-950 dark:text-blue-200">
+                              <QrCode className="h-4 w-4 text-blue-700 dark:text-blue-400" />
+                              <span>GCash QR Available on Voucher</span>
+                            </div>
+                            <p className="text-blue-800 dark:text-blue-300 text-[11px] leading-relaxed">
+                              Scan GCash QR or send to Yellow Hauz ({settings.shop_phone || '+63 912 345 6789'}) to settle your reservation fee.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Final Submit Button */}
+                      <div className="pt-2 space-y-3">
+                        {activeCustomer ? (
+                          <button
+                            type="submit"
+                            disabled={!!conflictingBooking}
+                            className={`w-full rounded-xl sm:rounded-2xl py-3.5 text-xs sm:text-sm font-black transition shadow-md flex items-center justify-center gap-2 ${
+                              conflictingBooking
+                                ? 'bg-stone-300 text-stone-500 cursor-not-allowed'
+                                : 'bg-amber-500 text-stone-950 hover:bg-amber-400 active:scale-[0.99] cursor-pointer'
+                            }`}
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                            <span>Reserve Studio for ₱{grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              showAlert({
+                                title: 'Sign In Required',
+                                message: 'Please sign in or create an account to finalize and reserve the private studio.',
+                                type: 'warning',
+                              });
+                              if (onRequireLogin) onRequireLogin();
+                            }}
+                            className="w-full rounded-xl sm:rounded-2xl bg-stone-950 py-3.5 text-xs sm:text-sm font-extrabold text-amber-400 shadow-md hover:bg-stone-800 active:scale-[0.99] transition flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            <Lock className="h-4 w-4 text-amber-400" />
+                            <span>Sign In to Reserve Studio</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Navigation footer */}
+                  <div className="flex items-center justify-between pt-4 border-t border-stone-100 dark:border-stone-800">
+                    <button
+                      type="button"
+                      onClick={handlePrevStep}
+                      className="inline-flex items-center gap-1.5 rounded-xl sm:rounded-2xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-850 px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      <span>Back to Purpose &amp; Layout</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </form>
+          </div>
         </div>
       )}
     </div>

@@ -128,10 +128,10 @@ export const SwipeableCartItem: React.FC<SwipeableCartItemProps> = ({
           x: revealed === 'discount' ? 80 : revealed === 'delete' ? -80 : 0,
         }}
         transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-        className={`relative z-10 border rounded-2xl bg-white p-2.5 transition-shadow cursor-grab active:cursor-grabbing ${
+        className={`relative z-10 border rounded-2xl bg-white dark:bg-stone-850 dark:bg-stone-800 p-2.5 transition-shadow cursor-grab active:cursor-grabbing ${
           discount
-            ? 'border-emerald-300 bg-emerald-50/20'
-            : 'border-stone-200/90 hover:border-stone-300'
+            ? 'border-emerald-300 dark:border-emerald-600/60 bg-emerald-50/20 dark:bg-emerald-950/20'
+            : 'border-stone-200/90 dark:border-stone-700/80 hover:border-stone-300 dark:hover:border-stone-600'
         } ${revealed !== 'none' ? 'shadow-md ring-1 ring-stone-900/10' : 'shadow-2xs'}`}
       >
         {/* If card is revealed, clicking anywhere on it instantly centers it */}
@@ -141,10 +141,10 @@ export const SwipeableCartItem: React.FC<SwipeableCartItemProps> = ({
               e.stopPropagation();
               setRevealed('none');
             }}
-            className="absolute inset-0 z-20 bg-stone-900/5 hover:bg-stone-900/10 cursor-pointer rounded-2xl flex items-center justify-center transition"
+            className="absolute inset-0 z-20 bg-stone-900/5 hover:bg-stone-900/10 dark:bg-stone-950/40 dark:hover:bg-stone-950/50 cursor-pointer rounded-2xl flex items-center justify-center transition"
             title="Click to center item"
           >
-            <span className="rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold text-stone-700 shadow-xs border border-stone-200">
+            <span className="rounded-full bg-white/95 dark:bg-stone-800 px-2.5 py-1 text-[10px] font-bold text-stone-700 dark:text-stone-300 shadow-xs border border-stone-200 dark:border-stone-700">
               Tap to center
             </span>
           </div>
@@ -154,7 +154,7 @@ export const SwipeableCartItem: React.FC<SwipeableCartItemProps> = ({
           {/* Item Details */}
           <div className="flex-1 min-w-0 pr-1">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <h4 className="text-xs font-bold text-stone-900 leading-tight truncate max-w-[170px] sm:max-w-[200px]">
+              <h4 className="text-xs font-bold text-stone-900 dark:text-stone-100 leading-tight truncate max-w-[170px] sm:max-w-[200px]">
                 {item.name}
               </h4>
 
@@ -168,8 +168,8 @@ export const SwipeableCartItem: React.FC<SwipeableCartItemProps> = ({
                 }}
                 className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-bold transition cursor-pointer ${
                   discount
-                    ? 'bg-emerald-100 text-emerald-900 hover:bg-emerald-200 border border-emerald-300'
-                    : 'bg-stone-100 text-stone-600 hover:bg-amber-100 hover:text-amber-900 border border-stone-200'
+                    ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-900 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-800/60 border border-emerald-300 dark:border-emerald-700'
+                    : 'bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-300 hover:bg-amber-100 dark:hover:bg-amber-950/40 hover:text-amber-900 dark:hover:text-amber-300 border border-stone-200 dark:border-stone-600'
                 }`}
                 title={discount ? `Discount: ${discount.name}` : 'Item discount'}
               >
@@ -179,10 +179,10 @@ export const SwipeableCartItem: React.FC<SwipeableCartItemProps> = ({
             </div>
 
             {/* Price & Quantity Breakdown */}
-            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-stone-500 font-mono">
+            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-stone-500 dark:text-stone-400 font-mono">
               <span>₱{item.price.toFixed(2)} × {quantity}</span>
               {discount && (
-                <span className="text-emerald-700 font-bold font-sans text-[10px]">
+                <span className="text-emerald-700 dark:text-emerald-400 font-bold font-sans text-[10px]">
                   (-₱{itemDiscountAmount.toFixed(2)})
                 </span>
               )}
@@ -192,11 +192,11 @@ export const SwipeableCartItem: React.FC<SwipeableCartItemProps> = ({
             {discount && (
               <div
                 onPointerDownCapture={(e) => e.stopPropagation()}
-                className="mt-1 inline-flex items-center gap-1 rounded-md bg-emerald-100/90 border border-emerald-300 px-1.5 py-0.5 text-[10px] font-extrabold text-emerald-950"
+                className="mt-1 inline-flex items-center gap-1 rounded-md bg-emerald-100/90 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 px-1.5 py-0.5 text-[10px] font-extrabold text-emerald-950 dark:text-emerald-200"
               >
-                <Ticket className="h-3 w-3 text-emerald-800 shrink-0" />
+                <Ticket className="h-3 w-3 text-emerald-800 dark:text-emerald-400 shrink-0" />
                 <span className="truncate max-w-[130px]">{discount.name}</span>
-                <span className="text-emerald-800 font-mono">
+                <span className="text-emerald-800 dark:text-emerald-400 font-mono">
                   {discount.type === 'percent' ? `(${discount.value}%)` : `(₱${discount.value})`}
                 </span>
                 <button
@@ -205,7 +205,7 @@ export const SwipeableCartItem: React.FC<SwipeableCartItemProps> = ({
                     e.stopPropagation();
                     onRemoveDiscount();
                   }}
-                  className="ml-0.5 rounded hover:bg-emerald-200 p-0.5 text-emerald-800 transition"
+                  className="ml-0.5 rounded hover:bg-emerald-200 dark:hover:bg-emerald-800 p-0.5 text-emerald-800 dark:text-emerald-400 transition"
                   title="Remove discount"
                 >
                   <X className="h-2.5 w-2.5" />
@@ -219,23 +219,23 @@ export const SwipeableCartItem: React.FC<SwipeableCartItemProps> = ({
             {/* Quantity Stepper */}
             <div
               onPointerDownCapture={(e) => e.stopPropagation()}
-              className="flex items-center rounded-lg border border-stone-200 bg-stone-50"
+              className="flex items-center rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-900/60"
             >
               <button
                 type="button"
                 onClick={() => onUpdateQuantity(-1)}
-                className="p-1 text-stone-600 hover:text-stone-900 active:scale-90 transition cursor-pointer"
+                className="p-1 text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 active:scale-90 transition cursor-pointer"
                 title="Decrease quantity"
               >
                 <Minus className="h-3 w-3" />
               </button>
-              <span className="w-5 text-center text-xs font-bold text-stone-900">
+              <span className="w-5 text-center text-xs font-bold text-stone-900 dark:text-stone-100">
                 {quantity}
               </span>
               <button
                 type="button"
                 onClick={() => onUpdateQuantity(1)}
-                className="p-1 text-stone-600 hover:text-stone-900 active:scale-90 transition cursor-pointer"
+                className="p-1 text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 active:scale-90 transition cursor-pointer"
                 title="Increase quantity"
               >
                 <Plus className="h-3 w-3" />
@@ -245,13 +245,13 @@ export const SwipeableCartItem: React.FC<SwipeableCartItemProps> = ({
             {/* Line Price Display */}
             <div className="w-16 text-right">
               {discount && (
-                <span className="block text-[10px] font-mono text-stone-400 line-through leading-none">
+                <span className="block text-[10px] font-mono text-stone-400 dark:text-stone-500 line-through leading-none">
                   ₱{itemSubtotal.toFixed(2)}
                 </span>
               )}
               <span
                 className={`font-mono text-xs font-black ${
-                  discount ? 'text-emerald-800' : 'text-stone-900'
+                  discount ? 'text-emerald-800 dark:text-emerald-400' : 'text-stone-900 dark:text-stone-100'
                 }`}
               >
                 ₱{finalItemPrice.toFixed(2)}

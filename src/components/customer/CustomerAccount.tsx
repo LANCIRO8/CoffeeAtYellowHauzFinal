@@ -166,27 +166,27 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-16 animate-in fade-in duration-300">
       {/* Profile Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 rounded-3xl border border-stone-200 bg-white p-6 sm:p-8 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-6 sm:p-8 shadow-xs">
         <div className="flex items-center gap-4">
           <div className="grid h-16 w-16 place-items-center rounded-2xl bg-amber-500 text-stone-950 font-display text-2xl font-extrabold shadow-sm shrink-0">
             {(customer.fullName || 'C').charAt(0)}
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-black uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+              <span className="text-[11px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800/60">
                 Customer Account
               </span>
               {customer.loyaltyPoints !== undefined && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-black text-amber-900 bg-amber-400/20 px-2 py-0.5 rounded-md">
-                  <Sparkles className="h-3 w-3 text-amber-600" />
+                <span className="inline-flex items-center gap-1 text-[11px] font-black text-amber-900 dark:text-amber-200 bg-amber-400/20 px-2 py-0.5 rounded-md">
+                  <Sparkles className="h-3 w-3 text-amber-600 dark:text-amber-400" />
                   {customer.loyaltyPoints} Points
                 </span>
               )}
             </div>
-            <h1 className="mt-1 text-2xl sm:text-3xl font-bold text-stone-900 font-display">
+            <h1 className="mt-1 text-2xl sm:text-3xl font-bold text-stone-900 dark:text-stone-100 font-display">
               {customer.fullName || 'Customer'}
             </h1>
-            <div className="mt-1.5 flex flex-wrap items-center gap-4 text-xs text-stone-500">
+            <div className="mt-1.5 flex flex-wrap items-center gap-4 text-xs text-stone-500 dark:text-stone-400">
               <span className="flex items-center gap-1.5">
                 <Mail className="h-3.5 w-3.5 text-stone-400" />
                 {customer.email}
@@ -204,7 +204,7 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
             type="button"
             id="account-edit-profile-btn-header"
             onClick={() => setIsEditModalOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-stone-900 hover:bg-stone-800 px-4 py-2.5 text-xs font-black text-white shadow-xs transition active:scale-95 cursor-pointer"
+            className="inline-flex items-center gap-2 rounded-xl bg-stone-900 hover:bg-stone-800 dark:bg-stone-800 dark:hover:bg-stone-750 dark:border dark:border-stone-700 px-4 py-2.5 text-xs font-black text-white shadow-xs transition active:scale-95 cursor-pointer"
           >
             <Edit3 className="h-4 w-4 text-amber-400" />
             <span>Edit Credentials</span>
@@ -220,7 +220,7 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
           )}
           <button
             onClick={onLogout}
-            className="inline-flex items-center gap-2 rounded-xl border border-stone-200 px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50 transition cursor-pointer"
+            className="inline-flex items-center gap-2 rounded-xl border border-stone-200 dark:border-stone-700 px-4 py-2.5 text-xs font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition cursor-pointer"
           >
             <LogOut className="h-4 w-4" />
             Sign Out
@@ -231,19 +231,19 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
       {/* ========================================================================= */}
       {/* CREDENTIALS & SECURITY OVERVIEW */}
       {/* ========================================================================= */}
-      <div className="rounded-3xl border border-stone-200 bg-white p-6 sm:p-8 shadow-xs space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-100 pb-4">
+      <div className="rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-6 sm:p-8 shadow-xs space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-100 dark:border-stone-800 pb-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-amber-800">
+              <span className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-amber-800 dark:text-amber-400">
                 <Shield className="h-3.5 w-3.5 text-amber-500" />
                 Account Credentials
               </span>
             </div>
-            <h2 className="font-display text-xl font-bold text-stone-900 mt-1">
+            <h2 className="font-display text-xl font-bold text-stone-900 dark:text-stone-100 mt-1">
               Credentials &amp; Security
             </h2>
-            <p className="text-xs sm:text-sm text-stone-500">
+            <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400">
               Personal credentials and password security settings.
             </p>
           </div>
@@ -261,14 +261,14 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Card 1: Credentials */}
-          <div className="rounded-2xl border border-stone-200 bg-stone-50/50 p-5 flex flex-col justify-between">
+          <div className="rounded-2xl border border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-850 p-5 flex flex-col justify-between">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-stone-700">
-                  <User className="h-4 w-4 text-amber-600" />
+                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-stone-700 dark:text-stone-300">
+                  <User className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                   <span>Personal Details</span>
                 </div>
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
                   <CheckCircle2 className="h-3 w-3" /> Active
                 </span>
               </div>
@@ -276,19 +276,19 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
                 <div>
                   <span className="text-[10px] font-bold uppercase text-stone-400 block">Full Name</span>
-                  <span className="font-bold text-stone-900 text-sm">{customer.fullName}</span>
+                  <span className="font-bold text-stone-900 dark:text-stone-100 text-sm">{customer.fullName}</span>
                 </div>
                 <div>
                   <span className="text-[10px] font-bold uppercase text-stone-400 block">Customer ID</span>
-                  <span className="font-mono text-stone-700">#{customer.id}</span>
+                  <span className="font-mono text-stone-700 dark:text-stone-300">#{customer.id}</span>
                 </div>
                 <div>
                   <span className="text-[10px] font-bold uppercase text-stone-400 block">Email Address</span>
-                  <span className="text-stone-700 break-all">{customer.email}</span>
+                  <span className="text-stone-700 dark:text-stone-300 break-all">{customer.email}</span>
                 </div>
                 <div>
                   <span className="text-[10px] font-bold uppercase text-stone-400 block">Contact Number</span>
-                  <span className="text-stone-700 font-mono">{customer.contactNumber}</span>
+                  <span className="text-stone-700 dark:text-stone-300 font-mono">{customer.contactNumber}</span>
                 </div>
               </div>
             </div>
@@ -296,7 +296,7 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
             <button
               type="button"
               onClick={() => setIsEditModalOpen(true)}
-              className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 hover:text-amber-950 transition cursor-pointer"
+              className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 dark:text-amber-400 hover:text-amber-950 dark:hover:text-amber-300 transition cursor-pointer"
             >
               <Edit3 className="h-3.5 w-3.5" />
               <span>Update Information</span>
@@ -304,14 +304,14 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
           </div>
 
           {/* Card 2: Security & Protection */}
-          <div className="rounded-2xl border border-stone-200 bg-stone-50/50 p-5 flex flex-col justify-between">
+          <div className="rounded-2xl border border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-850 p-5 flex flex-col justify-between">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-stone-700">
-                  <Shield className="h-4 w-4 text-amber-600" />
+                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-stone-700 dark:text-stone-300">
+                  <Shield className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                   <span>Account Security</span>
                 </div>
-                <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 border border-stone-200 px-2 py-0.5 text-[10px] font-bold text-stone-600">
+                <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 px-2 py-0.5 text-[10px] font-bold text-stone-600 dark:text-stone-400">
                   {customer.password ? 'Protected' : 'Standard'}
                 </span>
               </div>
@@ -319,11 +319,11 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
               <div className="space-y-2 text-xs pt-1">
                 <div>
                   <span className="text-[10px] font-bold uppercase text-stone-400 block">Password Status</span>
-                  <span className="font-bold text-stone-900 text-sm">
+                  <span className="font-bold text-stone-900 dark:text-stone-100 text-sm">
                     {customer.password ? '●●●●●●●● (Password Protected)' : 'Default Account Access'}
                   </span>
                 </div>
-                <p className="text-[11px] text-stone-500 leading-relaxed">
+                <p className="text-[11px] text-stone-500 dark:text-stone-400 leading-relaxed">
                   Credentials are used for table reservations, digital order tickets, and logging in on new devices.
                 </p>
               </div>
@@ -332,7 +332,7 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
             <button
               type="button"
               onClick={() => setIsEditModalOpen(true)}
-              className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 hover:text-amber-950 transition cursor-pointer"
+              className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 dark:text-amber-400 hover:text-amber-950 dark:hover:text-amber-300 transition cursor-pointer"
             >
               <Edit3 className="h-3.5 w-3.5" />
               <span>Change Password</span>
@@ -348,18 +348,18 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
           onClick={() => setSavedTab('favorites')}
           className={`flex items-center gap-3 p-4 rounded-2xl border transition text-left cursor-pointer ${
             savedTab === 'favorites'
-              ? 'border-amber-400 bg-amber-50/70 shadow-xs'
-              : 'border-stone-200 bg-white hover:border-stone-300'
+              ? 'border-amber-400 dark:border-amber-500 bg-amber-50/70 dark:bg-amber-950/60 shadow-xs'
+              : 'border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 hover:border-stone-300 dark:hover:border-stone-700'
           }`}
         >
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-amber-100 text-amber-700">
-            <Bookmark className="h-5 w-5 fill-amber-500 text-amber-500" />
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300">
+            <Bookmark className="h-5 w-5 fill-amber-500 text-amber-500 dark:text-amber-400" />
           </div>
           <div>
-            <span className="block text-xl font-display font-black text-stone-900">
+            <span className="block text-xl font-display font-black text-stone-900 dark:text-stone-100">
               {favoriteItems.length}
             </span>
-            <span className="block text-[11px] font-bold text-stone-500">Saved Favorites</span>
+            <span className="block text-[11px] font-bold text-stone-500 dark:text-stone-400">Saved Favorites</span>
           </div>
         </button>
 
@@ -368,42 +368,42 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
           onClick={() => setSavedTab('likes')}
           className={`flex items-center gap-3 p-4 rounded-2xl border transition text-left cursor-pointer ${
             savedTab === 'likes'
-              ? 'border-rose-400 bg-rose-50/70 shadow-xs'
-              : 'border-stone-200 bg-white hover:border-stone-300'
+              ? 'border-rose-400 dark:border-rose-500 bg-rose-50/70 dark:bg-rose-950/60 shadow-xs'
+              : 'border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 hover:border-stone-300 dark:hover:border-stone-700'
           }`}
         >
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-rose-100 text-rose-600">
-            <Heart className="h-5 w-5 fill-rose-500 text-rose-500" />
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-rose-100 dark:bg-rose-950/70 text-rose-600 dark:text-rose-400">
+            <Heart className="h-5 w-5 fill-rose-500 text-rose-500 dark:text-rose-400" />
           </div>
           <div>
-            <span className="block text-xl font-display font-black text-stone-900">
+            <span className="block text-xl font-display font-black text-stone-900 dark:text-stone-100">
               {likedItems.length}
             </span>
-            <span className="block text-[11px] font-bold text-stone-500">Liked Dishes</span>
+            <span className="block text-[11px] font-bold text-stone-500 dark:text-stone-400">Liked Dishes</span>
           </div>
         </button>
 
-        <div className="flex items-center gap-3 p-4 rounded-2xl border border-stone-200 bg-white">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-stone-100 text-stone-700">
-            <ShoppingBag className="h-5 w-5 text-stone-700" />
+        <div className="flex items-center gap-3 p-4 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300">
+            <ShoppingBag className="h-5 w-5 text-stone-700 dark:text-stone-300" />
           </div>
           <div>
-            <span className="block text-xl font-display font-black text-stone-900">
+            <span className="block text-xl font-display font-black text-stone-900 dark:text-stone-100">
               {customerOrders.length}
             </span>
-            <span className="block text-[11px] font-bold text-stone-500">Past Orders</span>
+            <span className="block text-[11px] font-bold text-stone-500 dark:text-stone-400">Past Orders</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 p-4 rounded-2xl border border-stone-200 bg-white">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-stone-100 text-stone-700">
-            <Calendar className="h-5 w-5 text-stone-700" />
+        <div className="flex items-center gap-3 p-4 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300">
+            <Calendar className="h-5 w-5 text-stone-700 dark:text-stone-300" />
           </div>
           <div>
-            <span className="block text-xl font-display font-black text-stone-900">
+            <span className="block text-xl font-display font-black text-stone-900 dark:text-stone-100">
               {customerReservations.length}
             </span>
-            <span className="block text-[11px] font-bold text-stone-500">Reservations</span>
+            <span className="block text-[11px] font-bold text-stone-500 dark:text-stone-400">Reservations</span>
           </div>
         </div>
       </div>

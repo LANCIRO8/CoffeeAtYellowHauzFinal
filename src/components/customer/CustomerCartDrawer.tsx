@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { CartItem, CustomerAccount, MenuItem, StoreSettings, TableBinding, Category } from '../../types';
 import { AppStore } from '../../services/store';
+import { useModal } from '../../context/ModalContext';
 import {
   ShoppingCart,
   X,
@@ -59,6 +60,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
   onProceedToCheckout,
   onRequireLogin,
 }) => {
+  const { showAlert } = useModal();
   const drawerRef = useRef<HTMLElement>(null);
   const [editingInstructionsId, setEditingInstructionsId] = useState<number | null>(null);
   const [instructionText, setInstructionText] = useState('');
@@ -141,14 +143,40 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
   }, [allAddonItems]);
 
   const handleAddAddonItem = (item: MenuItem) => {
+    const liveItem = menuItems.find((m) => m.id === item.id) || item;
+    const currentStock = typeof liveItem.quantity === 'number' ? liveItem.quantity : 0;
+
+    if (currentStock <= 0) {
+      showAlert({
+        title: 'Item Out of Stock',
+        message: `Sorry, "${liveItem.name}" is currently out of stock.`,
+        type: 'warning',
+      });
+      return;
+    }
+
+    const existing = cart.find((ci) => ci.item.id === item.id);
+    const inCartQty = existing ? existing.quantity : 0;
+
+    if (inCartQty + 1 > currentStock) {
+      showAlert({
+        title: 'Stock Limit Reached',
+        message: `Only ${currentStock} unit${currentStock === 1 ? '' : 's'} of "${liveItem.name}" available in stock.`,
+        type: 'warning',
+      });
+      return;
+    }
+
     setRecentlyAddedAddonId(item.id);
     setTimeout(() => setRecentlyAddedAddonId(null), 1200);
 
     if (onAddToCart) {
       onAddToCart(item);
     } else {
-      const existing = cart.find((ci) => ci.item.id === item.id);
       if (existing) {
+        onUpdateQuantity(item.id, 1);
+      } else {
+        // Fallback add if onAddToCart is not provided
         onUpdateQuantity(item.id, 1);
       }
     }
@@ -302,7 +330,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
       <aside
         ref={drawerRef}
         aria-label="Customer Order Cart"
-        className={`fixed top-0 right-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] sm:bottom-0 z-40 sm:z-50 w-full sm:w-[390px] md:w-[420px] bg-white border-l border-stone-200/90 shadow-[-12px_0_30px_rgba(0,0,0,0.18)] flex flex-col transition-transform duration-300 ease-in-out font-sans ${
+        className={`fixed top-0 right-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] sm:bottom-0 z-40 sm:z-50 w-full sm:w-[390px] md:w-[420px] bg-white dark:bg-stone-900 border-l border-stone-200/90 dark:border-stone-800 shadow-[-12px_0_30px_rgba(0,0,0,0.18)] flex flex-col transition-transform duration-300 ease-in-out font-sans ${
           isOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
         }`}
       >
@@ -310,23 +338,23 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
         <button
           onClick={onClose}
           title="Collapse Cart"
-          className="hidden sm:flex absolute -left-9 top-1/2 -translate-y-1/2 items-center justify-center h-20 w-9 rounded-l-xl bg-white border-y border-l border-stone-200 text-stone-600 hover:text-stone-950 hover:bg-stone-50 shadow-[-6px_2px_12px_rgba(0,0,0,0.08)] transition cursor-pointer"
+          className="hidden sm:flex absolute -left-9 top-1/2 -translate-y-1/2 items-center justify-center h-20 w-9 rounded-l-xl bg-white dark:bg-stone-900 border-y border-l border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white hover:bg-stone-50 dark:hover:bg-stone-800 shadow-[-6px_2px_12px_rgba(0,0,0,0.08)] transition cursor-pointer"
         >
           <ChevronRight className="h-5 w-5 stroke-[2.5]" />
         </button>
 
         {/* Drawer Header */}
-        <div className="flex items-center justify-between border-b border-stone-200 px-3.5 sm:px-5 py-3 sm:py-4 bg-stone-50/80">
+        <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 px-3.5 sm:px-5 py-3 sm:py-4 bg-stone-50/80 dark:bg-stone-900/95">
           <div className="flex items-center gap-2 sm:gap-2.5">
             <div className="grid h-8 w-8 sm:h-9 sm:w-9 place-items-center rounded-xl bg-amber-500 text-stone-950 shadow-xs shrink-0">
               <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
             <div>
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <h3 className="font-display text-sm sm:text-base font-bold text-stone-900">
+                <h3 className="font-display text-sm sm:text-base font-bold text-stone-900 dark:text-stone-100">
                   Your Order Cart
                 </h3>
-                <span className="rounded-full bg-amber-200/80 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black text-amber-950">
+                <span className="rounded-full bg-amber-200/80 dark:bg-amber-950/70 dark:border dark:border-amber-800/60 dark:text-amber-300 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black text-amber-950">
                   {totalItemCount} {totalItemCount === 1 ? 'item' : 'items'}
                 </span>
               </div>
@@ -337,7 +365,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
             <button
               onClick={onClose}
               title="Collapse cart"
-              className="flex items-center gap-1 rounded-xl border border-stone-200 bg-white px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-bold text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition cursor-pointer"
+              className="flex items-center gap-1 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 hover:text-stone-950 dark:hover:text-white transition cursor-pointer"
             >
               <span>Collapse</span>
               <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -346,36 +374,36 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
         </div>
 
         {/* Dual Mode Session Indicator Bar */}
-        <div className="px-3.5 sm:px-5 py-2 sm:py-2.5 bg-amber-50/80 border-b border-amber-200/60 flex items-center justify-between text-[11px] sm:text-xs">
+        <div className="px-3.5 sm:px-5 py-2 sm:py-2.5 bg-amber-50/80 dark:bg-amber-950/30 border-b border-amber-200/60 dark:border-amber-900/40 flex items-center justify-between text-[11px] sm:text-xs">
           {activeTableBinding ? (
-            <div className="flex items-center gap-1.5 text-amber-950 font-bold">
+            <div className="flex items-center gap-1.5 text-amber-950 dark:text-amber-300 font-bold">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>Dine-In • Table #{activeTableBinding.tableNumber}</span>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 text-stone-700 font-medium">
-              <Globe className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-600" />
+            <div className="flex items-center gap-1.5 text-stone-700 dark:text-stone-300 font-medium">
+              <Globe className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-600 dark:text-amber-400" />
               <span>Online Order • Table Selection at Checkout</span>
             </div>
           )}
           {!activeTableBinding && (
-            <span className="text-[9px] sm:text-[10px] uppercase font-extrabold text-amber-800 tracking-wider">
+            <span className="text-[9px] sm:text-[10px] uppercase font-extrabold text-amber-800 dark:text-amber-400 tracking-wider">
               Dine-In / Online
             </span>
           )}
         </div>
 
         {/* Cart Items List */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 divide-y divide-stone-100">
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 divide-y divide-stone-100 dark:divide-stone-800">
           {cart.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center p-6 text-stone-400">
-              <div className="grid h-16 w-16 place-items-center rounded-2xl bg-amber-50 border border-amber-200/60 mb-3">
-                <Coffee className="h-8 w-8 text-amber-600 stroke-[1.7]" />
+            <div className="h-full flex flex-col items-center justify-center text-center p-6 text-stone-400 dark:text-stone-500">
+              <div className="grid h-16 w-16 place-items-center rounded-2xl bg-amber-50 dark:bg-stone-800/80 border border-amber-200/60 dark:border-stone-700 mb-3">
+                <Coffee className="h-8 w-8 text-amber-600 dark:text-amber-400 stroke-[1.7]" />
               </div>
-              <p className="font-display font-bold text-stone-800 text-base">
+              <p className="font-display font-bold text-stone-800 dark:text-stone-200 text-base">
                 Your cart is empty
               </p>
-              <p className="text-xs text-stone-500 mt-1 max-w-[240px] leading-relaxed">
+              <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 max-w-[240px] leading-relaxed">
                 Browse our handcrafted espresso, iced specials, adobo flakes, and desserts to start your order.
               </p>
               <button
@@ -383,9 +411,9 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                   setAddonsCategoryFilter('all');
                   setIsAddonsModalOpen(true);
                 }}
-                className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-100/90 px-3.5 py-2 text-xs font-bold text-amber-950 hover:bg-amber-200 transition cursor-pointer shadow-2xs"
+                className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-amber-300 dark:border-amber-800/60 bg-amber-100/90 dark:bg-amber-950/50 px-3.5 py-2 text-xs font-bold text-amber-950 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/60 transition cursor-pointer shadow-2xs"
               >
-                <Sparkles className="h-3.5 w-3.5 text-amber-800" />
+                <Sparkles className="h-3.5 w-3.5 text-amber-800 dark:text-amber-400" />
                 <span>Browse Add-ons & Extras</span>
               </button>
             </div>
@@ -400,7 +428,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                   <div key={ci.item.id} className="pt-3.5 first:pt-0 space-y-2">
                     <div className="flex items-start justify-between gap-3">
                       {/* Item Image Thumbnail */}
-                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-stone-100 border border-stone-200/80">
+                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-stone-100 dark:bg-stone-800 border border-stone-200/80 dark:border-stone-700">
                         <img
                           src={ci.item.imageUrl || '/images/latte.webp'}
                           alt={ci.item.name}
@@ -414,28 +442,28 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                       {/* Item Details */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <h4 className="text-xs sm:text-sm font-bold text-stone-900 truncate">
+                          <h4 className="text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100 truncate">
                             {ci.item.name}
                           </h4>
                           {getTemperatureBadge(ci.item.temperature)}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className="font-mono text-xs font-extrabold text-amber-700">
+                          <span className="font-mono text-xs font-extrabold text-amber-700 dark:text-amber-400">
                             ₱{ci.item.price.toFixed(2)}
                           </span>
-                          <span className="text-[10px] text-stone-400 font-mono">
+                          <span className="text-[10px] text-stone-400 dark:text-stone-500 font-mono">
                             × {ci.quantity} = ₱{itemTotal.toFixed(2)}
                           </span>
                         </div>
 
                         {/* Special Instructions display */}
                         {ci.specialInstructions && !isEditingNotes && (
-                          <div className="mt-1 flex items-center gap-1 text-[11px] text-stone-600 bg-stone-50 rounded-md px-2 py-0.5 border border-stone-200/60">
-                            <span className="font-semibold text-stone-700">Note:</span>
+                          <div className="mt-1 flex items-center gap-1 text-[11px] text-stone-600 dark:text-stone-300 bg-stone-50 dark:bg-stone-800/80 rounded-md px-2 py-0.5 border border-stone-200/60 dark:border-stone-750">
+                            <span className="font-semibold text-stone-700 dark:text-stone-300">Note:</span>
                             <span className="italic truncate">{ci.specialInstructions}</span>
                             <button
                               onClick={() => handleStartEditInstructions(ci)}
-                              className="ml-auto text-amber-700 hover:text-amber-900"
+                              className="ml-auto text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-300"
                               title="Edit Note"
                             >
                               <Edit3 className="h-3 w-3" />
@@ -446,21 +474,50 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
 
                       {/* Stepper Controls & Delete */}
                       <div className="flex flex-col items-end gap-1.5 shrink-0">
-                        <div className="flex items-center rounded-lg border border-stone-200 bg-stone-50 overflow-hidden shadow-2xs">
+                        <div className="flex items-center rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 overflow-hidden shadow-2xs">
                           <button
                             onClick={() => onUpdateQuantity(ci.item.id, -1)}
                             title="Decrease quantity"
-                            className="p-1.5 text-stone-600 hover:bg-stone-200 hover:text-stone-900 transition active:scale-95 cursor-pointer"
+                            className="p-1.5 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 hover:text-stone-900 dark:hover:text-white transition active:scale-95 cursor-pointer"
                           >
                             <Minus className="h-3 w-3" />
                           </button>
-                          <span className="w-6 text-center text-xs font-bold text-stone-900 font-mono">
+                          <span className="w-6 text-center text-xs font-bold text-stone-900 dark:text-stone-100 font-mono">
                             {ci.quantity}
                           </span>
                           <button
-                            onClick={() => onUpdateQuantity(ci.item.id, 1)}
-                            title="Increase quantity"
-                            className="p-1.5 text-stone-600 hover:bg-stone-200 hover:text-stone-900 transition active:scale-95 cursor-pointer"
+                            onClick={() => {
+                              const liveItem = menuItems.find((m) => m.id === ci.item.id) || ci.item;
+                              const currentStock = typeof liveItem.quantity === 'number' ? liveItem.quantity : 0;
+                              if (ci.quantity >= currentStock) {
+                                showAlert({
+                                  title: 'Stock Limit Reached',
+                                  message: `Only ${currentStock} unit${currentStock === 1 ? '' : 's'} of "${liveItem.name}" available in stock.`,
+                                  type: 'warning',
+                                });
+                                return;
+                              }
+                              onUpdateQuantity(ci.item.id, 1);
+                            }}
+                            disabled={(() => {
+                              const liveItem = menuItems.find((m) => m.id === ci.item.id) || ci.item;
+                              const currentStock = typeof liveItem.quantity === 'number' ? liveItem.quantity : 0;
+                              return ci.quantity >= currentStock;
+                            })()}
+                            title={(() => {
+                              const liveItem = menuItems.find((m) => m.id === ci.item.id) || ci.item;
+                              const currentStock = typeof liveItem.quantity === 'number' ? liveItem.quantity : 0;
+                              return ci.quantity >= currentStock ? 'Stock limit reached' : 'Increase quantity';
+                            })()}
+                            className={`p-1.5 transition active:scale-95 ${
+                              (() => {
+                                const liveItem = menuItems.find((m) => m.id === ci.item.id) || ci.item;
+                                const currentStock = typeof liveItem.quantity === 'number' ? liveItem.quantity : 0;
+                                return ci.quantity >= currentStock
+                                  ? 'text-stone-300 dark:text-stone-600 cursor-not-allowed'
+                                  : 'text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 hover:text-stone-900 dark:hover:text-white cursor-pointer';
+                              })()
+                            }`}
                           >
                             <Plus className="h-3 w-3" />
                           </button>
@@ -471,7 +528,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                             <button
                               onClick={() => handleStartEditInstructions(ci)}
                               title="Add special note"
-                              className="p-1 text-stone-400 hover:text-amber-700 transition"
+                              className="p-1 text-stone-400 dark:text-stone-500 hover:text-amber-700 dark:hover:text-amber-400 transition"
                             >
                               <Edit3 className="h-3.5 w-3.5" />
                             </button>
@@ -479,7 +536,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                           <button
                             onClick={() => onRemoveItem(ci.item.id)}
                             title="Remove item"
-                            className="p-1 text-stone-400 hover:text-rose-600 transition cursor-pointer"
+                            className="p-1 text-stone-400 dark:text-stone-500 hover:text-rose-600 dark:hover:text-rose-400 transition cursor-pointer"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -495,7 +552,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                           value={instructionText}
                           onChange={(e) => setInstructionText(e.target.value)}
                           placeholder="e.g. Less ice, extra hot, no onions..."
-                          className="flex-1 rounded-lg border border-stone-300 bg-white px-2.5 py-1 text-xs text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none"
+                          className="flex-1 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 px-2.5 py-1 text-xs text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:border-amber-500 focus:outline-none"
                           autoFocus
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
@@ -512,7 +569,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                         </button>
                         <button
                           onClick={() => setEditingInstructionsId(null)}
-                          className="rounded-lg border border-stone-200 bg-white px-2 py-1 text-xs font-bold text-stone-600 hover:bg-stone-100"
+                          className="rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-2 py-1 text-xs font-bold text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700"
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -527,24 +584,24 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
 
         {/* Footer Calculation & Checkout */}
         {cart.length > 0 && (
-          <div className="border-t border-stone-200 bg-stone-50/90 p-3.5 sm:p-5 space-y-2.5 sm:space-y-3">
-            <div className="space-y-1 sm:space-y-1.5 text-[11px] sm:text-xs text-stone-600">
+          <div className="border-t border-stone-200 dark:border-stone-800 bg-stone-50/90 dark:bg-stone-900/95 p-3.5 sm:p-5 space-y-2.5 sm:space-y-3">
+            <div className="space-y-1 sm:space-y-1.5 text-[11px] sm:text-xs text-stone-600 dark:text-stone-400">
               <div className="flex justify-between items-center">
                 <span>Subtotal:</span>
-                <span className="font-mono font-bold text-stone-800">
+                <span className="font-mono font-bold text-stone-800 dark:text-stone-200">
                   ₱{subtotal.toFixed(2)}
                 </span>
               </div>
-              <div className="flex justify-between items-center text-[10px] sm:text-[11px] text-stone-500">
+              <div className="flex justify-between items-center text-[10px] sm:text-[11px] text-stone-500 dark:text-stone-400">
                 <span>
                   <span className="sm:hidden">VAT ({taxRate}%):</span>
                   <span className="hidden sm:inline">VAT ({taxRate}% inclusive):</span>
                 </span>
                 <span className="font-mono">₱{taxAmount.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between items-center text-xs sm:text-sm font-bold text-stone-900 pt-1.5 sm:pt-2 border-t border-stone-200">
+              <div className="flex justify-between items-center text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100 pt-1.5 sm:pt-2 border-t border-stone-200 dark:border-stone-800">
                 <span className="font-display">Total:</span>
-                <span className="font-mono text-sm sm:text-base font-extrabold text-amber-700">
+                <span className="font-mono text-sm sm:text-base font-extrabold text-amber-700 dark:text-amber-400">
                   ₱{totalAmount.toFixed(2)}
                 </span>
               </div>
@@ -552,14 +609,14 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
 
             {/* Require Login Banner for Online Orders */}
             {!activeCustomer && !activeTableBinding && (
-              <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-2 sm:p-2.5 flex items-center justify-between gap-2 text-stone-800">
+              <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-2 sm:p-2.5 flex items-center justify-between gap-2 text-stone-800 dark:text-stone-200">
                 <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                  <div className="grid h-5 w-5 sm:h-6 sm:w-6 place-items-center rounded-lg bg-amber-500/20 text-amber-800 shrink-0">
+                  <div className="grid h-5 w-5 sm:h-6 sm:w-6 place-items-center rounded-lg bg-amber-500/20 text-amber-800 dark:text-amber-400 shrink-0">
                     <Lock className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[11px] sm:text-xs font-bold text-stone-900 leading-tight truncate">Login Required</p>
-                    <p className="text-[9px] sm:text-[10px] text-stone-500 truncate">Sign in to checkout online</p>
+                    <p className="text-[11px] sm:text-xs font-bold text-stone-900 dark:text-stone-100 leading-tight truncate">Login Required</p>
+                    <p className="text-[9px] sm:text-[10px] text-stone-500 dark:text-stone-400 truncate">Sign in to checkout online</p>
                   </div>
                 </div>
                 {onRequireLogin && (
@@ -582,16 +639,16 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                   setIsAddonsModalOpen(true);
                 }}
                 title="Add Add-ons"
-                className="flex items-center gap-1 sm:gap-1.5 rounded-xl border border-amber-300 bg-amber-100/90 hover:bg-amber-200 px-2.5 sm:px-3 py-2 sm:py-2.5 text-[11px] sm:text-xs font-extrabold text-amber-950 transition cursor-pointer shadow-2xs"
+                className="flex items-center gap-1 sm:gap-1.5 rounded-xl border border-amber-300 dark:border-amber-800/60 bg-amber-100/90 dark:bg-amber-950/60 hover:bg-amber-200 dark:hover:bg-amber-900/60 px-2.5 sm:px-3 py-2 sm:py-2.5 text-[11px] sm:text-xs font-extrabold text-amber-950 dark:text-amber-300 transition cursor-pointer shadow-2xs"
               >
-                <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-800" />
+                <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-800 dark:text-amber-400" />
                 <span>+ Add-ons</span>
               </button>
 
               <button
                 onClick={onClearCart}
                 title="Clear all items in cart"
-                className="rounded-xl border border-stone-200 bg-white px-2.5 sm:px-3 py-2 sm:py-2.5 text-[11px] sm:text-xs font-bold text-stone-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition cursor-pointer"
+                className="rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-2.5 sm:px-3 py-2 sm:py-2.5 text-[11px] sm:text-xs font-bold text-stone-600 dark:text-stone-300 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 dark:hover:text-rose-400 hover:border-rose-200 dark:hover:border-rose-900/50 transition cursor-pointer"
               >
                 Clear
               </button>
@@ -629,20 +686,20 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
         {isAddonsModalOpen && (
           <div
             id="addons-selector-panel"
-            className="absolute inset-0 z-50 bg-white flex flex-col animate-in slide-in-from-right duration-250 font-sans"
+            className="absolute inset-0 z-50 bg-white dark:bg-stone-900 flex flex-col animate-in slide-in-from-right duration-250 font-sans"
           >
             {/* Add-ons Header */}
-            <div className="flex items-center justify-between border-b border-stone-200 px-4 py-3 bg-white">
+            <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 px-4 py-3 bg-white dark:bg-stone-900">
               <div className="flex items-center gap-2.5">
                 <button
                   type="button"
                   onClick={() => setIsAddonsModalOpen(false)}
                   title="Back"
-                  className="grid h-8 w-8 place-items-center rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+                  className="grid h-8 w-8 place-items-center rounded-xl border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                <h3 className="font-display text-sm font-bold text-stone-900">
+                <h3 className="font-display text-sm font-bold text-stone-900 dark:text-stone-100">
                   Add-ons &amp; Extras
                 </h3>
               </div>
@@ -650,28 +707,28 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
               <button
                 type="button"
                 onClick={() => setIsAddonsModalOpen(false)}
-                className="grid h-7 w-7 place-items-center rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+                className="grid h-7 w-7 place-items-center rounded-lg text-stone-400 dark:text-stone-500 hover:text-stone-700 dark:hover:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             {/* Search Bar & Single Button Filter */}
-            <div className="p-3 border-b border-stone-200 bg-stone-50 flex items-center gap-2">
+            <div className="p-3 border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/90 flex items-center gap-2">
               <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400" />
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400 dark:text-stone-500" />
                 <input
                   type="text"
                   value={addonsSearchQuery}
                   onChange={(e) => setAddonsSearchQuery(e.target.value)}
                   placeholder="Search add-ons..."
-                  className="w-full rounded-xl border border-stone-200 bg-white pl-8 pr-7 py-1.5 text-xs text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none shadow-2xs"
+                  className="w-full rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 pl-8 pr-7 py-1.5 text-xs text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:border-amber-500 focus:outline-none shadow-2xs"
                 />
                 {addonsSearchQuery && (
                   <button
                     type="button"
                     onClick={() => setAddonsSearchQuery('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 cursor-pointer"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 cursor-pointer"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -685,13 +742,13 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                 onClick={() => setIsAddonFilterModalOpen(true)}
                 className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-bold border transition cursor-pointer shadow-2xs shrink-0 ${
                   addonsCategoryFilter !== 'all'
-                    ? 'border-amber-400 bg-amber-50 text-amber-900'
-                    : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-100'
+                    ? 'border-amber-400 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/50 text-amber-900 dark:text-amber-300'
+                    : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-750'
                 }`}
               >
-                <SlidersHorizontal className="h-3.5 w-3.5 text-amber-700" />
+                <SlidersHorizontal className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400" />
                 <span>Filter:</span>
-                <span className="font-extrabold text-stone-900">
+                <span className="font-extrabold text-stone-900 dark:text-stone-100">
                   {addonsCategoryFilter === 'all'
                     ? 'All'
                     : addonsCategoryFilter === 'drinks'
@@ -709,18 +766,18 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                 onClick={() => setIsAddonFilterModalOpen(false)}
               >
                 <div
-                  className="w-full max-w-xs rounded-2xl bg-white p-4 shadow-xl border border-stone-200 space-y-3 animate-in fade-in zoom-in-95 duration-150"
+                  className="w-full max-w-xs rounded-2xl bg-white dark:bg-stone-900 p-4 shadow-xl border border-stone-200 dark:border-stone-800 space-y-3 animate-in fade-in zoom-in-95 duration-150"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="flex items-center justify-between border-b border-stone-100 pb-2">
+                  <div className="flex items-center justify-between border-b border-stone-100 dark:border-stone-800 pb-2">
                     <div className="flex items-center gap-2">
-                      <SlidersHorizontal className="h-3.5 w-3.5 text-amber-700" />
-                      <h4 className="text-xs font-bold text-stone-900">Filter Add-ons</h4>
+                      <SlidersHorizontal className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400" />
+                      <h4 className="text-xs font-bold text-stone-900 dark:text-stone-100">Filter Add-ons</h4>
                     </div>
                     <button
                       type="button"
                       onClick={() => setIsAddonFilterModalOpen(false)}
-                      className="p-1 text-stone-400 hover:text-stone-600 rounded-lg cursor-pointer"
+                      className="p-1 text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 rounded-lg cursor-pointer"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -736,7 +793,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                       className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-bold transition cursor-pointer ${
                         addonsCategoryFilter === 'all'
                           ? 'bg-amber-500 text-stone-950'
-                          : 'bg-stone-50 text-stone-700 hover:bg-stone-100'
+                          : 'bg-stone-50 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700'
                       }`}
                     >
                       <span>All Add-ons</span>
@@ -752,7 +809,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                       className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-bold transition cursor-pointer ${
                         addonsCategoryFilter === 'drinks'
                           ? 'bg-amber-500 text-stone-950'
-                          : 'bg-stone-50 text-stone-700 hover:bg-stone-100'
+                          : 'bg-stone-50 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700'
                       }`}
                     >
                       <div className="flex items-center gap-1.5">
@@ -771,7 +828,7 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                       className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-bold transition cursor-pointer ${
                         addonsCategoryFilter === 'food'
                           ? 'bg-amber-500 text-stone-950'
-                          : 'bg-stone-50 text-stone-700 hover:bg-stone-100'
+                          : 'bg-stone-50 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700'
                       }`}
                     >
                       <div className="flex items-center gap-1.5">
@@ -788,9 +845,9 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
             {/* Add-ons List */}
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
               {displayAddonItems.length === 0 ? (
-                <div className="py-12 text-center text-stone-400 space-y-1.5">
-                  <p className="text-xs font-bold text-stone-600">No add-ons found</p>
-                  <p className="text-[11px] text-stone-400">
+                <div className="py-12 text-center text-stone-400 dark:text-stone-500 space-y-1.5">
+                  <p className="text-xs font-bold text-stone-600 dark:text-stone-300">No add-ons found</p>
+                  <p className="text-[11px] text-stone-400 dark:text-stone-500">
                     Try searching for another keyword or change filter
                   </p>
                 </div>
@@ -805,12 +862,12 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                       key={addon.id}
                       className={`flex items-center justify-between gap-3 rounded-xl border p-2 transition ${
                         qtyInCart > 0
-                          ? 'border-amber-300 bg-amber-50/40 shadow-xs'
-                          : 'border-stone-200 bg-white hover:border-stone-300'
+                          ? 'border-amber-300 dark:border-amber-800/80 bg-amber-50/40 dark:bg-amber-950/40 shadow-xs'
+                          : 'border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-850 dark:bg-stone-800/80 hover:border-stone-300 dark:hover:border-stone-700'
                       }`}
                     >
                       {/* Thumbnail */}
-                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-stone-100 border border-stone-200/80">
+                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-stone-100 dark:bg-stone-800 border border-stone-200/80 dark:border-stone-700">
                         <img
                           src={addon.imageUrl || '/images/latte.webp'}
                           alt=""
@@ -825,69 +882,89 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                       {/* Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <h4 className="text-xs font-bold text-stone-900 truncate">
+                          <h4 className="text-xs font-bold text-stone-900 dark:text-stone-100 truncate">
                             {addon.name}
                           </h4>
                           <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${
                             isDrinkAddon
-                              ? 'bg-sky-100 text-sky-800'
-                              : 'bg-amber-100 text-amber-900'
+                              ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300'
+                              : 'bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300'
                           }`}>
                             {isDrinkAddon ? 'Drink' : 'Food'}
                           </span>
                         </div>
-                        <p className="font-mono text-xs font-extrabold text-amber-700 mt-0.5">
+                        <p className="font-mono text-xs font-extrabold text-amber-700 dark:text-amber-400 mt-0.5">
                           ₱{addon.price.toFixed(2)}
                         </p>
                       </div>
 
                       {/* Action Controls */}
                       <div className="shrink-0 flex items-center">
-                        {qtyInCart > 0 ? (
-                          <div className="flex items-center rounded-lg border border-amber-400 bg-amber-100 overflow-hidden shadow-2xs">
+                        {(() => {
+                          const liveStock = typeof addon.quantity === 'number' ? addon.quantity : 0;
+                          const isOutOfStock = liveStock <= 0;
+                          const isMaxReached = qtyInCart >= liveStock;
+
+                          if (qtyInCart > 0) {
+                            return (
+                              <div className="flex items-center rounded-lg border border-amber-400 dark:border-amber-700 bg-amber-100 dark:bg-amber-950/70 overflow-hidden shadow-2xs">
+                                <button
+                                  type="button"
+                                  onClick={() => onUpdateQuantity(addon.id, -1)}
+                                  title="Decrease"
+                                  className="p-1 text-amber-900 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/60 transition active:scale-95 cursor-pointer"
+                                >
+                                  <Minus className="h-3 w-3" />
+                                </button>
+                                <span className="w-5 text-center text-xs font-mono font-black text-stone-950 dark:text-amber-200">
+                                  {qtyInCart}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddAddonItem(addon)}
+                                  disabled={isMaxReached}
+                                  title={isMaxReached ? 'Stock limit reached' : 'Increase'}
+                                  className={`p-1 transition active:scale-95 ${
+                                    isMaxReached
+                                      ? 'text-stone-400 dark:text-stone-600 cursor-not-allowed'
+                                      : 'text-amber-900 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/60 cursor-pointer'
+                                  }`}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </button>
+                              </div>
+                            );
+                          }
+
+                          return (
                             <button
                               type="button"
-                              onClick={() => onUpdateQuantity(addon.id, -1)}
-                              title="Decrease"
-                              className="p-1 text-amber-900 hover:bg-amber-200 transition active:scale-95 cursor-pointer"
-                            >
-                              <Minus className="h-3 w-3" />
-                            </button>
-                            <span className="w-5 text-center text-xs font-mono font-black text-stone-950">
-                              {qtyInCart}
-                            </span>
-                            <button
-                              type="button"
+                              disabled={isOutOfStock}
                               onClick={() => handleAddAddonItem(addon)}
-                              title="Increase"
-                              className="p-1 text-amber-900 hover:bg-amber-200 transition active:scale-95 cursor-pointer"
+                              className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-extrabold transition shadow-2xs ${
+                                isOutOfStock
+                                  ? 'bg-stone-200 dark:bg-stone-800 text-stone-400 dark:text-stone-600 cursor-not-allowed'
+                                  : isRecentlyAdded
+                                  ? 'bg-emerald-500 text-white animate-bounce cursor-pointer'
+                                  : 'bg-amber-500 text-stone-950 hover:bg-amber-400 active:scale-95 cursor-pointer'
+                              }`}
                             >
-                              <Plus className="h-3 w-3" />
+                              {isOutOfStock ? (
+                                <span>Out of Stock</span>
+                              ) : isRecentlyAdded ? (
+                                <>
+                                  <Check className="h-3.5 w-3.5" />
+                                  <span>Added</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Plus className="h-3.5 w-3.5" />
+                                  <span>Add</span>
+                                </>
+                              )}
                             </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleAddAddonItem(addon)}
-                            className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-extrabold transition cursor-pointer shadow-2xs ${
-                              isRecentlyAdded
-                                ? 'bg-emerald-500 text-white animate-bounce'
-                                : 'bg-amber-500 text-stone-950 hover:bg-amber-400 active:scale-95'
-                            }`}
-                          >
-                            {isRecentlyAdded ? (
-                              <>
-                                <Check className="h-3.5 w-3.5" />
-                                <span>Added</span>
-                              </>
-                            ) : (
-                              <>
-                                <Plus className="h-3.5 w-3.5" />
-                                <span>Add</span>
-                              </>
-                            )}
-                          </button>
-                        )}
+                          );
+                        })()}
                       </div>
                     </div>
                   );
@@ -896,16 +973,16 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
             </div>
 
             {/* Add-ons Done / Back Footer */}
-            <div className="border-t border-stone-200 bg-stone-50 p-3 flex items-center justify-between gap-3">
-              <div className="text-xs font-bold text-stone-800">
+            <div className="border-t border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 p-3 flex items-center justify-between gap-3">
+              <div className="text-xs font-bold text-stone-800 dark:text-stone-200">
                 <span className="font-mono">{totalItemCount} items</span>
-                <span className="mx-1.5 text-stone-300">•</span>
-                <span className="font-mono text-amber-700">₱{totalAmount.toFixed(2)}</span>
+                <span className="mx-1.5 text-stone-300 dark:text-stone-600">•</span>
+                <span className="font-mono text-amber-700 dark:text-amber-400">₱{totalAmount.toFixed(2)}</span>
               </div>
               <button
                 type="button"
                 onClick={() => setIsAddonsModalOpen(false)}
-                className="flex items-center gap-1 rounded-xl bg-stone-900 px-3.5 py-1.5 text-xs font-extrabold text-white hover:bg-stone-800 transition cursor-pointer shadow-xs"
+                className="flex items-center gap-1 rounded-xl bg-stone-900 dark:bg-stone-100 px-3.5 py-1.5 text-xs font-extrabold text-white dark:text-stone-950 hover:bg-stone-800 dark:hover:bg-stone-200 transition cursor-pointer shadow-xs"
               >
                 <span>Back to Cart</span>
                 <ChevronRight className="h-3.5 w-3.5" />

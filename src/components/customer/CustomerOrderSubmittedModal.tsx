@@ -67,7 +67,7 @@ export const CustomerOrderSubmittedModal: React.FC<CustomerOrderSubmittedModalPr
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl sm:rounded-3xl bg-white shadow-2xl border border-stone-200 animate-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl sm:rounded-3xl bg-white dark:bg-stone-900 shadow-2xl border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 animate-in zoom-in-95 duration-200">
         {/* Top Decorative Header */}
         <div className="bg-gradient-to-br from-amber-500 via-amber-400 to-yellow-500 px-4 py-3 sm:px-5 sm:py-4 text-stone-950 relative">
           <button
@@ -183,34 +183,34 @@ export const CustomerOrderSubmittedModal: React.FC<CustomerOrderSubmittedModalPr
           </div>
 
           {/* Order Summary Information */}
-          <div className="rounded-xl sm:rounded-2xl border border-stone-200 bg-white p-3 sm:p-4 space-y-2.5 sm:space-y-3">
-            <div className="flex items-center justify-between border-b border-stone-100 pb-2 sm:pb-2.5">
+          <div className="rounded-xl sm:rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-850 dark:bg-stone-800/80 p-3 sm:p-4 space-y-2.5 sm:space-y-3">
+            <div className="flex items-center justify-between border-b border-stone-100 dark:border-stone-700/60 pb-2 sm:pb-2.5">
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <ShoppingBag className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600" />
-                <span className="font-display font-bold text-xs sm:text-sm text-stone-900">
+                <span className="font-display font-bold text-xs sm:text-sm text-stone-900 dark:text-stone-100">
                   Items in Ticket ({order.items.length})
                 </span>
               </div>
-              <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase text-stone-700">
+              <span className="rounded-full bg-stone-100 dark:bg-stone-700 px-2 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase text-stone-700 dark:text-stone-300">
                 {getOrderTypeLabel()}
               </span>
             </div>
 
             {/* Item Rows */}
-            <div className="space-y-1.5 sm:space-y-2 divide-y divide-stone-100 text-xs">
+            <div className="space-y-1.5 sm:space-y-2 divide-y divide-stone-100 dark:divide-stone-700/50 text-xs">
               {order.items.map((item, idx) => (
                 <div key={idx} className="pt-1.5 sm:pt-2 first:pt-0 flex justify-between items-start gap-2">
                   <div>
-                    <span className="font-bold text-stone-800 text-[11px] sm:text-xs">
+                    <span className="font-bold text-stone-800 dark:text-stone-200 text-[11px] sm:text-xs">
                       {item.quantity}x {item.name}
                     </span>
                     {item.specialInstructions && (
-                      <p className="text-[10px] sm:text-[11px] text-stone-500 italic mt-0.5">
+                      <p className="text-[10px] sm:text-[11px] text-stone-500 dark:text-stone-400 italic mt-0.5">
                         Note: {item.specialInstructions}
                       </p>
                     )}
                   </div>
-                  <span className="font-mono font-bold text-stone-700 shrink-0 text-[11px] sm:text-xs">
+                  <span className="font-mono font-bold text-stone-700 dark:text-stone-300 shrink-0 text-[11px] sm:text-xs">
                     ₱{item.totalPrice.toFixed(2)}
                   </span>
                 </div>
@@ -218,34 +218,34 @@ export const CustomerOrderSubmittedModal: React.FC<CustomerOrderSubmittedModalPr
             </div>
 
             {/* Financial Details */}
-            <div className="border-t border-stone-200 pt-2.5 sm:pt-3 space-y-1 text-xs">
-              <div className="flex justify-between text-stone-500 text-[11px] sm:text-xs">
+            <div className="border-t border-stone-200 dark:border-stone-700/60 pt-2.5 sm:pt-3 space-y-1 text-xs">
+              <div className="flex justify-between text-stone-500 dark:text-stone-400 text-[11px] sm:text-xs">
                 <span>Subtotal:</span>
                 <span className="font-mono">₱{order.subtotal.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-stone-500 text-[10px] sm:text-[11px]">
+              <div className="flex justify-between text-stone-500 dark:text-stone-400 text-[10px] sm:text-[11px]">
                 <span>VAT ({order.taxRate || 12}%):</span>
                 <span className="font-mono">₱{order.taxAmount.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between font-bold text-xs sm:text-sm text-stone-950 pt-1.5 border-t border-stone-100">
+              <div className="flex justify-between font-bold text-xs sm:text-sm text-stone-950 dark:text-stone-100 pt-1.5 border-t border-stone-100 dark:border-stone-700/50">
                 <span className="font-display">Total Amount:</span>
-                <span className="font-mono font-black text-amber-700">
+                <span className="font-mono font-black text-amber-700 dark:text-amber-400">
                   ₱{order.totalAmount.toFixed(2)}
                 </span>
               </div>
             </div>
 
             {/* Customer & Payment Meta */}
-            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-stone-100 text-[10px] sm:text-[11px] text-stone-600">
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-stone-100 dark:border-stone-700/50 text-[10px] sm:text-[11px] text-stone-600 dark:text-stone-400">
               <div>
                 <span className="text-stone-400 block text-[9px] sm:text-[10px] font-bold uppercase">Customer:</span>
-                <span className="font-semibold text-stone-800 truncate block">
+                <span className="font-semibold text-stone-800 dark:text-stone-200 truncate block">
                   {order.customerName || 'Customer'}
                 </span>
               </div>
               <div>
                 <span className="text-stone-400 block text-[9px] sm:text-[10px] font-bold uppercase">Payment Preference:</span>
-                <span className="font-semibold text-stone-800 truncate block">
+                <span className="font-semibold text-stone-800 dark:text-stone-200 truncate block">
                   {getPaymentMethodLabel()}
                 </span>
               </div>
@@ -254,7 +254,7 @@ export const CustomerOrderSubmittedModal: React.FC<CustomerOrderSubmittedModalPr
         </div>
 
         {/* Footer Actions */}
-        <div className="p-3 sm:p-4 bg-stone-50 border-t border-stone-200 flex flex-col sm:flex-row gap-2">
+        <div className="p-3 sm:p-4 bg-stone-50 dark:bg-stone-850 dark:bg-stone-900 border-t border-stone-200 dark:border-stone-800 flex flex-col sm:flex-row gap-2">
           {onTrackOrder ? (
             <button
               onClick={onTrackOrder}
@@ -266,7 +266,7 @@ export const CustomerOrderSubmittedModal: React.FC<CustomerOrderSubmittedModalPr
           ) : null}
           <button
             onClick={() => setIsCancelModalOpen(true)}
-            className="rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 px-3 py-2.5 sm:px-4 sm:py-3 text-[11px] sm:text-xs font-bold text-rose-700 transition cursor-pointer flex items-center justify-center gap-1.5"
+            className="rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 px-3 py-2.5 sm:px-4 sm:py-3 text-[11px] sm:text-xs font-bold text-rose-700 dark:text-rose-300 transition cursor-pointer flex items-center justify-center gap-1.5"
             title="Request cancellation for this order"
           >
             <Ban className="h-3.5 w-3.5" />
@@ -274,7 +274,7 @@ export const CustomerOrderSubmittedModal: React.FC<CustomerOrderSubmittedModalPr
           </button>
           <button
             onClick={onClose}
-            className={`rounded-xl border border-stone-300 bg-white hover:bg-stone-100 px-4 py-2.5 sm:px-5 sm:py-3 text-[11px] sm:text-xs font-bold text-stone-800 transition cursor-pointer ${
+            className={`rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 hover:bg-stone-100 dark:hover:bg-stone-750 px-4 py-2.5 sm:px-5 sm:py-3 text-[11px] sm:text-xs font-bold text-stone-800 dark:text-stone-200 transition cursor-pointer ${
               !onTrackOrder ? 'w-full' : ''
             }`}
           >

@@ -46,10 +46,21 @@ import {
   Filter,
   Download,
   RotateCcw,
+  Upload,
+  Image as ImageIcon,
+  Loader2,
+  CheckCircle2,
+  FileUp,
+  Zap,
+  Images,
 } from 'lucide-react';
+import { compressImageFile, formatFileSize, calculateBase64Size } from '../../utils/imageCompression';
 import { LowStockNotificationModal } from './LowStockNotificationModal';
 import { RefillSuggestionsView } from './RefillSuggestionsView';
 import { RefillRequestModal } from './RefillRequestModal';
+import { CustomerGalleryManager } from './CustomerGalleryManager';
+import { SystemImagePickerModal } from './SystemImagePickerModal';
+import { SystemGalleryImage } from '../../data/galleryImages';
 
 export type CatalogColumnKey =
   | 'product'
@@ -175,8 +186,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     }
   };
 
-  // Active View Tab: 'items', 'refills', or 'categories'
-  const [activeTab, setActiveTab] = useState<'items' | 'refills' | 'categories'>('items');
+  // Active View Tab: 'items', 'refills', 'categories', or 'gallery'
+  const [activeTab, setActiveTab] = useState<'items' | 'refills' | 'categories' | 'gallery'>('items');
   const [isRefillModalOpen, setIsRefillModalOpen] = useState(false);
   const [refillSelectedItem, setRefillSelectedItem] = useState<MenuItem | null>(null);
   const [pendingRefillCount, setPendingRefillCount] = useState<number>(() =>
@@ -307,6 +318,18 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
   const [catFormIcon, setCatFormIcon] = useState('Coffee');
   const [catFormSortOrder, setCatFormSortOrder] = useState<number>(1);
   const [catFormStatus, setCatFormStatus] = useState<'active' | 'inactive'>('active');
+  const [catFormImageUrl, setCatFormImageUrl] = useState<string>('');
+  const [isCompressingCatImage, setIsCompressingCatImage] = useState<boolean>(false);
+  const [catCompressionStats, setCatCompressionStats] = useState<{
+    originalSize: string;
+    compressedSize: string;
+    savedPercentage: number;
+    dimensions: string;
+    format: string;
+  } | null>(null);
+  const [catImageUploadError, setCatImageUploadError] = useState<string | null>(null);
+  const [isDraggingCatImage, setIsDraggingCatImage] = useState<boolean>(false);
+  const catFileInputRef = useRef<HTMLInputElement>(null);
 
   // Category Delete with Reassignment Modal State
   const [deleteCatTarget, setDeleteCatTarget] = useState<Category | null>(null);
@@ -442,6 +465,219 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
   const [isBestSeller, setIsBestSeller] = useState<boolean>(false);
   const [imageUrl, setImageUrl] = useState<string>('/images/latte.webp');
 
+  // Item Image Upload & Storage Compression State
+  const [isCompressingImage, setIsCompressingImage] = useState<boolean>(false);
+  const [compressionStats, setCompressionStats] = useState<{
+    originalSize: string;
+    compressedSize: string;
+    savedPercentage: number;
+    dimensions: string;
+    format: string;
+  } | null>(null);
+  const [imageUploadError, setImageUploadError] = useState<string | null>(null);
+  const [isDraggingImage, setIsDraggingImage] = useState<boolean>(false);
+  const [isItemSystemImagePickerOpen, setIsItemSystemImagePickerOpen] = useState<boolean>(false);
+  const [isCatSystemImagePickerOpen, setIsCatSystemImagePickerOpen] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Client-side image compression handler
+  const processImageUpload = async (file: File) => {
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setImageUploadError('Please select a valid image file (JPEG, PNG, WebP).');
+      return;
+    }
+
+    // Limit raw input to 25MB before compression
+    if (file.size > 25 * 1024 * 1024) {
+      setImageUploadError('Selected image is too large (>25MB). Please choose a smaller photo.');
+      return;
+    }
+
+    try {
+      setIsCompressingImage(true);
+      setImageUploadError(null);
+
+      // Downscale to max 720x720 and encode as WebP (or JPEG fallback) with 0.78 quality
+      const result = await compressImageFile(file, file.name, {
+        maxWidth: 720,
+        maxHeight: 720,
+        quality: 0.78,
+      });
+
+      setImageUrl(result.dataUrl);
+      setCompressionStats({
+        originalSize: formatFileSize(result.originalSizeBytes),
+        compressedSize: formatFileSize(result.compressedSizeBytes),
+        savedPercentage: result.savedPercentage,
+        dimensions: `${result.dimensions.width} × ${result.dimensions.height}`,
+        format: result.mimeType.replace('image/', '').toUpperCase(),
+      });
+    } catch (err: any) {
+      console.error('Image compression failed:', err);
+      setImageUploadError(err.message || 'Failed to compress the image. Please try another file.');
+    } finally {
+      setIsCompressingImage(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processImageUpload(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingImage(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingImage(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingImage(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processImageUpload(file);
+    }
+  };
+
+  const handleRemoveCustomImage = () => {
+    const defaultImg = categoryType === 'food' ? '/images/default_food.jpg' : '/images/latte.webp';
+    setImageUrl(defaultImg);
+    setCompressionStats(null);
+    setImageUploadError(null);
+  };
+
+  const handleSelectPresetImage = (presetUrl: string) => {
+    setImageUrl(presetUrl);
+    setCompressionStats(null);
+    setImageUploadError(null);
+  };
+
+  const handleSelectSystemImageForItem = (chosenUrl: string) => {
+    setImageUrl(chosenUrl);
+    setCompressionStats({
+      originalSize: 'System Library Image',
+      compressedSize: 'Optimized Preset',
+      savedPercentage: 0,
+      dimensions: 'HD Ready',
+      format: 'SYSTEM',
+    });
+    setImageUploadError(null);
+    setIsItemSystemImagePickerOpen(false);
+  };
+
+  // Category Image Upload & Compression Handlers
+  const processCatImageUpload = async (file: File) => {
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setCatImageUploadError('Please select a valid image file (JPEG, PNG, WebP).');
+      return;
+    }
+
+    if (file.size > 25 * 1024 * 1024) {
+      setCatImageUploadError('Selected image is too large (>25MB). Please choose a smaller photo.');
+      return;
+    }
+
+    try {
+      setIsCompressingCatImage(true);
+      setCatImageUploadError(null);
+
+      // Downscale to max 800x800 and encode as WebP (or JPEG) with 0.80 quality
+      const result = await compressImageFile(file, file.name, {
+        maxWidth: 800,
+        maxHeight: 800,
+        quality: 0.80,
+      });
+
+      setCatFormImageUrl(result.dataUrl);
+      setCatCompressionStats({
+        originalSize: formatFileSize(result.originalSizeBytes),
+        compressedSize: formatFileSize(result.compressedSizeBytes),
+        savedPercentage: result.savedPercentage,
+        dimensions: `${result.dimensions.width} × ${result.dimensions.height}`,
+        format: result.mimeType.replace('image/', '').toUpperCase(),
+      });
+    } catch (err: any) {
+      console.error('Category image compression failed:', err);
+      setCatImageUploadError(err.message || 'Failed to compress category image. Please try another file.');
+    } finally {
+      setIsCompressingCatImage(false);
+      if (catFileInputRef.current) {
+        catFileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleCatFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processCatImageUpload(file);
+    }
+  };
+
+  const handleCatDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingCatImage(true);
+  };
+
+  const handleCatDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingCatImage(false);
+  };
+
+  const handleCatDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingCatImage(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processCatImageUpload(file);
+    }
+  };
+
+  const handleRemoveCatImage = () => {
+    setCatFormImageUrl('');
+    setCatCompressionStats(null);
+    setCatImageUploadError(null);
+  };
+
+  const handleSelectCatPresetImage = (presetUrl: string) => {
+    setCatFormImageUrl(presetUrl);
+    setCatCompressionStats(null);
+    setCatImageUploadError(null);
+  };
+
+  const handleSelectSystemImageForCat = (chosenUrl: string) => {
+    setCatFormImageUrl(chosenUrl);
+    setCatCompressionStats({
+      originalSize: 'System Library Image',
+      compressedSize: 'Optimized Preset',
+      savedPercentage: 0,
+      dimensions: 'HD Ready',
+      format: 'SYSTEM',
+    });
+    setCatImageUploadError(null);
+    setIsCatSystemImagePickerOpen(false);
+  };
+
   const refresh = () => {
     setItems(AppStore.getMenuItems());
     setCategories(AppStore.getCategories());
@@ -542,7 +778,12 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     setTemperature(categoryType === 'food' ? 'room temp' : 'both');
     setIsAvailable(true);
     setIsBestSeller(false);
-    setImageUrl('/images/latte.webp');
+    const defaultImg = categoryType === 'food' ? '/images/default_food.jpg' : '/images/latte.webp';
+    setImageUrl(defaultImg);
+    setCompressionStats(null);
+    setImageUploadError(null);
+    setIsCompressingImage(false);
+    setIsDraggingImage(false);
     setIsItemModalOpen(true);
   };
 
@@ -557,7 +798,26 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     setTemperature(item.temperature);
     setIsAvailable(item.isAvailable !== false);
     setIsBestSeller(Boolean(item.isBestSeller));
-    setImageUrl(item.imageUrl || '/images/latte.webp');
+    const currentImg = item.imageUrl || (categoryType === 'food' ? '/images/default_food.jpg' : '/images/latte.webp');
+    setImageUrl(currentImg);
+    setImageUploadError(null);
+    setIsCompressingImage(false);
+    setIsDraggingImage(false);
+
+    if (currentImg.startsWith('data:image/')) {
+      const bytes = calculateBase64Size(currentImg);
+      const mime = currentImg.split(';')[0]?.replace('data:image/', '').toUpperCase() || 'WEBP';
+      setCompressionStats({
+        originalSize: 'Uploaded Custom Image',
+        compressedSize: formatFileSize(bytes),
+        savedPercentage: 0,
+        dimensions: 'Storage-Optimized',
+        format: mime,
+      });
+    } else {
+      setCompressionStats(null);
+    }
+
     setIsItemModalOpen(true);
   };
 
@@ -655,6 +915,9 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     setCatFormIcon(targetType === 'drinks' ? 'Coffee' : 'Utensils');
     setCatFormSortOrder(categories.length + 1);
     setCatFormStatus('active');
+    setCatFormImageUrl('');
+    setCatCompressionStats(null);
+    setCatImageUploadError(null);
     setIsCategoryModalOpen(true);
   };
 
@@ -667,6 +930,20 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     setCatFormIcon(cat.icon || (isDrink ? 'Coffee' : 'Utensils'));
     setCatFormSortOrder(cat.sortOrder || 1);
     setCatFormStatus(cat.status || 'active');
+    setCatFormImageUrl(cat.imageUrl || '');
+    if (cat.imageUrl) {
+      const isBase64 = cat.imageUrl.startsWith('data:');
+      setCatCompressionStats({
+        originalSize: isBase64 ? 'Uploaded Image' : 'Catalog Preset',
+        compressedSize: isBase64 ? formatFileSize(calculateBase64Size(cat.imageUrl)) : 'Optimized Asset',
+        savedPercentage: 0,
+        dimensions: 'Configured',
+        format: isBase64 ? 'BASE64' : 'IMAGE',
+      });
+    } else {
+      setCatCompressionStats(null);
+    }
+    setCatImageUploadError(null);
     setIsCategoryModalOpen(true);
   };
 
@@ -676,6 +953,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     if (!catFormName.trim()) return;
 
     const trimmed = catFormName.trim();
+    const finalImageUrl = catFormImageUrl.trim() ? catFormImageUrl.trim() : undefined;
 
     if (editingCategory) {
       AppStore.updateCategory(editingCategory.id, {
@@ -683,6 +961,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
         icon: catFormIcon,
         sortOrder: Number(catFormSortOrder) || 1,
         status: catFormStatus,
+        imageUrl: finalImageUrl,
       });
       showAlert({
         title: 'Category Updated',
@@ -695,6 +974,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
         icon: catFormIcon,
         sortOrder: Number(catFormSortOrder) || categories.length + 1,
         status: catFormStatus,
+        imageUrl: finalImageUrl,
       });
       showAlert({
         title: 'Category Created!',
@@ -710,6 +990,9 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
 
     setIsCategoryModalOpen(false);
     setEditingCategory(null);
+    setCatFormImageUrl('');
+    setCatCompressionStats(null);
+    setCatImageUploadError(null);
     refresh();
   };
 
@@ -1047,6 +1330,23 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
               </span>
             </button>
           )}
+
+          {/* Customer Gallery & Banners Tab (Admin only) */}
+          {isAdmin && (
+            <button
+              id="tab-inventory-gallery"
+              type="button"
+              onClick={() => setActiveTab('gallery')}
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-extrabold transition-all duration-150 cursor-pointer ${
+                activeTab === 'gallery'
+                  ? 'bg-stone-900 text-white shadow-xs border border-stone-900'
+                  : 'bg-white text-stone-700 hover:text-stone-950 hover:bg-stone-50 border border-stone-300 shadow-2xs'
+              }`}
+            >
+              <Images className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${activeTab === 'gallery' ? 'text-amber-400' : 'text-amber-600'}`} />
+              <span>Gallery</span>
+            </button>
+          )}
         </div>
 
         <div className="hidden sm:flex items-center gap-2 text-[11px] sm:text-xs text-stone-500 pr-1 font-medium">
@@ -1054,6 +1354,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
             <span>Staff suggestions awaiting Admin purchase &amp; confirmation</span>
           ) : activeTab === 'categories' ? (
             <span>Manage, edit, reorder &amp; remove categories</span>
+          ) : activeTab === 'gallery' ? (
+            <span>Customize customer landing hero, reservation &amp; menu banners</span>
           ) : null}
         </div>
       </div>
@@ -1827,12 +2129,30 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                         <tr key={cat.id} className="hover:bg-stone-50/70 transition">
                           <td className="px-5 py-3.5">
                             <div className="flex items-center gap-3">
-                              <div className="h-10 w-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-800 shadow-2xs">
-                                {renderCategoryIcon(cat.name, isDrink, cat.icon)}
+                              <div className="relative h-11 w-11 shrink-0 rounded-xl overflow-hidden bg-amber-50 border border-amber-200/80 flex items-center justify-center text-amber-800 shadow-2xs">
+                                {cat.imageUrl ? (
+                                  <img
+                                    src={cat.imageUrl}
+                                    alt={cat.name}
+                                    className="h-full w-full object-cover"
+                                    onError={(e) => {
+                                      (e.currentTarget as HTMLImageElement).style.display = 'none';
+                                    }}
+                                  />
+                                ) : null}
+                                <div className={cat.imageUrl ? 'hidden' : 'flex items-center justify-center'}>
+                                  {renderCategoryIcon(cat.name, isDrink, cat.icon)}
+                                </div>
                               </div>
                               <div>
                                 <div className="font-extrabold text-stone-900 text-sm flex items-center gap-2">
                                   <span>{cat.name}</span>
+                                  {cat.imageUrl && (
+                                    <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-800 bg-amber-100/70 px-1.5 py-0.5 rounded-md border border-amber-200">
+                                      <ImageIcon className="h-2.5 w-2.5 text-amber-700" />
+                                      <span>Cover Image</span>
+                                    </span>
+                                  )}
                                 </div>
                                 <span className="text-[10px] font-mono text-stone-400">
                                   ID #{cat.id} • Icon: {cat.icon || 'Default'}
@@ -1930,14 +2250,21 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
         </div>
       )}
 
+      {/* VIEW 4: CUSTOMER GALLERY & BANNERS (ADMIN ONLY) */}
+      {activeTab === 'gallery' && isAdmin && (
+        <div id="view-customer-gallery" className="transition-opacity duration-150">
+          <CustomerGalleryManager onBackToInventory={() => setActiveTab('items')} />
+        </div>
+      )}
+
       {/* MODAL 1: ADD / EDIT CATEGORY MODAL */}
       {isCategoryModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl border border-stone-200 my-8">
-            <div className="flex items-center justify-between border-b border-stone-200 pb-3">
+          <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-stone-900 p-6 shadow-2xl border border-stone-200 dark:border-stone-800 my-8">
+            <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-3">
               <div className="flex items-center gap-2">
-                <FolderPlus className="h-5 w-5 text-amber-600" />
-                <h3 className="font-display text-lg font-bold text-stone-900">
+                <FolderPlus className="h-5 w-5 text-amber-600 dark:text-amber-500" />
+                <h3 className="font-display text-lg font-bold text-stone-900 dark:text-stone-100">
                   {editingCategory ? `Edit Category: ${editingCategory.name}` : 'Create New Category'}
                 </h3>
               </div>
@@ -1946,7 +2273,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   setIsCategoryModalOpen(false);
                   setEditingCategory(null);
                 }}
-                className="rounded-full p-2 text-stone-400 hover:bg-stone-100 cursor-pointer"
+                className="rounded-full p-2 text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -1955,7 +2282,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
             <form onSubmit={handleSaveCategory} className="mt-4 space-y-4">
               {/* Category Name */}
               <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase mb-1">
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase mb-1">
                   Category Name <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -1964,14 +2291,272 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   value={catFormName}
                   onChange={(e) => setCatFormName(e.target.value)}
                   placeholder="e.g. Specialty Cold Brew, Artisan Waffles, Pastries"
-                  className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3.5 py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
+                  className="w-full rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 px-3.5 py-2.5 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:border-amber-500 focus:outline-none"
                   autoFocus
                 />
               </div>
 
+              {/* Category Image / Cover Photo Upload */}
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase">
+                    Category Image / Cover Photo
+                  </label>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/80">
+                    <Zap className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                    <span>Auto-Compressed for Storage</span>
+                  </span>
+                </div>
+
+                {/* Hidden File Input */}
+                <input
+                  ref={catFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCatFileInputChange}
+                  className="hidden"
+                />
+
+                {/* Dropzone & Preview Container */}
+                <div
+                  onDragOver={handleCatDragOver}
+                  onDragLeave={handleCatDragLeave}
+                  onDrop={handleCatDrop}
+                  className={`relative rounded-2xl border-2 transition p-3.5 ${
+                    isDraggingCatImage
+                      ? 'border-amber-500 bg-amber-50/80 dark:bg-amber-950/40 shadow-inner'
+                      : 'border-dashed border-stone-300 dark:border-stone-700 bg-stone-50/90 dark:bg-stone-850/80 hover:bg-stone-100/70 dark:hover:bg-stone-800/70'
+                  }`}
+                >
+                  {isCompressingCatImage ? (
+                    <div className="flex flex-col items-center justify-center py-6 space-y-2 text-center">
+                      <Loader2 className="h-7 w-7 animate-spin text-amber-500" />
+                      <p className="text-xs font-bold text-stone-800 dark:text-stone-200">
+                        Compressing &amp; Optimizing Category Image...
+                      </p>
+                      <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                        Downscaling dimensions &amp; encoding for fast storage
+                      </p>
+                    </div>
+                  ) : catFormImageUrl ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        {/* Category Image Thumbnail */}
+                        <div className="relative h-16 w-24 sm:h-20 sm:w-28 shrink-0 overflow-hidden rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-900 shadow-xs">
+                          <img
+                            src={catFormImageUrl}
+                            alt="Category preview"
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = '/images/latte.webp';
+                            }}
+                          />
+                        </div>
+
+                        {/* Compression stats & Details */}
+                        <div className="flex-1 min-w-0">
+                          {catCompressionStats ? (
+                            <div className="space-y-1">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/60">
+                                  <CheckCircle2 className="h-3 w-3 text-emerald-700 dark:text-emerald-400" />
+                                  {catCompressionStats.savedPercentage > 0
+                                    ? `⚡ ${catCompressionStats.savedPercentage}% Storage Saved`
+                                    : 'Cover Image Ready'}
+                                </span>
+                                <span className="text-[10px] font-mono text-stone-500 dark:text-stone-400">
+                                  {catCompressionStats.format} • {catCompressionStats.dimensions}
+                                </span>
+                              </div>
+                              <p className="text-xs text-stone-700 dark:text-stone-300 font-medium">
+                                Storage size: <strong className="font-bold text-stone-900 dark:text-stone-100">{catCompressionStats.compressedSize}</strong>
+                                {catCompressionStats.originalSize && catCompressionStats.originalSize !== 'Uploaded Custom Image' && (
+                                  <span className="text-stone-400 text-[11px]"> ({catCompressionStats.originalSize})</span>
+                                )}
+                              </p>
+                              <p className="text-[10px] text-stone-500 dark:text-stone-400 leading-tight">
+                                Stored safely in localStorage and Firestore without exceeding quotas.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-0.5">
+                              <p className="text-xs font-bold text-stone-800 dark:text-stone-200">
+                                Custom Category Image Active
+                              </p>
+                              <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                                Displays as the card banner in the customer menu and POS directory.
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center gap-2 pt-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => catFileInputRef.current?.click()}
+                              className="inline-flex items-center gap-1 rounded-lg bg-stone-900 dark:bg-amber-500 px-2.5 py-1 text-xs font-bold text-white dark:text-stone-950 hover:bg-stone-800 dark:hover:bg-amber-400 transition cursor-pointer active:scale-95 shadow-xs"
+                            >
+                              <Upload className="h-3 w-3" />
+                              <span>Replace Photo</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setIsCatSystemImagePickerOpen(true)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 px-2.5 py-1 text-xs font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-750 transition cursor-pointer active:scale-95 shadow-xs"
+                            >
+                              <Images className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                              <span>Choose Existing</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleRemoveCatImage}
+                              className="inline-flex items-center gap-1 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-2.5 py-1 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:border-rose-200 dark:hover:border-rose-800 transition cursor-pointer"
+                            >
+                              <X className="h-3 w-3" />
+                              <span>Remove Image</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Dropzone hint */}
+                      <div className="border-t border-stone-200/80 dark:border-stone-700/80 pt-2 flex items-center justify-between text-[11px] text-stone-500 dark:text-stone-400">
+                        <span>Drag &amp; drop a new photo here to update</span>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setIsCatSystemImagePickerOpen(true)}
+                            className="font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
+                          >
+                            Existing Images
+                          </button>
+                          <span className="text-stone-300">•</span>
+                          <button
+                            type="button"
+                            onClick={() => catFileInputRef.current?.click()}
+                            className="font-bold text-stone-700 dark:text-stone-300 hover:underline cursor-pointer"
+                          >
+                            Browse Device
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-4 text-center space-y-3">
+                      <div
+                        onClick={() => catFileInputRef.current?.click()}
+                        className="cursor-pointer space-y-1"
+                      >
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400 mb-1 mx-auto">
+                          <Upload className="h-5 w-5" />
+                        </div>
+                        <p className="text-xs font-bold text-stone-800 dark:text-stone-200">
+                          Click to upload category image, or drag and drop
+                        </p>
+                        <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                          PNG, JPG, or WebP • Auto-compressed for lightweight storage
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1 flex-wrap justify-center">
+                        <button
+                          type="button"
+                          onClick={() => catFileInputRef.current?.click()}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-stone-900 dark:bg-amber-500 text-white dark:text-stone-950 text-xs font-bold hover:bg-stone-800 dark:hover:bg-amber-400 transition cursor-pointer active:scale-95 shadow-xs"
+                        >
+                          <Upload className="h-3.5 w-3.5" />
+                          <span>Upload Photo</span>
+                        </button>
+                        <span className="text-xs text-stone-400 font-medium">or</span>
+                        <button
+                          type="button"
+                          onClick={() => setIsCatSystemImagePickerOpen(true)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 text-xs font-bold hover:bg-stone-100 dark:hover:bg-stone-750 transition cursor-pointer active:scale-95 shadow-2xs"
+                        >
+                          <Images className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                          <span>Choose Existing Image</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Category Image Error Banner */}
+                {catImageUploadError && (
+                  <div className="flex items-center gap-2 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 p-2.5 text-xs text-red-700 dark:text-red-300 font-medium">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+                    <span>{catImageUploadError}</span>
+                  </div>
+                )}
+
+                {/* Quick Café Presets for Categories */}
+                <div className="space-y-1.5 pt-0.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+                      Quick Category Presets ({catFormType === 'drinks' ? 'Beverages' : 'Food & Pastries'})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsCatSystemImagePickerOpen(true)}
+                      className="text-[11px] font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      <Images className="h-3 w-3" />
+                      <span>Browse All System Images &rarr;</span>
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                    {(catFormType === 'drinks'
+                      ? [
+                          { label: 'Spanish Latte', url: '/images/food_and_drinks_images/Hot Coffee/Spanish_latte.jpeg' },
+                          { label: 'Milk Coffee Jelly', url: '/images/food_and_drinks_images/On The Rocks/Milk_coffee_with_Jelly.jpeg' },
+                          { label: 'Coffeeteria', url: '/images/food_and_drinks_images/Blended Coffee/Coffeeteria.jpeg' },
+                          { label: 'Caramela Cream', url: '/images/food_and_drinks_images/Cream Blended/Caramela.jpeg' },
+                          { label: 'Lemon Fiz', url: '/images/food_and_drinks_images/Refreshers/lemon_fiz.jpg' },
+                          { label: 'Strawberry Shake', url: '/images/food_and_drinks_images/Milkshakes/Strawberry_milkshake.jpg' },
+                          { label: 'Babyccino', url: '/images/food_and_drinks_images/Hot Drinks/babyccino.jpg' },
+                        ]
+                      : [
+                          { label: 'Burnt Cheesecake', url: '/images/food_and_drinks_images/Cakes_Pastries/burnt_cheesecake.jpg' },
+                          { label: 'Blueberry Cake', url: '/images/food_and_drinks_images/Cakes_Pastries/Blueberry_cheesecake.jpeg' },
+                          { label: 'Club Sandwich', url: '/images/food_and_drinks_images/Sandwich/club_sandwich.jpeg' },
+                          { label: 'Chicken Pesto', url: '/images/food_and_drinks_images/Meal/Chicken_pesto.jpeg' },
+                          { label: 'Spaghetti Bolognese', url: '/images/food_and_drinks_images/Pasta/spaghetti_balognese.jpeg' },
+                          { label: 'YH Special Pizza', url: '/images/food_and_drinks_images/Pizza/yellow_hauz_special_pizza.jpg' },
+                          { label: 'Waffles', url: '/images/food_and_drinks_images/Breakfast/Waffles.jpeg' },
+                          { label: 'Potato Wedges', url: '/images/food_and_drinks_images/Appetizer/potato_wedges.jpeg' },
+                        ]
+                    ).map((preset) => {
+                      const isSelected = catFormImageUrl === preset.url;
+                      return (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() => handleSelectCatPresetImage(preset.url)}
+                          className={`group shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] font-bold transition cursor-pointer ${
+                            isSelected
+                              ? 'border-amber-500 bg-amber-100/80 dark:bg-amber-950/80 text-amber-950 dark:text-amber-200 ring-1 ring-amber-400'
+                              : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 hover:border-amber-300 dark:hover:border-amber-600 hover:bg-stone-50 dark:hover:bg-stone-750 text-stone-700 dark:text-stone-300'
+                          }`}
+                        >
+                          <img
+                            src={preset.url}
+                            alt={preset.label}
+                            className="h-4 w-4 rounded-md object-cover"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                          <span className="truncate max-w-[110px]">{preset.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
               {/* Classification: Drinks or Food */}
               <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase mb-1.5">
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase mb-1.5">
                   Category Classification / Department
                 </label>
                 <div className="grid grid-cols-2 gap-2">
@@ -1983,11 +2568,11 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                     }}
                     className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition cursor-pointer ${
                       catFormType === 'drinks'
-                        ? 'border-amber-500 bg-amber-50 text-amber-950 shadow-2xs font-extrabold ring-1 ring-amber-400'
-                        : 'border-stone-200 bg-stone-50 text-stone-600 hover:bg-stone-100'
+                        ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/80 text-amber-950 dark:text-amber-200 shadow-2xs font-extrabold ring-1 ring-amber-400'
+                        : 'border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-750'
                     }`}
                   >
-                    <Coffee className="h-4 w-4 text-amber-600" />
+                    <Coffee className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                     <span>Drinks &amp; Beverages</span>
                   </button>
 
@@ -1999,11 +2584,11 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                     }}
                     className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition cursor-pointer ${
                       catFormType === 'food'
-                        ? 'border-amber-500 bg-amber-50 text-amber-950 shadow-2xs font-extrabold ring-1 ring-amber-400'
-                        : 'border-stone-200 bg-stone-50 text-stone-600 hover:bg-stone-100'
+                        ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/80 text-amber-950 dark:text-amber-200 shadow-2xs font-extrabold ring-1 ring-amber-400'
+                        : 'border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-750'
                     }`}
                   >
-                    <Utensils className="h-4 w-4 text-amber-600" />
+                    <Utensils className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                     <span>Food &amp; Pastries</span>
                   </button>
                 </div>
@@ -2011,10 +2596,10 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
 
               {/* Icon Selection */}
               <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase mb-1.5">
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase mb-1.5">
                   Choose Category Icon
                 </label>
-                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 max-h-40 overflow-y-auto p-1.5 border border-stone-200 rounded-xl bg-stone-50/50">
+                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 max-h-40 overflow-y-auto p-1.5 border border-stone-200 dark:border-stone-700 rounded-xl bg-stone-50/50 dark:bg-stone-850/50">
                   {(catFormType === 'drinks' ? drinkIconOptions : foodIconOptions).map((opt) => {
                     const isSelected = catFormIcon === opt.id;
                     return (
@@ -2024,11 +2609,11 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                         onClick={() => setCatFormIcon(opt.id)}
                         className={`flex flex-col items-center justify-center gap-1 p-2 rounded-xl border text-center transition cursor-pointer ${
                           isSelected
-                            ? 'border-amber-500 bg-amber-100/70 text-amber-950 font-bold shadow-2xs ring-1 ring-amber-400'
-                            : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-100'
+                            ? 'border-amber-500 bg-amber-100/70 dark:bg-amber-950/80 text-amber-950 dark:text-amber-200 font-bold shadow-2xs ring-1 ring-amber-400'
+                            : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-750'
                         }`}
                       >
-                        <span className={isSelected ? 'text-amber-700' : 'text-stone-500'}>
+                        <span className={isSelected ? 'text-amber-700 dark:text-amber-400' : 'text-stone-500 dark:text-stone-400'}>
                           {opt.icon}
                         </span>
                         <span className="text-[9px] truncate w-full font-medium">{opt.label}</span>
@@ -2041,7 +2626,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
               {/* Sort Order & Status */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase mb-1">
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase mb-1">
                     Display Sort Order
                   </label>
                   <input
@@ -2049,18 +2634,18 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                     min={1}
                     value={catFormSortOrder}
                     onChange={(e) => setCatFormSortOrder(Number(e.target.value))}
-                    className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3.5 py-2 text-xs font-mono font-bold text-stone-900 focus:border-amber-500 focus:outline-none"
+                    className="w-full rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 px-3.5 py-2 text-xs font-mono font-bold text-stone-900 dark:text-stone-100 focus:border-amber-500 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase mb-1">
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase mb-1">
                     Status
                   </label>
                   <select
                     value={catFormStatus}
                     onChange={(e) => setCatFormStatus(e.target.value as any)}
-                    className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs text-stone-900 font-bold focus:border-amber-500 focus:outline-none"
+                    className="w-full rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 px-3 py-2 text-xs text-stone-900 dark:text-stone-100 font-bold focus:border-amber-500 focus:outline-none"
                   >
                     <option value="active">Active (Visible)</option>
                     <option value="inactive">Inactive (Hidden)</option>
@@ -2069,16 +2654,28 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
               </div>
 
               {/* Live Preview Card */}
-              <div className="rounded-xl border border-stone-200 bg-stone-50 p-3 flex items-center justify-between">
-                <span className="text-[11px] text-stone-500 font-medium">Category Preview:</span>
-                <div className="flex items-center gap-2 rounded-lg bg-white border border-stone-200 px-3 py-1.5 shadow-2xs">
-                  <span className="text-amber-600">
+              <div className="rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50 dark:bg-stone-850/80 p-3 flex items-center justify-between">
+                <span className="text-[11px] text-stone-500 dark:text-stone-400 font-medium">Category Preview:</span>
+                <div className="flex items-center gap-2 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 px-3 py-1.5 shadow-2xs">
+                  {catFormImageUrl ? (
+                    <div className="relative h-8 w-11 rounded-lg overflow-hidden border border-stone-200 dark:border-stone-700 bg-stone-900 shrink-0 shadow-2xs">
+                      <img
+                        src={catFormImageUrl}
+                        alt="Preview"
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  ) : null}
+                  <span className="text-amber-600 dark:text-amber-400">
                     {renderCategoryIcon(catFormName || 'New Category', catFormType === 'drinks', catFormIcon)}
                   </span>
-                  <span className="font-bold text-xs text-stone-900">
+                  <span className="font-bold text-xs text-stone-900 dark:text-stone-100">
                     {catFormName || 'Category Name'}
                   </span>
-                  <span className="text-[9px] uppercase px-1.5 py-0.2 rounded-md bg-amber-50 text-amber-800 border border-amber-200 font-mono font-bold">
+                  <span className="text-[9px] uppercase px-1.5 py-0.2 rounded-md bg-amber-50 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-mono font-bold">
                     {catFormType === 'drinks' ? 'Drink' : 'Food'}
                   </span>
                 </div>
@@ -2090,7 +2687,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   <button
                     type="button"
                     onClick={() => handleInitiateDeleteCategory(editingCategory)}
-                    className="flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition cursor-pointer"
+                    className="flex items-center gap-1.5 rounded-xl border border-rose-200 dark:border-rose-800/80 bg-rose-50 dark:bg-rose-950/40 px-3.5 py-2.5 text-xs font-bold text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition cursor-pointer"
                   >
                     <Trash2 className="h-4 w-4" />
                     <span>Delete Category</span>
@@ -2102,7 +2699,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                       setIsCategoryModalOpen(false);
                       setEditingCategory(null);
                     }}
-                    className="rounded-xl border border-stone-200 px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50 cursor-pointer"
+                    className="rounded-xl border border-stone-200 dark:border-stone-700 px-4 py-2.5 text-xs font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -2116,7 +2713,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                         setIsCategoryModalOpen(false);
                         setEditingCategory(null);
                       }}
-                      className="rounded-xl border border-stone-200 px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50 cursor-pointer"
+                      className="rounded-xl border border-stone-200 dark:border-stone-700 px-4 py-2.5 text-xs font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -2199,15 +2796,21 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
 
       {/* MODAL 3: ADD / EDIT MENU ITEM MODAL */}
       {isItemModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl border border-stone-200 my-8">
-            <div className="flex items-center justify-between border-b border-stone-200 pb-3">
-              <h3 className="font-display text-lg font-bold text-stone-900">
-                {editingItem ? 'Edit Menu Item' : 'Add New Menu Item'}
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-stone-900 p-5 sm:p-6 shadow-2xl border border-stone-200 dark:border-stone-800 my-auto animate-in fade-in zoom-in-98 duration-150">
+            <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-3">
+              <div>
+                <h3 className="font-display text-lg font-bold text-stone-900 dark:text-stone-100">
+                  {editingItem ? 'Edit Menu Item' : 'Add New Menu Item'}
+                </h3>
+                <p className="text-xs text-stone-500 dark:text-stone-400">
+                  Configure item pricing, stock quantity, and catalog photos
+                </p>
+              </div>
               <button
+                type="button"
                 onClick={() => setIsItemModalOpen(false)}
-                className="rounded-full p-2 text-stone-400 hover:bg-stone-100 cursor-pointer"
+                className="rounded-full p-2 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -2215,8 +2818,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
 
             <form onSubmit={handleSaveItem} className="mt-4 space-y-3.5">
               <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase mb-1">
-                  Item Name
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase mb-1">
+                  Item Name <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -2224,14 +2827,14 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Spanish Latte, Pork Adobo Flakes"
-                  className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
+                  className="w-full rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 px-3.5 py-2 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:border-amber-500 focus:outline-none"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-bold text-stone-700 uppercase">
+                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase">
                       Category
                     </label>
                     <button
@@ -2240,7 +2843,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                         setIsItemModalOpen(false);
                         handleOpenAddCategory();
                       }}
-                      className="text-[11px] font-bold text-amber-700 hover:text-amber-900 underline flex items-center gap-0.5 cursor-pointer"
+                      className="text-[11px] font-bold text-amber-700 dark:text-amber-400 hover:underline flex items-center gap-0.5 cursor-pointer"
                     >
                       <Plus className="h-3 w-3" /> New
                     </button>
@@ -2248,7 +2851,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   <select
                     value={categoryId}
                     onChange={(e) => setCategoryId(Number(e.target.value))}
-                    className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs text-stone-900 focus:border-amber-500 focus:outline-none font-medium"
+                    className="w-full rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 px-3 py-2 text-xs text-stone-900 dark:text-stone-100 focus:border-amber-500 focus:outline-none font-medium"
                   >
                     <optgroup label="☕ Drinks">
                       {drinkCategories.map((c) => (
@@ -2268,7 +2871,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase mb-1">
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase mb-1">
                     Price (₱ PHP)
                   </label>
                   <input
@@ -2277,14 +2880,14 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                     required
                     value={price}
                     onChange={(e) => setPrice(Number(e.target.value))}
-                    className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3.5 py-2 text-xs text-stone-900 font-mono font-bold focus:border-amber-500 focus:outline-none"
+                    className="w-full rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 px-3.5 py-2 text-xs text-stone-900 dark:text-stone-100 font-mono font-bold focus:border-amber-500 focus:outline-none"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase mb-1">
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase mb-1">
                     Stock Quantity
                   </label>
                   <input
@@ -2292,18 +2895,18 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                     required
                     value={quantity}
                     onChange={(e) => setQuantity(Number(e.target.value))}
-                    className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3.5 py-2 text-xs text-stone-900 font-mono focus:border-amber-500 focus:outline-none"
+                    className="w-full rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 px-3.5 py-2 text-xs text-stone-900 dark:text-stone-100 font-mono focus:border-amber-500 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase mb-1">
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase mb-1">
                     Temperature Type
                   </label>
                   <select
                     value={temperature}
                     onChange={(e) => setTemperature(e.target.value as any)}
-                    className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
+                    className="w-full rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 px-3 py-2 text-xs text-stone-900 dark:text-stone-100 focus:border-amber-500 focus:outline-none"
                   >
                     <option value="both">Both Hot &amp; Cold</option>
                     <option value="hot">Hot Only</option>
@@ -2315,8 +2918,247 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 </div>
               </div>
 
+              {/* Item Image Upload with In-Browser Canvas Compression & Existing System Image Picker */}
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase">
+                    Item Photo
+                  </label>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/80">
+                    <Zap className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                    <span>Auto-Compressed for Storage</span>
+                  </span>
+                </div>
+
+                {/* Hidden File Input supporting click selection */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileInputChange}
+                  className="hidden"
+                />
+
+                {/* Main Image Upload Box / Dropzone / Preview */}
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={`relative rounded-2xl border-2 transition p-3.5 ${
+                    isDraggingImage
+                      ? 'border-amber-500 bg-amber-50/80 dark:bg-amber-950/40 shadow-inner'
+                      : 'border-dashed border-stone-300 dark:border-stone-700 bg-stone-50/90 dark:bg-stone-850/80 hover:bg-stone-100/70 dark:hover:bg-stone-800/70'
+                  }`}
+                >
+                  {isCompressingImage ? (
+                    <div className="flex flex-col items-center justify-center py-6 space-y-2 text-center">
+                      <Loader2 className="h-7 w-7 animate-spin text-amber-500" />
+                      <p className="text-xs font-bold text-stone-800 dark:text-stone-200">
+                        Compressing &amp; Optimizing Image...
+                      </p>
+                      <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                        Downscaling dimensions &amp; encoding for fast storage
+                      </p>
+                    </div>
+                  ) : imageUrl ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        {/* Image Thumbnail with Fallback */}
+                        <div className="relative h-16 w-16 sm:h-20 sm:w-20 shrink-0 overflow-hidden rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-900 shadow-xs">
+                          <img
+                            src={imageUrl}
+                            alt="Item preview"
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = '/images/latte.webp';
+                            }}
+                          />
+                        </div>
+
+                        {/* Image Details & Storage Compression Metrics */}
+                        <div className="flex-1 min-w-0">
+                          {compressionStats ? (
+                            <div className="space-y-1">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/60">
+                                  <CheckCircle2 className="h-3 w-3 text-emerald-700 dark:text-emerald-400" />
+                                  {compressionStats.savedPercentage > 0
+                                    ? `⚡ ${compressionStats.savedPercentage}% Storage Saved`
+                                    : compressionStats.originalSize === 'System Library Image'
+                                    ? 'System Image Ready'
+                                    : 'Optimized Image'}
+                                </span>
+                                <span className="text-[10px] font-mono text-stone-500 dark:text-stone-400">
+                                  {compressionStats.format} • {compressionStats.dimensions}
+                                </span>
+                              </div>
+                              <p className="text-xs text-stone-700 dark:text-stone-300 font-medium">
+                                Storage size: <strong className="font-bold text-stone-900 dark:text-stone-100">{compressionStats.compressedSize}</strong>
+                                {compressionStats.originalSize &&
+                                  compressionStats.originalSize !== 'Uploaded Custom Image' &&
+                                  compressionStats.originalSize !== 'System Library Image' && (
+                                    <span className="text-stone-400 text-[11px]"> (was {compressionStats.originalSize})</span>
+                                  )}
+                              </p>
+                              <p className="text-[10px] text-stone-500 dark:text-stone-400 leading-tight">
+                                Stored safely in localStorage and Firestore without exceeding quotas.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-0.5">
+                              <p className="text-xs font-bold text-stone-800 dark:text-stone-200">
+                                Active Item Photo
+                              </p>
+                              <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                                Upload a custom file or select an existing system image.
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center gap-2 pt-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => fileInputRef.current?.click()}
+                              className="inline-flex items-center gap-1 rounded-lg bg-stone-900 dark:bg-amber-500 px-2.5 py-1 text-xs font-bold text-white dark:text-stone-950 hover:bg-stone-800 dark:hover:bg-amber-400 transition cursor-pointer active:scale-95 shadow-xs"
+                            >
+                              <Upload className="h-3 w-3" />
+                              <span>{compressionStats ? 'Replace Photo' : 'Upload Photo'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setIsItemSystemImagePickerOpen(true)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 px-2.5 py-1 text-xs font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-750 transition cursor-pointer active:scale-95 shadow-xs"
+                            >
+                              <Images className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                              <span>Choose Existing</span>
+                            </button>
+                            {compressionStats && (
+                              <button
+                                type="button"
+                                onClick={handleRemoveCustomImage}
+                                className="inline-flex items-center gap-1 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-2.5 py-1 text-xs font-semibold text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-750 transition cursor-pointer"
+                              >
+                                <span>Reset Default</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Dropzone hint */}
+                      <div className="border-t border-stone-200/80 dark:border-stone-700/80 pt-2 flex items-center justify-between text-[11px] text-stone-500 dark:text-stone-400">
+                        <span>Drag &amp; drop a photo here to compress</span>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setIsItemSystemImagePickerOpen(true)}
+                            className="font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
+                          >
+                            Existing Images
+                          </button>
+                          <span className="text-stone-300 dark:text-stone-650">•</span>
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="font-bold text-stone-700 dark:text-stone-300 hover:underline cursor-pointer"
+                          >
+                            Browse Files
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-4 text-center space-y-3">
+                      <div
+                        onClick={() => fileInputRef.current?.click()}
+                        className="cursor-pointer space-y-1"
+                      >
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400 mb-1 mx-auto">
+                          <Upload className="h-5 w-5" />
+                        </div>
+                        <p className="text-xs font-bold text-stone-800 dark:text-stone-200">
+                          Click to upload photo, or drag and drop
+                        </p>
+                        <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                          PNG, JPG, or WebP • Auto-compressed for lightweight storage
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1 flex-wrap justify-center">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-stone-900 dark:bg-amber-500 text-white dark:text-stone-950 text-xs font-bold hover:bg-stone-800 dark:hover:bg-amber-400 transition cursor-pointer active:scale-95 shadow-xs"
+                        >
+                          <Upload className="h-3.5 w-3.5" />
+                          <span>Upload Photo</span>
+                        </button>
+                        <span className="text-xs text-stone-400 font-medium">or</span>
+                        <button
+                          type="button"
+                          onClick={() => setIsItemSystemImagePickerOpen(true)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 text-xs font-bold hover:bg-stone-100 dark:hover:bg-stone-750 transition cursor-pointer active:scale-95 shadow-2xs"
+                        >
+                          <Images className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                          <span>Choose Existing Image</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Error Banner */}
+                {imageUploadError && (
+                  <div className="flex items-center gap-2 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 p-2.5 text-xs text-red-700 dark:text-red-300 font-medium">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+                    <span>{imageUploadError}</span>
+                  </div>
+                )}
+
+                {/* Quick Café Presets */}
+                <div className="space-y-1.5 pt-0.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+                      Quick Presets
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsItemSystemImagePickerOpen(true)}
+                      className="text-[11px] font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      <Images className="h-3 w-3" />
+                      <span>Browse All Existing System Images &rarr;</span>
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {[
+                      { label: '☕ Spanish Latte', url: '/images/food_and_drinks_images/Hot Coffee/Spanish_latte.jpeg' },
+                      { label: '🧊 Milk Coffee Jelly', url: '/images/food_and_drinks_images/On The Rocks/Milk_coffee_with_Jelly.jpeg' },
+                      { label: '🫘 Flat White', url: '/images/food_and_drinks_images/Hot Coffee/flat_white.jpeg' },
+                      { label: '🍰 Burnt Cheesecake', url: '/images/food_and_drinks_images/Cakes_Pastries/burnt_cheesecake.jpg' },
+                      { label: '🥪 Club Sandwich', url: '/images/food_and_drinks_images/Sandwich/club_sandwich.jpeg' },
+                      { label: '🧇 Golden Waffles', url: '/images/food_and_drinks_images/Breakfast/Waffles.jpeg' },
+                    ].map((preset) => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => handleSelectPresetImage(preset.url)}
+                        className={`rounded-lg px-2 py-1 text-[11px] font-medium transition cursor-pointer ${
+                          imageUrl === preset.url
+                            ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 font-bold'
+                            : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200/80 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase mb-1">
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase mb-1">
                   Description
                 </label>
                 <textarea
@@ -2324,7 +3166,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Ingredients, tasting notes, allergens..."
-                  className="w-full rounded-xl border border-stone-300 bg-stone-50 p-3 text-xs text-stone-900 focus:border-amber-500 focus:outline-none"
+                  className="w-full rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 p-3 text-xs text-stone-900 dark:text-stone-100 focus:border-amber-500 focus:outline-none"
                 />
               </div>
 
@@ -2333,8 +3175,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   htmlFor="item-available-checkbox"
                   className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs font-bold cursor-pointer select-none transition ${
                     isAvailable
-                      ? 'border-emerald-300 bg-emerald-50/70 text-emerald-950'
-                      : 'border-stone-200 bg-stone-50 text-stone-600 hover:bg-stone-100/70'
+                      ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-300'
+                      : 'border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-100/70 dark:hover:bg-stone-750'
                   }`}
                 >
                   <input
@@ -2351,8 +3193,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   htmlFor="item-bestseller-checkbox"
                   className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs font-bold cursor-pointer select-none transition ${
                     isBestSeller
-                      ? 'border-amber-300 bg-amber-50 text-amber-950 shadow-xs'
-                      : 'border-stone-200 bg-stone-50 text-stone-600 hover:bg-amber-50/50'
+                      ? 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/60 text-amber-950 dark:text-amber-300 shadow-xs'
+                      : 'border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-amber-50/50 dark:hover:bg-stone-750'
                   }`}
                 >
                   <input
@@ -2373,7 +3215,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsItemModalOpen(false)}
-                  className="rounded-xl border border-stone-200 px-4 py-2 text-xs font-bold text-stone-700 hover:bg-stone-50 cursor-pointer"
+                  className="rounded-xl border border-stone-200 dark:border-stone-700 px-4 py-2 text-xs font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -2972,7 +3814,18 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                         >
                           <div className="flex items-center gap-2 truncate pr-1">
                             <span className={isSelected ? 'text-stone-950' : 'text-amber-600'}>
-                              {renderCategoryIcon(cat.name, true, cat.icon)}
+                              {cat.imageUrl ? (
+                                <img
+                                  src={cat.imageUrl}
+                                  alt={cat.name}
+                                  className="h-4 w-4 rounded-md object-cover inline-block"
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLImageElement).style.display = 'none';
+                                  }}
+                                />
+                              ) : (
+                                renderCategoryIcon(cat.name, true, cat.icon)
+                              )}
                             </span>
                             <span className="text-xs truncate font-bold">{cat.name}</span>
                           </div>
@@ -3022,7 +3875,18 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                         >
                           <div className="flex items-center gap-2 truncate pr-1">
                             <span className={isSelected ? 'text-stone-950' : 'text-amber-700'}>
-                              {renderCategoryIcon(cat.name, false, cat.icon)}
+                              {cat.imageUrl ? (
+                                <img
+                                   src={cat.imageUrl}
+                                   alt={cat.name}
+                                   className="h-4 w-4 rounded-md object-cover inline-block"
+                                   onError={(e) => {
+                                     (e.currentTarget as HTMLImageElement).style.display = 'none';
+                                   }}
+                                 />
+                              ) : (
+                                renderCategoryIcon(cat.name, false, cat.icon)
+                              )}
                             </span>
                             <span className="text-xs truncate font-bold">{cat.name}</span>
                           </div>
@@ -3091,6 +3955,39 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
             type: 'success',
           });
         }}
+      />
+
+      {/* SYSTEM IMAGE PICKER MODAL FOR MENU ITEMS */}
+      <SystemImagePickerModal
+        isOpen={isItemSystemImagePickerOpen}
+        onClose={() => setIsItemSystemImagePickerOpen(false)}
+        onSelectImage={(chosenUrl) => {
+          handleSelectSystemImageForItem(chosenUrl);
+        }}
+        currentImageUrl={imageUrl}
+        title="Choose Existing System Image for Item"
+        subtitle="Select a photo from the system library for this menu item"
+        targetName={name ? `Item: ${name}` : 'New Menu Item'}
+        initialCategory={
+          (() => {
+            const cat = categories.find((c) => c.id === categoryId);
+            return cat && isDrinkCategory(cat) ? 'drinks' : 'food';
+          })()
+        }
+      />
+
+      {/* SYSTEM IMAGE PICKER MODAL FOR CATEGORIES */}
+      <SystemImagePickerModal
+        isOpen={isCatSystemImagePickerOpen}
+        onClose={() => setIsCatSystemImagePickerOpen(false)}
+        onSelectImage={(chosenUrl) => {
+          handleSelectSystemImageForCat(chosenUrl);
+        }}
+        currentImageUrl={catFormImageUrl}
+        title="Choose Existing System Image for Category"
+        subtitle="Select a cover photo banner from the system library for this category"
+        targetName={catFormName ? `Category: ${catFormName}` : 'New Category'}
+        initialCategory={catFormType === 'drinks' ? 'drinks' : 'food'}
       />
     </div>
   );

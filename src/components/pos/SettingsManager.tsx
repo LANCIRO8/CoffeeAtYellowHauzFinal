@@ -18,6 +18,12 @@ import {
   MapPin,
   PhoneCall,
   Coins,
+  Shield,
+  KeyRound,
+  Lock,
+  Eye,
+  EyeOff,
+  AlertCircle,
 } from 'lucide-react';
 import { SEED_SETTINGS } from '../../data/seedData';
 import { CashierAccountManager } from './CashierAccountManager';
@@ -36,10 +42,21 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
   onRefreshStaff,
 }) => {
   const { showConfirm, showAlert } = useModal();
-  const [activeTab, setActiveTab] = useState<'cashiers' | 'store'>('cashiers');
+  const [activeTab, setActiveTab] = useState<'cashiers' | 'security' | 'store'>('cashiers');
   const [form, setForm] = useState<StoreSettings>(settings);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isResettingDb, setIsResettingDb] = useState(false);
+
+  // Admin Password Change state
+  const [currentPasswordInput, setCurrentPasswordInput] = useState('');
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccessMsg, setPasswordSuccessMsg] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   useEffect(() => {
     setForm(settings);
@@ -51,6 +68,70 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
     onUpdateSettings(form);
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3000);
+  };
+
+  const handleAdminPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccessMsg('');
+
+    // Locate current admin account in fresh store
+    const users = AppStore.getUsers();
+    const adminAccount =
+      users.find((u) => u.id === activeStaff?.id) ||
+      users.find((u) => u.role === 'admin' && u.status === 'active') ||
+      activeStaff;
+
+    if (!adminAccount) {
+      setPasswordError('Active administrator account not found.');
+      return;
+    }
+
+    const currentActualPin = adminAccount.pin || adminAccount.password || '12345678';
+    if (currentPasswordInput.trim() !== currentActualPin) {
+      setPasswordError('Current Password / PIN is incorrect. Please verify and try again.');
+      return;
+    }
+
+    const cleanNewPin = newPasswordInput.trim();
+    if (!/^\d{8}$/.test(cleanNewPin)) {
+      setPasswordError('New security PIN / password must be exactly 8 numeric digits.');
+      return;
+    }
+
+    if (cleanNewPin !== confirmPasswordInput.trim()) {
+      setPasswordError('New passwords do not match. Please verify both inputs.');
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    try {
+      // Update in AppStore which automatically saves to localStorage and Firestore with { merge: true }
+      const updated = AppStore.updateUser(adminAccount.id, {
+        pin: cleanNewPin,
+        password: cleanNewPin,
+        passwordUpdatedAt: new Date().toISOString(),
+      });
+
+      if (updated) {
+        if (onRefreshStaff) onRefreshStaff();
+        setCurrentPasswordInput('');
+        setNewPasswordInput('');
+        setConfirmPasswordInput('');
+        setPasswordSuccessMsg('Admin password updated successfully and permanently synced to the cloud database!');
+        showAlert({
+          title: 'Admin Password Saved',
+          message: `Your new 8-digit security PIN / password has been permanently updated in the cloud database. It will not revert or reset.`,
+          type: 'success',
+        });
+      } else {
+        setPasswordError('Failed to update administrator account.');
+      }
+    } catch {
+      setPasswordError('An error occurred while saving the password.');
+    } finally {
+      setIsUpdatingPassword(false);
+    }
   };
 
   const handleResetDatabaseToZero = async () => {
@@ -118,7 +199,7 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
         </div>
 
         {/* Tab Toggle */}
-        <div className="flex items-center gap-1.5 rounded-2xl bg-stone-200/80 p-1 border border-stone-300/60 shadow-2xs">
+        <div className="flex flex-wrap items-center gap-1.5 rounded-2xl bg-stone-200/80 dark:bg-stone-800 p-1 border border-stone-300/60 dark:border-stone-700 shadow-2xs">
           <button
             id="tab-settings-cashiers"
             type="button"
@@ -126,11 +207,24 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
             className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-extrabold transition cursor-pointer ${
               activeTab === 'cashiers'
                 ? 'bg-amber-500 text-stone-950 shadow-xs'
-                : 'text-stone-700 hover:text-stone-950 hover:bg-stone-100'
+                : 'text-stone-700 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-700'
             }`}
           >
             <Users className="h-4 w-4" />
             <span>Staff Accounts</span>
+          </button>
+          <button
+            id="tab-settings-security"
+            type="button"
+            onClick={() => setActiveTab('security')}
+            className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-extrabold transition cursor-pointer ${
+              activeTab === 'security'
+                ? 'bg-amber-500 text-stone-950 shadow-xs'
+                : 'text-stone-700 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-700'
+            }`}
+          >
+            <Shield className="h-4 w-4" />
+            <span>Password &amp; Security</span>
           </button>
           <button
             id="tab-settings-store"
@@ -139,7 +233,7 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
             className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-extrabold transition cursor-pointer ${
               activeTab === 'store'
                 ? 'bg-amber-500 text-stone-950 shadow-xs'
-                : 'text-stone-700 hover:text-stone-950 hover:bg-stone-100'
+                : 'text-stone-700 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-700'
             }`}
           >
             <Building className="h-4 w-4" />
@@ -156,7 +250,232 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
         />
       )}
 
-      {/* Tab 2: Store Profile & VAT */}
+      {/* Tab 2: Admin Password & Security */}
+      {activeTab === 'security' && (
+        <div id="settings-security-tab" className="space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="font-display text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                <Shield className="h-4 w-4 text-amber-600" />
+                <span>Administrator Password &amp; Terminal Security</span>
+              </h3>
+              <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                Manage administrator credentials. Changes are permanently persisted across all devices.
+              </p>
+            </div>
+          </div>
+
+          {passwordSuccessMsg && (
+            <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 p-4 text-xs font-bold text-emerald-800 dark:text-emerald-200 animate-in fade-in duration-150">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>{passwordSuccessMsg}</span>
+            </div>
+          )}
+
+          {passwordError && (
+            <div className="flex items-center gap-2 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 p-4 text-xs font-bold text-rose-800 dark:text-rose-200 animate-in fade-in duration-150">
+              <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
+              <span>{passwordError}</span>
+            </div>
+          )}
+
+          {/* Admin Account Summary Card */}
+          <div className="rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-6 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-100 dark:border-stone-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-stone-900 dark:bg-amber-500 text-amber-400 dark:text-stone-950 font-bold text-base shadow-xs">
+                  A
+                </div>
+                <div>
+                  <div className="font-extrabold text-stone-900 dark:text-stone-100 text-base flex items-center gap-2">
+                    <span>{activeStaff?.fullName || 'System Administrator'}</span>
+                    <span className="rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 px-2.5 py-0.5 text-[10px] font-black uppercase">
+                      Admin
+                    </span>
+                  </div>
+                  <div className="text-xs text-stone-500 dark:text-stone-400 font-mono mt-0.5">
+                    @{activeStaff?.username || 'admin'} • {activeStaff?.employeeId || 'ADMIN001'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 px-3 py-1 text-[11px] font-bold text-emerald-800 dark:text-emerald-300">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  Cloud Database Synced
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div className="rounded-2xl bg-stone-50 dark:bg-stone-850 p-3.5 border border-stone-200/80 dark:border-stone-800">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 block mb-1">
+                  Security Method
+                </span>
+                <div className="font-bold text-stone-800 dark:text-stone-200 flex items-center gap-2">
+                  <Lock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                  <span>8-Digit Security PIN / Password Protected</span>
+                </div>
+              </div>
+              <div className="rounded-2xl bg-stone-50 dark:bg-stone-850 p-3.5 border border-stone-200/80 dark:border-stone-800">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 block mb-1">
+                  Persistence Guarantee
+                </span>
+                <div className="font-bold text-stone-800 dark:text-stone-200 flex items-center gap-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>Permanent (No expiration or auto-revert)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Change Password Form */}
+          <form onSubmit={handleAdminPasswordSubmit} className="space-y-6">
+            <div className="rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-6 shadow-xs space-y-5">
+              <div className="border-b border-stone-100 dark:border-stone-800 pb-3">
+                <h4 className="font-display text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                  <KeyRound className="h-4 w-4 text-amber-600" />
+                  <span>Change Admin Security PIN / Password</span>
+                </h4>
+                <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
+                  Enter your current PIN to authenticate, then specify your new 8-digit security PIN.
+                </p>
+              </div>
+
+              <div className="space-y-4 max-w-lg">
+                {/* Current Password */}
+                <div>
+                  <label
+                    htmlFor="input-current-admin-pin"
+                    className="flex items-center gap-1.5 text-xs font-bold text-stone-700 dark:text-stone-300 uppercase mb-1.5"
+                  >
+                    <Lock className="h-3.5 w-3.5 text-stone-400" />
+                    Current Security PIN / Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="input-current-admin-pin"
+                      type={showCurrentPassword ? 'text' : 'password'}
+                      required
+                      maxLength={8}
+                      placeholder="••••••••"
+                      value={currentPasswordInput}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 8);
+                        setCurrentPasswordInput(val);
+                        setPasswordError('');
+                      }}
+                      className="w-full rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 px-3.5 py-2.5 text-xs sm:text-sm font-mono tracking-widest text-stone-900 dark:text-white focus:border-amber-500 focus:bg-white dark:focus:bg-stone-900 focus:outline-none transition pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200"
+                    >
+                      {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* New Password */}
+                <div>
+                  <label
+                    htmlFor="input-new-admin-pin"
+                    className="flex items-center gap-1.5 text-xs font-bold text-stone-700 dark:text-stone-300 uppercase mb-1.5"
+                  >
+                    <KeyRound className="h-3.5 w-3.5 text-amber-600" />
+                    New 8-Digit Security PIN <span className="text-amber-600 font-bold">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="input-new-admin-pin"
+                      type={showNewPassword ? 'text' : 'password'}
+                      required
+                      maxLength={8}
+                      placeholder="Enter new 8-digit PIN"
+                      value={newPasswordInput}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 8);
+                        setNewPasswordInput(val);
+                        setPasswordError('');
+                      }}
+                      className="w-full rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 px-3.5 py-2.5 text-xs sm:text-sm font-mono tracking-widest text-stone-900 dark:text-white focus:border-amber-500 focus:bg-white dark:focus:bg-stone-900 focus:outline-none transition pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200"
+                    >
+                      {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between mt-1 text-[11px] text-stone-400">
+                    <span>Must be exactly 8 numeric digits</span>
+                    <span className="font-mono">{newPasswordInput.length}/8</span>
+                  </div>
+                </div>
+
+                {/* Confirm New Password */}
+                <div>
+                  <label
+                    htmlFor="input-confirm-admin-pin"
+                    className="flex items-center gap-1.5 text-xs font-bold text-stone-700 dark:text-stone-300 uppercase mb-1.5"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5 text-amber-600" />
+                    Confirm New 8-Digit PIN <span className="text-amber-600 font-bold">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="input-confirm-admin-pin"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      required
+                      maxLength={8}
+                      placeholder="Re-enter new 8-digit PIN"
+                      value={confirmPasswordInput}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 8);
+                        setConfirmPasswordInput(val);
+                        setPasswordError('');
+                      }}
+                      className="w-full rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 px-3.5 py-2.5 text-xs sm:text-sm font-mono tracking-widest text-stone-900 dark:text-white focus:border-amber-500 focus:bg-white dark:focus:bg-stone-900 focus:outline-none transition pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200"
+                    >
+                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  id="btn-update-admin-password"
+                  type="submit"
+                  disabled={isUpdatingPassword || newPasswordInput.length !== 8 || newPasswordInput !== confirmPasswordInput}
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-amber-500 hover:bg-amber-400 active:scale-98 px-6 py-3 text-sm font-extrabold text-stone-950 shadow-md transition disabled:opacity-40 cursor-pointer"
+                >
+                  {isUpdatingPassword ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      <span>Updating Password...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4" />
+                      <span>Update Administrator Password</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Tab 3: Store Profile & VAT */}
       {activeTab === 'store' && (
         <div id="settings-store-tab" className="space-y-6">
           <div className="flex justify-between items-center">

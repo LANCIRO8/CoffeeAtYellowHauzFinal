@@ -1,0 +1,410 @@
+
+=== src/components/ChatbotModal.tsx (buttons: 6) ===
+  btn 1 (spans=0): <RotateCcw className="h-4 w-4" />
+  btn 2 (spans=0): <X className="h-5 w-5" />
+  btn 3 (spans=0): handleAddRecommendedItem(item)} className={`shrink-0 p-1.5 rounded-lg border tex
+  btn 4 (spans=3): handleActionClick(msg.suggestedAction)} className="inline-flex items-center gap-
+  btn 5 (spans=0): handleSend(item.query)} className="shrink-0 rounded-full border border-stone-200
+  btn 6 (spans=0): <Send className="h-4 w-4" />
+
+=== src/components/Footer.tsx (buttons: 6) ===
+  btn 1 (spans=1): <ChevronUp className="h-3.5 w-3.5 text-amber-600" /> <span>Expand Footer</span>
+  btn 2 (spans=0): <Pin className="h-3.5 w-3.5 text-stone-500" />
+  btn 3 (spans=1): { onSetAppMode('staff'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} cla
+  btn 4 (spans=1): { onSetAppMode('customer'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} 
+  btn 5 (spans=1): <ChevronDown className="h-3.5 w-3.5 text-stone-600" /> <span className="hidden s
+  btn 6 (spans=2): {isPinned ? ( <> <Pin className="h-3.5 w-3.5 fill-current" /> <span className="h
+
+=== src/components/Navigation.tsx (buttons: 59) ===
+  btn 1 (spans=3): onSetNavVisible(true)} className="flex items-center gap-1.5 text-xs font-bold te
+  btn 2 (spans=1): { setNotificationInitialTab('all'); setIsStaffNotificationModalOpen(true); }} cl
+  btn 3 (spans=0): <Bot className="h-3.5 w-3.5" />
+  btn 4 (spans=1): { onTogglePin(); onSetNavVisible(true); }} className="flex items-center gap-1 ro
+  btn 5 (spans=3): setIsBurgerDrawerOpen(true)} title="Open Store & System Menu" className={`relati
+  btn 6 (spans=1): onSetCustomerTab('home')} title="Home" className={`flex items-center gap-1.5 rou
+  btn 7 (spans=2): onSetCustomerTab('menu')} title="Menu" className={`relative flex items-center ga
+  btn 8 (spans=3): onSetCustomerTab('orders')} title="Orders & Live Tracking" className={`relative 
+  btn 9 (spans=1): onSetCustomerTab('reservation')} title="Reserve" className={`flex items-center g
+  btn 10 (spans=2): onSetStaffTab('tickets')} title="Kitchen Order Tickets" className={`flex items-c
+  btn 11 (spans=1): onSetStaffTab('refills')} title="Check Supplies & Suggest Item Refills" classNam
+  btn 12 (spans=1): onSetStaffTab('pos')} title="Cashier (POS)" className={`flex items-center gap-1.
+
+=== src/components/customer/CustomerMenu.tsx (buttons: 49) ===
+  btn 1 (spans=0): toggleItemLike(item.id, e)} className="grid h-7 w-7 place-items-center rounded-f
+  btn 2 (spans=0): toggleItemSave(item.id, e)} className="grid h-7 w-7 place-items-center rounded-f
+  btn 3 (spans=0): handleUpdateQuantity(item.id, -1)} className="grid h-8 w-8 place-items-center ro
+  btn 4 (spans=0): { if (inCartQty >= item.quantity) { showAlert({ title: 'Stock Limit Reached', me
+  btn 5 (spans=3): { e.stopPropagation(); handleAddToCart(item); }} className={`inline-flex items-c
+  btn 6 (spans=1): setIsTableSelectorModalOpen(true)} title={ activeTableBinding ? `Active Session:
+  btn 7 (spans=0): { setSearchQuery(''); setIsSearchExpanded(false); }} className="absolute right-2
+  btn 8 (spans=0): { setIsSearchExpanded(true); setTimeout(() => { searchInputRef.current?.focus();
+  btn 9 (spans=0): setSearchQuery('')} className="rounded-xl border border-stone-300 bg-white px-3.
+  btn 10 (spans=0): setSearchQuery('')} className="mt-4 rounded-xl bg-amber-500 px-5 py-2 text-xs fo
+  btn 11 (spans=1): { if (selectedCategory !== null) { setSelectedCategory(null); } else if (selecte
+  btn 12 (spans=5): setIsMobileCategoryModalOpen(true)} className="flex-1 min-w-0 flex items-center 
+
+=== src/components/customer/VenueReservation.tsx (buttons: 16) ===
+  btn 1 (spans=0): View in My Account
+  btn 2 (spans=0): setConfirmedReservation(null)} className="flex-1 rounded-xl bg-amber-500 py-2.5 
+  btn 3 (spans=2): isClickable && goToStep(s.id)} className={`group w-full min-w-0 flex flex-col sm
+  btn 4 (spans=4): setSelectedDuration(opt.hours)} className={`relative rounded-xl sm:rounded-2xl p
+  btn 5 (spans=1): <span>Continue to Date &amp; Start Time</span> <ArrowRight className="h-4 w-4" /
+  btn 6 (spans=1): <ArrowLeft className="h-4 w-4" /> <span>Back to Duration</span>
+  btn 7 (spans=1): <span>Continue to Purpose &amp; Layout</span> <ArrowRight className="h-4 w-4" />
+  btn 8 (spans=2): setSeatingLayout(lay.id as any)} className={`p-3 sm:p-3.5 rounded-xl sm:rounded-
+  btn 9 (spans=1): <ArrowLeft className="h-4 w-4" /> <span>Back to Date &amp; Time</span>
+  btn 10 (spans=1): <span>Review Reservation &amp; Payment</span> <ArrowRight className="h-4 w-4" />
+  btn 11 (spans=1): setPaymentMethod('gcash')} className={`p-2.5 rounded-xl border text-center text-
+  btn 12 (spans=1): setPaymentMethod('cash')} className={`p-2.5 rounded-xl border text-center text-x
+
+=== src/components/customer/ScannedTableModal.tsx (buttons: 6) ===
+  btn 1 (spans=0): <X className="h-4 w-4 sm:h-5 sm:w-5" />
+  btn 2 (spans=0): Cancel
+  btn 3 (spans=0): Wait in Background
+  btn 4 (spans=1): { handleCancelRequest(); onOpenManualTablePicker(); }} className="w-full flex it
+  btn 5 (spans=2): handleConfirmScannedTable()} disabled={isSubmitting} className="w-full flex item
+  btn 6 (spans=0): Not at Table #{scannedTableNumber}? Choose a different table
+
+=== src/components/customer/CustomerAccount.tsx (buttons: 18) ===
+  btn 1 (spans=1): setIsEditModalOpen(true)} className="inline-flex items-center gap-2 rounded-xl b
+  btn 2 (spans=1): <Coffee className="h-4 w-4" /> <span>Browse Menu</span>
+  btn 3 (spans=0): <LogOut className="h-4 w-4" /> Sign Out
+  btn 4 (spans=1): setIsEditModalOpen(true)} className="inline-flex items-center gap-2 rounded-xl b
+  btn 5 (spans=1): setIsEditModalOpen(true)} className="mt-4 inline-flex items-center gap-1.5 text-
+  btn 6 (spans=1): setIsEditModalOpen(true)} className="mt-4 inline-flex items-center gap-1.5 text-
+  btn 7 (spans=2): setSavedTab('favorites')} className={`flex items-center gap-3 p-4 rounded-2xl bo
+  btn 8 (spans=2): setSavedTab('likes')} className={`flex items-center gap-3 p-4 rounded-2xl border
+  btn 9 (spans=0): setSavedTab('all')} className={`rounded-xl px-3 py-1.5 text-xs font-black transi
+  btn 10 (spans=1): setSavedTab('favorites')} className={`inline-flex items-center gap-1.5 rounded-x
+  btn 11 (spans=1): setSavedTab('likes')} className={`inline-flex items-center gap-1.5 rounded-xl px
+  btn 12 (spans=1): <span>Browse Menu to Add Favorites</span> <ArrowRight className="h-4 w-4" />
+
+=== src/components/customer/TableRequestModal.tsx (buttons: 11) ===
+  btn 1 (spans=0): <X className="h-5 w-5" />
+  btn 2 (spans=0): Cancel Request
+  btn 3 (spans=0): Keep Waiting in Background
+  btn 4 (spans=0): Choose Another Table
+  btn 5 (spans=0): { onSwitchToOnline(); onClose(); }} className="w-full sm:w-auto rounded-xl borde
+  btn 6 (spans=0): setAreaFilter('all')} className={`rounded-xl px-3 py-1.5 text-xs font-bold trans
+  btn 7 (spans=0): setAreaFilter('normal')} className={`rounded-xl px-3 py-1.5 text-xs font-bold tr
+  btn 8 (spans=0): setAreaFilter('airconditioned')} className={`rounded-xl px-3 py-1.5 text-xs font
+  btn 9 (spans=7): setSelectedTableNumber(tbl.tableNumber)} className={`relative flex flex-col item
+  btn 10 (spans=0): { onSwitchToOnline(); onClose(); }} className="text-stone-600 dark:text-stone-40
+  btn 11 (spans=2): {isSubmitting ? ( <> <RefreshCw className="h-4 w-4 animate-spin" /> <span>Transm
+
+=== src/components/customer/CustomerCartDrawer.tsx (buttons: 27) ===
+  btn 1 (spans=3): <div className="relative"> <ShoppingCart className="h-5 w-5 stroke-[2.3] transit
+  btn 2 (spans=0): <ChevronRight className="h-5 w-5 stroke-[2.5]" />
+  btn 3 (spans=1): <span>Collapse</span> <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+  btn 4 (spans=1): { setAddonsCategoryFilter('all'); setIsAddonsModalOpen(true); }} className="mt-4
+  btn 5 (spans=0): handleStartEditInstructions(ci)} className="ml-auto text-amber-700 dark:text-amb
+  btn 6 (spans=0): onUpdateQuantity(ci.item.id, -1)} title="Decrease quantity" className="p-1.5 tex
+  btn 7 (spans=0): { const liveItem = menuItems.find((m) => m.id === ci.item.id) || ci.item; const 
+  btn 8 (spans=0): handleStartEditInstructions(ci)} title="Add special note" className="p-1 text-st
+  btn 9 (spans=0): onRemoveItem(ci.item.id)} title="Remove item" className="p-1 text-stone-400 dark
+  btn 10 (spans=0): handleSaveInstructions(ci.item.id)} className="rounded-lg bg-amber-500 px-2 py-1
+  btn 11 (spans=0): setEditingInstructionsId(null)} className="rounded-lg border border-stone-200 da
+  btn 12 (spans=0): Sign In
+
+=== src/components/customer/TableReservationModal.tsx (buttons: 6) ===
+  btn 1 (spans=0): <X className="h-4 w-4 sm:h-5 sm:w-5" />
+  btn 2 (spans=0): { onClose(); onNavigateAccount(); }} className="rounded-xl bg-stone-950 dark:bg-
+  btn 3 (spans=0): Done
+  btn 4 (spans=0): <LogIn className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> Sign In
+  btn 5 (spans=1): <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> <span>{isSubmitting ? 'Co
+  btn 6 (spans=1): { showAlert({ title: 'Sign In Required', message: 'Please sign in or create an a
+
+=== src/components/customer/CustomerHome.tsx (buttons: 30) ===
+  btn 1 (spans=1): <ShoppingCart className="h-4 w-4 shrink-0 text-stone-950" /> <span>View Menu</sp
+  btn 2 (spans=1): <Calendar className="h-4 w-4 shrink-0 text-emerald-400" /> <span>Reservation</sp
+  btn 3 (spans=0): <Calendar className="h-4 w-4" /> Book Studio / View Rates
+  btn 4 (spans=0): { e.stopPropagation(); handlePrevArea(); }} className="absolute left-2.5 top-1/2
+  btn 5 (spans=0): { e.stopPropagation(); handleNextArea(); }} className="absolute right-2.5 top-1/
+  btn 6 (spans=0): setSelectedHeroImage(null)} className="rounded-full p-2 text-stone-400 hover:tex
+  btn 7 (spans=0): setSelectedHeroImage(null)} className="px-4 py-2 rounded-xl bg-stone-800 hover:b
+  btn 8 (spans=1): { setSelectedHeroImage(null); onNavigateReservation(); }} className="inline-flex
+  btn 9 (spans=1): { setSelectedHeroImage(null); onNavigateMenu(); }} className="inline-flex items-
+  btn 10 (spans=0): setLightboxImg(null)} className="rounded-full p-1.5 text-stone-300 hover:text-wh
+  btn 11 (spans=2): { e.stopPropagation(); if (item.quantity <= 0) return; if (onAddToCart) { onAddT
+  btn 12 (spans=0): <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+
+=== src/components/customer/CustomerOrders.tsx (buttons: 25) ===
+  btn 1 (spans=2): setIsFilterModalOpen(true)} className="inline-flex items-center gap-1.5 rounded-
+  btn 2 (spans=0): { setSearchQuery(''); setIsSearchOpen(false); }} className="absolute right-2 tex
+  btn 3 (spans=1): setIsSearchOpen(true)} className="relative grid h-8 w-8 place-items-center round
+  btn 4 (spans=0): setIsFilterModalOpen(false)} className="grid h-7 w-7 place-items-center rounded-
+  btn 5 (spans=2): { setFilterTab('all'); setIsFilterModalOpen(false); }} className={`w-full flex i
+  btn 6 (spans=2): { setFilterTab('active'); setIsFilterModalOpen(false); }} className={`w-full fle
+  btn 7 (spans=1): { setFilterTab('completed'); setIsFilterModalOpen(false); }} className={`w-full 
+  btn 8 (spans=0): setExitSuccessMsg(null)} className="p-1 rounded-md text-stone-500 hover:text-sto
+  btn 9 (spans=0): setWithdrawSuccessMsg(null)} className="p-1 rounded-md text-emerald-700 hover:te
+  btn 10 (spans=1): <LogIn className="h-3.5 w-3.5" /> <span>Save to Account</span>
+  btn 11 (spans=1): <DoorOpen className="h-3.5 w-3.5 text-stone-500 dark:text-stone-400" /> <span>Ex
+  btn 12 (spans=1): <LogIn className="h-3 w-3" /> <span>Sign In / Sign Up</span>
+
+=== src/components/customer/CustomerLoginModal.tsx (buttons: 7) ===
+  btn 1 (spans=0): <X className="h-4 w-4 sm:h-5 sm:w-5" />
+  btn 2 (spans=0): switchMode('login')} className="shrink-0 font-bold text-amber-800 dark:text-ambe
+  btn 3 (spans=0): setShowPassword(!showPassword)} className="absolute right-2.5 top-2.5 sm:right-3
+  btn 4 (spans=0): setShowConfirmPassword(!showConfirmPassword)} className="absolute right-2.5 top-
+  btn 5 (spans=0): {mode === 'login' ? 'Sign In' : isEmailTaken ? 'Email Already Registered' : 'Cre
+  btn 6 (spans=0): switchMode('register')} className="font-bold text-amber-700 dark:text-amber-400 
+  btn 7 (spans=0): switchMode('login')} className="font-bold text-amber-700 dark:text-amber-400 hov
+
+=== src/components/pos/TicketManagement.tsx (buttons: 78) ===
+  btn 1 (spans=1): handleApproveCustomerCancellation(order)} className="flex-1 flex items-center ju
+  btn 2 (spans=1): handleDeclineCustomerCancellation(order)} className="flex-1 flex items-center ju
+  btn 3 (spans=1): onViewReceipt(order)} title="Print Receipt" className={`flex items-center justif
+  btn 4 (spans=1): { AppStore.updateOrderBaristaStatus(order.id, 'processing', activeStaff.fullName
+  btn 5 (spans=1): { AppStore.updateOrderBaristaStatus(order.id, 'ready', activeStaff.fullName); re
+  btn 6 (spans=1): { setVoidReturnReason(RETURN_REASONS[0]); setVoidReturnCustomNote(''); setVoidin
+  btn 7 (spans=1): { AppStore.updateOrderCookStatus(order.id, 'processing', activeStaff.fullName); 
+  btn 8 (spans=1): { AppStore.updateOrderCookStatus(order.id, 'ready', activeStaff.fullName); refre
+  btn 9 (spans=1): { setVoidReturnReason(RETURN_REASONS[0]); setVoidReturnCustomNote(''); setVoidin
+  btn 10 (spans=2): handleUpdateStatus(order.id, 'to_prep')} className={`flex items-center gap-1 rou
+  btn 11 (spans=1): { setCancelReason(CANCEL_REASONS[0]); setCustomCancelNotes(''); setCancellingOrd
+  btn 12 (spans=1): { AppStore.updateOrderBaristaStatus(order.id, 'ready', activeStaff.fullName); re
+
+=== src/components/pos/InventoryManager.tsx (buttons: 76) ===
+  btn 1 (spans=1): handleOpenAddCategory()} className="flex items-center gap-1.5 rounded-xl border 
+  btn 2 (spans=1): <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> <span>+ Add Item</span>
+  btn 3 (spans=2): setActiveTab('items')} className={`flex-1 sm:flex-initial flex items-center just
+  btn 4 (spans=3): setActiveTab('refills')} className={`flex-1 sm:flex-initial flex items-center ju
+  btn 5 (spans=2): setActiveTab('categories')} className={`flex-1 sm:flex-initial flex items-center
+  btn 6 (spans=3): setIsCatModalOpen(true)} className={`flex items-center gap-1.5 sm:gap-2.5 rounde
+  btn 7 (spans=0): { setSearchQuery(""); setIsSearchOpen(false); }} className="absolute right-2 tex
+  btn 8 (spans=3): setIsSearchOpen(true)} className={`relative flex items-center justify-center h-8
+  btn 9 (spans=0): { setCategoryType('all'); setSelectedCat('all'); setSearchQuery(''); setIsSearch
+  btn 10 (spans=2): setIsColumnFilterModalOpen(true)} className="flex items-center gap-1 sm:gap-1.5 
+  btn 11 (spans=1): <Download className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-stone-600" /> <span>Export C
+  btn 12 (spans=2): handleSort('name')} className="group inline-flex items-center gap-1 sm:gap-1.5 f
+
+=== src/components/pos/SwipeableCartItem.tsx (buttons: 6) ===
+  btn 1 (spans=1): { e.stopPropagation(); setRevealed('none'); onOpenDiscount(); }} className="w-20
+  btn 2 (spans=1): { e.stopPropagation(); setRevealed('none'); onRemove(); }} className="w-20 bg-ro
+  btn 3 (spans=1): e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onOpenDiscount(); }}
+  btn 4 (spans=0): { e.stopPropagation(); onRemoveDiscount(); }} className="ml-0.5 rounded hover:bg
+  btn 5 (spans=0): onUpdateQuantity(-1)} className="p-1 text-stone-600 dark:text-stone-400 hover:te
+  btn 6 (spans=0): onUpdateQuantity(1)} className="p-1 text-stone-600 dark:text-stone-400 hover:tex
+
+=== src/components/pos/TableManagement.tsx (buttons: 66) ===
+  btn 1 (spans=0): { e.stopPropagation(); handleOpenEditModal(table); }} title={`Edit Table #${tabl
+  btn 2 (spans=0): { e.stopPropagation(); handleDeleteTable(table); }} title={`Delete Table #${tabl
+  btn 3 (spans=2): setIsFilterModalOpen(true)} className={`inline-flex items-center gap-1 sm:gap-1.
+  btn 4 (spans=1): setIsGridModalOpen((prev) => !prev)} title="Change Floor Plan Grid Columns (1 or
+  btn 5 (spans=0): setIsGridModalOpen(false)} className="p-1.5 sm:p-1 rounded-xl sm:rounded-lg text
+  btn 6 (spans=1): handleSetGridColumns(1)} className={`flex flex-col items-center justify-center g
+  btn 7 (spans=1): handleSetGridColumns(2)} className={`flex flex-col items-center justify-center g
+  btn 8 (spans=1): <RefreshCw className="h-3.5 w-3.5 text-stone-500 shrink-0" /> <span className="h
+  btn 9 (spans=1): <Plus className="h-4 w-4 stroke-[3] shrink-0" /> <span className="hidden sm:inli
+  btn 10 (spans=1): setIsNewResModalOpen(true)} title="Book New Reservation" className="inline-flex 
+  btn 11 (spans=3): setIsHistoryOpen(!isHistoryOpen)} title="Table Logs" className="inline-flex item
+  btn 12 (spans=3): handleApproveTableRequest(req)} className="flex-1 flex items-center justify-cent
+
+=== src/components/pos/SalesAnalytics.tsx (buttons: 29) ===
+  btn 1 (spans=2): setIsExportModalOpen(true)} className="flex items-center gap-2 sm:gap-2.5 rounde
+  btn 2 (spans=4): setIsFilterModalOpen(true)} className="flex items-center gap-2 sm:gap-3 rounded-
+  btn 3 (spans=0): setIsExportModalOpen(false)} className="rounded-xl p-1.5 text-stone-400 hover:bg
+  btn 4 (spans=0): setExportScope('all')} className={`flex items-start gap-3 rounded-2xl p-3 border
+  btn 5 (spans=0): setExportScope('current')} className={`flex items-start gap-3 rounded-2xl p-3 bo
+  btn 6 (spans=0): setIsExportModalOpen(false)} className="rounded-xl border border-stone-300 bg-wh
+  btn 7 (spans=2): {isExporting ? ( <> <Loader2 className="h-3.5 w-3.5 animate-spin" /> <span>Expor
+  btn 8 (spans=0): setIsFilterModalOpen(false)} className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-c
+  btn 9 (spans=2): setAnalyticsSection(opt.id)} className={`flex items-start gap-2.5 sm:gap-3 round
+  btn 10 (spans=0): setTimeRange(range.id)} className={`rounded-xl py-1.5 sm:py-2 px-1.5 sm:px-2 tex
+  btn 11 (spans=0): setIsFilterModalOpen(false)} className="rounded-xl bg-stone-900 px-4 sm:px-5 py-
+  btn 12 (spans=0): setCategoryMetric('revenue')} className={`rounded-lg px-1.5 sm:px-2 py-0.5 sm:py
+
+=== src/components/pos/LowStockNotificationModal.tsx (buttons: 12) ===
+  btn 1 (spans=0): <X className="h-4 w-4" />
+  btn 2 (spans=2): setFilterType('all')} className={`rounded-lg px-2.5 py-1 font-bold transition cu
+  btn 3 (spans=2): setFilterType('out_of_stock')} className={`rounded-lg px-2.5 py-1 font-bold tran
+  btn 4 (spans=2): setFilterType('low_stock')} className={`rounded-lg px-2.5 py-1 font-bold transit
+  btn 5 (spans=0): handleQuickRestock(item, 5)} className="rounded-lg border border-stone-200 bg-wh
+  btn 6 (spans=0): handleQuickRestock(item, 10)} className="rounded-lg border border-amber-300 bg-a
+  btn 7 (spans=0): handleQuickRestock(item, 25)} className="rounded-lg bg-stone-900 px-2.5 py-1 tex
+  btn 8 (spans=0): handleCustomRestock(item)} className="rounded-lg border border-dashed border-sto
+  btn 9 (spans=1): handleQuickRestock(item, 10)} className="inline-flex items-center gap-1.5 rounde
+  btn 10 (spans=1): <PackagePlus className="h-3.5 w-3.5" /> <span> {isAdmin ? `Batch Restock All (${
+  btn 11 (spans=1): { onClose(); onNavigateToInventory(); }} className="flex items-center gap-1.5 ro
+  btn 12 (spans=0): Close
+
+=== src/components/pos/StaffLogin.tsx (buttons: 5) ===
+  btn 1 (spans=1): handleRoleChange(id)} className={`flex items-center justify-center gap-1 sm:gap-
+  btn 2 (spans=0): handleDigit(digit)} className={`h-10 sm:h-12 rounded-xl sm:rounded-2xl text-lg s
+  btn 3 (spans=0): CLEAR
+  btn 4 (spans=0): handleDigit('0')} className={`h-10 sm:h-12 rounded-xl sm:rounded-2xl text-lg sm:
+  btn 5 (spans=0): <Delete className="h-4 w-4 sm:h-5 sm:w-5" />
+
+=== src/components/pos/CashierAccountManager.tsx (buttons: 23) ===
+  btn 1 (spans=2): setIsFilterModalOpen(true)} className={`flex items-center gap-1.5 rounded-xl bor
+  btn 2 (spans=1): handleOpenCreateModal('cashier')} className="flex items-center gap-1.5 rounded-l
+  btn 3 (spans=0): setIsAddMenuOpen((prev) => !prev)} className="border-l border-amber-600/30 px-2 
+  btn 4 (spans=0): { setIsAddMenuOpen(false); handleOpenCreateModal('cashier'); }} className="flex 
+  btn 5 (spans=0): { setIsAddMenuOpen(false); handleOpenCreateModal('barista'); }} className="flex 
+  btn 6 (spans=0): { setIsAddMenuOpen(false); handleOpenCreateModal('cook'); }} className="flex w-f
+  btn 7 (spans=1): handleToggleStatus(user)} className={`inline-flex items-center gap-1 rounded-ful
+  btn 8 (spans=0): handleOpenEditModal(user)} className="rounded-lg p-1.5 text-stone-600 hover:bg-w
+  btn 9 (spans=0): handleOpenPinModal(user)} className="rounded-lg p-1.5 text-amber-700 hover:bg-wh
+  btn 10 (spans=0): handleDeleteUser(user)} disabled={isCurrent || (user.role === 'admin' && stats.a
+  btn 11 (spans=0): setIsFormModalOpen(false)} className="rounded-xl p-2 text-stone-400 hover:bg-sto
+  btn 12 (spans=2): handleRoleChange(r.id as User['role'])} className={`flex flex-col items-center j
+
+=== src/components/pos/AdminDashboard.tsx (buttons: 30) ===
+  btn 1 (spans=0): setTimeRange(range.id)} className={`px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg s
+  btn 2 (spans=1): setIsSummaryModalOpen(true)} className="inline-flex items-center gap-1.5 px-3 py
+  btn 3 (spans=0): <RefreshCw className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${isRefreshing ? 'animate-spin 
+  btn 4 (spans=0): onNavigateTab('pos')} className="flex items-center gap-2 rounded-xl sm:rounded-2
+  btn 5 (spans=2): onNavigateTab('tickets')} className="flex items-center gap-2 rounded-xl sm:round
+  btn 6 (spans=0): onNavigateTab('tables')} className="flex items-center gap-2 rounded-xl sm:rounde
+  btn 7 (spans=2): onNavigateTab('inventory')} className="flex items-center gap-2 rounded-xl sm:rou
+  btn 8 (spans=0): onNavigateTab('reports')} className="flex items-center gap-2 rounded-xl sm:round
+  btn 9 (spans=0): onNavigateTab('settings')} className="flex items-center gap-2 rounded-xl sm:roun
+  btn 10 (spans=1): { setOrderStatusFilter('to_confirm'); const el = document.getElementById('admin-
+  btn 11 (spans=1): { setOrderStatusFilter('all'); const el = document.getElementById('admin-live-or
+  btn 12 (spans=2): onNavigateTab('tickets')} className={`flex items-center justify-between p-2 sm:p
+
+=== src/components/pos/StaffInventoryManager.tsx (buttons: 14) ===
+  btn 1 (spans=1): handleOpenRefillFor(null)} className="inline-flex items-center gap-2 px-4 py-2.5
+  btn 2 (spans=2): setActiveSubTab('stock')} className={`inline-flex items-center gap-2 px-4 py-2 r
+  btn 3 (spans=2): setActiveSubTab('suggestions')} className={`inline-flex items-center gap-2 px-4 
+  btn 4 (spans=0): setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-st
+  btn 5 (spans=0): setStationFilter('all')} className={`px-3 py-1.5 rounded-xl text-xs font-bold tr
+  btn 6 (spans=1): setStationFilter('bar')} className={`inline-flex items-center gap-1 px-3 py-1.5 
+  btn 7 (spans=1): setStationFilter('kitchen')} className={`inline-flex items-center gap-1 px-3 py-
+  btn 8 (spans=1): setStationFilter('counter')} className={`inline-flex items-center gap-1 px-3 py-
+  btn 9 (spans=0): setStockLevelFilter('all')} className={`px-2.5 py-1 rounded-lg text-xs font-bold
+  btn 10 (spans=0): setStockLevelFilter('out_of_stock')} className={`px-2.5 py-1 rounded-lg text-xs 
+  btn 11 (spans=0): setStockLevelFilter('low_stock')} className={`px-2.5 py-1 rounded-lg text-xs fon
+  btn 12 (spans=0): setStockLevelFilter('in_stock')} className={`px-2.5 py-1 rounded-lg text-xs font
+
+=== src/components/pos/StaffNotificationCenterModal.tsx (buttons: 43) ===
+  btn 1 (spans=0): onViewOrderReceipt(order)} className="text-[10px] sm:text-xs font-bold text-ston
+  btn 2 (spans=0): handleCancelOrder(order)} className="rounded-xl border border-stone-300 dark:bor
+  btn 3 (spans=1): handleConfirmOrderToPrep(order)} className="flex items-center gap-1 rounded-xl b
+  btn 4 (spans=0): onViewOrderReceipt(order)} className="text-[10px] sm:text-xs font-bold text-ston
+  btn 5 (spans=0): handleDeclineCustomerCancellation(order)} className="rounded-xl border border-st
+  btn 6 (spans=1): handleConfirmCustomerCancellation(order)} className="flex items-center gap-1 rou
+  btn 7 (spans=1): handleMarkBaristaReady(order)} className="w-full mt-1 flex items-center justify-
+  btn 8 (spans=1): handleMarkCookReady(order)} className="w-full mt-1 flex items-center justify-cen
+  btn 9 (spans=0): onViewOrderReceipt(order)} className="text-[10px] sm:text-xs font-bold text-ston
+  btn 10 (spans=1): { onClose(); onNavigateTab('tickets'); }} className="text-[10px] sm:text-xs font
+  btn 11 (spans=1): handleAdvanceToServe(order)} className={`flex items-center gap-1 rounded-xl px-2
+  btn 12 (spans=0): onViewOrderReceipt(order)} className="text-[10px] sm:text-xs font-bold text-ston
+
+=== src/components/pos/DiscountModal.tsx (buttons: 12) ===
+  btn 1 (spans=0): <X className="h-5 w-5" />
+  btn 2 (spans=1): <Trash2 className="h-4 w-4 text-rose-600" /> <span>Remove Discount</span>
+  btn 3 (spans=0): Apply Code
+  btn 4 (spans=1): setIsCreatingNew(!isCreatingNew)} className="flex items-center gap-1 text-xs fon
+  btn 5 (spans=0): setNewType('percent')} className={`rounded-xl py-2 text-xs font-bold border tran
+  btn 6 (spans=0): setNewType('fixed')} className={`rounded-xl py-2 text-xs font-bold border transi
+  btn 7 (spans=0): setIsCreatingNew(false)} className="rounded-xl border border-stone-200 bg-white 
+  btn 8 (spans=0): Save &amp; Apply Discount
+  btn 9 (spans=0): handleDeleteDiscount(disc.id, e)} title="Delete custom discount" className="text
+  btn 10 (spans=0): Remove
+  btn 11 (spans=1): { onApplyDiscount(disc, idNumberInput); onClose(); }} className="w-full rounded-
+  btn 12 (spans=0): Done
+
+=== src/components/pos/TableSelectModal.tsx (buttons: 7) ===
+  btn 1 (spans=0): <X className="h-3.5 w-3.5" />
+  btn 2 (spans=1): <div className="flex items-center gap-2"> <div className="grid h-6 w-6 place-ite
+  btn 3 (spans=0): setAreaFilter('all')} className={`px-2 py-0.5 rounded-md transition ${ areaFilte
+  btn 4 (spans=1): setAreaFilter('airconditioned')} className={`px-2 py-0.5 rounded-md transition f
+  btn 5 (spans=1): setAreaFilter('normal')} className={`px-2 py-0.5 rounded-md transition flex item
+  btn 6 (spans=6): onSelectTable(t.tableNumber)} className={`relative flex flex-col justify-between
+  btn 7 (spans=0): Cancel
+
+=== src/components/pos/ProductMovementVelocity.tsx (buttons: 18) ===
+  btn 1 (spans=0): setThresholdMode('auto')} className={`rounded-xl px-2.5 py-1 font-bold transitio
+  btn 2 (spans=0): setThresholdMode('standard')} className={`rounded-xl px-2.5 py-1 font-bold trans
+  btn 3 (spans=0): setThresholdMode('high_volume')} className={`rounded-xl px-2.5 py-1 font-bold tr
+  btn 4 (spans=1): setShowRecommendationPanel((prev) => !prev)} className={`flex items-center gap-1
+  btn 5 (spans=0): setShowRecommendationPanel(false)} className="text-stone-400 hover:text-stone-70
+  btn 6 (spans=0): setSelectedClass('all')} className={`rounded-xl px-3 py-1.5 text-xs font-bold tr
+  btn 7 (spans=0): setSelectedClass('fast')} className={`flex items-center gap-1.5 rounded-xl px-3 
+  btn 8 (spans=0): setSelectedClass('steady')} className={`flex items-center gap-1.5 rounded-xl px-
+  btn 9 (spans=0): setSelectedClass('slow')} className={`flex items-center gap-1.5 rounded-xl px-3 
+  btn 10 (spans=0): setSelectedClass('dormant')} className={`flex items-center gap-1.5 rounded-xl px
+  btn 11 (spans=0): setSelectedClass('risk')} className={`flex items-center gap-1.5 rounded-xl px-3 
+  btn 12 (spans=0): setViewMode('cards')} className={`rounded-xl px-3 py-1.5 transition ${ viewMode 
+
+=== src/components/pos/AdminConfirmRefillModal.tsx (buttons: 7) ===
+  btn 1 (spans=0): <X className="h-5 w-5" />
+  btn 2 (spans=0): setFinalQuantity((q) => Math.max(1, q - 1))} className="flex h-10 w-10 items-cen
+  btn 3 (spans=0): setFinalQuantity((q) => q + 1)} className="flex h-10 w-10 items-center justify-c
+  btn 4 (spans=0): setFinalQuantity(num)} className={`flex-1 rounded-lg py-1 text-xs font-semibold 
+  btn 5 (spans=0): Decline
+  btn 6 (spans=0): Cancel
+  btn 7 (spans=1): <CheckCircle2 className="h-3.5 w-3.5" /> <span>Confirm (+{finalQuantity})</span>
+
+=== src/components/pos/SalesReports.tsx (buttons: 33) ===
+  btn 1 (spans=2): setIsFilterModalOpen(true)} className={`inline-flex items-center gap-1.5 rounded
+  btn 2 (spans=2): <Download className="h-3.5 w-3.5 text-stone-600" /> <span className="hidden xs:i
+  btn 3 (spans=1): window.print()} className="flex items-center gap-1.5 sm:gap-2 rounded-xl bg-ambe
+  btn 4 (spans=2): setIsFilterModalOpen(true)} className="inline-flex items-center gap-1 rounded-lg
+  btn 5 (spans=2): setIsFilterModalOpen(true)} className="inline-flex items-center gap-1 rounded-lg
+  btn 6 (spans=2): setIsFilterModalOpen(true)} className="inline-flex items-center gap-1 rounded-lg
+  btn 7 (spans=2): setIsFilterModalOpen(true)} className="inline-flex items-center gap-1 rounded-lg
+  btn 8 (spans=1): <RotateCcw className="h-3 w-3" /> <span>Reset</span>
+  btn 9 (spans=0): setIsFilterModalOpen(true)} className="inline-flex items-center gap-1 text-[10px
+  btn 10 (spans=0): setCashierFilter('all')} className="ml-1 hover:text-amber-950 font-black cursor-
+  btn 11 (spans=2): setIsColumnFilterModalOpen(true)} className="inline-flex items-center gap-1.5 ro
+  btn 12 (spans=0): onViewReceipt(ord)} className="rounded-lg bg-stone-100 hover:bg-stone-200 px-2 p
+
+=== src/components/pos/SettingsManager.tsx (buttons: 10) ===
+  btn 1 (spans=1): setActiveTab('cashiers')} className={`flex items-center gap-2 rounded-xl px-3.5 
+  btn 2 (spans=1): setActiveTab('security')} className={`flex items-center gap-2 rounded-xl px-3.5 
+  btn 3 (spans=1): setActiveTab('store')} className={`flex items-center gap-2 rounded-xl px-3.5 py-
+  btn 4 (spans=0): setShowCurrentPassword(!showCurrentPassword)} className="absolute right-3 top-1/
+  btn 5 (spans=0): setShowNewPassword(!showNewPassword)} className="absolute right-3 top-1/2 -trans
+  btn 6 (spans=0): setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/
+  btn 7 (spans=2): {isUpdatingPassword ? ( <> <RefreshCw className="h-4 w-4 animate-spin" /> <span>
+  btn 8 (spans=0): <RotateCcw className="h-3.5 w-3.5" /> Reset Defaults
+  btn 9 (spans=1): <Save className="h-4 w-4" /> <span>Save Store Configuration</span>
+  btn 10 (spans=2): {isResettingDb ? ( <> <RefreshCw className="h-4 w-4 animate-spin" /> <span>Reset
+
+=== src/components/pos/PosMenu.tsx (buttons: 53) ===
+  btn 1 (spans=1): { setCategoryType('drinks'); const firstDrink = drinkCategories[0]; if (firstDri
+  btn 2 (spans=1): { setCategoryType('food'); const firstFood = foodCategories[0]; if (firstFood) {
+  btn 3 (spans=2): setSelectedCategory(cat.id)} className={`w-full flex items-center gap-2 text-lef
+  btn 4 (spans=1): { setCategoryType('drinks'); const firstDrink = drinkCategories[0]; if (firstDri
+  btn 5 (spans=1): { setCategoryType('food'); const firstFood = foodCategories[0]; if (firstFood) s
+  btn 6 (spans=2): setIsMobileCategoriesOpen(!isMobileCategoriesOpen)} className="flex items-center
+  btn 7 (spans=2): { setSelectedCategory(cat.id); setIsMobileCategoriesOpen(false); }} className={`
+  btn 8 (spans=3): setIsTicketSidebarOpen(!isTicketSidebarOpen)} className={`fixed sm:absolute bott
+  btn 9 (spans=0): setIsMobileSearchOpen(true)} className="sm:hidden flex items-center justify-cent
+  btn 10 (spans=0): { setSearchQuery(''); setIsMobileSearchOpen(false); }} className="absolute right
+  btn 11 (spans=1): setIsGridModalOpen((prev) => !prev)} title="Change Catalog Grid Columns (1 to 5)
+  btn 12 (spans=0): setIsGridModalOpen(false)} className="p-1.5 sm:p-1 rounded-xl sm:rounded-lg text
+
+=== src/components/pos/RefillRequestModal.tsx (buttons: 17) ===
+  btn 1 (spans=0): <X className="h-5 w-5" />
+  btn 2 (spans=1): setSourceMode('catalog')} className={`flex items-center justify-center gap-1.5 p
+  btn 3 (spans=1): setSourceMode('custom')} className={`flex items-center justify-center gap-1.5 py
+  btn 4 (spans=0): setSelectedMenuItem(null)} className="text-xs font-bold text-amber-800 hover:und
+  btn 5 (spans=2): { setSelectedMenuItem(item); const cat = categories.find((c) => c.id === item.ca
+  btn 6 (spans=1): setStation('bar')} className={`flex items-center justify-center gap-1.5 p-2 roun
+  btn 7 (spans=1): setStation('kitchen')} className={`flex items-center justify-center gap-1.5 p-2 
+  btn 8 (spans=1): setStation('counter')} className={`flex items-center justify-center gap-1.5 p-2 
+  btn 9 (spans=0): setSuggestedQuantity((q) => Math.max(1, q - 1))} className="flex h-9 w-9 items-c
+  btn 10 (spans=0): setSuggestedQuantity((q) => q + 1)} className="flex h-9 w-9 items-center justify
+  btn 11 (spans=0): setSuggestedQuantity(num)} className="flex-1 rounded-md bg-stone-100 py-0.5 text
+  btn 12 (spans=0): setUrgency('low')} className={`p-2 rounded-xl border text-center transition curs
+
+=== src/components/pos/RefillSuggestionsView.tsx (buttons: 7) ===
+  btn 1 (spans=1): onOpenSuggestModal(null)} className="inline-flex items-center justify-center gap
+  btn 2 (spans=2): setStatusFilter(tab.id as any)} className={`flex items-center gap-1.5 rounded-lg
+  btn 3 (spans=1): onOpenSuggestModal(null)} className="inline-flex items-center gap-1.5 rounded-xl
+  btn 4 (spans=1): handleBatchApprove(group)} className="inline-flex items-center gap-1.5 rounded-x
+  btn 5 (spans=1): setSelectedRequestForReview(req)} className="inline-flex items-center gap-1.5 ro
+  btn 6 (spans=1): handleDeclineRequest(req)} className="inline-flex items-center gap-1 rounded-xl 
+  btn 7 (spans=1): handleCancelRequest(req.id)} className="inline-flex items-center gap-1 rounded-x
+
+=== src/context/ModalContext.tsx (buttons: 6) ===
+  btn 1 (spans=0): { if (modal.kind === 'alert') handleCloseAlert(); else if (modal.kind === 'confi
+  btn 2 (spans=0): {modal.cancelText}
+  btn 3 (spans=0): {modal.confirmText}
+  btn 4 (spans=0): {modal.confirmText}
+  btn 5 (spans=0): handleConfirmAction(false)} className="w-1/2 rounded-2xl border border-stone-200
+  btn 6 (spans=0): handleConfirmAction(true)} autoFocus className={`w-1/2 rounded-2xl px-5 py-3 tex

@@ -39,9 +39,9 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
       return {
         score: 0,
         label: 'None',
-        barColor: 'bg-stone-200',
-        textColor: 'text-stone-400',
-        badgeBg: 'bg-stone-100 text-stone-600',
+        barColor: 'bg-stone-200 dark:bg-stone-700',
+        textColor: 'text-stone-400 dark:text-stone-500',
+        badgeBg: 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700',
       };
     }
 
@@ -58,8 +58,8 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
         score: 1,
         label: 'Too Short',
         barColor: 'bg-rose-500',
-        textColor: 'text-rose-600',
-        badgeBg: 'bg-rose-50 text-rose-700 border-rose-200',
+        textColor: 'text-rose-600 dark:text-rose-400',
+        badgeBg: 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/60',
       };
     }
 
@@ -68,8 +68,8 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
         score: 2,
         label: 'Weak',
         barColor: 'bg-amber-500',
-        textColor: 'text-amber-600',
-        badgeBg: 'bg-amber-50 text-amber-700 border-amber-200',
+        textColor: 'text-amber-600 dark:text-amber-400',
+        badgeBg: 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/60',
       };
     }
 
@@ -78,8 +78,8 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
         score: 3,
         label: 'Good',
         barColor: 'bg-lime-500',
-        textColor: 'text-lime-700',
-        badgeBg: 'bg-lime-50 text-lime-800 border-lime-200',
+        textColor: 'text-lime-700 dark:text-lime-400',
+        badgeBg: 'bg-lime-50 dark:bg-lime-950/60 text-lime-800 dark:text-lime-300 border-lime-200 dark:border-lime-800/60',
       };
     }
 
@@ -87,8 +87,8 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
       score: 4,
       label: 'Strong',
       barColor: 'bg-emerald-500',
-      textColor: 'text-emerald-700',
-      badgeBg: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+      textColor: 'text-emerald-700 dark:text-emerald-400',
+      badgeBg: 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60',
     };
   }, [password]);
 
@@ -97,6 +97,14 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
     if (!email.trim()) return null;
     return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email.trim());
   }, [email]);
+
+  // Check if email is already taken in register mode
+  const isEmailTaken = useMemo(() => {
+    if (mode !== 'register') return false;
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !cleanEmail.includes('@')) return false;
+    return AppStore.isEmailRegistered(cleanEmail);
+  }, [mode, email]);
 
   // Contact number validation: checks characters and minimum/maximum digits
   const contactValidation = useMemo(() => {
@@ -152,21 +160,22 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
       }
       // Retrieve customer from store if already registered
       const existingCustomer = AppStore.getCustomerByEmail(email);
-      const customerToActivate: CustomerAccount = existingCustomer
-        ? {
-            ...existingCustomer,
-            fullName: existingCustomer.fullName || fullName || (email.includes('@') ? email.split('@')[0].toUpperCase() : 'Customer'),
-            contactNumber: existingCustomer.contactNumber || contactNumber || '+63 917 000 0000',
-          }
-        : {
-            id: Math.floor(100 + Math.random() * 900),
-            fullName: fullName || (email && email.includes('@') ? email.split('@')[0].toUpperCase() : 'Customer'),
-            email: email.trim(),
-            contactNumber: contactNumber || '+63 917 000 0000',
-            password: password.trim(),
-            status: 'active',
-            createdAt: new Date().toISOString(),
-          };
+      if (!existingCustomer) {
+        setError('No account found with this email address. Please check your spelling or sign up below.');
+        return;
+      }
+
+      if (existingCustomer.password && existingCustomer.password !== password.trim()) {
+        setError('Incorrect password. Please verify your credentials and try again.');
+        return;
+      }
+
+      const customerToActivate: CustomerAccount = {
+        ...existingCustomer,
+        password: existingCustomer.password || password.trim(),
+        fullName: existingCustomer.fullName || fullName || (email.includes('@') ? email.split('@')[0].toUpperCase() : 'Customer'),
+        contactNumber: existingCustomer.contactNumber || contactNumber || '+63 917 000 0000',
+      };
 
       AppStore.setActiveCustomer(customerToActivate);
       onSuccess(customerToActivate);
@@ -180,6 +189,12 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
 
       if (isEmailValid === false) {
         setError('Invalid email address. Please enter a valid email (e.g. name@example.com)');
+        return;
+      }
+
+      // Disallow already taken email address
+      if (AppStore.isEmailRegistered(email.trim())) {
+        setError('This email address is already registered. Please sign in instead or use another email.');
         return;
       }
 
@@ -220,17 +235,17 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 customer-mode font-baskerville">
-      <div className="w-full max-w-sm sm:max-w-md max-h-[92vh] overflow-y-auto rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-7 shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-200">
+      <div className="w-full max-w-sm sm:max-w-md max-h-[92vh] overflow-y-auto rounded-2xl sm:rounded-3xl bg-white dark:bg-stone-900 p-4 sm:p-7 shadow-2xl border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-stone-100 pb-2.5 sm:pb-4">
+        <div className="flex items-center justify-between border-b border-stone-100 dark:border-stone-800 pb-2.5 sm:pb-4">
           <div>
-            <h3 className="text-base sm:text-xl font-bold text-stone-900 font-display">
+            <h3 className="text-base sm:text-xl font-bold text-stone-900 dark:text-stone-100 font-display">
               {mode === 'login' ? 'Welcome Back' : 'Create Customer Account'}
             </h3>
           </div>
           <button
             onClick={onClose}
-            className="rounded-full p-1.5 sm:p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-700 transition"
+            className="rounded-full p-1.5 sm:p-2 text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-700 dark:hover:text-stone-200 transition"
             aria-label="Close modal"
           >
             <X className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -248,18 +263,18 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
         <form onSubmit={handleSubmit} className="mt-3 sm:mt-4 space-y-2.5 sm:space-y-3.5">
           {mode === 'register' && (
             <div>
-              <label className="block text-[10px] sm:text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
-                Full Name <span className="text-amber-600">*</span>
+              <label className="block text-[10px] sm:text-[11px] font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                Full Name <span className="text-amber-600 dark:text-amber-400">*</span>
               </label>
               <div className="relative">
-                <User className="absolute left-3 top-2.5 sm:left-3.5 sm:top-3 h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-400" />
+                <User className="absolute left-3 top-2.5 sm:left-3.5 sm:top-3 h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-400 dark:text-stone-500" />
                 <input
                   type="text"
                   required
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="e.g. Maria Santos"
-                  className="w-full rounded-xl border border-stone-300 bg-stone-50/50 pl-8.5 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none transition"
+                  className="w-full rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-850 pl-8.5 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 text-xs sm:text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:border-amber-500 focus:bg-white dark:focus:bg-stone-800 focus:outline-none transition"
                 />
               </div>
             </div>
@@ -267,13 +282,18 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
 
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="block text-[10px] sm:text-[11px] font-bold text-stone-700 uppercase tracking-wider">
-                Email Address <span className="text-amber-600">*</span>
+              <label className="block text-[10px] sm:text-[11px] font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider">
+                Email Address <span className="text-amber-600 dark:text-amber-400">*</span>
               </label>
-              {isEmailValid !== null && (
+              {mode === 'register' && isEmailTaken ? (
+                <span className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/60 px-2 py-0.5 rounded-full border border-rose-200 dark:border-rose-800/60">
+                  <AlertCircle className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-rose-600 dark:text-rose-400" />
+                  <span>Already taken</span>
+                </span>
+              ) : isEmailValid !== null ? (
                 <span
                   className={`inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold ${
-                    isEmailValid ? 'text-emerald-600' : 'text-rose-600'
+                    isEmailValid ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                   }`}
                 >
                   {isEmailValid ? (
@@ -288,16 +308,18 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
                     </>
                   )}
                 </span>
-              )}
+              ) : null}
             </div>
             <div className="relative">
               <Mail
                 className={`absolute left-3 top-2.5 sm:left-3.5 sm:top-3 h-3.5 w-3.5 sm:h-4 sm:w-4 transition-colors ${
-                  isEmailValid !== null
+                  mode === 'register' && isEmailTaken
+                    ? 'text-rose-500'
+                    : isEmailValid !== null
                     ? isEmailValid
-                      ? 'text-emerald-500'
+                      ? 'text-emerald-500 dark:text-emerald-400'
                       : 'text-rose-400'
-                    : 'text-stone-400'
+                    : 'text-stone-400 dark:text-stone-500'
                 }`}
               />
               <input
@@ -306,33 +328,49 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className={`w-full rounded-xl border bg-stone-50/50 pl-8.5 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 text-xs sm:text-sm text-stone-900 focus:bg-white focus:outline-none transition ${
-                  isEmailValid !== null
+                className={`w-full rounded-xl border bg-stone-50/50 dark:bg-stone-850 pl-8.5 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 text-xs sm:text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:bg-white dark:focus:bg-stone-800 focus:outline-none transition ${
+                  mode === 'register' && isEmailTaken
+                    ? 'border-rose-400 dark:border-rose-500 bg-rose-50/30 dark:bg-rose-950/40 text-rose-950 dark:text-rose-200 focus:border-rose-500 focus:ring-1 focus:ring-rose-500/20'
+                    : isEmailValid !== null
                     ? isEmailValid
-                      ? 'border-emerald-400 focus:border-emerald-500'
-                      : 'border-rose-300 focus:border-rose-500'
-                    : 'border-stone-300 focus:border-amber-500'
+                      ? 'border-emerald-400 dark:border-emerald-500 focus:border-emerald-500'
+                      : 'border-rose-300 dark:border-rose-500 focus:border-rose-500'
+                    : 'border-stone-300 dark:border-stone-700 focus:border-amber-500'
                 }`}
               />
             </div>
-            {isEmailValid === false && (
-              <p className="mt-1 text-[10px] sm:text-[11px] text-rose-600 flex items-center gap-1 font-medium">
-                <AlertCircle className="h-3 w-3 shrink-0 text-rose-500" />
+            {mode === 'register' && isEmailTaken ? (
+              <div className="mt-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200/90 dark:border-rose-800/70 p-2.5 text-[11px] sm:text-xs text-rose-700 dark:text-rose-300 flex items-center justify-between gap-2 font-medium animate-in fade-in duration-150">
+                <div className="flex items-center gap-1.5">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0 text-rose-600 dark:text-rose-400" />
+                  <span>This email is already registered.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => switchMode('login')}
+                  className="shrink-0 font-bold text-amber-800 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-300 underline cursor-pointer"
+                >
+                  Sign in instead
+                </button>
+              </div>
+            ) : isEmailValid === false ? (
+              <p className="mt-1 text-[10px] sm:text-[11px] text-rose-600 dark:text-rose-400 flex items-center gap-1 font-medium">
+                <AlertCircle className="h-3 w-3 shrink-0 text-rose-500 dark:text-rose-400" />
                 <span>Please enter a valid email address (e.g. name@example.com)</span>
               </p>
-            )}
+            ) : null}
           </div>
 
           {mode === 'register' && (
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-[10px] sm:text-[11px] font-bold text-stone-700 uppercase tracking-wider">
-                  Contact Number <span className="text-amber-600">*</span>
+                <label className="block text-[10px] sm:text-[11px] font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider">
+                  Contact Number <span className="text-amber-600 dark:text-amber-400">*</span>
                 </label>
                 {contactValidation !== null && (
                   <span
                     className={`inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold ${
-                      contactValidation.valid ? 'text-emerald-600' : 'text-rose-600'
+                      contactValidation.valid ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                     }`}
                   >
                     {contactValidation.valid ? (
@@ -354,9 +392,9 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
                   className={`absolute left-3 top-2.5 sm:left-3.5 sm:top-3 h-3.5 w-3.5 sm:h-4 sm:w-4 transition-colors ${
                     contactValidation !== null
                       ? contactValidation.valid
-                        ? 'text-emerald-500'
+                        ? 'text-emerald-500 dark:text-emerald-400'
                         : 'text-rose-400'
-                      : 'text-stone-400'
+                      : 'text-stone-400 dark:text-stone-500'
                   }`}
                 />
                 <input
@@ -365,18 +403,18 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
                   value={contactNumber}
                   onChange={(e) => setContactNumber(e.target.value)}
                   placeholder="+63 912 345 6789"
-                  className={`w-full rounded-xl border bg-stone-50/50 pl-8.5 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 text-xs sm:text-sm text-stone-900 focus:bg-white focus:outline-none transition ${
+                  className={`w-full rounded-xl border bg-stone-50/50 dark:bg-stone-850 pl-8.5 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 text-xs sm:text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:bg-white dark:focus:bg-stone-800 focus:outline-none transition ${
                     contactValidation !== null
                       ? contactValidation.valid
-                        ? 'border-emerald-400 focus:border-emerald-500'
-                        : 'border-rose-300 focus:border-rose-500'
-                      : 'border-stone-300 focus:border-amber-500'
+                        ? 'border-emerald-400 dark:border-emerald-500 focus:border-emerald-500'
+                        : 'border-rose-300 dark:border-rose-500 focus:border-rose-500'
+                      : 'border-stone-300 dark:border-stone-700 focus:border-amber-500'
                   }`}
                 />
               </div>
               {contactValidation !== null && !contactValidation.valid && (
-                <p className="mt-1 text-[10px] sm:text-[11px] text-rose-600 flex items-center gap-1 font-medium">
-                  <AlertCircle className="h-3 w-3 shrink-0 text-rose-500" />
+                <p className="mt-1 text-[10px] sm:text-[11px] text-rose-600 dark:text-rose-400 flex items-center gap-1 font-medium">
+                  <AlertCircle className="h-3 w-3 shrink-0 text-rose-500 dark:text-rose-400" />
                   <span>{contactValidation.message}</span>
                 </p>
               )}
@@ -386,38 +424,38 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
           {/* Password Field */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="block text-[10px] sm:text-[11px] font-bold text-stone-700 uppercase tracking-wider">
-                Password <span className="text-amber-600">*</span>
+              <label className="block text-[10px] sm:text-[11px] font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider">
+                Password <span className="text-amber-600 dark:text-amber-400">*</span>
               </label>
               {mode === 'register' && password && (
                 <span
                   className={`inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-1.5 sm:px-2 py-0.5 rounded-full border ${passwordStrength.badgeBg}`}
                 >
                   {passwordStrength.score >= 3 ? (
-                    <ShieldCheck className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-600" />
+                    <ShieldCheck className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-600 dark:text-emerald-400" />
                   ) : passwordStrength.score === 2 ? (
-                    <Shield className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-600" />
+                    <Shield className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-600 dark:text-amber-400" />
                   ) : (
-                    <ShieldAlert className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-rose-600" />
+                    <ShieldAlert className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-rose-600 dark:text-rose-400" />
                   )}
                   <span>{passwordStrength.label}</span>
                 </span>
               )}
             </div>
             <div className="relative">
-              <Lock className="absolute left-3 top-2.5 sm:left-3.5 sm:top-3 h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-400" />
+              <Lock className="absolute left-3 top-2.5 sm:left-3.5 sm:top-3 h-3.5 w-3.5 sm:h-4 sm:w-4 text-stone-400 dark:text-stone-500" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={mode === 'register' ? 'Create a secure password' : '••••••••'}
-                className="w-full rounded-xl border border-stone-300 bg-stone-50/50 pl-8.5 sm:pl-10 pr-8.5 sm:pr-10 py-2 sm:py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none transition"
+                className="w-full rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-850 pl-8.5 sm:pl-10 pr-8.5 sm:pr-10 py-2 sm:py-2.5 text-xs sm:text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:border-amber-500 focus:bg-white dark:focus:bg-stone-800 focus:outline-none transition"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2.5 top-2.5 sm:right-3 sm:top-3 text-stone-400 hover:text-stone-600 p-0.5 rounded transition"
+                className="absolute right-2.5 top-2.5 sm:right-3 sm:top-3 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 p-0.5 rounded transition cursor-pointer"
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? <EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
@@ -426,10 +464,10 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
 
             {/* Password Strength Meter (Shown during registration) */}
             {mode === 'register' && (
-              <div className="mt-2 sm:mt-2.5 space-y-1.5 sm:space-y-2 rounded-xl sm:rounded-2xl bg-stone-50/80 border border-stone-200/80 p-2 sm:p-3">
+              <div className="mt-2 sm:mt-2.5 space-y-1.5 sm:space-y-2 rounded-xl sm:rounded-2xl bg-stone-50/80 dark:bg-stone-850/80 border border-stone-200/80 dark:border-stone-700/80 p-2 sm:p-3">
                 <div className="flex items-center justify-between text-[10px] sm:text-xs">
-                  <span className="text-[10px] sm:text-[11px] font-semibold text-stone-600 flex items-center gap-1.5">
-                    <KeyRound className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-600" />
+                  <span className="text-[10px] sm:text-[11px] font-semibold text-stone-600 dark:text-stone-400 flex items-center gap-1.5">
+                    <KeyRound className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-600 dark:text-amber-400" />
                     Password Security
                   </span>
                   <span className={`text-[10px] sm:text-[11px] font-bold ${passwordStrength.textColor}`}>
@@ -445,7 +483,7 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
                       <div
                         key={step}
                         className={`h-1 sm:h-1.5 rounded-full transition-all duration-300 ${
-                          isActive ? passwordStrength.barColor : 'bg-stone-200'
+                          isActive ? passwordStrength.barColor : 'bg-stone-200 dark:bg-stone-700'
                         }`}
                       />
                     );
@@ -459,13 +497,13 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
           {mode === 'register' && (
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-[10px] sm:text-[11px] font-bold text-stone-700 uppercase tracking-wider">
-                  Confirm Password <span className="text-amber-600">*</span>
+                <label className="block text-[10px] sm:text-[11px] font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider">
+                  Confirm Password <span className="text-amber-600 dark:text-amber-400">*</span>
                 </label>
                 {passwordsMatch !== null && (
                   <span
                     className={`inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold ${
-                      passwordsMatch ? 'text-emerald-600' : 'text-rose-600'
+                      passwordsMatch ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                     }`}
                   >
                     {passwordsMatch ? (
@@ -486,10 +524,10 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
                 <Lock
                   className={`absolute left-3 top-2.5 sm:left-3.5 sm:top-3 h-3.5 w-3.5 sm:h-4 sm:w-4 ${
                     passwordsMatch === true
-                      ? 'text-emerald-500'
+                      ? 'text-emerald-500 dark:text-emerald-400'
                       : passwordsMatch === false
                       ? 'text-rose-400'
-                      : 'text-stone-400'
+                      : 'text-stone-400 dark:text-stone-500'
                   }`}
                 />
                 <input
@@ -498,18 +536,18 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Re-enter your password"
-                  className={`w-full rounded-xl border bg-stone-50/50 pl-8.5 sm:pl-10 pr-8.5 sm:pr-10 py-2 sm:py-2.5 text-xs sm:text-sm text-stone-900 focus:bg-white focus:outline-none transition ${
+                  className={`w-full rounded-xl border bg-stone-50/50 dark:bg-stone-850 pl-8.5 sm:pl-10 pr-8.5 sm:pr-10 py-2 sm:py-2.5 text-xs sm:text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:bg-white dark:focus:bg-stone-800 focus:outline-none transition ${
                     passwordsMatch === true
-                      ? 'border-emerald-400 focus:border-emerald-500'
+                      ? 'border-emerald-400 dark:border-emerald-500 focus:border-emerald-500'
                       : passwordsMatch === false
-                      ? 'border-rose-300 focus:border-rose-500'
-                      : 'border-stone-300 focus:border-amber-500'
+                      ? 'border-rose-300 dark:border-rose-500 focus:border-rose-500'
+                      : 'border-stone-300 dark:border-stone-700 focus:border-amber-500'
                   }`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-2.5 top-2.5 sm:right-3 sm:top-3 text-stone-400 hover:text-stone-600 p-0.5 rounded transition"
+                  className="absolute right-2.5 top-2.5 sm:right-3 sm:top-3 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 p-0.5 rounded transition cursor-pointer"
                   aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
                 >
                   {showConfirmPassword ? <EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
@@ -520,20 +558,29 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
 
           <button
             type="submit"
-            className="w-full mt-2 sm:mt-3 rounded-xl bg-amber-500 py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-stone-950 shadow-md hover:bg-amber-400 active:scale-[0.99] transition cursor-pointer"
+            disabled={mode === 'register' && isEmailTaken}
+            className={`w-full mt-2 sm:mt-3 rounded-xl py-2.5 sm:py-3 text-xs sm:text-sm font-bold shadow-md transition ${
+              mode === 'register' && isEmailTaken
+                ? 'bg-stone-200 dark:bg-stone-800 text-stone-400 dark:text-stone-500 border border-stone-300 dark:border-stone-700 cursor-not-allowed'
+                : 'bg-amber-500 text-stone-950 hover:bg-amber-400 active:scale-[0.99] cursor-pointer'
+            }`}
           >
-            {mode === 'login' ? 'Sign In' : 'Create Account'}
+            {mode === 'login'
+              ? 'Sign In'
+              : isEmailTaken
+              ? 'Email Already Registered'
+              : 'Create Account'}
           </button>
         </form>
 
-        <div className="mt-3 sm:mt-4 pt-2.5 sm:pt-3 border-t border-stone-100 text-center text-[11px] sm:text-xs text-stone-500">
+        <div className="mt-3 sm:mt-4 pt-2.5 sm:pt-3 border-t border-stone-100 dark:border-stone-800 text-center text-[11px] sm:text-xs text-stone-500 dark:text-stone-400">
           {mode === 'login' ? (
             <p>
               Don't have an account yet?{' '}
               <button
                 type="button"
                 onClick={() => switchMode('register')}
-                className="font-bold text-amber-700 hover:underline cursor-pointer"
+                className="font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
               >
                 Sign up
               </button>
@@ -544,7 +591,7 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
               <button
                 type="button"
                 onClick={() => switchMode('login')}
-                className="font-bold text-amber-700 hover:underline cursor-pointer"
+                className="font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
               >
                 Sign in
               </button>

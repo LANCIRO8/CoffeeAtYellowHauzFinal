@@ -76,6 +76,13 @@ export const EditCustomerProfileModal: React.FC<EditCustomerProfileModalProps> =
       return;
     }
 
+    if (email.trim().toLowerCase() !== (customer.email || '').trim().toLowerCase()) {
+      if (AppStore.isEmailRegistered(email.trim(), customer.id)) {
+        setError('This email address is already taken by another account.');
+        return;
+      }
+    }
+
     const cleanPhone = contactNumber.trim();
     if (!cleanPhone || cleanPhone.length < 7) {
       setError('Please provide a valid contact phone number');
