@@ -159,17 +159,27 @@ export const Footer: React.FC<FooterProps> = ({
 
           {/* Details */}
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-stone-500">
-            <span className="flex items-center gap-1">
+            <a
+              href={settings.google_maps_url || "https://www.google.com/maps/place/Coffee+at+Yellow+Hauz/@7.0757824,125.6066351,17z/data=!3m1!4b1!4m6!3m5!1s0x32f96d74e17f56db:0xc0436864b68e2b5!8m2!3d7.0757824!4d125.6066351!16s%2Fg%2F12qgm_g5g!18m1!1e1?entry=ttu&g_ep=EgoyMDI2MDkyNy4xIKXMDSoASAFQAw%3D%3D"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 hover:text-amber-700 transition"
+              title="View on Google Maps"
+            >
               <MapPin className="h-3 w-3 text-stone-400 shrink-0" />
               <span>{settings.shop_address || 'V. Mapa Street, Corner Mabini St.'}</span>
-            </span>
-            <span className="flex items-center gap-1">
+            </a>
+            <a
+              href={`tel:${(settings.shop_phone || '09231160300').replace(/\s+/g, '')}`}
+              className="flex items-center gap-1 hover:text-amber-700 transition"
+              title="Call Us"
+            >
               <Phone className="h-3 w-3 text-stone-400 shrink-0" />
-              <span>{settings.shop_phone || '(082) 227-9952'}</span>
-            </span>
+              <span>{settings.shop_phone || '0923 116 0300'}</span>
+            </a>
             <span className="flex items-center gap-1">
               <Clock className="h-3 w-3 text-stone-400 shrink-0" />
-              <span>{settings.business_hours || '8:00 AM - 10:00 PM'}</span>
+              <span>{settings.business_hours || '7:00 AM - 10:00 PM'}</span>
             </span>
           </div>
 

@@ -86,9 +86,14 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
 
   // Filter all add-on menu items (Category 8 Food Add-ons, Category 17 Drink Add-ons, or categories with "add-on")
   const allAddonItems = useMemo(() => {
+    const activeCategoryIds = new Set(
+      categories.filter((c) => (c.status || 'active') === 'active').map((c) => c.id)
+    );
+
     const addOnCategoryIds = new Set(
       categories
         .filter((c) => {
+          if ((c.status || 'active') === 'inactive') return false;
           const name = c.name.toLowerCase();
           return (
             name.includes('add-on') ||
@@ -104,7 +109,8 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
     return menuItems.filter(
       (item) =>
         item.isAvailable &&
-        (addOnCategoryIds.has(item.categoryId) || item.categoryId === 8 || item.categoryId === 17)
+        activeCategoryIds.has(item.categoryId) &&
+        (addOnCategoryIds.has(item.categoryId) || (activeCategoryIds.has(item.categoryId) && (item.categoryId === 8 || item.categoryId === 17)))
     );
   }, [menuItems, categories]);
 

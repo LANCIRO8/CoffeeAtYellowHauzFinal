@@ -403,7 +403,11 @@ export const SEED_SETTINGS: StoreSettings = {
   currency: 'PHP',
   shop_name: 'Coffee at Yellow Hauz',
   shop_address: 'Yellow Hauz, Davao City, Philippines',
-  shop_phone: '+63 912 345 6789',
+  shop_phone: '0923 116 0300',
+  shop_email: 'yellowhauz@gmail.com',
+  facebook_url: 'https://www.facebook.com/yellowhauz/',
+  instagram_url: 'https://www.instagram.com/yellowhauz',
+  google_maps_url: 'https://www.google.com/maps/place/Coffee+at+Yellow+Hauz/@7.0757824,125.6066351,17z/data=!3m1!4b1!4m6!3m5!1s0x32f96d74e17f56db:0xc0436864b68e2b5!8m2!3d7.0757824!4d125.6066351!16s%2Fg%2F12qgm_g5g!18m1!1e1?entry=ttu&g_ep=EgoyMDI2MDkyNy4xIKXMDSoASAFQAw%3D%3D',
   receipt_footer: 'Thank you for visiting Coffee at Yellow Hauz! Established 2007.',
   business_hours: '07:00-22:00',
   time_based_menus: [
@@ -464,6 +468,9 @@ export const SEED_SETTINGS: StoreSettings = {
   customer_gallery: {
     heroBackground: '/images/red_brick_bg.png',
     heroFeaturedImage: '/images/food_and_drinks_images/Hot Coffee/flat_white.jpeg',
+    heroFeaturedImage2: '/images/venue.webp',
+    heroFeaturedImage3: '/images/food_and_drinks_images/Breakfast/hungarian_sausage.jpeg',
+    heroFeaturedImage4: '/images/18_Main_Counter_Interior.webp',
     reservationBanner: '/images/venue.webp',
     menuDrinksBackground: '/images/food_and_drinks_images/Hot Coffee/Spanish_latte.jpeg',
     menuFoodBackground: '/images/food_and_drinks_images/Cakes_Pastries/burnt_cheesecake.jpg',
@@ -601,7 +608,7 @@ export const SEED_INTENTS: ChatIntent[] = [
       'consumable',
     ],
     keywords: ['venue', 'function', 'event', 'room', 'rent', 'rental', '3500', '1000', 'consumable', 'workshop', 'studio', 'meeting', 'private', 'amenities', 'capacity'],
-    response: '🏢 Yellow Hauz Private Venue & Studio Rental:\n\n💰 Base Rate: ₱3,500 for 3 hours (fully consumable on food and drinks).\n⏱️ Extension Rate: ₱1,000 per extra hour (also consumable).\n👥 25 Heads only.\n\n🎁 Inclusions & Venue Amenities:\n• Air conditioning\n• TV HDMI display hookup\n• Whiteboard & dry-erase markers\n\n✨ Extended Stays / Special Hours:\nLong durations or bulk packages are subject to negotiation/approval from the owner. Customers can contact directly via phone (+63 912 345 6789) or our Facebook page (facebook.com/yellowhauzcafe) to discuss.\n\nReady to book? Head over to our "Reservations" tab under "Private Venue Rental" to secure your slot!',
+    response: '🏢 Yellow Hauz Private Venue & Studio Rental:\n\n💰 Base Rate: ₱3,500 for 3 hours (fully consumable on food and drinks).\n⏱️ Extension Rate: ₱1,000 per extra hour (also consumable).\n👥 25 Heads only.\n\n🎁 Inclusions & Venue Amenities:\n• Air conditioning\n• TV HDMI display hookup\n• Whiteboard & dry-erase markers\n\n✨ Extended Stays / Special Hours:\nLong durations or bulk packages are subject to negotiation/approval from the owner. Customers can contact directly via phone (0923 116 0300) or our Facebook page (facebook.com/yellowhauz/) to discuss.\n\nReady to book? Head over to our "Reservations" tab under "Private Venue Rental" to secure your slot!',
     suggestedAction: 'reservation',
   },
   {
@@ -622,7 +629,7 @@ export const SEED_INTENTS: ChatIntent[] = [
     tag: 'hours_location',
     patterns: ['store hours', 'opening hours', 'what time do you open', 'closing time', 'business hours', 'where are you located', 'address', 'location'],
     keywords: ['hours', 'open', 'close', 'time', 'operating', 'address', 'location', 'where', 'davao'],
-    response: '📍 Yellow Hauz Café Details:\n\n⏰ Operating Hours: Open daily from 7:00 AM to 10:00 PM (Monday through Sunday).\n📍 Location: Yellow Hauz, Davao City, Philippines.\n📞 Contact: +63 912 345 6789\n\nServing hot breakfast from 7 AM, comfort lunches, afternoon coffee breaks, and cozy dinners all week long!',
+    response: '📍 Yellow Hauz Café Details:\n\n⏰ Operating Hours: Open daily from 7:00 AM to 10:00 PM (Monday through Sunday).\n📍 Location: Yellow Hauz, Davao City, Philippines (V. Mapa Street, Corner Mabini St.).\n📞 Contact: 0923 116 0300\n✉️ Email: yellowhauz@gmail.com\n\nServing hot breakfast from 7 AM, comfort lunches, afternoon coffee breaks, and cozy dinners all week long!',
     suggestedAction: 'none',
   },
   {

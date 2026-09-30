@@ -402,7 +402,7 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({ onClose,
                   required
                   value={contactNumber}
                   onChange={(e) => setContactNumber(e.target.value)}
-                  placeholder="+63 912 345 6789"
+                  placeholder="e.g. 0923 116 0300"
                   className={`w-full rounded-xl border bg-stone-50/50 dark:bg-stone-850 pl-8.5 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 text-xs sm:text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:bg-white dark:focus:bg-stone-800 focus:outline-none transition ${
                     contactValidation !== null
                       ? contactValidation.valid

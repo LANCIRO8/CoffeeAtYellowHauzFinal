@@ -254,7 +254,10 @@ export interface TimeBasedMenu {
 
 export interface CustomerGallerySettings {
   heroBackground?: string; // Landing page hero section wallpaper / background
-  heroFeaturedImage?: string; // Landing page hero collage spotlight image
+  heroFeaturedImage?: string; // Landing page hero collage spotlight picture 1 (Artisan Brews)
+  heroFeaturedImage2?: string; // Landing page hero collage spotlight picture 2 (Event Spaces)
+  heroFeaturedImage3?: string; // Landing page hero collage spotlight picture 3 (Comfort on a Plate)
+  heroFeaturedImage4?: string; // Landing page hero collage spotlight picture 4 (Cozy Café Spaces)
   reservationBanner?: string; // Reservation page & private studio banner
   menuDrinksBackground?: string; // Customer Menu "Drinks & Coffee" card background
   menuFoodBackground?: string; // Customer Menu "Food & Pastries" card background
@@ -268,6 +271,9 @@ export interface StoreSettings {
   shop_address: string;
   shop_phone: string;
   shop_email?: string;
+  facebook_url?: string;
+  instagram_url?: string;
+  google_maps_url?: string;
   receipt_footer: string;
   business_hours: string;
   time_based_menus: TimeBasedMenu[];

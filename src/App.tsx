@@ -466,8 +466,13 @@ function MainApp() {
   }, [appMode, activeCustomer, activeTableBinding, showAlert]);
 
   const bestSellers = useMemo(() => {
-    return menuItems.filter((i) => i.isBestSeller && i.isAvailable).slice(0, 12);
-  }, [menuItems]);
+    const activeCategoryIds = new Set(
+      categories.filter((c) => (c.status || 'active') === 'active').map((c) => c.id)
+    );
+    return menuItems
+      .filter((i) => i.isBestSeller && i.isAvailable && activeCategoryIds.has(i.categoryId))
+      .slice(0, 12);
+  }, [menuItems, categories]);
 
   const handleStaffLogout = async () => {
     const staffName = activeStaff?.fullName || activeStaff?.name || 'Staff';
@@ -585,6 +590,7 @@ function MainApp() {
             {customerTab === 'home' && (
               <CustomerHome
                 bestSellers={bestSellers}
+                categories={categories}
                 settings={settings}
                 onNavigateMenu={() => setCustomerTab('menu')}
                 onNavigateReservation={() => {

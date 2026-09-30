@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MenuItem, StoreSettings } from '../../types';
+import { MenuItem, StoreSettings, Category } from '../../types';
 import { ShoppingCart, Calendar, Clock, Heart, Sparkles, ArrowRight, ShieldCheck, MapPin, Phone, Leaf, Flower2, Coffee, Eye, X, ZoomIn, ChevronLeft, ChevronRight, Mail, Globe, CheckCircle2, MessageCircle, Bot, Send, Loader2, Plus, Check, RotateCw } from 'lucide-react';
 import { HangingVinesOverlay, MonsteraPlantCorner, CoffeePlantBranch } from './BotanicalElements';
 import { AppStore } from '../../services/store';
 
 interface CustomerHomeProps {
   bestSellers?: MenuItem[];
+  categories?: Category[];
   settings: StoreSettings;
   onNavigateMenu: () => void;
   onNavigateReservation: () => void;
@@ -174,6 +175,7 @@ const AI_QUICK_CHIPS = [
 
 export const CustomerHome: React.FC<CustomerHomeProps> = ({
   bestSellers = [],
+  categories: categoriesProp,
   settings,
   onNavigateMenu,
   onNavigateReservation,
@@ -275,12 +277,12 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
   };
 
   // Category map for item subtitles
-  const categories = useMemo(() => AppStore.getCategories(), []);
   const categoryMap = useMemo(() => {
     const map = new Map<number, string>();
-    categories.forEach((cat) => map.set(cat.id, cat.name));
+    const list = categoriesProp && categoriesProp.length > 0 ? categoriesProp : AppStore.getCategories();
+    list.forEach((cat) => map.set(cat.id, cat.name));
     return map;
-  }, [categories]);
+  }, [categoriesProp]);
 
   // Best Sellers Carousel state & controls
   const [activeBestSellerIndex, setActiveBestSellerIndex] = useState<number>(0);
@@ -359,19 +361,24 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
 
   const activeArea = YELLOWHAUZ_AREAS[currentAreaIndex] || YELLOWHAUZ_AREAS[0];
 
-  // Hero Collage dynamic items based on admin gallery settings
+  // Hero Collage dynamic items based on admin gallery settings (4 changeable spotlight pictures)
   const heroCollageItems = useMemo(() => {
     return HERO_COLLAGE_ITEMS.map((item, index) => {
-      if (index === 0 && settings.customer_gallery?.heroFeaturedImage) {
-        return {
-          ...item,
-          imageUrl: settings.customer_gallery.heroFeaturedImage,
-        };
+      let customUrl: string | undefined;
+      if (index === 0) {
+        customUrl = settings.customer_gallery?.heroFeaturedImage;
+      } else if (index === 1) {
+        customUrl = settings.customer_gallery?.heroFeaturedImage2 || settings.customer_gallery?.reservationBanner;
+      } else if (index === 2) {
+        customUrl = settings.customer_gallery?.heroFeaturedImage3;
+      } else if (index === 3) {
+        customUrl = settings.customer_gallery?.heroFeaturedImage4;
       }
-      if (item.actionType === 'reservation' && settings.customer_gallery?.reservationBanner) {
+
+      if (customUrl) {
         return {
           ...item,
-          imageUrl: settings.customer_gallery.reservationBanner,
+          imageUrl: customUrl,
         };
       }
       return item;
@@ -452,10 +459,16 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
                 <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-400 shrink-0" />
                 <span>Open 7:00 AM - 10:00 PM Daily</span>
               </div>
-              <div className="flex items-center gap-1.5 text-stone-300">
+              <a
+                href={settings.google_maps_url || "https://www.google.com/maps/place/Coffee+at+Yellow+Hauz/@7.0757824,125.6066351,17z/data=!3m1!4b1!4m6!3m5!1s0x32f96d74e17f56db:0xc0436864b68e2b5!8m2!3d7.0757824!4d125.6066351!16s%2Fg%2F12qgm_g5g!18m1!1e1?entry=ttu&g_ep=EgoyMDI2MDkyNy4xIKXMDSoASAFQAw%3D%3D"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-stone-300 hover:text-amber-400 transition"
+                title="View on Google Maps"
+              >
                 <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-400 shrink-0" />
                 <span>V. Mapa Street, Corner Mabini St.</span>
-              </div>
+              </a>
             </div>
           </div>
 
@@ -924,10 +937,16 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
                 </p>
 
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                  <span className="text-[11px] text-stone-400 flex items-center gap-1.5">
+                  <a
+                    href={settings.google_maps_url || "https://www.google.com/maps/place/Coffee+at+Yellow+Hauz/@7.0757824,125.6066351,17z/data=!3m1!4b1!4m6!3m5!1s0x32f96d74e17f56db:0xc0436864b68e2b5!8m2!3d7.0757824!4d125.6066351!16s%2Fg%2F12qgm_g5g!18m1!1e1?entry=ttu&g_ep=EgoyMDI2MDkyNy4xIKXMDSoASAFQAw%3D%3D"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] text-stone-400 hover:text-amber-400 flex items-center gap-1.5 transition"
+                    title="View on Google Maps"
+                  >
                     <MapPin className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                    <span>V. Mapa Street, Corner Mabini St.</span>
-                  </span>
+                    <span>V. Mapa Street, Corner Mabini St. (View Google Maps)</span>
+                  </a>
 
                   <div className="flex items-center gap-2.5">
                     <button
@@ -1465,37 +1484,47 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
               {/* Social Media Circular Buttons */}
               <div className="flex items-center gap-2.5 pt-1">
                 <a
-                  href="https://facebook.com/yellowhauzcafe"
+                  href={settings.facebook_url || "https://www.facebook.com/yellowhauz/"}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-900 border border-stone-800 text-stone-300 hover:bg-amber-500 hover:text-stone-950 hover:border-amber-400 transition shadow-sm active:scale-95 cursor-pointer"
-                  title="Facebook"
+                  title="Facebook (@yellowhauz)"
                   aria-label="Facebook"
                 >
                   <MessageCircle className="h-4 w-4" />
                 </a>
                 <a
-                  href="https://instagram.com"
+                  href={settings.instagram_url || "https://www.instagram.com/yellowhauz"}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-900 border border-stone-800 text-stone-300 hover:bg-amber-500 hover:text-stone-950 hover:border-amber-400 transition shadow-sm active:scale-95 cursor-pointer"
-                  title="Instagram"
+                  title="Instagram (@yellowhauz)"
                   aria-label="Instagram"
                 >
                   <Globe className="h-4 w-4" />
                 </a>
                 <a
-                  href={`mailto:${settings.shop_email || 'hello@yellowhauz.com'}`}
+                  href={settings.google_maps_url || "https://www.google.com/maps/place/Coffee+at+Yellow+Hauz/@7.0757824,125.6066351,17z/data=!3m1!4b1!4m6!3m5!1s0x32f96d74e17f56db:0xc0436864b68e2b5!8m2!3d7.0757824!4d125.6066351!16s%2Fg%2F12qgm_g5g!18m1!1e1?entry=ttu&g_ep=EgoyMDI2MDkyNy4xIKXMDSoASAFQAw%3D%3D"}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-900 border border-stone-800 text-stone-300 hover:bg-amber-500 hover:text-stone-950 hover:border-amber-400 transition shadow-sm active:scale-95 cursor-pointer"
-                  title="Email Us"
+                  title="Google Maps Location"
+                  aria-label="Google Maps"
+                >
+                  <MapPin className="h-4 w-4" />
+                </a>
+                <a
+                  href={`mailto:${settings.shop_email || 'yellowhauz@gmail.com'}`}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-900 border border-stone-800 text-stone-300 hover:bg-amber-500 hover:text-stone-950 hover:border-amber-400 transition shadow-sm active:scale-95 cursor-pointer"
+                  title={`Email Us: ${settings.shop_email || 'yellowhauz@gmail.com'}`}
                   aria-label="Email Us"
                 >
                   <Mail className="h-4 w-4" />
                 </a>
                 <a
-                  href={`tel:${settings.shop_phone || '+639123456789'}`}
+                  href={`tel:${(settings.shop_phone || '09231160300').replace(/\s+/g, '')}`}
                   className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-900 border border-stone-800 text-stone-300 hover:bg-amber-500 hover:text-stone-950 hover:border-amber-400 transition shadow-sm active:scale-95 cursor-pointer"
-                  title="Call Us"
+                  title={`Call Us: ${settings.shop_phone || '0923 116 0300'}`}
                   aria-label="Call Us"
                 >
                   <Phone className="h-4 w-4" />
@@ -1566,21 +1595,39 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
                 <li className="flex items-start gap-2.5">
                   <MapPin className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
                   <div className="text-stone-300">
-                    <p className="font-medium">{settings.shop_address || '102 V. Mapa Street'}</p>
+                    <a
+                      href={settings.google_maps_url || "https://www.google.com/maps/place/Coffee+at+Yellow+Hauz/@7.0757824,125.6066351,17z/data=!3m1!4b1!4m6!3m5!1s0x32f96d74e17f56db:0xc0436864b68e2b5!8m2!3d7.0757824!4d125.6066351!16s%2Fg%2F12qgm_g5g!18m1!1e1?entry=ttu&g_ep=EgoyMDI2MDkyNy4xIKXMDSoASAFQAw%3D%3D"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium hover:text-amber-400 transition underline underline-offset-2 decoration-stone-600 block"
+                    >
+                      {settings.shop_address || 'Yellow Hauz, Davao City, Philippines'}
+                    </a>
                     <p className="text-[11px] text-stone-400">V. Mapa Street, Corner Mabini St.</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-2.5">
                   <Phone className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
                   <div className="text-stone-300">
-                    <p className="font-medium">{settings.shop_phone || '+63 912 345 6789'}</p>
-                    <p className="text-[11px] text-stone-400">+63 82 227 3456</p>
+                    <a
+                      href={`tel:${(settings.shop_phone || '09231160300').replace(/\s+/g, '')}`}
+                      className="font-medium hover:text-amber-400 transition"
+                    >
+                      {settings.shop_phone || '0923 116 0300'}
+                    </a>
+                    <p className="text-[11px] text-stone-400">Direct Mobile / Call &amp; Text</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-2.5">
                   <Mail className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
                   <div className="text-stone-300">
-                    <p className="font-medium">{settings.shop_email || 'hello@yellowhauz.com'}</p>
+                    <a
+                      href={`mailto:${settings.shop_email || 'yellowhauz@gmail.com'}`}
+                      className="font-medium hover:text-amber-400 transition"
+                    >
+                      {settings.shop_email || 'yellowhauz@gmail.com'}
+                    </a>
+                    <p className="text-[11px] text-stone-400">Inquiries &amp; Events</p>
                   </div>
                 </li>
               </ul>

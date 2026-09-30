@@ -13,6 +13,9 @@ export interface SystemGalleryImage {
 export const DEFAULT_GALLERY_SETTINGS: CustomerGallerySettings = {
   heroBackground: '/images/red_brick_bg.png',
   heroFeaturedImage: '/images/food_and_drinks_images/Hot Coffee/flat_white.jpeg',
+  heroFeaturedImage2: '/images/venue.webp',
+  heroFeaturedImage3: '/images/food_and_drinks_images/Breakfast/hungarian_sausage.jpeg',
+  heroFeaturedImage4: '/images/18_Main_Counter_Interior.webp',
   reservationBanner: '/images/venue.webp',
   menuDrinksBackground: '/images/food_and_drinks_images/Hot Coffee/Spanish_latte.jpeg',
   menuFoodBackground: '/images/food_and_drinks_images/Cakes_Pastries/burnt_cheesecake.jpg',

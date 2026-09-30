@@ -17,6 +17,8 @@ import {
   Clock,
   MapPin,
   PhoneCall,
+  Mail,
+  Globe,
   Coins,
   Shield,
   KeyRound,
@@ -567,6 +569,70 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
                     value={form.business_hours}
                     onChange={(e) => setForm({ ...form, business_hours: e.target.value })}
                     placeholder="e.g. 07:00 - 22:00 Daily"
+                    className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3.5 py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none transition"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="input-shop-email" className="flex items-center gap-1.5 text-xs font-bold text-stone-700 uppercase mb-1.5">
+                    <Mail className="h-3.5 w-3.5 text-amber-600" />
+                    Store Contact Email
+                  </label>
+                  <input
+                    id="input-shop-email"
+                    type="email"
+                    value={form.shop_email || ''}
+                    onChange={(e) => setForm({ ...form, shop_email: e.target.value })}
+                    placeholder="e.g. yellowhauz@gmail.com"
+                    className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3.5 py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none transition"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="input-facebook-url" className="flex items-center gap-1.5 text-xs font-bold text-stone-700 uppercase mb-1.5">
+                    <Globe className="h-3.5 w-3.5 text-amber-600" />
+                    Facebook Page URL
+                  </label>
+                  <input
+                    id="input-facebook-url"
+                    type="url"
+                    value={form.facebook_url || ''}
+                    onChange={(e) => setForm({ ...form, facebook_url: e.target.value })}
+                    placeholder="https://www.facebook.com/yellowhauz/"
+                    className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3.5 py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none transition"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="input-instagram-url" className="flex items-center gap-1.5 text-xs font-bold text-stone-700 uppercase mb-1.5">
+                    <Globe className="h-3.5 w-3.5 text-amber-600" />
+                    Instagram Profile URL
+                  </label>
+                  <input
+                    id="input-instagram-url"
+                    type="url"
+                    value={form.instagram_url || ''}
+                    onChange={(e) => setForm({ ...form, instagram_url: e.target.value })}
+                    placeholder="https://www.instagram.com/yellowhauz"
+                    className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3.5 py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none transition"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="input-google-maps-url" className="flex items-center gap-1.5 text-xs font-bold text-stone-700 uppercase mb-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-amber-600" />
+                    Google Maps Place URL
+                  </label>
+                  <input
+                    id="input-google-maps-url"
+                    type="url"
+                    value={form.google_maps_url || ''}
+                    onChange={(e) => setForm({ ...form, google_maps_url: e.target.value })}
+                    placeholder="https://www.google.com/maps/place/..."
                     className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3.5 py-2.5 text-xs sm:text-sm text-stone-900 focus:border-amber-500 focus:bg-white focus:outline-none transition"
                   />
                 </div>

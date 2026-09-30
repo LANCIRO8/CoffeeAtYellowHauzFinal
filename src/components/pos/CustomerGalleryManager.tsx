@@ -51,6 +51,7 @@ interface SlotDefinition {
   aspectClass: string;
   recommendedCategory: SystemGalleryImage['category'];
   icon: React.ReactNode;
+  spotlightIndex?: number;
 }
 
 const GALLERY_SLOTS: SlotDefinition[] = [
@@ -68,15 +69,55 @@ const GALLERY_SLOTS: SlotDefinition[] = [
   },
   {
     key: 'heroFeaturedImage',
-    title: 'Landing Page Featured Spotlight',
-    badge: 'Customer Landing',
-    targetPage: 'Landing Page (Hero Collage Spotlight)',
-    description: 'Primary highlighted dish, coffee beverage, or café scene in the animated hero collage.',
+    title: 'Spotlight Picture #1: Artisan Brews & Coffee',
+    badge: 'Spotlight 1 of 4',
+    targetPage: 'Landing Page (Featured Spotlight Picture 1: Artisan Brews)',
+    description: 'First picture of the 4-Picture Hero Collage Spotlight (Large Left Featured Card). Highlights signature coffee drinks.',
     defaultUrl: DEFAULT_GALLERY_SETTINGS.heroFeaturedImage || '/images/food_and_drinks_images/Hot Coffee/flat_white.jpeg',
     recommendedAspect: 'Square or 4:3',
     aspectClass: 'aspect-4/3',
     recommendedCategory: 'drinks',
     icon: <Coffee className="h-4 w-4 text-amber-600" />,
+    spotlightIndex: 1,
+  },
+  {
+    key: 'heroFeaturedImage2',
+    title: 'Spotlight Picture #2: Event Spaces & Studio',
+    badge: 'Spotlight 2 of 4',
+    targetPage: 'Landing Page (Featured Spotlight Picture 2: Event Spaces)',
+    description: 'Second picture of the 4-Picture Hero Collage Spotlight (Top-Right Card). Highlights the function studio and private events.',
+    defaultUrl: DEFAULT_GALLERY_SETTINGS.heroFeaturedImage2 || '/images/venue.webp',
+    recommendedAspect: 'Square or 4:3',
+    aspectClass: 'aspect-4/3',
+    recommendedCategory: 'areas',
+    icon: <Calendar className="h-4 w-4 text-emerald-600" />,
+    spotlightIndex: 2,
+  },
+  {
+    key: 'heroFeaturedImage3',
+    title: 'Spotlight Picture #3: Comfort on a Plate & Meals',
+    badge: 'Spotlight 3 of 4',
+    targetPage: 'Landing Page (Featured Spotlight Picture 3: Comfort Meals)',
+    description: 'Third picture of the 4-Picture Hero Collage Spotlight (Middle-Right Card). Highlights comforting artisan meals and breakfast plates.',
+    defaultUrl: DEFAULT_GALLERY_SETTINGS.heroFeaturedImage3 || '/images/food_and_drinks_images/Breakfast/hungarian_sausage.jpeg',
+    recommendedAspect: 'Square or 4:3',
+    aspectClass: 'aspect-4/3',
+    recommendedCategory: 'food',
+    icon: <Utensils className="h-4 w-4 text-amber-700" />,
+    spotlightIndex: 3,
+  },
+  {
+    key: 'heroFeaturedImage4',
+    title: 'Spotlight Picture #4: Cozy Café Spaces & Ambiance',
+    badge: 'Spotlight 4 of 4',
+    targetPage: 'Landing Page (Featured Spotlight Picture 4: Cozy Ambiance)',
+    description: 'Fourth picture of the 4-Picture Hero Collage Spotlight (Bottom-Right Card). Highlights ambient café interiors, seating, and aesthetics.',
+    defaultUrl: DEFAULT_GALLERY_SETTINGS.heroFeaturedImage4 || '/images/18_Main_Counter_Interior.webp',
+    recommendedAspect: 'Square or 4:3',
+    aspectClass: 'aspect-4/3',
+    recommendedCategory: 'ambiance',
+    icon: <Sparkles className="h-4 w-4 text-orange-600" />,
+    spotlightIndex: 4,
   },
   {
     key: 'reservationBanner',
@@ -89,30 +130,6 @@ const GALLERY_SLOTS: SlotDefinition[] = [
     aspectClass: 'aspect-video',
     recommendedCategory: 'areas',
     icon: <Calendar className="h-4 w-4 text-emerald-600" />,
-  },
-  {
-    key: 'menuDrinksBackground',
-    title: 'Menu Split: Drinks & Coffee Cover',
-    badge: 'Customer Menu',
-    targetPage: 'Customer Menu (Drinks & Coffee Selection Card)',
-    description: 'Primary cover photo for the Drinks & Coffee half. On the customer split view, this smoothly rotates through each drink category photo every several seconds.',
-    defaultUrl: DEFAULT_GALLERY_SETTINGS.menuDrinksBackground || '/images/food_and_drinks_images/Hot Coffee/Spanish_latte.jpeg',
-    recommendedAspect: 'Portrait or Square (3:4 or 1:1)',
-    aspectClass: 'aspect-4/5 sm:aspect-square',
-    recommendedCategory: 'drinks',
-    icon: <Coffee className="h-4 w-4 text-amber-600" />,
-  },
-  {
-    key: 'menuFoodBackground',
-    title: 'Menu Split: Food & Pastries Cover',
-    badge: 'Customer Menu',
-    targetPage: 'Customer Menu (Food & Pastries Selection Card)',
-    description: 'Primary cover photo for the Food & Pastries half. On the customer split view, this smoothly rotates through each food category photo every several seconds.',
-    defaultUrl: DEFAULT_GALLERY_SETTINGS.menuFoodBackground || '/images/food_and_drinks_images/Cakes_Pastries/burnt_cheesecake.jpg',
-    recommendedAspect: 'Portrait or Square (3:4 or 1:1)',
-    aspectClass: 'aspect-4/5 sm:aspect-square',
-    recommendedCategory: 'food',
-    icon: <Utensils className="h-4 w-4 text-amber-700" />,
   },
 ];
 
@@ -146,6 +163,18 @@ export const CustomerGalleryManager: React.FC<CustomerGalleryManagerProps> = ({
 
   // Full Screen Preview Modal State
   const [previewImage, setPreviewImage] = useState<{ title: string; url: string; slot: string } | null>(null);
+
+  const [sectionFilter, setSectionFilter] = useState<'all' | 'spotlight' | 'covers'>('all');
+
+  const displayedSlots = useMemo(() => {
+    if (sectionFilter === 'spotlight') {
+      return GALLERY_SLOTS.filter((s) => s.key.startsWith('heroFeaturedImage'));
+    }
+    if (sectionFilter === 'covers') {
+      return GALLERY_SLOTS.filter((s) => !s.key.startsWith('heroFeaturedImage'));
+    }
+    return GALLERY_SLOTS;
+  }, [sectionFilter]);
 
   const activeSlotDef = useMemo(() => {
     return GALLERY_SLOTS.find((s) => s.key === activeSlotKey) || null;
@@ -311,7 +340,7 @@ export const CustomerGalleryManager: React.FC<CustomerGalleryManagerProps> = ({
               Manage Customer App Banners &amp; Visuals
             </h2>
             <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400 leading-relaxed">
-              Customize key customer-facing cover images in real time — including the landing page hero wallpaper, private studio reservation banner, and the customer menu split screen. Upload your own photography or choose from the system's curated collection.
+              Customize key customer-facing visuals in real time — including the landing page hero wallpaper, the 4-picture featured spotlight, and the private studio reservation banner. Upload your own photography or choose from the system's curated collection. (Note: Customer Menu split covers are dynamically powered by your live category images).
             </p>
           </div>
 
@@ -328,9 +357,201 @@ export const CustomerGalleryManager: React.FC<CustomerGalleryManagerProps> = ({
         </div>
       </div>
 
-      {/* Grid of the 5 Customer Image Slots */}
+      {/* Featured Spotlight: 4 Changeable Pictures Interactive Showcase */}
+      <div className="rounded-3xl border border-amber-300/80 dark:border-amber-700/60 bg-white dark:bg-stone-900 p-5 sm:p-6 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-stone-100 dark:border-stone-800">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="grid h-6 w-6 place-items-center rounded-lg bg-amber-500 text-stone-950 font-black text-xs shadow-xs">
+                4
+              </span>
+              <h3 className="font-display font-black text-base sm:text-lg text-stone-900 dark:text-stone-100">
+                Landing Page Featured Spotlight (4 Changeable Pictures)
+              </h3>
+            </div>
+            <p className="text-xs text-stone-500 dark:text-stone-400">
+              The landing page hero collage rotates continuously across these 4 changeable pictures. Click <span className="font-bold text-amber-700 dark:text-amber-400">Upload</span> or <span className="font-bold text-amber-700 dark:text-amber-400">Choose</span> on any picture to customize it in real time.
+            </p>
+          </div>
+          <span className="shrink-0 self-start sm:self-auto rounded-full bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700 px-3 py-1 text-[11px] font-bold text-amber-900 dark:text-amber-300">
+            4 Spotlight Pictures Active
+          </span>
+        </div>
+
+        {/* 4-Picture Hero Collage Live Layout Preview */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {[
+            {
+              key: 'heroFeaturedImage' as GallerySlotKey,
+              num: 1,
+              label: 'Picture 1: Artisan Brews',
+              target: 'Coffee & Specialty Drinks',
+              aspect: 'Large Left Slot',
+              icon: <Coffee className="h-3.5 w-3.5 text-amber-600" />,
+              defaultUrl: DEFAULT_GALLERY_SETTINGS.heroFeaturedImage || '/images/food_and_drinks_images/Hot Coffee/flat_white.jpeg',
+            },
+            {
+              key: 'heroFeaturedImage2' as GallerySlotKey,
+              num: 2,
+              label: 'Picture 2: Event Spaces',
+              target: 'Studio Venue & Private Events',
+              aspect: 'Top Right Slot',
+              icon: <Calendar className="h-3.5 w-3.5 text-emerald-600" />,
+              defaultUrl: DEFAULT_GALLERY_SETTINGS.heroFeaturedImage2 || '/images/venue.webp',
+            },
+            {
+              key: 'heroFeaturedImage3' as GallerySlotKey,
+              num: 3,
+              label: 'Picture 3: Comfort on a Plate',
+              target: 'Artisan Fare & Breakfast',
+              aspect: 'Middle Right Slot',
+              icon: <Utensils className="h-3.5 w-3.5 text-amber-700" />,
+              defaultUrl: DEFAULT_GALLERY_SETTINGS.heroFeaturedImage3 || '/images/food_and_drinks_images/Breakfast/hungarian_sausage.jpeg',
+            },
+            {
+              key: 'heroFeaturedImage4' as GallerySlotKey,
+              num: 4,
+              label: 'Picture 4: Cozy Café Spaces',
+              target: 'Ambiance & Seating Nooks',
+              aspect: 'Bottom Right Slot',
+              icon: <Sparkles className="h-3.5 w-3.5 text-orange-600" />,
+              defaultUrl: DEFAULT_GALLERY_SETTINGS.heroFeaturedImage4 || '/images/18_Main_Counter_Interior.webp',
+            },
+          ].map((pic) => {
+            const currentUrl = (galleryState[pic.key] as string) || pic.defaultUrl;
+            const isCustom = currentUrl.startsWith('data:');
+            const isDef = currentUrl === pic.defaultUrl;
+
+            return (
+              <div
+                key={pic.key}
+                className="group relative flex flex-col justify-between rounded-2xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-850 p-3 hover:border-amber-400 dark:hover:border-amber-500 transition shadow-2xs"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-1 mb-2">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-black text-stone-900 dark:text-stone-100">
+                      {pic.icon}
+                      <span>{pic.label}</span>
+                    </span>
+                    <span
+                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${
+                        isDef
+                          ? 'bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300'
+                          : isCustom
+                          ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
+                          : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'
+                      }`}
+                    >
+                      {isDef ? 'Preset' : isCustom ? 'Custom' : 'Library'}
+                    </span>
+                  </div>
+
+                  <div className="relative aspect-4/3 w-full rounded-xl overflow-hidden bg-stone-950 border border-stone-200 dark:border-stone-700 mb-2.5">
+                    <img
+                      src={currentUrl}
+                      alt={pic.label}
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = pic.defaultUrl;
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent pointer-events-none" />
+
+                    <div className="absolute bottom-1.5 left-2 right-2 flex items-center justify-between text-[10px] text-white font-mono font-medium drop-shadow-sm">
+                      <span className="truncate">{pic.aspect}</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPreviewImage({
+                            title: pic.label,
+                            url: currentUrl,
+                            slot: pic.target,
+                          })
+                        }
+                        className="rounded-md bg-black/60 p-1 hover:bg-black/90 transition cursor-pointer text-amber-300"
+                        title="Zoom Preview"
+                      >
+                        <Eye className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-stone-500 dark:text-stone-400 mb-2 truncate">
+                    Focus: {pic.target}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-stone-200/70 dark:border-stone-750">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenUpload(pic.key)}
+                    className="flex items-center justify-center gap-1 rounded-xl bg-stone-900 dark:bg-amber-500 text-white dark:text-stone-950 py-1.5 text-[10.5px] font-bold hover:bg-stone-800 dark:hover:bg-amber-400 transition cursor-pointer active:scale-95"
+                  >
+                    <Upload className="h-3 w-3" />
+                    <span>Upload</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenPicker(pic.key)}
+                    className="flex items-center justify-center gap-1 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-850 text-stone-800 dark:text-stone-200 py-1.5 text-[10.5px] font-bold hover:bg-stone-100 dark:hover:bg-stone-750 transition cursor-pointer active:scale-95"
+                  >
+                    <Images className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                    <span>Choose</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Category Section Filter Tabs */}
+      <div className="flex items-center justify-between gap-3 flex-wrap pt-2">
+        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700">
+          <button
+            type="button"
+            onClick={() => setSectionFilter('all')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+              sectionFilter === 'all'
+                ? 'bg-white dark:bg-stone-700 text-stone-950 dark:text-stone-100 shadow-2xs font-black'
+                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+            }`}
+          >
+            All Visuals ({GALLERY_SLOTS.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setSectionFilter('spotlight')}
+            className={`flex items-center gap-1 px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+              sectionFilter === 'spotlight'
+                ? 'bg-amber-500 text-stone-950 shadow-2xs font-black'
+                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+            }`}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>Featured Spotlight (4 Pictures)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSectionFilter('covers')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+              sectionFilter === 'covers'
+                ? 'bg-white dark:bg-stone-700 text-stone-950 dark:text-stone-100 shadow-2xs font-black'
+                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+            }`}
+          >
+            Wallpapers &amp; Reservations (2)
+          </button>
+        </div>
+
+        <span className="text-xs text-stone-500 dark:text-stone-400">
+          Showing {displayedSlots.length} of {GALLERY_SLOTS.length} visual slots
+        </span>
+      </div>
+
+      {/* Grid of the Customer Image Slots */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-        {GALLERY_SLOTS.map((slot) => {
+        {displayedSlots.map((slot) => {
           const currentUrl = (galleryState[slot.key] as string) || slot.defaultUrl;
           const isCustomUploaded = currentUrl.startsWith('data:');
           const isPresetOrSystem = !isCustomUploaded;
@@ -457,18 +678,28 @@ export const CustomerGalleryManager: React.FC<CustomerGalleryManagerProps> = ({
                   </button>
                 </div>
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-                  {SYSTEM_EXISTING_IMAGES.filter((img) =>
-                    img.recommendedFor.includes(
-                      slot.key === 'heroBackground' || slot.key === 'heroFeaturedImage'
-                        ? 'hero'
-                        : slot.key === 'reservationBanner'
-                        ? 'reservation'
-                        : slot.key === 'menuDrinksBackground'
-                        ? 'drinks'
-                        : 'food'
-                    )
-                  )
-                    .slice(0, 4)
+                  {SYSTEM_EXISTING_IMAGES.filter((img) => {
+                    if (slot.key === 'heroFeaturedImage') {
+                      return img.category === 'drinks' || img.recommendedFor.includes('hero');
+                    }
+                    if (slot.key === 'heroFeaturedImage2') {
+                      return img.category === 'areas' || img.recommendedFor.includes('reservation');
+                    }
+                    if (slot.key === 'heroFeaturedImage3') {
+                      return img.category === 'food' || img.recommendedFor.includes('food');
+                    }
+                    if (slot.key === 'heroFeaturedImage4') {
+                      return img.category === 'ambiance' || img.recommendedFor.includes('hero');
+                    }
+                    if (slot.key === 'heroBackground') {
+                      return img.category === 'ambiance' || img.recommendedFor.includes('hero');
+                    }
+                    if (slot.key === 'reservationBanner') {
+                      return img.category === 'areas' || img.recommendedFor.includes('reservation');
+                    }
+                    return img.category === 'ambiance' || img.recommendedFor.includes('hero');
+                  })
+                    .slice(0, 5)
                     .map((preset) => {
                       const isSelected = currentUrl === preset.url;
                       return (

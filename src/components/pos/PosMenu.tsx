@@ -187,14 +187,28 @@ export const PosMenu: React.FC<PosMenuProps> = ({
   };
 
   const foodCategories = useMemo(() => {
-    return categories.filter((c) => !isDrinkCategory(c));
+    return categories.filter((c) => (c.status || 'active') === 'active' && !isDrinkCategory(c));
   }, [categories]);
 
   const drinkCategories = useMemo(() => {
-    return categories.filter((c) => isDrinkCategory(c));
+    return categories.filter((c) => (c.status || 'active') === 'active' && isDrinkCategory(c));
   }, [categories]);
 
   const currentCategoriesList = categoryType === 'drinks' ? drinkCategories : foodCategories;
+
+  // Auto-switch selectedCategory away if the active category is made inactive
+  useEffect(() => {
+    if (selectedCategory !== 'all') {
+      const activeInCurrent = currentCategoriesList.some((c) => c.id === selectedCategory);
+      if (!activeInCurrent) {
+        if (currentCategoriesList.length > 0) {
+          setSelectedCategory(currentCategoriesList[0].id);
+        } else {
+          setSelectedCategory('all');
+        }
+      }
+    }
+  }, [currentCategoriesList, selectedCategory]);
 
   // Category Icon resolver matching design
   const renderCategoryIcon = (categoryName: string, isDrink: boolean, iconName?: string) => {
@@ -262,11 +276,16 @@ export const PosMenu: React.FC<PosMenuProps> = ({
   // Filter Items
   const filteredItems = useMemo(() => {
     const trimmedQuery = searchQuery.trim().toLowerCase();
+    const activeCategoryIds = new Set(
+      categories.filter((c) => (c.status || 'active') === 'active').map((c) => c.id)
+    );
 
     return menuItems.filter((item) => {
       if (!item.isAvailable) return false;
+      // Inactive (Hidden) categories must not be displayed in Cashier POS
+      if (!activeCategoryIds.has(item.categoryId)) return false;
 
-      // When the cashier is searching, search globally across all items
+      // When the cashier is searching, search globally across all items in active categories
       // (not restricted by current category, drinks/food tab, or best-sellers filter)
       if (trimmedQuery) {
         return (
@@ -786,27 +805,33 @@ export const PosMenu: React.FC<PosMenuProps> = ({
 
           {/* Vertical Category Buttons List */}
           <div className="flex-1 overflow-y-auto p-2 pt-1 space-y-1.5">
-            {currentCategoriesList.map((cat) => {
-              const isSelected = selectedCategory === cat.id;
+            {currentCategoriesList.length === 0 ? (
+              <div className="py-6 px-2 text-center text-stone-400 dark:text-stone-500 text-xs">
+                No active categories
+              </div>
+            ) : (
+              currentCategoriesList.map((cat) => {
+                const isSelected = selectedCategory === cat.id;
 
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className={`w-full flex items-center gap-2 text-left rounded-full px-3 py-2 text-xs font-black transition-all duration-150 border ${
-                    isSelected
-                      ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-xs'
-                      : 'bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-200 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-700/60 hover:border-stone-300 dark:hover:border-stone-600 shadow-2xs active:scale-[0.98]'
-                  }`}
-                >
-                  <span className={isSelected ? 'text-stone-950' : 'text-stone-900 dark:text-stone-200'}>
-                    {renderCategoryIcon(cat.name, categoryType === 'drinks', cat.icon)}
-                  </span>
-                  <span className="truncate flex-1 tracking-tight font-black text-[11px]">{cat.name}</span>
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={`w-full flex items-center gap-2 text-left rounded-full px-3 py-2 text-xs font-black transition-all duration-150 border ${
+                      isSelected
+                        ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-xs'
+                        : 'bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-200 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-700/60 hover:border-stone-300 dark:hover:border-stone-600 shadow-2xs active:scale-[0.98]'
+                    }`}
+                  >
+                    <span className={isSelected ? 'text-stone-950' : 'text-stone-900 dark:text-stone-200'}>
+                      {renderCategoryIcon(cat.name, categoryType === 'drinks', cat.icon)}
+                    </span>
+                    <span className="truncate flex-1 tracking-tight font-black text-[11px]">{cat.name}</span>
+                  </button>
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -878,27 +903,33 @@ export const PosMenu: React.FC<PosMenuProps> = ({
           {/* Expanded Mobile Categories Grid */}
           {isMobileCategoriesOpen && (
             <div className="mt-2.5 pt-2.5 border-t border-stone-200 dark:border-stone-800 grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-56 overflow-y-auto pr-1">
-              {currentCategoriesList.map((cat) => {
-                const isSelected = selectedCategory === cat.id;
-                return (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedCategory(cat.id);
-                      setIsMobileCategoriesOpen(false);
-                    }}
-                    className={`flex items-center gap-2 text-left rounded-xl px-2.5 py-2 text-xs font-bold transition-all border ${
-                      isSelected
-                        ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-xs'
-                        : 'bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-700 shadow-2xs'
-                    }`}
-                  >
-                    <span>{renderCategoryIcon(cat.name, categoryType === 'drinks', cat.icon)}</span>
-                    <span className="truncate flex-1 text-[11px] font-black">{cat.name}</span>
-                  </button>
-                );
-              })}
+              {currentCategoriesList.length === 0 ? (
+                <div className="col-span-full py-4 text-center text-stone-400 dark:text-stone-500 text-xs">
+                  No active categories
+                </div>
+              ) : (
+                currentCategoriesList.map((cat) => {
+                  const isSelected = selectedCategory === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategory(cat.id);
+                        setIsMobileCategoriesOpen(false);
+                      }}
+                      className={`flex items-center gap-2 text-left rounded-xl px-2.5 py-2 text-xs font-bold transition-all border ${
+                        isSelected
+                          ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-xs'
+                          : 'bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-700 shadow-2xs'
+                      }`}
+                    >
+                      <span>{renderCategoryIcon(cat.name, categoryType === 'drinks', cat.icon)}</span>
+                      <span className="truncate flex-1 text-[11px] font-black">{cat.name}</span>
+                    </button>
+                  );
+                })
+              )}
             </div>
           )}
         </div>

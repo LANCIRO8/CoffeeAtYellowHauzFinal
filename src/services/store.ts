@@ -1797,7 +1797,34 @@ export class AppStore {
 
   // Store Settings
   static getSettings(): StoreSettings {
-    return getStored<StoreSettings>(STORAGE_KEYS.SETTINGS, SEED_SETTINGS);
+    const s = getStored<StoreSettings>(STORAGE_KEYS.SETTINGS, SEED_SETTINGS);
+    let needsUpdate = false;
+    const merged: StoreSettings = { ...SEED_SETTINGS, ...s };
+    if (!merged.shop_phone || merged.shop_phone === '+63 912 345 6789' || merged.shop_phone === '(082) 227-9952') {
+      merged.shop_phone = '0923 116 0300';
+      needsUpdate = true;
+    }
+    if (!merged.shop_email || merged.shop_email === 'hello@yellowhauz.com') {
+      merged.shop_email = 'yellowhauz@gmail.com';
+      needsUpdate = true;
+    }
+    if (!merged.facebook_url || merged.facebook_url.includes('yellowhauzcafe')) {
+      merged.facebook_url = 'https://www.facebook.com/yellowhauz/';
+      needsUpdate = true;
+    }
+    if (!merged.instagram_url || merged.instagram_url === 'https://instagram.com') {
+      merged.instagram_url = 'https://www.instagram.com/yellowhauz';
+      needsUpdate = true;
+    }
+    if (!merged.google_maps_url) {
+      merged.google_maps_url =
+        'https://www.google.com/maps/place/Coffee+at+Yellow+Hauz/@7.0757824,125.6066351,17z/data=!3m1!4b1!4m6!3m5!1s0x32f96d74e17f56db:0xc0436864b68e2b5!8m2!3d7.0757824!4d125.6066351!16s%2Fg%2F12qgm_g5g!18m1!1e1?entry=ttu&g_ep=EgoyMDI2MDkyNy4xIKXMDSoASAFQAw%3D%3D';
+      needsUpdate = true;
+    }
+    if (needsUpdate) {
+      setStored(STORAGE_KEYS.SETTINGS, merged);
+    }
+    return merged;
   }
 
   static saveSettings(settings: StoreSettings): void {
@@ -2677,7 +2704,11 @@ export class AppStore {
       };
     }
 
-    const allItems = this.getMenuItems();
+    const allCategories = this.getCategories();
+    const activeCatIds = new Set(
+      allCategories.filter((c) => (c.status || 'active') === 'active').map((c) => c.id)
+    );
+    const allItems = this.getMenuItems().filter((item) => activeCatIds.has(item.categoryId));
 
     // Check intents by exact pattern or keywords
     let bestMatch: ChatIntent | null = null;

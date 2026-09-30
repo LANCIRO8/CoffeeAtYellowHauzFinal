@@ -146,11 +146,9 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
 }) => {
   const { showAlert, showConfirm } = useModal();
 
-  // Dynamic hero backgrounds configurable via Admin Gallery Settings
-  const drinksHeroBg =
-    settings?.customer_gallery?.menuDrinksBackground || DRINKS_HERO_BG;
-  const foodHeroBg =
-    settings?.customer_gallery?.menuFoodBackground || FOOD_HERO_BG;
+  // Dynamic hero backgrounds
+  const drinksHeroBg = DRINKS_HERO_BG;
+  const foodHeroBg = FOOD_HERO_BG;
 
   // Navigation hierarchy:
   // selectedType: null (Stage 1: Split View) | 'drinks' | 'food' (Stage 2 & 3)
@@ -443,31 +441,19 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
   };
 
   const drinkCategories = useMemo(() => {
-    return categories.filter((c) => isDrinkCategory(c));
+    return categories.filter((c) => (c.status || 'active') === 'active' && isDrinkCategory(c));
   }, [categories]);
 
   const foodCategories = useMemo(() => {
-    return categories.filter((c) => !isDrinkCategory(c));
+    return categories.filter((c) => (c.status || 'active') === 'active' && !isDrinkCategory(c));
   }, [categories]);
 
-  // Dynamic rotating covers for Split View derived from respected category images
+  // Dynamic rotating covers for Split View derived purely from respected category images
   const drinkCategoryCovers = useMemo(() => {
     const list: { url: string; categoryName: string; categoryId: number }[] = [];
     const seen = new Set<string>();
 
-    // If admin uploaded a custom background specifically for Menu Drinks Cover, include it first
-    const customCover = settings?.customer_gallery?.menuDrinksBackground;
-    const isCustomCoverUploaded = customCover && customCover.startsWith('data:');
-    if (isCustomCoverUploaded) {
-      list.push({
-        url: customCover,
-        categoryName: 'Drinks & Coffee',
-        categoryId: -1,
-      });
-      seen.add(customCover);
-    }
-
-    // Include every drink category and its respective image
+    // Include every active drink category and its respective image
     drinkCategories.forEach((cat) => {
       const imgUrl =
         cat.imageUrl ||
@@ -475,7 +461,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
         menuItems.find((i) => i.categoryId === cat.id && i.imageUrl && i.isAvailable)?.imageUrl ||
         DRINKS_HERO_BG;
 
-      if (imgUrl) {
+      if (imgUrl && !seen.has(imgUrl)) {
         list.push({
           url: imgUrl,
           categoryName: cat.name,
@@ -484,15 +470,6 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
         seen.add(imgUrl);
       }
     });
-
-    // If customCover is a system URL that wasn't already in the drink categories
-    if (customCover && !seen.has(customCover) && !isCustomCoverUploaded) {
-      list.unshift({
-        url: customCover,
-        categoryName: 'Drinks & Coffee',
-        categoryId: -1,
-      });
-    }
 
     if (list.length === 0) {
       list.push({
@@ -503,25 +480,13 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
     }
 
     return list;
-  }, [drinkCategories, menuItems, settings?.customer_gallery?.menuDrinksBackground]);
+  }, [drinkCategories, menuItems]);
 
   const foodCategoryCovers = useMemo(() => {
     const list: { url: string; categoryName: string; categoryId: number }[] = [];
     const seen = new Set<string>();
 
-    // If admin uploaded a custom background specifically for Menu Food Cover, include it first
-    const customCover = settings?.customer_gallery?.menuFoodBackground;
-    const isCustomCoverUploaded = customCover && customCover.startsWith('data:');
-    if (isCustomCoverUploaded) {
-      list.push({
-        url: customCover,
-        categoryName: 'Food & Pastries',
-        categoryId: -1,
-      });
-      seen.add(customCover);
-    }
-
-    // Include every food category and its respective image
+    // Include every active food category and its respective image
     foodCategories.forEach((cat) => {
       const imgUrl =
         cat.imageUrl ||
@@ -529,7 +494,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
         menuItems.find((i) => i.categoryId === cat.id && i.imageUrl && i.isAvailable)?.imageUrl ||
         FOOD_HERO_BG;
 
-      if (imgUrl) {
+      if (imgUrl && !seen.has(imgUrl)) {
         list.push({
           url: imgUrl,
           categoryName: cat.name,
@@ -538,15 +503,6 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
         seen.add(imgUrl);
       }
     });
-
-    // If customCover is a system URL that wasn't already in the food categories
-    if (customCover && !seen.has(customCover) && !isCustomCoverUploaded) {
-      list.unshift({
-        url: customCover,
-        categoryName: 'Food & Pastries',
-        categoryId: -1,
-      });
-    }
 
     if (list.length === 0) {
       list.push({
@@ -557,7 +513,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
     }
 
     return list;
-  }, [foodCategories, menuItems, settings?.customer_gallery?.menuFoodBackground]);
+  }, [foodCategories, menuItems]);
 
   // Rotating slide indexes for Drinks and Food covers
   const [drinkSlideIndex, setDrinkSlideIndex] = useState(0);
@@ -656,17 +612,31 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
     return isDrink ? <Coffee className="h-4 w-4 shrink-0 stroke-[2.2]" /> : <Utensils className="h-4 w-4 shrink-0 stroke-[2.2]" />;
   };
 
+  // Auto-switch away from selectedCategory if it was marked inactive
+  useEffect(() => {
+    if (selectedCategory !== null) {
+      const activeCat = categories.find((c) => c.id === selectedCategory && (c.status || 'active') === 'active');
+      if (!activeCat) {
+        setSelectedCategory(null);
+      }
+    }
+  }, [categories, selectedCategory]);
+
   // Get active Category object if selected
   const currentCategoryObj = useMemo(() => {
     if (!selectedCategory) return null;
-    return categories.find((c) => c.id === selectedCategory) || null;
+    const cat = categories.find((c) => c.id === selectedCategory);
+    if (!cat || (cat.status || 'active') === 'inactive') return null;
+    return cat;
   }, [categories, selectedCategory]);
 
-  // Items in active category
+  // Items in active category (only if category itself is active)
   const categoryItems = useMemo(() => {
     if (!selectedCategory) return [];
+    const cat = categories.find((c) => c.id === selectedCategory);
+    if (!cat || (cat.status || 'active') === 'inactive') return [];
     return menuItems.filter((item) => item.categoryId === selectedCategory && item.isAvailable);
-  }, [menuItems, selectedCategory]);
+  }, [menuItems, categories, selectedCategory]);
 
   // Best sellers vs Other items in active category
   const { bestSellers, otherItems } = useMemo(() => {
@@ -686,16 +656,20 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
     };
   }, [categoryItems, selectedCategory]);
 
-  // Global search results
+  // Global search results (strictly excluding items from inactive categories)
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase().trim();
+    const activeCategoryIds = new Set(
+      categories.filter((c) => (c.status || 'active') === 'active').map((c) => c.id)
+    );
     return menuItems.filter(
       (item) =>
         item.isAvailable &&
+        activeCategoryIds.has(item.categoryId) &&
         (item.name.toLowerCase().includes(q) || item.description.toLowerCase().includes(q))
     );
-  }, [menuItems, searchQuery]);
+  }, [categories, menuItems, searchQuery]);
 
   // Cart operations
   const handleAddToCart = (item: MenuItem) => {
@@ -1685,40 +1659,46 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                     </button>
 
                     {/* All Individual Category Pills */}
-                    {currentCategoriesList.map((cat) => {
-                      const isCurrent = selectedCategory === cat.id;
-                      const itemCount = menuItems.filter((i) => i.categoryId === cat.id && i.isAvailable).length;
+                    {currentCategoriesList.length === 0 ? (
+                      <div className="py-3 px-2 text-center text-[11px] text-stone-400 dark:text-stone-500">
+                        No active categories
+                      </div>
+                    ) : (
+                      currentCategoriesList.map((cat) => {
+                        const isCurrent = selectedCategory === cat.id;
+                        const itemCount = menuItems.filter((i) => i.categoryId === cat.id && i.isAvailable).length;
 
-                      return (
-                        <button
-                          key={cat.id}
-                          type="button"
-                          id={`category-nav-pill-${cat.id}`}
-                          onClick={() => setSelectedCategory(cat.id)}
-                          className={`flex items-center justify-between rounded-2xl px-2.5 py-1.5 text-xs font-bold transition-all duration-150 border cursor-pointer whitespace-nowrap w-full text-left ${
-                            isCurrent
-                              ? 'bg-amber-500 text-stone-950 border-amber-500 font-black shadow-xs'
-                              : 'bg-stone-50 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-750 hover:border-stone-300 dark:hover:border-stone-600'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 truncate min-w-0">
-                            <span className={`shrink-0 ${isCurrent ? 'text-stone-950' : 'text-amber-700 dark:text-amber-400'}`}>
-                              {renderCategoryIcon(cat.name, selectedType === 'drinks', cat.icon)}
-                            </span>
-                            <span className="truncate">{cat.name}</span>
-                          </div>
-                          <span
-                            className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full shrink-0 ml-1 ${
+                        return (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            id={`category-nav-pill-${cat.id}`}
+                            onClick={() => setSelectedCategory(cat.id)}
+                            className={`flex items-center justify-between rounded-2xl px-2.5 py-1.5 text-xs font-bold transition-all duration-150 border cursor-pointer whitespace-nowrap w-full text-left ${
                               isCurrent
-                                ? 'bg-stone-950 text-amber-300'
-                                : 'bg-stone-200/70 dark:bg-stone-700 text-stone-500 dark:text-stone-300'
+                                ? 'bg-amber-500 text-stone-950 border-amber-500 font-black shadow-xs'
+                                : 'bg-stone-50 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-750 hover:border-stone-300 dark:hover:border-stone-600'
                             }`}
                           >
-                            {itemCount}
-                          </span>
-                        </button>
-                      );
-                    })}
+                            <div className="flex items-center gap-2 truncate min-w-0">
+                              <span className={`shrink-0 ${isCurrent ? 'text-stone-950' : 'text-amber-700 dark:text-amber-400'}`}>
+                                {renderCategoryIcon(cat.name, selectedType === 'drinks', cat.icon)}
+                              </span>
+                              <span className="truncate">{cat.name}</span>
+                            </div>
+                            <span
+                              className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full shrink-0 ml-1 ${
+                                isCurrent
+                                  ? 'bg-stone-950 text-amber-300'
+                                  : 'bg-stone-200/70 dark:bg-stone-700 text-stone-500 dark:text-stone-300'
+                              }`}
+                            >
+                              {itemCount}
+                            </span>
+                          </button>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
 
@@ -1847,39 +1827,45 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       </button>
 
                       {/* Individual Categories */}
-                      {currentCategoriesList.map((cat) => {
-                        const isCurrent = selectedCategory === cat.id;
-                        const count = menuItems.filter((i) => i.categoryId === cat.id && i.isAvailable).length;
+                      {currentCategoriesList.length === 0 ? (
+                        <div className="py-4 text-center text-xs text-stone-400 dark:text-stone-500">
+                          No active categories
+                        </div>
+                      ) : (
+                        currentCategoriesList.map((cat) => {
+                          const isCurrent = selectedCategory === cat.id;
+                          const count = menuItems.filter((i) => i.categoryId === cat.id && i.isAvailable).length;
 
-                        return (
-                          <button
-                            key={cat.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedCategory(cat.id);
-                              setIsMobileCategoryModalOpen(false);
-                            }}
-                            className={`w-full flex items-center justify-between p-3 rounded-2xl border text-left text-xs font-bold transition cursor-pointer ${
-                              isCurrent
-                                ? 'bg-amber-500 border-amber-500 text-stone-950 shadow-xs font-black'
-                                : 'bg-stone-50 dark:bg-stone-850 border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2.5">
-                              <span className={`grid h-7 w-7 place-items-center rounded-xl ${isCurrent ? 'bg-white/30 text-stone-950' : 'bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-amber-700 dark:text-amber-400'}`}>
-                                {renderCategoryIcon(cat.name, selectedType === 'drinks', cat.icon)}
-                              </span>
-                              <span>{cat.name}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${isCurrent ? 'bg-stone-950 text-amber-400' : 'bg-stone-200/80 dark:bg-stone-700 text-stone-700 dark:text-stone-300'}`}>
-                                {count}
-                              </span>
-                              {isCurrent && <Check className="h-4 w-4 stroke-[3]" />}
-                            </div>
-                          </button>
-                        );
-                      })}
+                          return (
+                            <button
+                              key={cat.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedCategory(cat.id);
+                                setIsMobileCategoryModalOpen(false);
+                              }}
+                              className={`w-full flex items-center justify-between p-3 rounded-2xl border text-left text-xs font-bold transition cursor-pointer ${
+                                isCurrent
+                                  ? 'bg-amber-500 border-amber-500 text-stone-950 shadow-xs font-black'
+                                  : 'bg-stone-50 dark:bg-stone-850 border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <span className={`grid h-7 w-7 place-items-center rounded-xl ${isCurrent ? 'bg-white/30 text-stone-950' : 'bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-amber-700 dark:text-amber-400'}`}>
+                                  {renderCategoryIcon(cat.name, selectedType === 'drinks', cat.icon)}
+                                </span>
+                                <span>{cat.name}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${isCurrent ? 'bg-stone-950 text-amber-400' : 'bg-stone-200/80 dark:bg-stone-700 text-stone-700 dark:text-stone-300'}`}>
+                                  {count}
+                                </span>
+                                {isCurrent && <Check className="h-4 w-4 stroke-[3]" />}
+                              </div>
+                            </button>
+                          );
+                        })
+                      )}
                     </div>
 
                     {/* Column Layout Filter inside Category Selection Modal */}
@@ -1933,48 +1919,56 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                 {/* ----------------------------------------------------------- */}
                 {selectedCategory === null && (
                   <div className="space-y-3 animate-in fade-in duration-300">
-                    {/* Category Cards Grid - Dynamic 1, 2, 3, 4, 5 columns */}
-                    <div
-                      className={`grid gap-1.5 sm:gap-2.5 ${getCategoryGridClass()}`}
-                    >
-                      {currentCategoriesList.map((cat) => {
-                        const count = menuItems.filter((i) => i.categoryId === cat.id && i.isAvailable).length;
-                        const catImg =
-                          cat.imageUrl ||
-                          CATEGORY_IMAGES[cat.name.toLowerCase()] ||
-                          (selectedType === 'drinks' ? drinksHeroBg : foodHeroBg);
+                    {currentCategoriesList.length === 0 ? (
+                      <div className="rounded-3xl border border-dashed border-stone-200 dark:border-stone-800 p-12 text-center bg-white dark:bg-stone-900">
+                        <Coffee className="h-10 w-10 text-stone-300 dark:text-stone-700 mx-auto mb-3" />
+                        <p className="font-display text-base font-bold text-stone-700 dark:text-stone-300">No active {selectedType} categories available</p>
+                        <p className="text-xs text-stone-400 mt-1">Please check back soon!</p>
+                      </div>
+                    ) : (
+                      /* Category Cards Grid - Dynamic 1, 2, 3, 4, 5 columns */
+                      <div
+                        className={`grid gap-1.5 sm:gap-2.5 ${getCategoryGridClass()}`}
+                      >
+                        {currentCategoriesList.map((cat) => {
+                          const count = menuItems.filter((i) => i.categoryId === cat.id && i.isAvailable).length;
+                          const catImg =
+                            cat.imageUrl ||
+                            CATEGORY_IMAGES[cat.name.toLowerCase()] ||
+                            (selectedType === 'drinks' ? drinksHeroBg : foodHeroBg);
 
-                        return (
-                          <div
-                            key={cat.id}
-                            id={`category-card-${cat.id}`}
-                            onClick={() => setSelectedCategory(cat.id)}
-                            className="group relative cursor-pointer overflow-hidden rounded-2xl sm:rounded-3xl border border-stone-200/80 bg-stone-950 shadow-xs transition-all duration-300 hover:shadow-xl hover:border-amber-400 hover:-translate-y-0.5"
-                          >
-                            {/* Card Image - Seamless Edge-to-Edge */}
-                            <div className="relative aspect-16/10 sm:aspect-16/9 w-full overflow-hidden">
-                              <img
-                                src={catImg}
-                                alt={cat.name}
-                                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-108"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-stone-950/85 via-stone-950/20 to-transparent" />
+                          return (
+                            <div
+                              key={cat.id}
+                              id={`category-card-${cat.id}`}
+                              onClick={() => setSelectedCategory(cat.id)}
+                              className="group relative cursor-pointer overflow-hidden rounded-2xl sm:rounded-3xl border border-stone-200/80 bg-stone-950 shadow-xs transition-all duration-300 hover:shadow-xl hover:border-amber-400 hover:-translate-y-0.5"
+                            >
+                              {/* Card Image - Seamless Edge-to-Edge */}
+                              <div className="relative aspect-16/10 sm:aspect-16/9 w-full overflow-hidden">
+                                <img
+                                  src={catImg}
+                                  alt={cat.name}
+                                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-108"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-stone-950/85 via-stone-950/20 to-transparent" />
 
-                              <div className="absolute bottom-2 left-2 sm:bottom-2.5 sm:left-2.5 flex items-center gap-1 sm:gap-1.5 rounded-full bg-stone-950/85 backdrop-blur-md px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs font-extrabold text-amber-400 shadow-md">
-                                <span className="scale-90 sm:scale-100">
-                                  {renderCategoryIcon(cat.name, selectedType === 'drinks', cat.icon)}
-                                </span>
-                                <span className="truncate max-w-[85px] sm:max-w-none">{cat.name}</span>
-                              </div>
+                                <div className="absolute bottom-2 left-2 sm:bottom-2.5 sm:left-2.5 flex items-center gap-1 sm:gap-1.5 rounded-full bg-stone-950/85 backdrop-blur-md px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs font-extrabold text-amber-400 shadow-md">
+                                  <span className="scale-90 sm:scale-100">
+                                    {renderCategoryIcon(cat.name, selectedType === 'drinks', cat.icon)}
+                                  </span>
+                                  <span className="truncate max-w-[85px] sm:max-w-none">{cat.name}</span>
+                                </div>
 
-                              <div className="absolute bottom-2 right-2 sm:bottom-2.5 sm:right-2.5 font-mono text-[9px] sm:text-xs font-bold text-white bg-stone-900/85 backdrop-blur-md px-2 py-0.5 rounded-lg shadow-xs">
-                                {count}
+                                <div className="absolute bottom-2 right-2 sm:bottom-2.5 sm:right-2.5 font-mono text-[9px] sm:text-xs font-bold text-white bg-stone-900/85 backdrop-blur-md px-2 py-0.5 rounded-lg shadow-xs">
+                                  {count}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -2392,7 +2386,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                       required
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
-                      placeholder="+63 912 345 6789"
+                      placeholder="e.g. 0923 116 0300"
                       className="w-full rounded-lg sm:rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 px-2.5 sm:px-4 py-1.5 sm:py-2.5 text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:border-amber-500 focus:outline-none"
                     />
                   </div>

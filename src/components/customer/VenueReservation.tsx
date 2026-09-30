@@ -516,14 +516,14 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <a
-                  href={`tel:${settings.shop_phone || '+639123456789'}`}
+                  href={`tel:${(settings.shop_phone || '09231160300').replace(/\s+/g, '')}`}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 border border-stone-700 px-3 py-1.5 text-[10px] sm:text-xs font-bold text-amber-300 transition"
                 >
                   <Phone className="h-3 w-3" />
-                  <span>Call Owner</span>
+                  <span>Call Owner ({settings.shop_phone || '0923 116 0300'})</span>
                 </a>
                 <a
-                  href="https://www.facebook.com/yellowhauzcafe"
+                  href={settings.facebook_url || "https://www.facebook.com/yellowhauz/"}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 px-3 py-1.5 text-[10px] sm:text-xs font-bold text-white transition shadow-xs"
@@ -1044,7 +1044,7 @@ export const VenueReservation: React.FC<VenueReservationProps> = ({
                               <span>GCash QR Available on Voucher</span>
                             </div>
                             <p className="text-blue-800 dark:text-blue-300 text-[11px] leading-relaxed">
-                              Scan GCash QR or send to Yellow Hauz ({settings.shop_phone || '+63 912 345 6789'}) to settle your reservation fee.
+                              Scan GCash QR or send to Yellow Hauz ({settings.shop_phone || '0923 116 0300'}) to settle your reservation fee.
                             </p>
                           </div>
                         )}
