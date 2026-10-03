@@ -1351,15 +1351,15 @@ export const Navigation: React.FC<NavigationProps> = ({
                     className={`relative flex items-center justify-center rounded-xl border p-2 sm:px-2.5 sm:py-1.5 transition cursor-pointer shadow-2xs ${
                       totalStaffNotificationsCount > 0
                         ? isDarkMode
-                          ? 'border-amber-500/60 bg-amber-950/60 text-amber-200 hover:bg-amber-900/60 ring-2 ring-amber-500/30'
+                          ? 'border-amber-500/60 bg-stone-850 dark:bg-stone-850 text-amber-300 hover:bg-stone-800 ring-2 ring-amber-500/30 dark:border-amber-500/60 dark:text-amber-300'
                           : isAmberMode
                           ? 'border-amber-600 bg-amber-300 text-stone-950 hover:bg-amber-200 ring-2 ring-amber-600/30'
-                          : 'border-amber-400/90 bg-amber-50/90 text-stone-950 hover:bg-amber-100 ring-2 ring-amber-400/20'
+                          : 'border-amber-400/90 bg-amber-50/90 text-stone-950 hover:bg-amber-100 ring-2 ring-amber-400/20 dark:border-amber-500/60 dark:bg-stone-850 dark:text-amber-300 dark:hover:bg-stone-800 dark:ring-amber-500/30'
                         : isDarkMode
-                        ? 'border-stone-700 bg-stone-800 text-stone-300 hover:bg-stone-700 hover:text-stone-100'
+                        ? 'border-stone-700 bg-stone-800 text-stone-300 hover:bg-stone-700 hover:text-stone-100 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300'
                         : isAmberMode
                         ? 'border-amber-600 bg-amber-400 text-stone-950 hover:bg-amber-300'
-                        : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100'
+                        : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300 dark:hover:bg-stone-700 dark:hover:text-stone-100'
                     }`}
                     title={`Notifications (${totalStaffNotificationsCount} alerts)`}
                   >
@@ -1368,17 +1368,17 @@ export const Navigation: React.FC<NavigationProps> = ({
                         className={`h-4 w-4 sm:h-3.5 sm:w-3.5 ${
                           totalStaffNotificationsCount > 0
                             ? isDarkMode
-                              ? 'text-amber-400 fill-amber-400'
-                              : 'text-amber-700 fill-amber-500'
+                              ? 'text-amber-400 fill-amber-400 dark:text-amber-400'
+                              : 'text-amber-700 fill-amber-500 dark:text-amber-400 dark:fill-amber-400'
                             : isDarkMode
-                            ? 'text-stone-300'
+                            ? 'text-stone-300 dark:text-stone-300'
                             : isAmberMode
                             ? 'text-stone-950'
-                            : 'text-stone-700'
+                            : 'text-stone-700 dark:text-stone-300'
                         }`}
                       />
                       {totalStaffNotificationsCount > 0 && (
-                        <span className="absolute -top-1.5 -right-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-rose-600 px-0.5 text-[8px] font-black text-white ring-1 ring-white animate-pulse">
+                        <span className="absolute -top-1.5 -right-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-rose-600 px-0.5 text-[8px] font-black text-white ring-1 ring-white dark:ring-stone-900 animate-pulse">
                           {totalStaffNotificationsCount}
                         </span>
                       )}

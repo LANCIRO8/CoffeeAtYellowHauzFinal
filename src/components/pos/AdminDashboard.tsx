@@ -597,16 +597,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             <div className="space-y-0.5 sm:space-y-1">
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200/80 px-2.5 py-0.5 text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-amber-900">
-                <Sparkles className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-600" />
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 dark:bg-amber-950/60 border border-amber-200/80 dark:border-amber-700/60 px-2.5 py-0.5 text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-amber-900 dark:text-amber-300">
+                <Sparkles className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-600 dark:text-amber-400" />
                 <span>Executive Command Center</span>
               </div>
-              <h1 className="font-display text-lg sm:text-2xl lg:text-3xl font-black tracking-tight text-stone-900 leading-tight">
+              <h1 className="font-display text-lg sm:text-2xl lg:text-3xl font-black tracking-tight text-stone-900 dark:text-stone-100 leading-tight">
                 Welcome back, {activeStaff.fullName || 'Admin'}
               </h1>
-              <p className="text-[10px] sm:text-xs md:text-sm text-stone-600 max-w-2xl font-normal leading-relaxed">
+              <p className="text-[10px] sm:text-xs md:text-sm text-stone-600 dark:text-stone-400 max-w-2xl font-normal leading-relaxed">
                 Real-time operational overview for{' '}
-                <strong className="font-semibold text-stone-900">
+                <strong className="font-semibold text-stone-900 dark:text-stone-200">
                   {settings.storeName || 'Coffee at Yellow Hauz'}
                 </strong>{' '}
                 • Davao City. Live gross revenue, kitchen rush queues, floor occupancy, and inventory health.
@@ -617,7 +617,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           {/* Time range selector, daily summary button & refresh */}
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 self-start lg:self-center">
             {/* Time range pills */}
-            <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl sm:rounded-2xl border border-stone-200">
+            <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-800 p-1 rounded-xl sm:rounded-2xl border border-stone-200 dark:border-stone-700">
               {(
                 [
                   { id: 'today', label: 'Today' },
@@ -632,8 +632,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   onClick={() => setTimeRange(range.id)}
                   className={`px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition cursor-pointer ${
                     timeRange === range.id
-                      ? 'bg-stone-900 text-amber-400 shadow-xs'
-                      : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+                      ? 'bg-stone-900 dark:bg-amber-500 text-amber-400 dark:text-stone-950 shadow-xs'
+                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-stone-200/60 dark:hover:bg-stone-700/60'
                   }`}
                 >
                   {range.label}
@@ -645,10 +645,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <button
               id="admin-daily-summary-btn"
               onClick={() => setIsSummaryModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl sm:rounded-2xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-800 text-[10px] sm:text-xs font-bold shadow-2xs transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl sm:rounded-2xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 hover:bg-stone-100 dark:hover:bg-stone-750 text-stone-800 dark:text-stone-200 text-[10px] sm:text-xs font-bold shadow-2xs transition cursor-pointer"
               title="View Register Snapshot / Z-Reading Preview"
             >
-              <FileText className="h-3.5 w-3.5 text-amber-600" />
+              <FileText className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
               <span>Z-Reading</span>
             </button>
 
@@ -656,7 +656,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <button
               id="admin-dashboard-refresh-btn"
               onClick={handleRefresh}
-              className="p-1.5 sm:p-2 rounded-xl sm:rounded-2xl border border-stone-200 bg-stone-50 text-stone-500 hover:text-stone-900 hover:bg-stone-100 shadow-2xs transition cursor-pointer"
+              className="p-1.5 sm:p-2 rounded-xl sm:rounded-2xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-750 shadow-2xs transition cursor-pointer"
               title="Refresh Dashboard Data"
             >
               <RefreshCw
@@ -667,17 +667,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
 
         {/* Quick Hub Navigation Cards */}
-        <div className="mt-4 sm:mt-6 pt-4 sm:pt-5 border-t border-stone-100 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-2.5">
+        <div className="mt-4 sm:mt-6 pt-4 sm:pt-5 border-t border-stone-100 dark:border-stone-800 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-2.5">
           <button
             id="admin-quick-pos"
             onClick={() => onNavigateTab('pos')}
-            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-amber-50/60 border border-stone-200/80 hover:border-amber-300 p-2 sm:p-2.5 text-left transition cursor-pointer group shadow-2xs"
+            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 dark:bg-stone-800 hover:bg-amber-50/60 dark:hover:bg-amber-950/40 border border-stone-200/80 dark:border-stone-700/80 hover:border-amber-300 dark:hover:border-amber-600 p-2 sm:p-2.5 text-left transition cursor-pointer group shadow-2xs"
           >
-            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-amber-100 text-amber-800 group-hover:bg-amber-200/80 group-hover:scale-105 transition shrink-0">
+            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 group-hover:bg-amber-200/80 dark:group-hover:bg-amber-900/80 group-hover:scale-105 transition shrink-0">
               <Monitor className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
             <div>
-              <div className="text-[10px] sm:text-xs font-bold text-stone-800 group-hover:text-stone-950">
+              <div className="text-[10px] sm:text-xs font-bold text-stone-800 dark:text-stone-200 group-hover:text-stone-950 dark:group-hover:text-white">
                 POS Register
               </div>
             </div>
@@ -686,13 +686,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <button
             id="admin-quick-tickets"
             onClick={() => onNavigateTab('tickets')}
-            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-sky-50/60 border border-stone-200/80 hover:border-sky-300 p-2 sm:p-2.5 text-left transition cursor-pointer group relative shadow-2xs"
+            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 dark:bg-stone-800 hover:bg-sky-50/60 dark:hover:bg-sky-950/40 border border-stone-200/80 dark:border-stone-700/80 hover:border-sky-300 dark:hover:border-sky-600 p-2 sm:p-2.5 text-left transition cursor-pointer group relative shadow-2xs"
           >
-            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-sky-100 text-sky-700 group-hover:bg-sky-200/80 group-hover:scale-105 transition shrink-0">
+            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 group-hover:bg-sky-200/80 dark:group-hover:bg-sky-900/80 group-hover:scale-105 transition shrink-0">
               <ClipboardList className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
             <div>
-              <div className="text-[10px] sm:text-xs font-bold text-stone-800 group-hover:text-stone-950 flex items-center gap-1 sm:gap-1.5">
+              <div className="text-[10px] sm:text-xs font-bold text-stone-800 dark:text-stone-200 group-hover:text-stone-950 dark:group-hover:text-white flex items-center gap-1 sm:gap-1.5">
                 <span>Tickets</span>
                 {pendingTicketsCount > 0 && (
                   <span className="rounded-full bg-sky-600 text-white px-1.5 py-0.2 text-[8px] sm:text-[9px] font-black">
@@ -706,13 +706,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <button
             id="admin-quick-tables"
             onClick={() => onNavigateTab('tables')}
-            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-emerald-50/60 border border-stone-200/80 hover:border-emerald-300 p-2 sm:p-2.5 text-left transition cursor-pointer group shadow-2xs"
+            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 dark:bg-stone-800 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/40 border border-stone-200/80 dark:border-stone-700/80 hover:border-emerald-300 dark:hover:border-emerald-600 p-2 sm:p-2.5 text-left transition cursor-pointer group shadow-2xs"
           >
-            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-emerald-100 text-emerald-700 group-hover:bg-emerald-200/80 group-hover:scale-105 transition shrink-0">
+            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 group-hover:bg-emerald-200/80 dark:group-hover:bg-emerald-900/80 group-hover:scale-105 transition shrink-0">
               <LayoutGrid className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
             <div>
-              <div className="text-[10px] sm:text-xs font-bold text-stone-800 group-hover:text-stone-950">
+              <div className="text-[10px] sm:text-xs font-bold text-stone-800 dark:text-stone-200 group-hover:text-stone-950 dark:group-hover:text-white">
                 Floor Plan
               </div>
             </div>
@@ -721,13 +721,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <button
             id="admin-quick-inventory"
             onClick={() => onNavigateTab('inventory')}
-            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-rose-50/60 border border-stone-200/80 hover:border-rose-300 p-2 sm:p-2.5 text-left transition cursor-pointer group relative shadow-2xs"
+            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 dark:bg-stone-800 hover:bg-rose-50/60 dark:hover:bg-rose-950/40 border border-stone-200/80 dark:border-stone-700/80 hover:border-rose-300 dark:hover:border-rose-600 p-2 sm:p-2.5 text-left transition cursor-pointer group relative shadow-2xs"
           >
-            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-rose-100 text-rose-700 group-hover:bg-rose-200/80 group-hover:scale-105 transition shrink-0">
+            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 group-hover:bg-rose-200/80 dark:group-hover:bg-rose-900/80 group-hover:scale-105 transition shrink-0">
               <Package className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
             <div>
-              <div className="text-[10px] sm:text-xs font-bold text-stone-800 group-hover:text-stone-950 flex items-center gap-1">
+              <div className="text-[10px] sm:text-xs font-bold text-stone-800 dark:text-stone-200 group-hover:text-stone-950 dark:group-hover:text-white flex items-center gap-1">
                 <span>Inventory</span>
                 {lowStockItems.length > 0 && (
                   <span className="rounded-full bg-rose-600 text-white px-1.5 py-0.2 text-[8px] sm:text-[9px] font-black">
@@ -741,13 +741,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <button
             id="admin-quick-reports"
             onClick={() => onNavigateTab('reports')}
-            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-indigo-50/60 border border-stone-200/80 hover:border-indigo-300 p-2 sm:p-2.5 text-left transition cursor-pointer group shadow-2xs"
+            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 dark:bg-stone-800 hover:bg-indigo-50/60 dark:hover:bg-indigo-950/40 border border-stone-200/80 dark:border-stone-700/80 hover:border-indigo-300 dark:hover:border-indigo-600 p-2 sm:p-2.5 text-left transition cursor-pointer group shadow-2xs"
           >
-            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-indigo-100 text-indigo-700 group-hover:bg-indigo-200/80 group-hover:scale-105 transition shrink-0">
+            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 group-hover:bg-indigo-200/80 dark:group-hover:bg-indigo-900/80 group-hover:scale-105 transition shrink-0">
               <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
             <div>
-              <div className="text-[10px] sm:text-xs font-bold text-stone-800 group-hover:text-stone-950">
+              <div className="text-[10px] sm:text-xs font-bold text-stone-800 dark:text-stone-200 group-hover:text-stone-950 dark:group-hover:text-white">
                 Sales Ledger
               </div>
             </div>
@@ -756,13 +756,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <button
             id="admin-quick-settings"
             onClick={() => onNavigateTab('settings')}
-            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-stone-100 border border-stone-200/80 hover:border-stone-300 p-2 sm:p-2.5 text-left transition cursor-pointer group shadow-2xs"
+            className="flex items-center gap-2 rounded-xl sm:rounded-2xl bg-stone-50 dark:bg-stone-800 hover:bg-stone-100 dark:hover:bg-stone-750 border border-stone-200/80 dark:border-stone-700/80 hover:border-stone-300 dark:hover:border-stone-600 p-2 sm:p-2.5 text-left transition cursor-pointer group shadow-2xs"
           >
-            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-stone-200 text-stone-700 group-hover:bg-stone-300 group-hover:scale-105 transition shrink-0">
+            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300 group-hover:bg-stone-300 dark:group-hover:bg-stone-600 group-hover:scale-105 transition shrink-0">
               <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
             <div>
-              <div className="text-[10px] sm:text-xs font-bold text-stone-800 group-hover:text-stone-950">
+              <div className="text-[10px] sm:text-xs font-bold text-stone-800 dark:text-stone-200 group-hover:text-stone-950 dark:group-hover:text-white">
                 Store Config
               </div>
             </div>
@@ -801,20 +801,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               }}
               className={`flex items-center justify-between p-2 sm:p-2.5 rounded-xl border text-left transition cursor-pointer ${
                 pendingConfirmOrders.length > 0
-                  ? 'bg-purple-50 border-purple-300 text-purple-950 hover:bg-purple-100'
-                  : 'bg-stone-50 border-stone-200 text-stone-600'
+                  ? 'bg-purple-50 dark:bg-purple-950/60 border-purple-300 dark:border-purple-800 text-purple-950 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60'
+                  : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400'
               }`}
             >
               <div>
                 <div className="text-[9px] sm:text-[11px] font-bold">To Confirm</div>
                 <div className="text-[11px] sm:text-sm font-black mt-0.5">
                   {pendingConfirmOrders.length}{' '}
-                  <span className="text-[9px] font-normal text-stone-500">pending</span>
+                  <span className="text-[9px] font-normal text-stone-500 dark:text-stone-400">pending</span>
                 </div>
               </div>
               <Clock
                 className={`h-4 w-4 shrink-0 ${
-                  pendingConfirmOrders.length > 0 ? 'text-purple-600 animate-pulse' : 'text-stone-400'
+                  pendingConfirmOrders.length > 0 ? 'text-purple-600 dark:text-purple-400 animate-pulse' : 'text-stone-400'
                 }`}
               />
             </button>
@@ -828,20 +828,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               }}
               className={`flex items-center justify-between p-2 sm:p-2.5 rounded-xl border text-left transition cursor-pointer ${
                 pendingCancellationRequests.length > 0
-                  ? 'bg-rose-50 border-rose-300 text-rose-950 hover:bg-rose-100'
-                  : 'bg-stone-50 border-stone-200 text-stone-600'
+                  ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-950 dark:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/60'
+                  : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400'
               }`}
             >
               <div>
                 <div className="text-[9px] sm:text-[11px] font-bold">Cancellations</div>
                 <div className="text-[11px] sm:text-sm font-black mt-0.5">
                   {pendingCancellationRequests.length}{' '}
-                  <span className="text-[9px] font-normal text-stone-500">requests</span>
+                  <span className="text-[9px] font-normal text-stone-500 dark:text-stone-400">requests</span>
                 </div>
               </div>
               <Ban
                 className={`h-4 w-4 shrink-0 ${
-                  pendingCancellationRequests.length > 0 ? 'text-rose-600 animate-pulse' : 'text-stone-400'
+                  pendingCancellationRequests.length > 0 ? 'text-rose-600 dark:text-rose-400 animate-pulse' : 'text-stone-400'
                 }`}
               />
             </button>
@@ -851,21 +851,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               onClick={() => onNavigateTab('tickets')}
               className={`flex items-center justify-between p-2 sm:p-2.5 rounded-xl border text-left transition cursor-pointer ${
                 pendingTicketsCount > 0
-                  ? 'bg-sky-50 border-sky-300 text-sky-950 hover:bg-sky-100'
-                  : 'bg-stone-50 border-stone-200 text-stone-600'
+                  ? 'bg-sky-50 dark:bg-sky-950/60 border-sky-300 dark:border-sky-800 text-sky-950 dark:text-sky-200 hover:bg-sky-100 dark:hover:bg-sky-900/60'
+                  : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400'
               }`}
             >
               <div>
                 <div className="text-[9px] sm:text-[11px] font-bold">Kitchen Queue</div>
                 <div className="text-[11px] sm:text-sm font-black mt-0.5">
                   {preppingOrders.length}{' '}
-                  <span className="text-[9px] font-normal text-stone-500">prep</span> •{' '}
+                  <span className="text-[9px] font-normal text-stone-500 dark:text-stone-400">prep</span> •{' '}
                   {readyToServeOrders.length}{' '}
-                  <span className="text-[9px] font-normal text-stone-500">serve</span>
+                  <span className="text-[9px] font-normal text-stone-500 dark:text-stone-400">serve</span>
                 </div>
               </div>
               <ClipboardList
-                className={`h-4 w-4 shrink-0 ${pendingTicketsCount > 0 ? 'text-sky-600' : 'text-stone-400'}`}
+                className={`h-4 w-4 shrink-0 ${pendingTicketsCount > 0 ? 'text-sky-600 dark:text-sky-400' : 'text-stone-400'}`}
               />
             </button>
 
@@ -874,19 +874,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               onClick={() => onNavigateTab('tables')}
               className={`flex items-center justify-between p-2 sm:p-2.5 rounded-xl border text-left transition cursor-pointer ${
                 pendingReservations.length > 0
-                  ? 'bg-amber-50 border-amber-300 text-amber-950 hover:bg-amber-100'
-                  : 'bg-stone-50 border-stone-200 text-stone-600'
+                  ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/60'
+                  : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400'
               }`}
             >
               <div>
                 <div className="text-[9px] sm:text-[11px] font-bold">Reservations</div>
                 <div className="text-[11px] sm:text-sm font-black mt-0.5">
                   {pendingReservations.length}{' '}
-                  <span className="text-[9px] font-normal text-stone-500">pending</span>
+                  <span className="text-[9px] font-normal text-stone-500 dark:text-stone-400">pending</span>
                 </div>
               </div>
               <Calendar
-                className={`h-4 w-4 shrink-0 ${pendingReservations.length > 0 ? 'text-amber-600' : 'text-stone-400'}`}
+                className={`h-4 w-4 shrink-0 ${pendingReservations.length > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-stone-400'}`}
               />
             </button>
 
@@ -895,22 +895,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               onClick={() => onNavigateTab('inventory')}
               className={`flex items-center justify-between p-2 sm:p-2.5 rounded-xl border text-left transition cursor-pointer col-span-2 sm:col-span-1 ${
                 lowStockItems.length > 0
-                  ? 'bg-amber-50 border-amber-300 text-amber-950 hover:bg-amber-100'
-                  : 'bg-emerald-50 border-emerald-300 text-emerald-950'
+                  ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/60'
+                  : 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800 text-emerald-950 dark:text-emerald-200'
               }`}
             >
               <div>
                 <div className="text-[9px] sm:text-[11px] font-bold">Stock Alerts</div>
                 <div className="text-[11px] sm:text-sm font-black mt-0.5">
                   {lowStockItems.length === 0 ? (
-                    <span className="text-emerald-700">Healthy</span>
+                    <span className="text-emerald-700 dark:text-emerald-400">Healthy</span>
                   ) : (
                     <span>{lowStockItems.length} items low</span>
                   )}
                 </div>
               </div>
               <Package
-                className={`h-4 w-4 shrink-0 ${lowStockItems.length > 0 ? 'text-amber-600' : 'text-emerald-600'}`}
+                className={`h-4 w-4 shrink-0 ${lowStockItems.length > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}
               />
             </button>
           </div>
@@ -922,23 +922,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* Metric 1: Total Gross Revenue */}
         <div
           id="kpi-gross-revenue"
-          className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-5 shadow-xs hover:border-amber-400 transition"
+          className="rounded-2xl sm:rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 p-3.5 sm:p-5 shadow-xs hover:border-amber-400 dark:hover:border-amber-500 transition"
         >
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[9px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider truncate">
+            <span className="text-[9px] sm:text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider truncate">
               Gross Sales
             </span>
-            <div className="rounded-lg sm:rounded-2xl bg-amber-500/10 p-1.5 sm:p-2.5 text-amber-700 shrink-0">
+            <div className="rounded-lg sm:rounded-2xl bg-amber-500/10 dark:bg-amber-950/60 p-1.5 sm:p-2.5 text-amber-700 dark:text-amber-400 shrink-0">
               <DollarSign className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
             </div>
           </div>
           <div className="mt-2 sm:mt-3">
-            <div className="font-display text-base sm:text-2xl lg:text-3xl font-extrabold text-stone-900 tracking-tight truncate">
+            <div className="font-display text-base sm:text-2xl lg:text-3xl font-extrabold text-stone-900 dark:text-stone-100 tracking-tight truncate">
               ₱{totalGrossRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-            <div className="mt-1 sm:mt-2 flex flex-col sm:flex-row sm:items-center justify-between text-[9px] sm:text-xs text-stone-500 gap-0.5">
+            <div className="mt-1 sm:mt-2 flex flex-col sm:flex-row sm:items-center justify-between text-[9px] sm:text-xs text-stone-500 dark:text-stone-400 gap-0.5">
               <span className="truncate">Net Subtotal: ₱{totalNetSubtotal.toFixed(0)}</span>
-              <span className="font-semibold text-stone-700 truncate">VAT (12%): ₱{totalVatCollected.toFixed(0)}</span>
+              <span className="font-semibold text-stone-700 dark:text-stone-300 truncate">VAT (12%): ₱{totalVatCollected.toFixed(0)}</span>
             </div>
           </div>
         </div>
@@ -946,26 +946,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* Metric 2: Completed Orders Volume */}
         <div
           id="kpi-orders-volume"
-          className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-5 shadow-xs hover:border-sky-400 transition"
+          className="rounded-2xl sm:rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 p-3.5 sm:p-5 shadow-xs hover:border-sky-400 dark:hover:border-sky-500 transition"
         >
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[9px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider truncate">
+            <span className="text-[9px] sm:text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider truncate">
               Orders Volume
             </span>
-            <div className="rounded-lg sm:rounded-2xl bg-sky-500/10 p-1.5 sm:p-2.5 text-sky-700 shrink-0">
+            <div className="rounded-lg sm:rounded-2xl bg-sky-500/10 dark:bg-sky-950/60 p-1.5 sm:p-2.5 text-sky-700 dark:text-sky-400 shrink-0">
               <ShoppingBag className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
             </div>
           </div>
           <div className="mt-2 sm:mt-3">
-            <div className="font-display text-base sm:text-2xl lg:text-3xl font-extrabold text-stone-900 tracking-tight">
+            <div className="font-display text-base sm:text-2xl lg:text-3xl font-extrabold text-stone-900 dark:text-stone-100 tracking-tight">
               {validCompletedOrders.length}{' '}
-              <span className="text-xs sm:text-sm font-semibold text-stone-400">tickets</span>
+              <span className="text-xs sm:text-sm font-semibold text-stone-400 dark:text-stone-500">tickets</span>
             </div>
             <div className="mt-1 sm:mt-2 flex items-center gap-1 sm:gap-2 text-[9px] sm:text-xs flex-wrap">
-              <span className="rounded-md sm:rounded-lg bg-amber-100 px-1 sm:px-2 py-0.2 sm:py-0.5 font-bold text-amber-800">
+              <span className="rounded-md sm:rounded-lg bg-amber-100 dark:bg-amber-950/80 px-1 sm:px-2 py-0.2 sm:py-0.5 font-bold text-amber-800 dark:text-amber-300">
                 {inStoreOrders.length} In-Store POS
               </span>
-              <span className="rounded-md sm:rounded-lg bg-sky-100 px-1 sm:px-2 py-0.2 sm:py-0.5 font-bold text-sky-800">
+              <span className="rounded-md sm:rounded-lg bg-sky-100 dark:bg-sky-950/80 px-1 sm:px-2 py-0.2 sm:py-0.5 font-bold text-sky-800 dark:text-sky-300">
                 {onlineOrders.length} Online
               </span>
             </div>
@@ -975,23 +975,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* Metric 3: Average Order Value (AOV) */}
         <div
           id="kpi-aov"
-          className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-5 shadow-xs hover:border-emerald-400 transition"
+          className="rounded-2xl sm:rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 p-3.5 sm:p-5 shadow-xs hover:border-emerald-400 dark:hover:border-emerald-500 transition"
         >
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[9px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider truncate">
+            <span className="text-[9px] sm:text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider truncate">
               Avg Order Size
             </span>
-            <div className="rounded-lg sm:rounded-2xl bg-emerald-500/10 p-1.5 sm:p-2.5 text-emerald-700 shrink-0">
+            <div className="rounded-lg sm:rounded-2xl bg-emerald-500/10 dark:bg-emerald-950/60 p-1.5 sm:p-2.5 text-emerald-700 dark:text-emerald-400 shrink-0">
               <TrendingUp className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
             </div>
           </div>
           <div className="mt-2 sm:mt-3">
-            <div className="font-display text-base sm:text-2xl lg:text-3xl font-extrabold text-stone-900 tracking-tight truncate">
+            <div className="font-display text-base sm:text-2xl lg:text-3xl font-extrabold text-stone-900 dark:text-stone-100 tracking-tight truncate">
               ₱{averageOrderValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-            <div className="mt-1 sm:mt-2 text-[9px] sm:text-xs text-stone-500 flex flex-col sm:flex-row sm:items-center justify-between gap-0.5">
+            <div className="mt-1 sm:mt-2 text-[9px] sm:text-xs text-stone-500 dark:text-stone-400 flex flex-col sm:flex-row sm:items-center justify-between gap-0.5">
               <span className="truncate">Total Disc: ₱{totalDiscountsGiven.toFixed(0)}</span>
-              <span className="font-bold text-emerald-700 truncate">
+              <span className="font-bold text-emerald-700 dark:text-emerald-400 truncate">
                 {totalDiscountsGiven > 0 ? 'Discounts applied' : 'Standard margins'}
               </span>
             </div>
@@ -1001,64 +1001,64 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* Metric 4: Floor Plan & Operations Health */}
         <div
           id="kpi-floor-plan"
-          className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-5 shadow-xs hover:border-purple-400 transition"
+          className="rounded-2xl sm:rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 p-3.5 sm:p-5 shadow-xs hover:border-purple-400 dark:hover:border-purple-500 transition"
         >
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[9px] sm:text-xs font-bold text-stone-500 uppercase tracking-wider truncate">
+            <span className="text-[9px] sm:text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider truncate">
               Floor Occupancy
             </span>
-            <div className="rounded-lg sm:rounded-2xl bg-purple-500/10 p-1.5 sm:p-2.5 text-purple-700 shrink-0">
+            <div className="rounded-lg sm:rounded-2xl bg-purple-500/10 dark:bg-purple-950/60 p-1.5 sm:p-2.5 text-purple-700 dark:text-purple-400 shrink-0">
               <LayoutGrid className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
             </div>
           </div>
           <div className="mt-2 sm:mt-3">
-            <div className="font-display text-base sm:text-2xl lg:text-3xl font-extrabold text-stone-900 tracking-tight">
+            <div className="font-display text-base sm:text-2xl lg:text-3xl font-extrabold text-stone-900 dark:text-stone-100 tracking-tight">
               {occupiedTables.length} / {tables.length}{' '}
-              <span className="text-xs sm:text-sm font-semibold text-stone-400">tables</span>
+              <span className="text-xs sm:text-sm font-semibold text-stone-400 dark:text-stone-500">tables</span>
             </div>
             <div className="mt-1 sm:mt-2 flex flex-col sm:flex-row sm:items-center justify-between text-[9px] sm:text-xs gap-0.5">
-              <span className="text-emerald-700 font-bold truncate">{availableTables.length} Available</span>
-              <span className="text-amber-700 font-bold truncate">{reservedTables.length} Reserved</span>
+              <span className="text-emerald-700 dark:text-emerald-400 font-bold truncate">{availableTables.length} Available</span>
+              <span className="text-amber-700 dark:text-amber-400 font-bold truncate">{reservedTables.length} Reserved</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Financial Tender Breakdown: Cash vs GCash vs Card */}
-      <div className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-5 shadow-xs">
+      <div className="rounded-2xl sm:rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 p-3.5 sm:p-5 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
           <div>
-            <h3 className="font-display text-xs sm:text-base font-bold text-stone-900 flex items-center gap-1.5">
-              <CreditCard className="h-4 w-4 text-amber-600" />
+            <h3 className="font-display text-xs sm:text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
+              <CreditCard className="h-4 w-4 text-amber-600 dark:text-amber-400" />
               <span>Revenue by Payment Method &amp; Tender Split</span>
             </h3>
-            <p className="text-[10px] sm:text-xs text-stone-500">
+            <p className="text-[10px] sm:text-xs text-stone-500 dark:text-stone-400">
               Breakdown of gross collections across physical cash register, GCash QR, and card terminal.
             </p>
           </div>
-          <div className="flex items-center gap-2 text-[10px] sm:text-xs font-mono font-bold text-stone-700 bg-stone-50 px-2.5 py-1 rounded-xl border border-stone-200">
+          <div className="flex items-center gap-2 text-[10px] sm:text-xs font-mono font-bold text-stone-700 dark:text-stone-300 bg-stone-50 dark:bg-stone-800 px-2.5 py-1 rounded-xl border border-stone-200 dark:border-stone-700">
             <span>Period Total:</span>
-            <span className="text-stone-950 font-black">₱{totalGrossRevenue.toFixed(2)}</span>
+            <span className="text-stone-950 dark:text-stone-100 font-black">₱{totalGrossRevenue.toFixed(2)}</span>
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
           {/* Cash */}
-          <div className="rounded-xl sm:rounded-2xl border border-amber-200 bg-amber-50/50 p-2.5 sm:p-3 flex items-center justify-between">
+          <div className="rounded-xl sm:rounded-2xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/50 dark:bg-amber-950/40 p-2.5 sm:p-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-amber-500 text-stone-950 flex items-center justify-center font-bold shadow-2xs">
                 <Banknote className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
               <div>
-                <div className="text-[11px] sm:text-xs font-bold text-amber-950">Cash Register</div>
-                <div className="text-[9px] sm:text-[10px] text-amber-900/70">Drawer cash collected</div>
+                <div className="text-[11px] sm:text-xs font-bold text-amber-950 dark:text-amber-200">Cash Register</div>
+                <div className="text-[9px] sm:text-[10px] text-amber-900/70 dark:text-amber-300/70">Drawer cash collected</div>
               </div>
             </div>
             <div className="text-right font-mono">
-              <div className="text-xs sm:text-sm font-black text-amber-950">
+              <div className="text-xs sm:text-sm font-black text-amber-950 dark:text-amber-100">
                 ₱{(paymentBreakdown.find((p) => p.name === 'Cash')?.value || 0).toFixed(2)}
               </div>
-              <div className="text-[9px] text-amber-800 font-bold">
+              <div className="text-[9px] text-amber-800 dark:text-amber-300 font-bold">
                 {totalGrossRevenue > 0
                   ? `${Math.round(
                       ((paymentBreakdown.find((p) => p.name === 'Cash')?.value || 0) / totalGrossRevenue) * 100
@@ -1069,21 +1069,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
 
           {/* GCash */}
-          <div className="rounded-xl sm:rounded-2xl border border-sky-200 bg-sky-50/50 p-2.5 sm:p-3 flex items-center justify-between">
+          <div className="rounded-xl sm:rounded-2xl border border-sky-200 dark:border-sky-800/60 bg-sky-50/50 dark:bg-sky-950/40 p-2.5 sm:p-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-sky-500 text-white flex items-center justify-center font-bold shadow-2xs">
                 <Smartphone className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
               <div>
-                <div className="text-[11px] sm:text-xs font-bold text-sky-950">GCash Merchant QR</div>
-                <div className="text-[9px] sm:text-[10px] text-sky-900/70">Digital e-wallet payments</div>
+                <div className="text-[11px] sm:text-xs font-bold text-sky-950 dark:text-sky-200">GCash Merchant QR</div>
+                <div className="text-[9px] sm:text-[10px] text-sky-900/70 dark:text-sky-300/70">Digital e-wallet payments</div>
               </div>
             </div>
             <div className="text-right font-mono">
-              <div className="text-xs sm:text-sm font-black text-sky-950">
+              <div className="text-xs sm:text-sm font-black text-sky-950 dark:text-sky-100">
                 ₱{(paymentBreakdown.find((p) => p.name === 'GCash QR')?.value || 0).toFixed(2)}
               </div>
-              <div className="text-[9px] text-sky-800 font-bold">
+              <div className="text-[9px] text-sky-800 dark:text-sky-300 font-bold">
                 {totalGrossRevenue > 0
                   ? `${Math.round(
                       ((paymentBreakdown.find((p) => p.name === 'GCash QR')?.value || 0) / totalGrossRevenue) * 100
@@ -1094,21 +1094,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
 
           {/* Card */}
-          <div className="rounded-xl sm:rounded-2xl border border-emerald-200 bg-emerald-50/50 p-2.5 sm:p-3 flex items-center justify-between">
+          <div className="rounded-xl sm:rounded-2xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/50 dark:bg-emerald-950/40 p-2.5 sm:p-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-2xs">
                 <CreditCard className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
               <div>
-                <div className="text-[11px] sm:text-xs font-bold text-emerald-950">Card Terminal / POS</div>
-                <div className="text-[9px] sm:text-[10px] text-emerald-900/70">Debit &amp; Credit cards</div>
+                <div className="text-[11px] sm:text-xs font-bold text-emerald-950 dark:text-emerald-200">Card Terminal / POS</div>
+                <div className="text-[9px] sm:text-[10px] text-emerald-900/70 dark:text-emerald-300/70">Debit &amp; Credit cards</div>
               </div>
             </div>
             <div className="text-right font-mono">
-              <div className="text-xs sm:text-sm font-black text-emerald-950">
+              <div className="text-xs sm:text-sm font-black text-emerald-950 dark:text-emerald-100">
                 ₱{(paymentBreakdown.find((p) => p.name === 'Card')?.value || 0).toFixed(2)}
               </div>
-              <div className="text-[9px] text-emerald-800 font-bold">
+              <div className="text-[9px] text-emerald-800 dark:text-emerald-300 font-bold">
                 {totalGrossRevenue > 0
                   ? `${Math.round(
                       ((paymentBreakdown.find((p) => p.name === 'Card')?.value || 0) / totalGrossRevenue) * 100
@@ -1123,11 +1123,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* 3. Live Rush & Performance Analytics Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Sales Rush Curve / Daily Revenue Chart */}
-        <div className="lg:col-span-2 rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-6 shadow-xs">
+        <div className="lg:col-span-2 rounded-2xl sm:rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 p-3.5 sm:p-6 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 sm:mb-6">
             <div>
-              <h2 className="font-display text-xs sm:text-base font-bold text-stone-900 flex items-center gap-1.5 sm:gap-2">
-                <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600" />
+              <h2 className="font-display text-xs sm:text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-1.5 sm:gap-2">
+                <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600 dark:text-amber-400" />
                 <span>
                   {timeRange === 'today'
                     ? 'Hourly Sales Rush & Volume (Today)'
@@ -1137,13 +1137,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </span>
               </h2>
               {timeRange === 'today' && peakHour.sales > 0 && (
-                <p className="text-[10px] sm:text-xs text-stone-500 mt-0.5">
-                  Peak Rush Hour: <strong className="text-stone-900 font-bold">{peakHour.hour}</strong> (₱
+                <p className="text-[10px] sm:text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                  Peak Rush Hour: <strong className="text-stone-900 dark:text-stone-200 font-bold">{peakHour.hour}</strong> (₱
                   {peakHour.sales.toFixed(0)} • {peakHour.orders} orders)
                 </p>
               )}
             </div>
-            <span className="text-[9px] sm:text-xs font-mono font-bold bg-amber-50 text-amber-800 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl border border-amber-200/60 self-start sm:self-auto">
+            <span className="text-[9px] sm:text-xs font-mono font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl border border-amber-200/60 dark:border-amber-700/60 self-start sm:self-auto">
               Realtime Sync Active
             </span>
           </div>

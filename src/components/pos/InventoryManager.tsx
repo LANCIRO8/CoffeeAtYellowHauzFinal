@@ -2521,7 +2521,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                           { label: 'Club Sandwich', url: '/images/food_and_drinks_images/Sandwich/club_sandwich.jpeg' },
                           { label: 'Chicken Pesto', url: '/images/food_and_drinks_images/Meal/Chicken_pesto.jpeg' },
                           { label: 'Spaghetti Bolognese', url: '/images/food_and_drinks_images/Pasta/spaghetti_balognese.jpeg' },
-                          { label: 'YH Special Pizza', url: '/images/food_and_drinks_images/Pizza/yellow_hauz_special_pizza.jpg' },
+                          { label: 'YH Special Pizza', url: '/images/food_and_drinks_images/Pizza/yh_pizza.jpeg' },
                           { label: 'Waffles', url: '/images/food_and_drinks_images/Breakfast/Waffles.jpeg' },
                           { label: 'Potato Wedges', url: '/images/food_and_drinks_images/Appetizer/potato_wedges.jpeg' },
                         ]

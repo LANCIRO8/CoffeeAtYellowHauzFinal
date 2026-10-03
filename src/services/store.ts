@@ -421,6 +421,10 @@ export class AppStore {
                 item.isBestSeller = Boolean(seed.isBestSeller);
                 changed = true;
               }
+              if (seed && item.categoryId !== seed.categoryId) {
+                item.categoryId = seed.categoryId;
+                changed = true;
+              }
               if (changed) {
                 setDoc(doc(db, 'menu_items', String(item.id)), cleanForFirestore(item)).catch(() => {});
               }
@@ -831,6 +835,10 @@ export class AppStore {
         item.isBestSeller = Boolean(seed.isBestSeller);
         modified = true;
       }
+      if (seed && item.categoryId !== seed.categoryId) {
+        item.categoryId = seed.categoryId;
+        modified = true;
+      }
     });
 
     const existingIds = new Set(items.map((i) => i.id));
@@ -842,6 +850,9 @@ export class AppStore {
     }
     if (modified) {
       setStored(STORAGE_KEYS.ITEMS, items);
+      items.forEach((item) => {
+        setDoc(doc(db, 'menu_items', String(item.id)), cleanForFirestore(item)).catch(() => {});
+      });
     }
     return items;
   }

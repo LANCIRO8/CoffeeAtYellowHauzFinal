@@ -110,14 +110,14 @@ const CATEGORY_IMAGES: Record<string, string> = {
   'appetizer': '/images/food_and_drinks_images/Appetizer/potato_wedges.jpeg',
   'meal': '/images/food_and_drinks_images/Meal/Chicken_pesto.jpeg',
   'pasta': '/images/food_and_drinks_images/Pasta/spaghetti_balognese.jpeg',
-  'pizza': '/images/food_and_drinks_images/Pizza/yellow_hauz_special_pizza.jpg',
+  'pizza': '/images/food_and_drinks_images/Pizza/yh_pizza.jpeg',
   'sandwich': '/images/food_and_drinks_images/Sandwich/club_sandwich.jpeg',
   'cakes/pastries': '/images/food_and_drinks_images/Cakes_Pastries/burnt_cheesecake.jpg',
   'cakes_pastries': '/images/food_and_drinks_images/Cakes_Pastries/burnt_cheesecake.jpg',
   'pastries': '/images/food_and_drinks_images/Cakes_Pastries/cheesecake_flan.jpg',
   'cakes': '/images/food_and_drinks_images/Cakes_Pastries/Blueberry_cheesecake.jpeg',
-  'add-on food': '/images/food_and_drinks_images/Appetizer/garlic_bread.jpg',
-  'add on food': '/images/food_and_drinks_images/Appetizer/garlic_bread.jpg',
+  'add-on food': '/images/food_and_drinks_images/Food Add-ons/ice_cream.jpeg',
+  'add on food': '/images/food_and_drinks_images/Food Add-ons/ice_cream.jpeg',
 };
 
 export const CustomerMenu: React.FC<CustomerMenuProps> = ({
