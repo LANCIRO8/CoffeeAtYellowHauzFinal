@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { AppStore } from '../services/store';
 import { CustomerAccount, MenuItem } from '../types';
+import { ItemThumbnail } from './common/ItemThumbnail';
 import {
   X,
   Bot,
@@ -184,15 +185,15 @@ export const ChatbotModal: React.FC<ChatbotModalProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative h-11 w-11 overflow-hidden rounded-2xl bg-amber-500 text-stone-950 border border-amber-300/40 flex items-center justify-center shrink-0 shadow-md">
+                <Bot className="h-6 w-6 absolute text-stone-950" />
                 <img
-                  src="/images/Coffeatyellowhauz_logo.jpg"
+                  src="/images/yellowhauz_logo_outline_black.png"
                   alt="Brewmate AI"
-                  className="h-full w-full object-cover"
+                  className="relative z-10 h-full w-full object-contain p-1"
                   onError={(e) => {
                     (e.currentTarget as HTMLElement).style.display = 'none';
                   }}
                 />
-                <Bot className="h-6 w-6 absolute text-stone-950" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
@@ -327,17 +328,14 @@ export const ChatbotModal: React.FC<ChatbotModalProps> = ({
                           key={item.id}
                           className="flex items-center gap-2.5 p-2 rounded-xl bg-white dark:bg-stone-800/90 border border-amber-200 dark:border-stone-700 shadow-xs hover:border-amber-400 transition"
                         >
-                          <div className="h-12 w-12 rounded-lg bg-stone-100 dark:bg-stone-700 overflow-hidden shrink-0 border border-stone-200 dark:border-stone-600">
-                            <img
-                              src={item.imageUrl}
-                              alt={item.name}
-                              className="h-full w-full object-cover"
-                              onError={(e) => {
-                                (e.currentTarget as HTMLImageElement).src =
-                                  '/images/food_and_drinks_images/Hot Coffee/Spanish_latte.jpeg';
-                              }}
-                            />
-                          </div>
+                          <ItemThumbnail
+                            imageUrl={item.imageUrl}
+                            itemName={item.name}
+                            categoryId={item.categoryId}
+                            isDrink={item.categoryId >= 9 && item.categoryId <= 17}
+                            variant="avatar"
+                            className="h-12 w-12 rounded-lg shrink-0 border border-stone-200 dark:border-stone-600"
+                          />
 
                           <div className="flex-1 min-w-0">
                             <h4 className="text-xs font-bold text-stone-900 dark:text-stone-100 truncate">

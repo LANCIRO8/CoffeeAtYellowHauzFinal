@@ -61,7 +61,7 @@ const GALLERY_SLOTS: SlotDefinition[] = [
     badge: 'Customer Landing',
     targetPage: 'Landing Page (Hero Section Wallpaper)',
     description: 'Background wall texture behind the café logo, headline, ivy vines, and action buttons.',
-    defaultUrl: DEFAULT_GALLERY_SETTINGS.heroBackground || '/images/red_brick_bg.png',
+    defaultUrl: DEFAULT_GALLERY_SETTINGS.heroBackground || '/images/yellowhauz_areas_images/yellowhauz_front_view.jpg',
     recommendedAspect: 'Landscape (16:9 or 21:9)',
     aspectClass: 'aspect-video sm:aspect-21/9',
     recommendedCategory: 'ambiance',
@@ -112,7 +112,7 @@ const GALLERY_SLOTS: SlotDefinition[] = [
     badge: 'Spotlight 4 of 4',
     targetPage: 'Landing Page (Featured Spotlight Picture 4: Cozy Ambiance)',
     description: 'Fourth picture of the 4-Picture Hero Collage Spotlight (Bottom-Right Card). Highlights ambient café interiors, seating, and aesthetics.',
-    defaultUrl: DEFAULT_GALLERY_SETTINGS.heroFeaturedImage4 || '/images/18_Main_Counter_Interior.webp',
+    defaultUrl: DEFAULT_GALLERY_SETTINGS.heroFeaturedImage4 || '/images/yellowhauz_areas_images/Counter.webp',
     recommendedAspect: 'Square or 4:3',
     aspectClass: 'aspect-4/3',
     recommendedCategory: 'ambiance',
@@ -415,7 +415,7 @@ export const CustomerGalleryManager: React.FC<CustomerGalleryManagerProps> = ({
               target: 'Ambiance & Seating Nooks',
               aspect: 'Bottom Right Slot',
               icon: <Sparkles className="h-3.5 w-3.5 text-orange-600" />,
-              defaultUrl: DEFAULT_GALLERY_SETTINGS.heroFeaturedImage4 || '/images/18_Main_Counter_Interior.webp',
+              defaultUrl: DEFAULT_GALLERY_SETTINGS.heroFeaturedImage4 || '/images/yellowhauz_areas_images/Counter.webp',
             },
           ].map((pic) => {
             const currentUrl = (galleryState[pic.key] as string) || pic.defaultUrl;
@@ -888,7 +888,7 @@ export const CustomerGalleryManager: React.FC<CustomerGalleryManagerProps> = ({
                             alt={img.title}
                             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                             onError={(e) => {
-                              (e.currentTarget as HTMLImageElement).src = '/images/latte.webp';
+                              (e.currentTarget as HTMLImageElement).src = '/images/venue.webp';
                             }}
                           />
                           {isCurrent && (

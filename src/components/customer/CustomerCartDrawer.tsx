@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { CartItem, CustomerAccount, MenuItem, StoreSettings, TableBinding, Category } from '../../types';
 import { AppStore } from '../../services/store';
 import { useModal } from '../../context/ModalContext';
+import { ItemThumbnail } from '../common/ItemThumbnail';
 import {
   ShoppingCart,
   X,
@@ -433,17 +434,15 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                 return (
                   <div key={ci.item.id} className="pt-3.5 first:pt-0 space-y-2">
                     <div className="flex items-start justify-between gap-3">
-                      {/* Item Image Thumbnail */}
-                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-stone-100 dark:bg-stone-800 border border-stone-200/80 dark:border-stone-700">
-                        <img
-                          src={ci.item.imageUrl || '/images/latte.webp'}
-                          alt={ci.item.name}
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = '/images/latte.webp';
-                          }}
-                        />
-                      </div>
+                      {/* Item Image Thumbnail or Category Icon */}
+                      <ItemThumbnail
+                        imageUrl={ci.item.imageUrl}
+                        itemName={ci.item.name}
+                        categoryId={ci.item.categoryId}
+                        isDrink={isDrink}
+                        variant="avatar"
+                        className="h-12 w-12 shrink-0 rounded-xl border border-stone-200/80 dark:border-stone-700"
+                      />
 
                       {/* Item Details */}
                       <div className="flex-1 min-w-0">
@@ -872,18 +871,15 @@ export const CustomerCartDrawer: React.FC<CustomerCartDrawerProps> = ({
                           : 'border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-850 dark:bg-stone-800/80 hover:border-stone-300 dark:hover:border-stone-700'
                       }`}
                     >
-                      {/* Thumbnail */}
-                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-stone-100 dark:bg-stone-800 border border-stone-200/80 dark:border-stone-700">
-                        <img
-                          src={addon.imageUrl || '/images/latte.webp'}
-                          alt=""
-                          aria-hidden="true"
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = '/images/latte.webp';
-                          }}
-                        />
-                      </div>
+                      {/* Thumbnail or Category Icon */}
+                      <ItemThumbnail
+                        imageUrl={addon.imageUrl}
+                        itemName={addon.name}
+                        categoryId={addon.categoryId}
+                        isDrink={isDrinkAddon}
+                        variant="avatar"
+                        className="h-10 w-10 shrink-0 rounded-lg border border-stone-200/80 dark:border-stone-700"
+                      />
 
                       {/* Info */}
                       <div className="flex-1 min-w-0">

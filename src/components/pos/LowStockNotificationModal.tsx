@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { MenuItem, Category, User } from '../../types';
 import { AppStore } from '../../services/store';
 import { useModal } from '../../context/ModalContext';
+import { ItemThumbnail } from '../common/ItemThumbnail';
 import {
   Bell,
   AlertTriangle,
@@ -356,15 +357,15 @@ export const LowStockNotificationModal: React.FC<LowStockNotificationModalProps>
                 >
                   <div className="flex items-center gap-2.5">
                     <div className="relative shrink-0">
-                      <img
-                        src={item.imageUrl || '/images/latte.webp'}
-                        alt={item.name}
-                        className={`h-10 w-10 rounded-lg object-cover border bg-stone-100 ${
+                      <ItemThumbnail
+                        imageUrl={item.imageUrl}
+                        itemName={item.name}
+                        categoryId={item.categoryId}
+                        isDrink={item.categoryId >= 9 && item.categoryId <= 17}
+                        variant="avatar"
+                        className={`h-10 w-10 rounded-lg border ${
                           isOut ? 'border-rose-200 grayscale opacity-75' : isLow ? 'border-amber-300' : 'border-stone-200'
                         }`}
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = '/images/latte.webp';
-                        }}
                       />
                       {isOut ? (
                         <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-rose-600 text-white shadow-xs">

@@ -524,15 +524,17 @@ export const Navigation: React.FC<NavigationProps> = ({
             className="flex items-center gap-1.5 text-xs font-bold text-amber-400 hover:text-amber-300 transition cursor-pointer"
             title="Expand Navigation Bar"
           >
-            <img
-              src="/images/Coffeatyellowhauz_logo.jpg"
-              alt="Yellow Hauz Logo"
-              className="h-5 w-5 rounded-full object-cover border border-amber-400/60 shadow-xs"
-              onError={(e) => {
-                // Fallback to coffee icon if image fails
-                (e.currentTarget as HTMLElement).style.display = 'none';
-              }}
-            />
+            <div className="relative h-5 w-5 rounded-full bg-amber-500 overflow-hidden flex items-center justify-center shrink-0">
+              <Coffee className="h-3 w-3 text-stone-950 absolute" />
+              <img
+                src="/images/Coffeatyellowhauz_logo.jpg"
+                alt="Yellow Hauz Logo"
+                className="relative z-10 h-full w-full object-cover"
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = 'none';
+                }}
+              />
+            </div>
             <span className="hidden sm:inline font-display">Yellow Hauz</span>
             <span className="text-stone-500">•</span>
             <span className="text-white text-[11px] font-sans font-semibold bg-stone-800 px-2 py-0.5 rounded-full">
@@ -653,15 +655,15 @@ export const Navigation: React.FC<NavigationProps> = ({
                 className="flex items-center gap-2 cursor-pointer select-none group"
               >
                 <div className="relative h-9 w-9 overflow-hidden rounded-xl bg-amber-500 shadow-xs border border-amber-400/40 group-hover:scale-105 transition shrink-0 flex items-center justify-center">
+                  <Coffee className="h-5 w-5 fill-stone-950 text-stone-950 absolute" />
                   <img
                     src="/images/Coffeatyellowhauz_logo.jpg"
                     alt="Coffee at Yellow Hauz"
-                    className="h-full w-full object-cover"
+                    className="relative z-10 h-full w-full object-cover"
                     onError={(e) => {
                       (e.currentTarget as HTMLElement).style.display = 'none';
                     }}
                   />
-                  <Coffee className="h-4 w-4 fill-stone-950 text-stone-950 absolute pointer-events-none -z-10" />
                 </div>
                 <div className="flex flex-col">
                   <span className="font-display font-black text-xs sm:text-sm tracking-tight text-stone-900 leading-none">
@@ -1822,15 +1824,15 @@ export const Navigation: React.FC<NavigationProps> = ({
               }`}>
                 <div className="flex items-center gap-3">
                   <div className="relative h-11 w-11 overflow-hidden rounded-2xl bg-amber-500 shadow-md border border-amber-400/30 shrink-0 flex items-center justify-center">
+                    <Coffee className="h-6 w-6 fill-stone-950 text-stone-950 absolute" />
                     <img
                       src="/images/Coffeatyellowhauz_logo.jpg"
                       alt="Coffee at Yellow Hauz"
-                      className="h-full w-full object-cover"
+                      className="relative z-10 h-full w-full object-cover"
                       onError={(e) => {
                         (e.currentTarget as HTMLElement).style.display = 'none';
                       }}
                     />
-                    <Coffee className="h-5 w-5 fill-stone-950 text-stone-950 absolute pointer-events-none -z-10" />
                   </div>
                   <div>
                     <h2 className={`font-display font-extrabold text-sm sm:text-base leading-tight ${

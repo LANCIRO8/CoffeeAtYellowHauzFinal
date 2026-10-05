@@ -58,6 +58,7 @@ import { compressImageFile, formatFileSize, calculateBase64Size } from '../../ut
 import { LowStockNotificationModal } from './LowStockNotificationModal';
 import { RefillSuggestionsView } from './RefillSuggestionsView';
 import { RefillRequestModal } from './RefillRequestModal';
+import { ItemThumbnail } from '../common/ItemThumbnail';
 import { CustomerGalleryManager } from './CustomerGalleryManager';
 import { SystemImagePickerModal } from './SystemImagePickerModal';
 import { SystemGalleryImage } from '../../data/galleryImages';
@@ -463,7 +464,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
   const [temperature, setTemperature] = useState<MenuItem['temperature']>('both');
   const [isAvailable, setIsAvailable] = useState<boolean>(true);
   const [isBestSeller, setIsBestSeller] = useState<boolean>(false);
-  const [imageUrl, setImageUrl] = useState<string>('/images/latte.webp');
+  const [imageUrl, setImageUrl] = useState<string>('');
 
   // Item Image Upload & Storage Compression State
   const [isCompressingImage, setIsCompressingImage] = useState<boolean>(false);
@@ -555,8 +556,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
   };
 
   const handleRemoveCustomImage = () => {
-    const defaultImg = categoryType === 'food' ? '/images/default_food.jpg' : '/images/latte.webp';
-    setImageUrl(defaultImg);
+    setImageUrl('');
     setCompressionStats(null);
     setImageUploadError(null);
   };
@@ -778,8 +778,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     setTemperature(categoryType === 'food' ? 'room temp' : 'both');
     setIsAvailable(true);
     setIsBestSeller(false);
-    const defaultImg = categoryType === 'food' ? '/images/default_food.jpg' : '/images/latte.webp';
-    setImageUrl(defaultImg);
+    setImageUrl('');
     setCompressionStats(null);
     setImageUploadError(null);
     setIsCompressingImage(false);
@@ -798,7 +797,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     setTemperature(item.temperature);
     setIsAvailable(item.isAvailable !== false);
     setIsBestSeller(Boolean(item.isBestSeller));
-    const currentImg = item.imageUrl || (categoryType === 'food' ? '/images/default_food.jpg' : '/images/latte.webp');
+    const currentImg = item.imageUrl || '';
     setImageUrl(currentImg);
     setImageUploadError(null);
     setIsCompressingImage(false);
@@ -1695,13 +1694,13 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                           {visibleColumns.product && (
                             <td className="px-2.5 sm:px-5 py-2 sm:py-3.5">
                               <div className="flex items-center gap-2 sm:gap-3">
-                                <img
-                                  src={item.imageUrl || '/images/latte.webp'}
-                                  alt={item.name}
-                                  className="h-7 w-7 sm:h-9 sm:w-9 rounded-lg object-cover border border-stone-200 shrink-0"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).src = '/images/latte.webp';
-                                  }}
+                                <ItemThumbnail
+                                  imageUrl={item.imageUrl}
+                                  itemName={item.name}
+                                  categoryId={item.categoryId}
+                                  isDrink={item.categoryId >= 9 && item.categoryId <= 17}
+                                  variant="avatar"
+                                  className="h-7 w-7 sm:h-9 sm:w-9 rounded-lg border border-stone-200 shrink-0"
                                 />
                                 <div className="font-bold text-stone-900 text-xs sm:text-sm flex items-center gap-1.5 flex-wrap">
                                   <span>{item.name}</span>
@@ -2348,7 +2347,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                             alt="Category preview"
                             className="h-full w-full object-cover"
                             onError={(e) => {
-                              (e.currentTarget as HTMLImageElement).src = '/images/latte.webp';
+                              (e.currentTarget as HTMLImageElement).src = '/images/venue.webp';
                             }}
                           />
                         </div>
@@ -2964,16 +2963,14 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
                         {/* Image Thumbnail with Fallback */}
-                        <div className="relative h-16 w-16 sm:h-20 sm:w-20 shrink-0 overflow-hidden rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-900 shadow-xs">
-                          <img
-                            src={imageUrl}
-                            alt="Item preview"
-                            className="h-full w-full object-cover"
-                            onError={(e) => {
-                              (e.currentTarget as HTMLImageElement).src = '/images/latte.webp';
-                            }}
-                          />
-                        </div>
+                        <ItemThumbnail
+                          imageUrl={imageUrl}
+                          itemName={name || 'Item'}
+                          categoryId={categoryId}
+                          isDrink={categoryType === 'drinks'}
+                          variant="avatar"
+                          className="h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-900 shadow-xs"
+                        />
 
                         {/* Image Details & Storage Compression Metrics */}
                         <div className="flex-1 min-w-0">
@@ -3269,16 +3266,15 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
             {/* Product Summary */}
             <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-stone-50 p-2.5 border border-stone-200">
               <div className="flex items-center gap-2.5 min-w-0">
-                {quickRestockItem.imageUrl && (
-                  <img
-                    src={quickRestockItem.imageUrl}
-                    alt={quickRestockItem.name}
-                    className="h-10 w-10 rounded-lg object-cover border border-stone-200 shrink-0"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                )}
+                <ItemThumbnail
+                  imageUrl={quickRestockItem.imageUrl}
+                  itemName={quickRestockItem.name}
+                  categoryId={quickRestockItem.categoryId}
+                  categoryName={categories.find((c) => c.id === quickRestockItem.categoryId)?.name}
+                  isDrink={quickRestockItem.categoryId >= 9 && quickRestockItem.categoryId <= 17}
+                  variant="avatar"
+                  className="h-10 w-10 rounded-lg border border-stone-200 shrink-0"
+                />
                 <div className="min-w-0">
                   <h4 className="font-bold text-stone-900 text-sm truncate">
                     {quickRestockItem.name}

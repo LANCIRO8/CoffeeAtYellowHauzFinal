@@ -405,7 +405,7 @@ export class AppStore {
             items.forEach((item) => {
               const seed = seedMap.get(item.id);
               let changed = false;
-              // Do not overwrite user-customized images (e.g. data:image/ base64 uploads)
+              // Sync image with seed (or clear if deleted in seed and not a custom data URL)
               if (
                 seed &&
                 seed.imageUrl &&
@@ -414,6 +414,15 @@ export class AppStore {
                 !item.imageUrl?.startsWith('data:image/')
               ) {
                 item.imageUrl = seed.imageUrl;
+                changed = true;
+              } else if (
+                seed &&
+                !seed.imageUrl &&
+                item.imageUrl &&
+                !item.imageUrl.startsWith('data:image/') &&
+                !item.imageUrl.startsWith('http')
+              ) {
+                item.imageUrl = '';
                 changed = true;
               }
               // Only fallback to seed if isBestSeller was never defined
@@ -830,6 +839,15 @@ export class AppStore {
       ) {
         item.imageUrl = seed.imageUrl;
         modified = true;
+      } else if (
+        seed &&
+        !seed.imageUrl &&
+        item.imageUrl &&
+        !item.imageUrl.startsWith('data:image/') &&
+        !item.imageUrl.startsWith('http')
+      ) {
+        item.imageUrl = '';
+        modified = true;
       }
       if (seed && item.isBestSeller === undefined) {
         item.isBestSeller = Boolean(seed.isBestSeller);
@@ -871,6 +889,16 @@ export class AppStore {
         !item.imageUrl?.startsWith('data:image/')
       ) {
         item.imageUrl = seed.imageUrl;
+        count++;
+        setDoc(doc(db, 'menu_items', String(item.id)), cleanForFirestore(item)).catch(() => {});
+      } else if (
+        seed &&
+        !seed.imageUrl &&
+        item.imageUrl &&
+        !item.imageUrl.startsWith('data:image/') &&
+        !item.imageUrl.startsWith('http')
+      ) {
+        item.imageUrl = '';
         count++;
         setDoc(doc(db, 'menu_items', String(item.id)), cleanForFirestore(item)).catch(() => {});
       }

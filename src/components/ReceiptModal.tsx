@@ -1,6 +1,6 @@
 import React from 'react';
 import { Order, StoreSettings } from '../types';
-import { Printer, X, CheckCircle } from 'lucide-react';
+import { Printer, X, CheckCircle, Coffee } from 'lucide-react';
 
 interface ReceiptModalProps {
   order: Order;
@@ -40,14 +40,17 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, settings, onC
           className="my-3 rounded-xl border border-dashed border-stone-300 bg-stone-50/70 p-4 font-mono text-[11px] leading-tight text-stone-800"
         >
           <div className="text-center pb-2.5 border-b border-dashed border-stone-300 flex flex-col items-center">
-            <img
-              src="/images/Coffeatyellowhauz_logo.jpg"
-              alt="Yellow Hauz"
-              className="h-10 w-10 rounded-full object-cover border border-stone-300 mb-1.5 grayscale"
-              onError={(e) => {
-                (e.currentTarget as HTMLElement).style.display = 'none';
-              }}
-            />
+            <div className="relative h-10 w-10 rounded-full border border-stone-300 mb-1.5 flex items-center justify-center overflow-hidden bg-stone-100">
+              <Coffee className="h-5 w-5 text-stone-700" />
+              <img
+                src="/images/yellowhauz_logo_outline_black.png"
+                alt="Yellow Hauz"
+                className="absolute inset-0 h-full w-full object-contain p-1"
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = 'none';
+                }}
+              />
+            </div>
             <h2 className="text-xs font-black tracking-tight text-stone-900 font-display">
               {settings.shop_name}
             </h2>

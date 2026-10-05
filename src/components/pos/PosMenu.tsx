@@ -15,6 +15,7 @@ import { useModal } from '../../context/ModalContext';
 import { DiscountModal } from './DiscountModal';
 import { TableSelectModal } from './TableSelectModal';
 import { SwipeableCartItem } from './SwipeableCartItem';
+import { ItemThumbnail } from '../common/ItemThumbnail';
 import {
   Search,
   Plus,
@@ -1263,6 +1264,8 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                 {filteredItems.map((item) => {
                   const isOutOfStock = (item.quantity ?? 0) <= 0;
                   const isLowStock = !isOutOfStock && (item.quantity ?? 0) <= 5;
+                  const itemCat = categories.find((c) => c.id === item.categoryId);
+                  const isDrink = item.categoryId >= 9 && item.categoryId <= 17;
 
                   return (
                     <button
@@ -1276,18 +1279,19 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                           : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 hover:border-amber-400 dark:hover:border-amber-500 hover:shadow-md'
                       }`}
                     >
-                      <div className="relative aspect-4/3 w-full rounded-xl overflow-hidden bg-stone-100 dark:bg-stone-900 mb-1.5 sm:mb-2">
-                        <img
-                          src={item.imageUrl || '/images/latte.webp'}
-                          alt={item.name}
-                          className={`h-full w-full object-cover group-hover:scale-105 transition duration-200 ${
-                            isOutOfStock ? 'grayscale opacity-60' : ''
-                          }`}
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = '/images/latte.webp';
-                          }}
-                        />
-
+                      <ItemThumbnail
+                        imageUrl={item.imageUrl}
+                        itemName={item.name}
+                        categoryId={item.categoryId}
+                        categoryName={itemCat?.name}
+                        categoryIcon={itemCat?.icon}
+                        isDrink={isDrink}
+                        variant="card"
+                        className="aspect-4/3 w-full rounded-xl mb-1.5 sm:mb-2"
+                        imageClassName={`group-hover:scale-105 transition duration-200 ${
+                          isOutOfStock ? 'grayscale opacity-60' : ''
+                        }`}
+                      >
                         {/* Stock status indicator pill */}
                         {isOutOfStock ? (
                           <span className="absolute top-1.5 left-1.5 rounded-md bg-rose-600 px-1.5 py-0.5 font-bold text-[9px] text-white uppercase shadow-xs">
@@ -1303,7 +1307,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                         <span className="absolute bottom-1 right-1 sm:bottom-1.5 sm:right-1.5 rounded-lg bg-stone-950/90 backdrop-blur-xs px-1.5 sm:px-2 py-0.5 font-mono text-[10px] sm:text-[11px] font-bold text-amber-400">
                           ₱{item.price.toFixed(0)}
                         </span>
-                      </div>
+                      </ItemThumbnail>
                       <div>
                         <h4 className="font-bold text-xs text-stone-900 dark:text-stone-100 line-clamp-1 group-hover:text-amber-800 dark:group-hover:text-amber-400">
                           {item.name}

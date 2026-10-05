@@ -14,6 +14,7 @@ import { AppStore } from '../../services/store';
 import { useModal } from '../../context/ModalContext';
 import { CustomerCartDrawer } from './CustomerCartDrawer';
 import { TableRequestModal } from './TableRequestModal';
+import { ItemThumbnail } from '../common/ItemThumbnail';
 import {
   Search,
   ShoppingCart,
@@ -940,6 +941,9 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
     const isLiked = Boolean(likedItemIds[item.id]);
     const isSaved = Boolean(savedItemIds[item.id]);
 
+    const itemCat = categories.find((c) => c.id === item.categoryId);
+    const isDrink = item.categoryId >= 9 && item.categoryId <= 17;
+
     return (
       <article
         key={item.id}
@@ -950,17 +954,18 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
         }}
         className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-stone-200/90 bg-white shadow-xs transition-all duration-300 hover:shadow-xl hover:border-amber-400 hover:-translate-y-1 cursor-pointer"
       >
-        {/* Large Editorial Post Image */}
-        <div className="relative aspect-4/3 sm:aspect-16/10 w-full overflow-hidden bg-stone-100">
-          <img
-            src={item.imageUrl || '/01_Hearts_Latte_Art.jpg'}
-            alt={item.name}
-            className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = '/01_Hearts_Latte_Art.jpg';
-            }}
-          />
-
+        {/* Large Editorial Post Image or Category Icon */}
+        <ItemThumbnail
+          imageUrl={item.imageUrl}
+          itemName={item.name}
+          categoryId={item.categoryId}
+          categoryName={itemCat?.name}
+          categoryIcon={itemCat?.icon}
+          isDrink={isDrink}
+          variant="card"
+          className="aspect-4/3 sm:aspect-16/10 w-full"
+          imageClassName="transition-transform duration-500 ease-out group-hover:scale-105"
+        >
           {/* Instagram-style Hover Hint overlay */}
           <div className="absolute inset-0 bg-stone-950/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center pointer-events-none">
             <span className="rounded-full bg-stone-900/80 backdrop-blur-md px-3.5 py-1.5 text-xs font-bold text-white shadow-lg flex items-center gap-1.5">
@@ -1022,7 +1027,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
               ₱{item.price.toFixed(2)}
             </span>
           </div>
-        </div>
+        </ItemThumbnail>
 
         {/* Post Content Body */}
         <div className="flex flex-1 flex-col justify-between p-3.5 sm:p-4.5 space-y-3">
@@ -2509,17 +2514,17 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                 <X className="h-4 w-4 sm:h-5 sm:w-5" />
               </button>
 
-              {/* LEFT / TOP: High-Res Square / Cinematic Photo Section with Badges, Actions, and Price */}
-              <div className="relative w-full md:w-1/2 bg-stone-950 flex items-center justify-center overflow-hidden h-[220px] sm:h-[280px] md:h-auto md:min-h-[440px] shrink-0">
-                <img
-                  src={item.imageUrl || '/01_Hearts_Latte_Art.jpg'}
-                  alt={item.name}
-                  className="h-full w-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = '/01_Hearts_Latte_Art.jpg';
-                  }}
-                />
-
+              {/* LEFT / TOP: High-Res Square / Cinematic Photo Section or Category Icon */}
+              <ItemThumbnail
+                imageUrl={item.imageUrl}
+                itemName={item.name}
+                categoryId={item.categoryId}
+                categoryName={itemCategory?.name}
+                categoryIcon={itemCategory?.icon}
+                isDrink={item.categoryId >= 9 && item.categoryId <= 17}
+                variant="detail"
+                className="w-full md:w-1/2 h-[220px] sm:h-[280px] md:h-auto md:min-h-[440px] shrink-0"
+              >
                 {/* Subtle gradient vignette */}
                 <div className="absolute inset-0 bg-gradient-to-t from-stone-950/80 via-transparent to-stone-950/40 pointer-events-none" />
 
@@ -2601,7 +2606,7 @@ export const CustomerMenu: React.FC<CustomerMenuProps> = ({
                     />
                   </button>
                 </div>
-              </div>
+              </ItemThumbnail>
 
               {/* RIGHT: Editorial Body */}
               <div className="flex flex-1 flex-col justify-between p-4 sm:p-6 md:p-8 bg-white overflow-y-auto max-h-[50vh] md:max-h-[90vh]">

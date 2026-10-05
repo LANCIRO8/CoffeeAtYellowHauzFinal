@@ -584,16 +584,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       >
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6">
           <div className="flex items-center gap-3 sm:gap-4">
-            <div className="relative h-12 w-12 sm:h-14 sm:w-14 overflow-hidden rounded-2xl bg-stone-900 border border-stone-200 shadow-2xs shrink-0 flex items-center justify-center">
+            <div className="relative h-12 w-12 sm:h-14 sm:w-14 overflow-hidden rounded-2xl bg-stone-900 border border-stone-800 shadow-2xs shrink-0 flex items-center justify-center">
+              <Coffee className="h-6 w-6 text-amber-400 fill-amber-400 absolute pointer-events-none" />
               <img
-                src="/images/Coffeatyellowhauz_logo.jpg"
+                src="/images/yellowhauz_logo_outline_beige.png"
                 alt="Yellow Hauz Cafe"
-                className="h-full w-full object-cover"
+                className="relative z-10 h-full w-full object-contain p-1"
                 onError={(e) => {
                   (e.currentTarget as HTMLElement).style.display = 'none';
                 }}
               />
-              <Coffee className="h-6 w-6 text-amber-400 fill-amber-400 absolute pointer-events-none -z-10" />
             </div>
 
             <div className="space-y-0.5 sm:space-y-1">

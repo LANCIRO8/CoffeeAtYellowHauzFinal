@@ -4,6 +4,7 @@ import { MenuItem, StoreSettings, Category } from '../../types';
 import { ShoppingCart, Calendar, Clock, Heart, Sparkles, ArrowRight, ShieldCheck, MapPin, Phone, Leaf, Flower2, Coffee, Eye, X, ZoomIn, ChevronLeft, ChevronRight, Mail, Globe, CheckCircle2, MessageCircle, Bot, Send, Loader2, Plus, Check, RotateCw } from 'lucide-react';
 import { HangingVinesOverlay, MonsteraPlantCorner, CoffeePlantBranch } from './BotanicalElements';
 import { AppStore } from '../../services/store';
+import { ItemThumbnail } from '../common/ItemThumbnail';
 
 interface CustomerHomeProps {
   bestSellers?: MenuItem[];
@@ -46,7 +47,7 @@ const HERO_COLLAGE_ITEMS: HeroCollageItem[] = [
     title: 'Artisan Brews • Flat White',
     description: 'Freshly pulled double ristretto shots married with velvety micro-foam, showcasing rich caramel sweetness and silky crema pulled from premium beans.',
     imageUrl: '/images/food_and_drinks_images/Hot Coffee/flat_white.jpeg',
-    fallbackUrl: '/images/01_Hearts_Latte_Art.jpg',
+    fallbackUrl: '/images/food_and_drinks_images/Hot Coffee/Spanish_latte.jpeg',
     actionText: 'View on Menu',
     actionType: 'menu',
   },
@@ -66,7 +67,7 @@ const HERO_COLLAGE_ITEMS: HeroCollageItem[] = [
     title: 'Comfort on a Plate • Hungarian Sausage',
     description: 'Grilled spicy Hungarian sausage with a signature crisp snap, served hot with garlic butter rice or golden crispy fries.',
     imageUrl: '/images/food_and_drinks_images/Breakfast/hungarian_sausage.jpeg',
-    fallbackUrl: '/images/grilledgarliccheese.webp',
+    fallbackUrl: '/images/yellowhauz_areas_images/Counter.webp',
     actionText: 'View on Menu',
     actionType: 'menu',
   },
@@ -75,8 +76,8 @@ const HERO_COLLAGE_ITEMS: HeroCollageItem[] = [
     label: 'Cozy Café Spaces',
     title: 'Cozy Café Spaces & Ambiance',
     description: 'Warm red brick walls, lush indoor plants, ambient hanging lanterns, and welcoming seating designed for relaxed conversations, study, and coffee lovers.',
-    imageUrl: '/images/18_Main_Counter_Interior.webp',
-    fallbackUrl: '/images/20_Seating_Area.webp',
+    imageUrl: '/images/yellowhauz_areas_images/Counter.webp',
+    fallbackUrl: '/images/venue.webp',
     actionText: 'View Menu',
     actionType: 'menu',
   },
@@ -395,7 +396,7 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-transform duration-700 scale-100"
           style={{
-            backgroundImage: `url("${settings.customer_gallery?.heroBackground || '/images/red_brick_bg.png'}")`,
+            backgroundImage: `url("${settings.customer_gallery?.heroBackground || '/images/yellowhauz_areas_images/yellowhauz_front_view.jpg'}")`,
           }}
           role="img"
           aria-label="Yellow Hauz Café Wall"
@@ -415,11 +416,15 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
           <div>
             <div className="flex items-center gap-3.5 sm:gap-4.5">
               {/* Coffee at Yellow Hauz Logo - Enlarged Size */}
-              <div className="relative h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24 overflow-hidden rounded-2xl sm:rounded-3xl bg-amber-400/90 border-2 sm:border-3 border-amber-300/50 shadow-2xl ring-4 ring-amber-500/20 shrink-0">
+              <div className="relative h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24 overflow-hidden rounded-2xl sm:rounded-3xl bg-amber-400 border-2 sm:border-3 border-amber-300/50 shadow-2xl ring-4 ring-amber-500/20 shrink-0 flex items-center justify-center">
+                <Coffee className="h-8 w-8 sm:h-10 sm:w-10 text-stone-950 absolute" />
                 <img
-                  src="/images/Coffeatyellowhauz_logo.jpg"
+                  src="/images/yellowhauz_logo_outline_black.png"
                   alt="Coffee at Yellow Hauz Logo"
-                  className="h-full w-full object-cover"
+                  className="relative z-10 h-full w-full object-contain p-2"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLElement).style.display = 'none';
+                  }}
                 />
               </div>
               <div>
@@ -711,12 +716,12 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
         id="yellowhauz-areas-section"
         className="relative overflow-hidden rounded-3xl bg-stone-950 text-white shadow-2xl p-6 sm:p-10 lg:p-12 border border-[#7A3620]/40"
       >
-        {/* Red Brick Background Image */}
+        {/* Ambient Background Image */}
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-transform duration-700 scale-100"
-          style={{ backgroundImage: 'url("/images/red_brick_bg.png")' }}
+          style={{ backgroundImage: `url("${settings.customer_gallery?.heroBackground || '/images/yellowhauz_areas_images/yellowhauz_front_view.jpg'}")` }}
           role="img"
-          aria-label="Yellow Hauz Red Brick Café Wall"
+          aria-label="Yellow Hauz Café Wall"
         />
 
         {/* Ambient Dark & Warm Amber Overlay to keep typography crisp and rich */}
@@ -1024,12 +1029,12 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
           id="best-sellers-carousel-section"
           className="relative overflow-hidden rounded-3xl bg-stone-950 p-4 sm:p-6 lg:p-8 pt-8 sm:pt-10 lg:pt-12 border border-[#7A3620]/40 shadow-xl"
         >
-          {/* Red Brick Background Image */}
+          {/* Background Wall Image */}
           <div
             className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-transform duration-700 scale-100"
-            style={{ backgroundImage: 'url("/images/red_brick_bg.png")' }}
+            style={{ backgroundImage: 'url("/images/yellowhauz_areas_images/yellowhauz_front_view.jpg")' }}
             role="img"
-            aria-label="Yellow Hauz Red Brick Café Wall"
+            aria-label="Yellow Hauz Café Wall"
           />
 
           {/* Ambient Dark & Warm Amber Overlay to make the white cards pop beautifully */}
@@ -1075,13 +1080,14 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
                 >
                   {/* Floating Circular Dish / Plate Overflowing Top of Card */}
                   <div className="absolute -top-[88px] sm:-top-[96px] lg:-top-[106px] left-1/2 -translate-x-1/2 w-[190px] h-[190px] sm:w-[210px] sm:h-[210px] md:w-[225px] md:h-[225px] lg:w-[240px] lg:h-[240px] rounded-full p-1.5 sm:p-2 bg-white shadow-xl shadow-stone-900/25 border border-stone-200/80 flex items-center justify-center transition-transform duration-300 group-hover:scale-105 group-hover:shadow-2xl">
-                    <img
-                      src={item.imageUrl || '/images/latte.webp'}
-                      alt={item.name}
-                      className="w-full h-full rounded-full object-cover shadow-inner"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/images/latte.webp';
-                      }}
+                    <ItemThumbnail
+                      imageUrl={item.imageUrl}
+                      itemName={item.name}
+                      categoryId={item.categoryId}
+                      categoryName={categoryMap.get(item.categoryId)}
+                      isDrink={item.categoryId >= 9 && item.categoryId <= 17}
+                      variant="circular"
+                      className="w-full h-full"
                     />
                   </div>
 
@@ -1373,10 +1379,13 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
                           className="flex items-center justify-between gap-2 rounded-xl bg-stone-900/90 border border-stone-800 p-2 hover:border-amber-500/40 transition"
                         >
                           <div className="flex items-center gap-2 min-w-0">
-                            <img
-                              src={item.imageUrl || '/images/default_food.jpg'}
-                              alt={item.name}
-                              className="h-9 w-9 shrink-0 rounded-lg object-cover bg-stone-800"
+                            <ItemThumbnail
+                              imageUrl={item.imageUrl}
+                              itemName={item.name}
+                              categoryId={item.categoryId}
+                              isDrink={item.categoryId >= 9 && item.categoryId <= 17}
+                              variant="avatar"
+                              className="h-9 w-9 shrink-0 rounded-lg bg-stone-800"
                             />
                             <div className="min-w-0">
                               <p className="text-xs font-bold text-white truncate">

@@ -101,14 +101,17 @@ export const Footer: React.FC<FooterProps> = ({
       {!isExpanded ? (
         <div className="mx-auto max-w-7xl px-4 sm:px-8 py-2 flex items-center justify-between text-xs">
           <div className="flex items-center gap-2 text-stone-700 font-bold">
-            <img
-              src="/images/Coffeatyellowhauz_logo.jpg"
-              alt="Yellow Hauz"
-              className="h-4 w-4 rounded-full object-cover border border-amber-400/60 shrink-0"
-              onError={(e) => {
-                (e.currentTarget as HTMLElement).style.display = 'none';
-              }}
-            />
+            <div className="relative h-4 w-4 rounded-full bg-amber-500 overflow-hidden flex items-center justify-center shrink-0">
+              <Coffee className="h-2.5 w-2.5 text-stone-950 absolute" />
+              <img
+                src="/images/yellowhauz_logo_outline_black.png"
+                alt="Yellow Hauz"
+                className="relative z-10 h-full w-full object-contain p-0.5"
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = 'none';
+                }}
+              />
+            </div>
             <span className="text-[11px] font-semibold">Coffee at Yellow Hauz</span>
           </div>
 
@@ -137,15 +140,15 @@ export const Footer: React.FC<FooterProps> = ({
           {/* Brand & Identity */}
           <div className="flex items-center gap-2.5 text-stone-800 font-bold">
             <div className="relative h-8 w-8 overflow-hidden rounded-xl bg-amber-500 shadow-2xs border border-amber-400/40 shrink-0 flex items-center justify-center">
+              <Coffee className="h-4 w-4 fill-stone-950 text-stone-950 absolute" />
               <img
-                src="/images/Coffeatyellowhauz_logo.jpg"
+                src="/images/yellowhauz_logo_outline_black.png"
                 alt="Coffee at Yellow Hauz"
-                className="h-full w-full object-cover"
+                className="relative z-10 h-full w-full object-contain p-1"
                 onError={(e) => {
                   (e.currentTarget as HTMLElement).style.display = 'none';
                 }}
               />
-              <Coffee className="h-4 w-4 fill-stone-950 text-stone-950 absolute pointer-events-none -z-10" />
             </div>
             <div>
               <div className="text-xs sm:text-sm font-display font-extrabold text-stone-900">

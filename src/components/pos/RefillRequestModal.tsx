@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { MenuItem, Category, User, RefillStation, RefillUrgency } from '../../types';
 import { AppStore } from '../../services/store';
+import { ItemThumbnail } from '../common/ItemThumbnail';
 
 interface RefillRequestModalProps {
   isOpen: boolean;
@@ -248,13 +249,14 @@ export const RefillRequestModal: React.FC<RefillRequestModalProps> = ({
               {selectedMenuItem ? (
                 <div className="flex items-center justify-between p-2.5 rounded-xl border-2 border-amber-500 bg-amber-50/50">
                   <div className="flex items-center gap-2.5">
-                    {selectedMenuItem.imageUrl && (
-                      <img
-                        src={selectedMenuItem.imageUrl}
-                        alt={selectedMenuItem.name}
-                        className="h-10 w-10 rounded-lg object-cover border border-amber-200"
-                      />
-                    )}
+                    <ItemThumbnail
+                      imageUrl={selectedMenuItem.imageUrl}
+                      itemName={selectedMenuItem.name}
+                      categoryId={selectedMenuItem.categoryId}
+                      isDrink={selectedMenuItem.categoryId >= 9 && selectedMenuItem.categoryId <= 17}
+                      variant="avatar"
+                      className="h-10 w-10 rounded-lg border border-amber-200 shrink-0"
+                    />
                     <div>
                       <div className="text-xs sm:text-sm font-extrabold text-stone-900">
                         {selectedMenuItem.name}

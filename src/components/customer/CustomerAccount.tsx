@@ -25,6 +25,7 @@ import {
   Shield,
 } from 'lucide-react';
 import { EditCustomerProfileModal } from './EditCustomerProfileModal';
+import { ItemThumbnail } from '../common/ItemThumbnail';
 
 interface CustomerAccountProps {
   customer: CustomerAccount;
@@ -517,17 +518,18 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
                   key={item.id}
                   className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xs hover:shadow-md hover:border-amber-400 transition-all duration-200"
                 >
-                  {/* Photo with badges & actions */}
-                  <div className="relative aspect-16/10 w-full overflow-hidden bg-stone-100">
-                    <img
-                      src={item.imageUrl || '/01_Hearts_Latte_Art.jpg'}
-                      alt={item.name}
-                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/01_Hearts_Latte_Art.jpg';
-                      }}
-                    />
-
+                  {/* Photo or Category Icon with badges & actions */}
+                  <ItemThumbnail
+                    imageUrl={item.imageUrl}
+                    itemName={item.name}
+                    categoryId={item.categoryId}
+                    categoryName={category?.name}
+                    categoryIcon={category?.icon}
+                    isDrink={item.categoryId >= 9 && item.categoryId <= 17}
+                    variant="card"
+                    className="aspect-16/10 w-full"
+                    imageClassName="transition-transform duration-300 group-hover:scale-105"
+                  >
                     {/* Top Badges */}
                     <div className="absolute top-2.5 left-2.5 flex flex-wrap items-center gap-1 z-10">
                       {item.isBestSeller && (
@@ -577,7 +579,7 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
                         ₱{item.price.toFixed(2)}
                       </span>
                     </div>
-                  </div>
+                  </ItemThumbnail>
 
                   {/* Body Content */}
                   <div className="flex flex-1 flex-col justify-between p-4 space-y-3">

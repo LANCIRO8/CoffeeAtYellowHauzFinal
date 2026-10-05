@@ -3,6 +3,7 @@ import { MenuItem, Category, User, Order, TableRequest, Reservation, Table, Staf
 import { AppStore, getOrderFulfillmentBreakdown } from '../../services/store';
 import { useModal } from '../../context/ModalContext';
 import { AdminConfirmRefillModal } from './AdminConfirmRefillModal';
+import { ItemThumbnail } from '../common/ItemThumbnail';
 import {
   Bell,
   AlertTriangle,
@@ -1476,14 +1477,14 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
 
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            {item.imageUrl && (
-              <img
-                src={item.imageUrl}
-                alt={item.name}
-                className="h-9 w-9 rounded-lg object-cover border border-rose-200 dark:border-rose-800 shrink-0"
-                referrerPolicy="no-referrer"
-              />
-            )}
+            <ItemThumbnail
+              imageUrl={item.imageUrl}
+              itemName={item.name}
+              categoryId={item.categoryId}
+              isDrink={item.categoryId >= 9 && item.categoryId <= 17}
+              variant="avatar"
+              className="h-9 w-9 rounded-lg border border-rose-200 dark:border-rose-800 shrink-0"
+            />
             <div className="min-w-0">
               <h4 className="font-extrabold text-stone-900 dark:text-stone-100 text-xs sm:text-sm truncate">
                 {item.name}
@@ -1548,14 +1549,15 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
 
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            {item.imageUrl && (
-              <img
-                src={item.imageUrl}
-                alt={item.name}
-                className="h-9 w-9 rounded-lg object-cover border border-amber-200 dark:border-amber-800 shrink-0"
-                referrerPolicy="no-referrer"
-              />
-            )}
+            <ItemThumbnail
+              imageUrl={item.imageUrl}
+              itemName={item.name}
+              categoryId={item.categoryId}
+              categoryName={category?.name}
+              isDrink={item.categoryId >= 9 && item.categoryId <= 17}
+              variant="avatar"
+              className="h-9 w-9 rounded-lg border border-amber-200 dark:border-amber-800 shrink-0"
+            />
             <div className="min-w-0">
               <h4 className="font-extrabold text-stone-900 dark:text-stone-100 text-xs sm:text-sm truncate">
                 {item.name}

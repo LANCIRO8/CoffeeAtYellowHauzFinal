@@ -23,6 +23,7 @@ import { MenuItem, Category, User, RefillStation } from '../../types';
 import { AppStore } from '../../services/store';
 import { RefillRequestModal } from './RefillRequestModal';
 import { RefillSuggestionsView } from './RefillSuggestionsView';
+import { ItemThumbnail } from '../common/ItemThumbnail';
 
 interface StaffInventoryManagerProps {
   categories: Category[];
@@ -499,20 +500,14 @@ export const StaffInventoryManager: React.FC<StaffInventoryManagerProps> = ({
 
                     {/* Item Name & Details */}
                     <div className="flex items-start gap-3">
-                      <div className="relative h-14 w-14 rounded-2xl overflow-hidden bg-stone-100 shrink-0 border border-stone-200/80 flex items-center justify-center">
-                        {item.imageUrl ? (
-                          <img
-                            src={item.imageUrl}
-                            alt={item.name}
-                            className="h-full w-full object-cover"
-                            onError={(e) => {
-                              (e.currentTarget as HTMLElement).style.display = 'none';
-                            }}
-                          />
-                        ) : (
-                          <Package className="h-6 w-6 text-stone-400" />
-                        )}
-                      </div>
+                      <ItemThumbnail
+                        imageUrl={item.imageUrl}
+                        itemName={item.name}
+                        categoryId={item.categoryId}
+                        isDrink={item.categoryId >= 9 && item.categoryId <= 17}
+                        variant="avatar"
+                        className="h-14 w-14 rounded-2xl shrink-0 border border-stone-200/80"
+                      />
                       <div className="flex-1 min-w-0">
                         <h3 className="font-bold text-stone-900 text-sm leading-snug line-clamp-2">
                           {item.name}

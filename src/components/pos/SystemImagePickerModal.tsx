@@ -221,7 +221,7 @@ export const SystemImagePickerModal: React.FC<SystemImagePickerModalProps> = ({
                         alt={img.title}
                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                         onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src = '/images/latte.webp';
+                          (e.currentTarget as HTMLImageElement).src = '/images/venue.webp';
                         }}
                       />
                       {/* Active Indicator Checkmark */}

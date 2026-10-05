@@ -224,12 +224,12 @@ export const StaffLogin: React.FC<StaffLoginProps> = ({
 
   return (
     <div className="relative min-h-[calc(100vh-64px)] w-full flex items-center justify-center p-3 sm:p-6 md:p-8 lg:p-12 overflow-hidden bg-stone-950 text-white">
-      {/* Red Brick Background Image occupying the whole body background */}
+      {/* Ambient Background Image occupying the whole body background */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-transform duration-700 pointer-events-none fixed"
-        style={{ backgroundImage: 'url("/images/red_brick_bg.png")' }}
+        style={{ backgroundImage: 'url("/images/yellowhauz_areas_images/yellowhauz_front_view.jpg")' }}
         role="img"
-        aria-label="Yellow Hauz Red Brick Café Wall"
+        aria-label="Yellow Hauz Café Wall"
       />
 
       {/* Ambient Dark, Warm Amber & Emerald Gradient Overlays covering whole screen */}
@@ -288,20 +288,20 @@ export const StaffLogin: React.FC<StaffLoginProps> = ({
                       : 'bg-stone-950 border border-stone-700 shadow-stone-950/40'
                   }`}
                 >
-                  <img
-                    src="/images/Coffeatyellowhauz_logo.jpg"
-                    alt="Yellow Hauz"
-                    className="h-full w-full object-cover"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLElement).style.display = 'none';
-                    }}
-                  />
                   <Coffee
-                    className={`h-5 w-5 sm:h-6.5 sm:w-6.5 absolute pointer-events-none -z-10 ${
+                    className={`h-5 w-5 sm:h-6.5 sm:w-6.5 absolute pointer-events-none ${
                       activeTheme === 'beige'
                         ? 'text-[#A86520] fill-[#A86520]'
                         : 'text-amber-400 fill-amber-400'
                     }`}
+                  />
+                  <img
+                    src="/images/yellowhauz_logo_outline_beige.png"
+                    alt="Yellow Hauz"
+                    className="relative z-10 h-full w-full object-contain p-1"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLElement).style.display = 'none';
+                    }}
                   />
                 </div>
                 <h2

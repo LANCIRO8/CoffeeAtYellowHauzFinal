@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { MenuItem, Category, Order } from '../../types';
+import { ItemThumbnail } from '../common/ItemThumbnail';
 import {
   Flame,
   Turtle,
@@ -1115,17 +1116,14 @@ export const ProductMovementVelocity: React.FC<ProductMovementVelocityProps> = (
 
                   {/* Product Details */}
                   <div className="flex items-start gap-3">
-                    {item.imageUrl ? (
-                      <img
-                        src={item.imageUrl}
-                        alt={item.name}
-                        className="h-14 w-14 rounded-2xl object-cover border border-stone-200 shrink-0"
-                      />
-                    ) : (
-                      <div className="h-14 w-14 rounded-2xl bg-stone-100 border border-stone-200 grid place-items-center text-stone-400 shrink-0 font-bold text-base">
-                        {item.name.charAt(0)}
-                      </div>
-                    )}
+                    <ItemThumbnail
+                      imageUrl={item.imageUrl}
+                      itemName={item.name}
+                      categoryId={item.categoryId}
+                      isDrink={item.categoryId >= 9 && item.categoryId <= 17}
+                      variant="avatar"
+                      className="h-14 w-14 rounded-2xl border border-stone-200 shrink-0"
+                    />
                     <div className="min-w-0">
                       <h4 className="font-bold text-stone-900 text-sm line-clamp-1">{item.name}</h4>
                       <p className="text-[11px] text-stone-500 mt-0.5">{item.categoryName}</p>
@@ -1206,17 +1204,14 @@ export const ProductMovementVelocity: React.FC<ProductMovementVelocityProps> = (
                       {/* Product & Category */}
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
-                          {item.imageUrl ? (
-                            <img
-                              src={item.imageUrl}
-                              alt={item.name}
-                              className="h-9 w-9 rounded-xl object-cover border border-stone-200 shrink-0"
-                            />
-                          ) : (
-                            <div className="h-9 w-9 rounded-xl bg-stone-100 border border-stone-200 grid place-items-center text-stone-500 font-bold text-xs shrink-0">
-                              {item.name.charAt(0)}
-                            </div>
-                          )}
+                          <ItemThumbnail
+                            imageUrl={item.imageUrl}
+                            itemName={item.name}
+                            categoryId={item.categoryId}
+                            isDrink={item.categoryId >= 9 && item.categoryId <= 17}
+                            variant="avatar"
+                            className="h-9 w-9 rounded-xl border border-stone-200 shrink-0"
+                          />
                           <div>
                             <span className="font-bold text-stone-900 block">{item.name}</span>
                             <span className="text-[11px] text-stone-500">{item.categoryName} • ₱{item.price.toFixed(2)}</span>
