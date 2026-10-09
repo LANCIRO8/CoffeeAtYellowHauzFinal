@@ -51,6 +51,7 @@ import {
   Delete,
   Ticket,
   Tag,
+  Clock,
   Bell,
   AlertTriangle,
   ChevronDown,
@@ -133,12 +134,29 @@ export const PosMenu: React.FC<PosMenuProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Start with Current Ticket collapsed by default so Cashier opens directly to the full menu
-  const [isTicketSidebarOpen, setIsTicketSidebarOpen] = useState<boolean>(false);
+  // Current Ticket is open by default on tablet and PC view (>= 768px), collapsed on mobile (< 768px)
+  const [isTicketSidebarOpen, setIsTicketSidebarOpen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return true;
+  });
+  const userManuallyToggledRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (!userManuallyToggledRef.current && typeof window !== 'undefined') {
+        setIsTicketSidebarOpen(window.innerWidth >= 768);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Order Details State
   const [orderType, setOrderType] = useState<'dine_in' | 'take_away' | 'delivery'>('dine_in');
   const [selectedTable, setSelectedTable] = useState<number | ''>('');
+  const [selectedOccupants, setSelectedOccupants] = useState<number>(1);
   const [customerName, setCustomerName] = useState('');
 
   // Item-Level Discount & Coupon State
@@ -153,7 +171,14 @@ export const PosMenu: React.FC<PosMenuProps> = ({
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'gcash' | 'card'>('cash');
   const [amountPaidInput, setAmountPaidInput] = useState('');
 
-  const tables = useMemo(() => AppStore.getTables(), []);
+  const [tables, setTables] = useState<Table[]>(() => AppStore.getTables());
+
+  useEffect(() => {
+    const unsub = AppStore.subscribe(() => {
+      setTables(AppStore.getTables());
+    });
+    return () => unsub();
+  }, []);
 
   // Separate Drinks vs Food categories
   const isDrinkCategory = (cat: Category) => {
@@ -668,7 +693,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
     const totalItemCount = cart.reduce((sum, ci) => sum + ci.quantity, 0);
     const paymentLabel = paymentMethod === 'cash' ? 'Cash' : paymentMethod === 'gcash' ? 'GCash' : 'Card';
     const diningLabel = orderType === 'dine_in' && selectedTable
-      ? `Dine-In (Table #${selectedTable})`
+      ? `Dine-In (Table #${selectedTable} • ${selectedOccupants} ${selectedOccupants === 1 ? 'Occupant' : 'Occupants'})`
       : orderType === 'take_away'
       ? 'Takeaway / Pick-up'
       : 'Delivery';
@@ -729,6 +754,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
       channel: 'in_store',
       tableId: orderType === 'dine_in' && selectedTable ? Number(selectedTable) : null,
       tableNumber: orderType === 'dine_in' && selectedTable ? Number(selectedTable) : null,
+      guestCount: orderType === 'dine_in' ? selectedOccupants : undefined,
       customerId: null,
       customerName: customerName.trim()
         ? (seniorPwdIdNumber ? `${customerName.trim()} [ID: ${seniorPwdIdNumber}]` : customerName.trim())
@@ -744,19 +770,136 @@ export const PosMenu: React.FC<PosMenuProps> = ({
       discountPercent,
       amountPaid: paymentMethod === 'cash' ? tenderedNumber : totalAmount,
       changeAmount: paymentMethod === 'cash' ? changeAmount : 0,
-      status: 'to_prep',
+      paymentStatus: 'paid',
+      status: 'processing',
       cashierId: activeStaff?.id ?? 2,
       cashierName: activeStaff?.fullName || activeStaff?.name || 'Staff Member',
       items: orderItems,
     });
 
     clearCart();
+    setSelectedTable('');
+    setSelectedOccupants(1);
+    setCustomerName('');
     setIsTenderModalOpen(false);
     onOrderComplete(newOrder);
+
+    showAlert({
+      title: 'Payment Received (PAID)',
+      message: `Sale finalized! Ticket #${newOrder.orderNumber} is marked as PAID. Total tender: ₱${(paymentMethod === 'cash' ? tenderedNumber : totalAmount).toFixed(2)}${paymentMethod === 'cash' ? ` (Change: ₱${changeAmount.toFixed(2)})` : ''}.`,
+      type: 'success',
+    });
+  };
+
+  const handlePayLaterOrder = async () => {
+    if (cart.length === 0) return;
+    if (orderType === 'dine_in' && !selectedTable) {
+      setIsTableModalOpen(true);
+      return;
+    }
+
+    const totalItemCount = cart.reduce((sum, ci) => sum + ci.quantity, 0);
+    const diningLabel = orderType === 'dine_in' && selectedTable
+      ? `Dine-In (Table #${selectedTable} • ${selectedOccupants} ${selectedOccupants === 1 ? 'Occupant' : 'Occupants'})`
+      : orderType === 'take_away'
+      ? 'Takeaway / Pick-up'
+      : 'Delivery';
+
+    const payLaterConfirmMsg = `Dispatch ticket to kitchen/bar without upfront payment?\n\n• Order Total: ₱${totalAmount.toFixed(2)}\n• Payment State: NOT YET PAID (NYP)\n• Dining Option: ${diningLabel}\n• Total Items: ${totalItemCount} item(s)\n\nThis will send the order to prep immediately. The cashier can receive payment later when the customer is ready.`;
+
+    const isConfirmed = await showConfirm({
+      title: 'Pay Later — Not Yet Paid (NYP)',
+      message: payLaterConfirmMsg,
+      type: 'info',
+      confirmText: 'Dispatch Ticket (NYP)',
+      cancelText: 'Back',
+    });
+
+    if (!isConfirmed) {
+      return;
+    }
+
+    const orderItems: OrderItem[] = cart.map((ci) => {
+      const itemSubtotal = ci.item.price * ci.quantity;
+      let itemDiscountAmount = 0;
+      if (ci.discount) {
+        if (ci.discount.type === 'percent') {
+          itemDiscountAmount = (itemSubtotal * ci.discount.value) / 100;
+        } else {
+          itemDiscountAmount = Math.min(itemSubtotal, ci.discount.value);
+        }
+      }
+      return {
+        menuItemId: ci.item.id,
+        name: ci.item.name,
+        quantity: ci.quantity,
+        unitPrice: ci.item.price,
+        totalPrice: Math.max(0, itemSubtotal - itemDiscountAmount),
+        specialInstructions: ci.specialInstructions,
+        imageUrl: ci.item.imageUrl,
+        discount: ci.discount
+          ? {
+              discountId: ci.discount.id,
+              discountName: ci.discount.name,
+              discountType: ci.discount.type,
+              discountValue: ci.discount.value,
+              discountAmount: itemDiscountAmount,
+            }
+          : undefined,
+      };
+    });
+
+    const primaryDiscount = discountedItems[0]?.discount;
+    const discountType =
+      discountedItems.length > 0
+        ? primaryDiscount?.isSystem
+          ? primaryDiscount.id
+          : 'item_discounts'
+        : 'none';
+
+    const newOrder = AppStore.createOrder({
+      channel: 'in_store',
+      tableId: orderType === 'dine_in' && selectedTable ? Number(selectedTable) : null,
+      tableNumber: orderType === 'dine_in' && selectedTable ? Number(selectedTable) : null,
+      guestCount: orderType === 'dine_in' ? selectedOccupants : undefined,
+      customerId: null,
+      customerName: customerName.trim()
+        ? (seniorPwdIdNumber ? `${customerName.trim()} [ID: ${seniorPwdIdNumber}]` : customerName.trim())
+        : (seniorPwdIdNumber ? `Walk-in Guest [ID: ${seniorPwdIdNumber}]` : 'Walk-in Guest'),
+      orderType,
+      paymentMethod,
+      paymentStatus: 'nyp',
+      subtotal,
+      taxRate,
+      taxAmount,
+      totalAmount,
+      discountAmount,
+      discountType,
+      discountPercent,
+      amountPaid: 0,
+      changeAmount: 0,
+      status: 'processing',
+      cashierId: activeStaff?.id ?? 2,
+      cashierName: activeStaff?.fullName || activeStaff?.name || 'Staff Member',
+      items: orderItems,
+    });
+
+    clearCart();
+    setSelectedTable('');
+    setSelectedOccupants(1);
+    setCustomerName('');
+    setIsTenderModalOpen(false);
+    onOrderComplete(newOrder);
+
+    showAlert({
+      title: 'Ticket Dispatched (NYP)',
+      message: `Ticket #${newOrder.orderNumber} sent to kitchen & bar! Marked as Not Yet Paid (NYP). Amount due: ₱${totalAmount.toFixed(2)}.`,
+      type: 'success',
+    });
   };
 
   return (
-    <div className="flex flex-col lg:flex-row h-auto lg:h-[calc(100vh-140px)] lg:min-h-[600px] gap-4 relative pb-20 lg:pb-0 transition-all duration-300">
+    <div className="flex flex-col md:flex-row h-auto md:h-[calc(100vh-140px)] md:min-h-[600px] gap-3 md:gap-4 relative pb-20 md:pb-0 transition-all duration-300">
       {/* Left: Product Catalog with Vertical Categories */}
       <div className="flex-1 min-w-0 flex flex-col lg:flex-row rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 shadow-xs overflow-hidden transition-all duration-300">
         {/* Desktop Vertical Category Sidebar */}
@@ -940,10 +1083,13 @@ export const PosMenu: React.FC<PosMenuProps> = ({
           {/* Floating Bottom-Right Ticket Sidebar Toggle Button */}
           <button
             type="button"
-            onClick={() => setIsTicketSidebarOpen(!isTicketSidebarOpen)}
+            onClick={() => {
+              userManuallyToggledRef.current = true;
+              setIsTicketSidebarOpen(!isTicketSidebarOpen);
+            }}
             className={`fixed sm:absolute bottom-20 right-4 sm:bottom-6 sm:right-6 z-45 flex items-center gap-2 rounded-full border px-4 py-3 text-xs sm:text-sm font-extrabold transition-all shadow-xl backdrop-blur-md cursor-pointer active:scale-95 hover:scale-105 ${
               isTicketSidebarOpen
-                ? 'border-stone-300 bg-white/95 text-stone-800 hover:bg-stone-100 shadow-stone-900/10'
+                ? 'md:hidden border-stone-300 bg-white/95 text-stone-800 hover:bg-stone-100 shadow-stone-900/10'
                 : 'border-amber-400 bg-amber-500 text-stone-950 hover:bg-amber-400 shadow-amber-500/40 ring-4 ring-amber-500/20'
             }`}
             title={isTicketSidebarOpen ? 'Collapse Ticket Sidebar' : 'Expand Ticket Sidebar'}
@@ -1332,11 +1478,14 @@ export const PosMenu: React.FC<PosMenuProps> = ({
         </div>
       </div>
 
-      {/* Collapsed Docked Rail on Desktop (when ticket sidebar is hidden) */}
+      {/* Collapsed Docked Rail on Tablet and Desktop (when ticket sidebar is hidden) */}
       {!isTicketSidebarOpen && (
         <aside
-          onClick={() => setIsTicketSidebarOpen(true)}
-          className="hidden lg:flex w-14 shrink-0 rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-2 flex-col items-center justify-between shadow-xs hover:border-amber-400 dark:hover:border-amber-500 hover:shadow-md transition-all cursor-pointer group select-none"
+          onClick={() => {
+            userManuallyToggledRef.current = true;
+            setIsTicketSidebarOpen(true);
+          }}
+          className="hidden md:flex w-14 shrink-0 rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-2 flex-col items-center justify-between shadow-xs hover:border-amber-400 dark:hover:border-amber-500 hover:shadow-md transition-all cursor-pointer group select-none"
           title="Click to open Ticket Sidebar"
         >
           <div className="flex flex-col items-center gap-2 pt-2">
@@ -1382,11 +1531,14 @@ export const PosMenu: React.FC<PosMenuProps> = ({
         </aside>
       )}
 
-      {/* Mobile Backdrop for Slide-over Drawer */}
+      {/* Mobile Backdrop for Slide-over Drawer (phones only) */}
       {isTicketSidebarOpen && (
         <div
-          onClick={() => setIsTicketSidebarOpen(false)}
-          className="fixed inset-0 z-40 bg-stone-950/40 backdrop-blur-xs lg:hidden animate-in fade-in duration-200"
+          onClick={() => {
+            userManuallyToggledRef.current = true;
+            setIsTicketSidebarOpen(false);
+          }}
+          className="fixed inset-0 z-40 bg-stone-950/40 backdrop-blur-xs md:hidden animate-in fade-in duration-200"
         />
       )}
 
@@ -1394,7 +1546,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
       <aside
         className={`${
           isTicketSidebarOpen ? 'flex' : 'hidden'
-        } fixed inset-y-0 right-0 z-50 w-full sm:max-w-md lg:static lg:z-auto lg:w-[380px] xl:w-[420px] shrink-0 flex-col rounded-none sm:rounded-l-3xl lg:rounded-3xl border-l lg:border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-4 sm:p-5 shadow-2xl lg:shadow-xs overflow-hidden transition-all duration-300`}
+        } fixed inset-y-0 right-0 z-50 w-full sm:max-w-md md:static md:z-auto md:w-[340px] lg:w-[380px] xl:w-[420px] shrink-0 flex-col rounded-none sm:rounded-l-3xl md:rounded-3xl border-l md:border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-4 sm:p-5 shadow-2xl md:shadow-xs overflow-hidden transition-all duration-300`}
       >
         {/* Ticket Header with Collapse Toggle */}
         <div className="space-y-3 pb-3 border-b border-stone-200 dark:border-stone-800">
@@ -1411,7 +1563,10 @@ export const PosMenu: React.FC<PosMenuProps> = ({
               {/* Sidebar Collapse Toggle */}
               <button
                 type="button"
-                onClick={() => setIsTicketSidebarOpen(false)}
+                onClick={() => {
+                  userManuallyToggledRef.current = true;
+                  setIsTicketSidebarOpen(false);
+                }}
                 className="flex items-center gap-1 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 px-2.5 py-1.5 text-xs font-bold text-stone-700 dark:text-stone-300 transition cursor-pointer"
                 title="Collapse Ticket Sidebar"
               >
@@ -1471,7 +1626,19 @@ export const PosMenu: React.FC<PosMenuProps> = ({
                 >
                   <Utensils className="h-3.5 w-3.5 text-amber-600 shrink-0" />
                   <span className="truncate">
-                    {selectedTable ? `Table #${selectedTable}` : 'Select Table'}
+                    {selectedTable
+                      ? (() => {
+                          const matchedTable = tables.find((t) => t.tableNumber === selectedTable);
+                          const isCombined =
+                            matchedTable?.combinedWithTableIds &&
+                            matchedTable.combinedWithTableIds.length > 0;
+                          return isCombined
+                            ? `🔗 ${matchedTable.combinedGroupName || `Table #${selectedTable}`} (${selectedOccupants} Guests)`
+                            : `Table #${selectedTable} (${selectedOccupants} ${
+                                selectedOccupants === 1 ? 'Guest' : 'Guests'
+                              })`;
+                        })()
+                      : 'Select Table'}
                   </span>
                 </button>
               ) : (
@@ -1622,29 +1789,50 @@ export const PosMenu: React.FC<PosMenuProps> = ({
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-2 pt-0.5">
-            <button
-              onClick={clearCart}
-              disabled={cart.length === 0}
-              className="rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-3 py-2 text-xs font-bold text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 disabled:opacity-40 cursor-pointer"
-            >
-              Clear
-            </button>
-            <button
-              onClick={openTender}
-              disabled={cart.length === 0}
-              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-amber-500 py-2.5 text-xs sm:text-sm font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition disabled:opacity-40 active:scale-98"
-            >
-              <span>Confirm (₱{totalAmount.toFixed(2)})</span>
-            </button>
+          {/* Action Buttons: Pay Later (NYP) vs Receive Payment */}
+          <div className="space-y-1.5 pt-1">
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onClick={handlePayLaterOrder}
+                disabled={cart.length === 0}
+                title="Send ticket to kitchen/bar without upfront payment (Marked as NYP)"
+                className="flex items-center justify-center gap-1 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/60 py-2 sm:py-2.5 px-2 text-xs font-bold text-amber-950 dark:text-amber-200 transition disabled:opacity-40 active:scale-98 cursor-pointer shadow-2xs"
+              >
+                <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span className="truncate">Pay Later (NYP)</span>
+              </button>
+              <button
+                type="button"
+                onClick={openTender}
+                disabled={cart.length === 0}
+                title="Collect payment now and finalize ticket"
+                className="flex items-center justify-center gap-1 rounded-xl bg-amber-500 hover:bg-amber-400 py-2 sm:py-2.5 px-2 text-xs font-black text-stone-950 shadow-md transition disabled:opacity-40 active:scale-98 cursor-pointer"
+              >
+                <Banknote className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">Receive Payment</span>
+              </button>
+            </div>
+            <div className="flex items-center justify-between px-1">
+              <button
+                type="button"
+                onClick={clearCart}
+                disabled={cart.length === 0}
+                className="text-[11px] font-bold text-stone-400 hover:text-rose-600 dark:text-stone-500 dark:hover:text-rose-400 disabled:opacity-30 transition cursor-pointer"
+              >
+                Clear Ticket
+              </button>
+              <span className="text-[10px] font-mono font-medium text-stone-400 dark:text-stone-500">
+                Total: ₱{totalAmount.toFixed(2)}
+              </span>
+            </div>
           </div>
         </div>
       </aside>
 
       {/* Sticky Floating Bottom Bar on Mobile when ticket is collapsed & cart has items */}
       {!isTicketSidebarOpen && cart.length > 0 && (
-        <div className="fixed bottom-20 sm:bottom-4 inset-x-3 sm:inset-x-6 z-45 lg:hidden bg-stone-950 text-white rounded-2xl p-3 shadow-2xl flex items-center justify-between border border-stone-800 animate-in slide-in-from-bottom-3 duration-200">
+        <div className="fixed bottom-20 sm:bottom-4 inset-x-3 sm:inset-x-6 z-45 md:hidden bg-stone-950 text-white rounded-2xl p-3 shadow-2xl flex items-center justify-between border border-stone-800 animate-in slide-in-from-bottom-3 duration-200">
           <div className="flex items-center gap-2.5">
             <div className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500 text-stone-950 font-black text-xs shadow-xs">
               <ShoppingCart className="h-4 w-4" />
@@ -1658,20 +1846,20 @@ export const PosMenu: React.FC<PosMenuProps> = ({
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={() => setIsTicketSidebarOpen(true)}
-              className="rounded-xl bg-stone-800 hover:bg-stone-700 px-3 py-2 text-xs font-bold text-stone-200 transition"
+              onClick={handlePayLaterOrder}
+              className="rounded-xl border border-amber-500/40 bg-stone-900 text-amber-300 hover:bg-stone-850 px-2.5 py-2 text-xs font-bold transition"
             >
-              Open Ticket
+              Pay Later (NYP)
             </button>
             <button
               type="button"
               onClick={openTender}
-              className="rounded-xl bg-amber-500 hover:bg-amber-400 px-4 py-2 text-xs font-extrabold text-stone-950 shadow-md transition active:scale-95"
+              className="rounded-xl bg-amber-500 hover:bg-amber-400 px-3 py-2 text-xs font-black text-stone-950 shadow-md transition active:scale-95"
             >
-              Tender
+              Receive Payment
             </button>
           </div>
         </div>
@@ -1905,7 +2093,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
               </div>
             )}
 
-            <div className="mt-3 sm:mt-4 flex gap-2.5 sm:gap-3 pt-2 border-t border-stone-100 dark:border-stone-800">
+            <div className="mt-3 sm:mt-4 flex items-center gap-2 sm:gap-2.5 pt-2 border-t border-stone-100 dark:border-stone-800 flex-wrap sm:flex-nowrap">
               <button
                 type="button"
                 onClick={() => setIsTenderModalOpen(false)}
@@ -1915,10 +2103,20 @@ export const PosMenu: React.FC<PosMenuProps> = ({
               </button>
               <button
                 type="button"
-                onClick={handleProcessOrder}
-                className="flex-1 rounded-xl bg-amber-500 py-2 sm:py-2.5 text-xs sm:text-sm font-extrabold text-stone-950 shadow-md hover:bg-amber-400 transition active:scale-98 cursor-pointer"
+                onClick={handlePayLaterOrder}
+                title="Customer will pay later - dispatch order to kitchen/bar as Not Yet Paid (NYP)"
+                className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-950 dark:text-amber-200 px-3 py-2 text-xs font-bold transition active:scale-98 cursor-pointer flex items-center gap-1.5"
               >
-                Confirm
+                <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                <span>Pay Later (NYP)</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleProcessOrder}
+                className="flex-1 rounded-xl bg-amber-500 py-2 sm:py-2.5 px-3 text-xs sm:text-sm font-black text-stone-950 shadow-md hover:bg-amber-400 transition active:scale-98 cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Check className="h-4 w-4 stroke-[2.5]" />
+                <span>Receive Payment (PAID)</span>
               </button>
             </div>
           </div>
@@ -1931,8 +2129,10 @@ export const PosMenu: React.FC<PosMenuProps> = ({
         onClose={() => setIsTableModalOpen(false)}
         tables={tables}
         selectedTable={selectedTable}
-        onSelectTable={(tableNumber) => {
+        initialOccupants={selectedOccupants}
+        onSelectTable={(tableNumber, occupants) => {
           setSelectedTable(tableNumber);
+          setSelectedOccupants(occupants);
           setOrderType('dine_in');
           setIsTableModalOpen(false);
           setAmountPaidInput(totalAmount.toFixed(2));
@@ -1940,6 +2140,7 @@ export const PosMenu: React.FC<PosMenuProps> = ({
         }}
         onNoTableNeeded={() => {
           setSelectedTable('');
+          setSelectedOccupants(1);
           setOrderType('take_away');
           setIsTableModalOpen(false);
           setAmountPaidInput(totalAmount.toFixed(2));

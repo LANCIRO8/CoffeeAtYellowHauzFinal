@@ -4,6 +4,7 @@ import {
   Table,
   User,
   Order,
+  OrderStatus,
   OrderItem,
   Reservation,
   CustomerAccount,
@@ -1151,15 +1152,59 @@ export class AppStore {
   // Floor plan tables
   static getTables(): Table[] {
     const tables = getStored<Table[]>(STORAGE_KEYS.TABLES, SEED_TABLES);
-    if (!tables || tables.length < 10 || !tables.some((t) => t.name)) {
-      const merged = SEED_TABLES.map((seed) => {
-        const existing = tables?.find((t) => t.tableNumber === seed.tableNumber);
-        return existing
-          ? { ...seed, status: existing.status, currentOrderId: existing.currentOrderId }
-          : seed;
+    if (
+      !tables ||
+      tables.length !== SEED_TABLES.length ||
+      !tables.some((t) => t.chairs && t.chairs.length > 0) ||
+      !tables.some((t) => t.areaName === '2nd aircon area') ||
+      !tables.some((t) => t.areaName === 'window area')
+    ) {
+      setStored(STORAGE_KEYS.TABLES, SEED_TABLES);
+      return SEED_TABLES;
+    }
+    // Sync Kolin, Door & Entrance Area setup/chair descriptions if needed
+    let hasUpdated = false;
+    tables.forEach((t) => {
+      if (
+        t.code === 'table7_kolin_1' ||
+        t.code === 'table8_kolin_2' ||
+        t.code === 'table10_door_1' ||
+        t.code === 'table11_door_2' ||
+        t.code === 'table13_entrance_1' ||
+        t.code === 'table14_entrance_2'
+      ) {
+        if (!t.setup?.includes('Shares Long Couch')) {
+          t.setup = '1 chair • Shares Long Couch';
+          t.description = `${t.name} (1 chair • shares long couch)`;
+          hasUpdated = true;
+        }
+      } else if (
+        t.code === 'table9_kolin_couch' ||
+        t.code === 'table12_door_couch' ||
+        t.code === 'table15_entrance_couch'
+      ) {
+        if (!t.setup?.includes('Shared') || !t.chairs?.[0]?.label?.includes('Table 1')) {
+          t.setup = 'Long Couch (Shared by Table 1 & Table 2)';
+          t.description = 'Long Couch (2 Customers • Shared with Table 1 & 2)';
+          if (t.chairs && t.chairs.length >= 2) {
+            t.chairs[0].label = 'Couch Seat 1 (Table 1)';
+            t.chairs[1].label = 'Couch Seat 2 (Table 2)';
+          }
+          hasUpdated = true;
+        }
+      }
+    });
+    if (hasUpdated) {
+      setStored(STORAGE_KEYS.TABLES, tables);
+      tables.forEach((table) => {
+        if (
+          table.code === 'table13_entrance_1' ||
+          table.code === 'table14_entrance_2' ||
+          table.code === 'table15_entrance_couch'
+        ) {
+          setDoc(doc(db, 'tables', String(table.id)), cleanForFirestore(table)).catch(() => {});
+        }
       });
-      setStored(STORAGE_KEYS.TABLES, merged);
-      return merged;
     }
     return tables;
   }
@@ -1171,6 +1216,81 @@ export class AppStore {
       setDoc(doc(db, 'tables', String(table.id)), cleanForFirestore(table)).catch(() => {});
     });
     return SEED_TABLES;
+  }
+
+  // Calculate dynamic occupancy, available chairs, and chair-to-order mapping
+  static getTableOccupancyDetails(table: Table, allOrders?: Order[]) {
+    const orders = allOrders || this.getOrders();
+    const relatedTableIds = [
+      table.id,
+      ...(table.combinedWithTableIds || []),
+      ...(table.primaryTableId ? [table.primaryTableId] : []),
+    ];
+
+    const activeOrders = orders.filter(
+      (o) =>
+        o.orderType === 'dine_in' &&
+        o.status !== 'completed' &&
+        o.status !== 'cancelled' &&
+        ((o.tableId && relatedTableIds.includes(o.tableId)) ||
+          (table.id && o.tableId === table.id) ||
+          (table.tableNumber && o.tableNumber === table.tableNumber))
+    );
+
+    const occupiedChairs = activeOrders.reduce((sum, o) => sum + Math.max(1, o.guestCount || 1), 0);
+    const capacity = table.capacity || (table.chairs ? table.chairs.length : 2);
+    const availableChairs = Math.max(0, capacity - occupiedChairs);
+    const isFullyOccupied = occupiedChairs >= capacity;
+    const isPartiallyOccupied = occupiedChairs > 0 && occupiedChairs < capacity;
+
+    // Build chair objects with assigned occupant and order
+    const baseChairs =
+      table.chairs && table.chairs.length > 0
+        ? table.chairs
+        : Array.from({ length: capacity }, (_, i) => ({
+            id: `T${table.tableNumber}-C${i + 1}`,
+            chairNumber: i + 1,
+            label: `Chair ${i + 1}`,
+          }));
+
+    let currentChairIdx = 0;
+    const chairsWithOccupants = baseChairs.map((ch, idx) => {
+      return {
+        id: ch.id || `T${table.tableNumber}-C${idx + 1}`,
+        chairNumber: ch.chairNumber || idx + 1,
+        label: ch.label || `Chair ${idx + 1}`,
+        isOccupied: false,
+        order: undefined as Order | undefined,
+        customerName: undefined as string | undefined,
+        orderNumber: undefined as string | undefined,
+      };
+    });
+
+    for (const ord of activeOrders) {
+      const seatsNeeded = Math.max(1, ord.guestCount || 1);
+      for (let s = 0; s < seatsNeeded; s++) {
+        if (currentChairIdx < chairsWithOccupants.length) {
+          chairsWithOccupants[currentChairIdx].isOccupied = true;
+          chairsWithOccupants[currentChairIdx].order = ord;
+          chairsWithOccupants[currentChairIdx].customerName = ord.customerName;
+          chairsWithOccupants[currentChairIdx].orderNumber = ord.orderNumber;
+          currentChairIdx++;
+        }
+      }
+    }
+
+    return {
+      table,
+      activeOrders,
+      occupiedChairs,
+      availableChairs,
+      isFullyOccupied,
+      isPartiallyOccupied,
+      chairsWithOccupants,
+      isCombinedGroup: !!(table.combinedWithTableIds && table.combinedWithTableIds.length > 0),
+      isCombinedCompanion: !!table.isCombinedCompanion,
+      combinedGroupName: table.combinedGroupName,
+    };
   }
 
   static saveTables(tables: Table[]): void {
@@ -1244,6 +1364,167 @@ export class AppStore {
     return tables[idx];
   }
 
+  // Combine two or more tables in the same area to accommodate a bigger guest count together
+  static combineTables(
+    primaryTableId: number,
+    companionTableIds: number[],
+    customGroupName?: string
+  ): { success: boolean; primaryTable?: Table; message: string } {
+    const tables = this.getTables();
+    const primary = tables.find((t) => t.id === primaryTableId);
+    if (!primary) return { success: false, message: 'Primary table not found.' };
+
+    const companions = tables.filter((t) => companionTableIds.includes(t.id) && t.id !== primaryTableId);
+    if (companions.length === 0) return { success: false, message: 'No companion tables selected to combine.' };
+
+    // Preserve baseline capacity, name, and chairs before combining if not yet stored
+    if (primary.baseCapacity === undefined) primary.baseCapacity = primary.capacity;
+    if (primary.baseName === undefined) primary.baseName = primary.name;
+    if (!primary.baseChairs || primary.baseChairs.length === 0) {
+      primary.baseChairs = primary.chairs ? [...primary.chairs] : [];
+    }
+
+    companions.forEach((c) => {
+      if (c.baseCapacity === undefined) c.baseCapacity = c.capacity;
+      if (c.baseName === undefined) c.baseName = c.name;
+      if (!c.baseChairs || c.baseChairs.length === 0) {
+        c.baseChairs = c.chairs ? [...c.chairs] : [];
+      }
+    });
+
+    // Compute pooled capacity (sum of primary + all companions)
+    const pooledCapacity =
+      (primary.baseCapacity || primary.capacity) +
+      companions.reduce((sum, c) => sum + (c.baseCapacity || c.capacity), 0);
+
+    // Compute pooled chairs with table prefixes so physical seats are clear
+    const primaryChairs =
+      primary.baseChairs && primary.baseChairs.length > 0
+        ? primary.baseChairs
+        : Array.from({ length: primary.baseCapacity || primary.capacity }, (_, i) => ({
+            id: `T${primary.tableNumber}-C${i + 1}`,
+            chairNumber: i + 1,
+            label: `T${primary.tableNumber} Chair ${i + 1}`,
+          }));
+
+    let nextChairNum = primaryChairs.length + 1;
+    const allChairs = [...primaryChairs];
+
+    companions.forEach((c) => {
+      const cChairs =
+        c.baseChairs && c.baseChairs.length > 0
+          ? c.baseChairs
+          : Array.from({ length: c.baseCapacity || c.capacity }, (_, i) => ({
+              id: `T${c.tableNumber}-C${i + 1}`,
+              chairNumber: i + 1,
+              label: `T${c.tableNumber} Chair ${i + 1}`,
+            }));
+
+      cChairs.forEach((ch) => {
+        allChairs.push({
+          id: ch.id || `T${c.tableNumber}-C${nextChairNum}`,
+          chairNumber: nextChairNum++,
+          label: ch.label?.includes('T') ? ch.label : `T${c.tableNumber} ${ch.label || `Chair ${ch.chairNumber}`}`,
+        });
+      });
+    });
+
+    const sortedTableNums = [primary.tableNumber, ...companions.map((c) => c.tableNumber)].sort(
+      (a, b) => a - b
+    );
+    const defaultGroupName = `Table ${sortedTableNums.join(' + ')}`;
+    const groupName = customGroupName?.trim() || defaultGroupName;
+
+    primary.capacity = pooledCapacity;
+    primary.name = groupName;
+    primary.chairs = allChairs;
+    primary.combinedWithTableIds = companions.map((c) => c.id);
+    primary.combinedGroupName = groupName;
+    primary.isCombinedCompanion = false;
+    primary.primaryTableId = undefined;
+
+    companions.forEach((c) => {
+      c.name = groupName;
+      c.isCombinedCompanion = true;
+      c.primaryTableId = primary.id;
+      c.combinedGroupName = groupName;
+      c.combinedWithTableIds = undefined;
+      c.status = primary.status;
+      c.currentOrderId = primary.currentOrderId;
+      c.currentOrderIds = primary.currentOrderIds;
+    });
+
+    this.saveTables(tables);
+
+    [primary, ...companions].forEach((t) => {
+      setDoc(doc(db, 'tables', String(t.id)), cleanForFirestore(t)).catch(() => {});
+    });
+
+    return {
+      success: true,
+      primaryTable: primary,
+      message: `Successfully combined tables ${sortedTableNums.map((n) => `T${n}`).join(' + ')} into unified "${groupName}" with ${pooledCapacity} total seats.`,
+    };
+  }
+
+  // Split / Uncombine combined tables back to their individual setups
+  static uncombineTable(tableId: number): { success: boolean; message: string } {
+    const tables = this.getTables();
+    const table = tables.find((t) => t.id === tableId);
+    if (!table) return { success: false, message: 'Table not found.' };
+
+    const primaryId = table.isCombinedCompanion ? table.primaryTableId : table.id;
+    const primary = tables.find((t) => t.id === primaryId);
+    if (!primary || !primary.combinedWithTableIds || primary.combinedWithTableIds.length === 0) {
+      return { success: false, message: 'This table is not currently part of a combined group.' };
+    }
+
+    const companionIds = [...primary.combinedWithTableIds];
+    const companions = tables.filter((t) => companionIds.includes(t.id));
+
+    // Restore primary table back to baseline
+    primary.capacity = primary.baseCapacity || (primary.baseChairs ? primary.baseChairs.length : 2);
+    primary.name = primary.baseName || `Table ${primary.tableNumber}`;
+    primary.chairs =
+      primary.baseChairs && primary.baseChairs.length > 0
+        ? [...primary.baseChairs]
+        : primary.chairs?.slice(0, primary.capacity);
+    primary.combinedWithTableIds = undefined;
+    primary.combinedGroupName = undefined;
+    primary.isCombinedCompanion = undefined;
+    primary.primaryTableId = undefined;
+    primary.baseName = undefined;
+
+    // Restore companion tables back to baseline
+    companions.forEach((c) => {
+      c.capacity = c.baseCapacity || (c.baseChairs ? c.baseChairs.length : 2);
+      c.name = c.baseName || `Table ${c.tableNumber}`;
+      c.chairs =
+        c.baseChairs && c.baseChairs.length > 0
+          ? [...c.baseChairs]
+          : c.chairs?.slice(0, c.capacity);
+      c.combinedWithTableIds = undefined;
+      c.combinedGroupName = undefined;
+      c.isCombinedCompanion = undefined;
+      c.primaryTableId = undefined;
+      c.baseName = undefined;
+      c.status = 'available';
+      c.currentOrderId = null;
+      c.currentOrderIds = [];
+    });
+
+    this.saveTables(tables);
+
+    [primary, ...companions].forEach((t) => {
+      setDoc(doc(db, 'tables', String(t.id)), cleanForFirestore(t)).catch(() => {});
+    });
+
+    return {
+      success: true,
+      message: `Table group uncombined. Tables ${[primary.tableNumber, ...companions.map((c) => c.tableNumber)].join(', ')} are now separate.`,
+    };
+  }
+
   static getOrderChannel(order: Order): 'online' | 'in_store' {
     if (order.channel === 'online' || order.channel === 'in_store') {
       return order.channel;
@@ -1260,14 +1541,53 @@ export class AppStore {
   // Orders
   static getOrders(): Order[] {
     const list = getStored<Order[]>(STORAGE_KEYS.ORDERS, INITIAL_ORDERS);
-    return list.map((o) =>
-      o.cashierName === 'System Administrator' ? { ...o, cashierName: 'Admin' } : o
-    );
+    return list.map((o) => {
+      const fixed = o.cashierName === 'System Administrator' ? { ...o, cashierName: 'Admin' } : o;
+      if (!fixed.paymentStatus) {
+        const isPaid = fixed.status === 'completed' || (fixed.amountPaid !== undefined && fixed.amountPaid > 0);
+        fixed.paymentStatus = isPaid ? 'paid' : 'nyp';
+      }
+      return fixed;
+    });
   }
 
   static saveOrders(orders: Order[]): void {
     setStored(STORAGE_KEYS.ORDERS, orders);
     this.notify();
+  }
+
+  static markOrderAsPaid(
+    orderId: number,
+    paymentDetails: {
+      paymentMethod?: 'cash' | 'card' | 'gcash';
+      amountPaid?: number;
+      changeAmount?: number;
+    }
+  ): Order | null {
+    const orders = this.getOrders();
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return null;
+    const nowIso = new Date().toISOString();
+    order.paymentStatus = 'paid';
+    order.paidAt = nowIso;
+    if (paymentDetails.paymentMethod) {
+      order.paymentMethod = paymentDetails.paymentMethod;
+    }
+    order.amountPaid =
+      paymentDetails.amountPaid !== undefined
+        ? Number(paymentDetails.amountPaid)
+        : order.totalAmount;
+    order.changeAmount =
+      paymentDetails.changeAmount !== undefined
+        ? Number(paymentDetails.changeAmount)
+        : 0;
+
+    this.saveOrders(orders);
+
+    setDoc(doc(db, 'orders', String(order.id)), cleanForFirestore(order)).catch((e) =>
+      console.error('Firestore markOrderAsPaid error:', e)
+    );
+    return order;
   }
 
   static createOrder(orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt'>): Order {
@@ -1298,15 +1618,36 @@ export class AppStore {
     const currentMenuItems = this.getMenuItems();
     const hasDrinks = (orderData.items || []).some((oi) => isDrinkOrderItem(oi, currentMenuItems));
     const hasFood = (orderData.items || []).some((oi) => !isDrinkOrderItem(oi, currentMenuItems));
-    const initialStatus = orderData.status || (channel === 'online' ? 'to_confirm' : 'to_prep');
-    const isToPrep = initialStatus === 'to_prep';
+    const isCustomerSelfOrder = channel === 'online' || orderData.status === 'to_confirm';
+    const initialStatus: OrderStatus = orderData.status
+      ? orderData.status
+      : isCustomerSelfOrder
+      ? 'to_confirm'
+      : 'processing';
+    const isProcessing = initialStatus === 'processing';
+    const nowIso = new Date().toISOString();
+
+    // Payment state determination:
+    // Either explicitly 'paid' or 'nyp' (Not Yet Paid)
+    const initialPaymentStatus: 'paid' | 'nyp' =
+      orderData.paymentStatus ||
+      (orderData.amountPaid && orderData.amountPaid >= (Number(orderData.totalAmount) || 0)
+        ? 'paid'
+        : 'nyp');
+
+    const isPaid = initialPaymentStatus === 'paid';
+    const finalAmountPaid = isPaid
+      ? (Number(orderData.amountPaid) || Number(orderData.totalAmount) || 0)
+      : 0;
+    const finalChangeAmount = isPaid ? (Number(orderData.changeAmount) || 0) : 0;
+    const paidAt = isPaid ? (orderData.paidAt || nowIso) : undefined;
 
     const newOrder: Order = {
       id: newId,
       orderNumber,
       channel,
       orderClassification: classification,
-      createdAt: new Date().toISOString(),
+      createdAt: nowIso,
       tableId: orderData.tableId ?? null,
       tableNumber: orderData.tableNumber ?? null,
       customerId: orderData.customerId ?? null,
@@ -1318,6 +1659,8 @@ export class AppStore {
       guestCount: orderData.guestCount ?? (orderData.advanceBooking ? orderData.advanceBooking.partySize : undefined),
       orderType: orderData.orderType || 'dine_in',
       paymentMethod: orderData.paymentMethod || 'cash',
+      paymentStatus: initialPaymentStatus,
+      paidAt,
       subtotal: Number(orderData.subtotal) || 0,
       taxRate: Number(orderData.taxRate) || 12,
       taxAmount: Number(orderData.taxAmount) || 0,
@@ -1325,11 +1668,13 @@ export class AppStore {
       discountAmount: Number(orderData.discountAmount) || 0,
       discountType: orderData.discountType || 'none',
       discountPercent: Number(orderData.discountPercent) || 0,
-      amountPaid: Number(orderData.amountPaid) || 0,
-      changeAmount: Number(orderData.changeAmount) || 0,
+      amountPaid: finalAmountPaid,
+      changeAmount: finalChangeAmount,
       status: initialStatus,
-      baristaStatus: hasDrinks ? (isToPrep ? 'to_prep' : 'pending') : undefined,
-      cookStatus: hasFood ? (isToPrep ? 'to_prep' : 'pending') : undefined,
+      baristaStatus: hasDrinks ? (isProcessing ? 'processing' : 'pending') : undefined,
+      cookStatus: hasFood ? (isProcessing ? 'processing' : 'pending') : undefined,
+      confirmedAt: isProcessing ? nowIso : undefined,
+      processingStartedAt: isProcessing ? nowIso : undefined,
       cashierId: orderData.cashierId ?? (channel === 'online' ? 1 : 2),
       cashierName: orderData.cashierName || (channel === 'online' ? 'Online Storefront' : 'Staff Member'),
       items: (orderData.items || []).map((oi) => ({
@@ -1371,9 +1716,52 @@ export class AppStore {
     }
     this.saveMenuItems(items);
 
-    // If dine in, mark table occupied
-    if (newOrder.orderType === 'dine_in' && newOrder.tableId) {
-      this.updateTableStatus(newOrder.tableId, 'occupied', newOrder.id);
+    // If dine in, update table occupancy
+    if (newOrder.orderType === 'dine_in' && (newOrder.tableId || newOrder.tableNumber)) {
+      const tables = this.getTables();
+      const targetTable = tables.find(
+        (t) =>
+          (newOrder.tableId && t.id === newOrder.tableId) ||
+          (newOrder.tableNumber && t.tableNumber === newOrder.tableNumber)
+      );
+      if (targetTable) {
+        const activeOrders = orders.filter(
+          (o) =>
+            o.id !== newOrder.id &&
+            o.orderType === 'dine_in' &&
+            o.status !== 'completed' &&
+            o.status !== 'cancelled' &&
+            ((targetTable.id && o.tableId === targetTable.id) ||
+              (targetTable.tableNumber && o.tableNumber === targetTable.tableNumber))
+        );
+        const prevOccupants = activeOrders.reduce(
+          (sum, o) => sum + Math.max(1, o.guestCount || 1),
+          0
+        );
+        const newTotalOccupants = prevOccupants + Math.max(1, newOrder.guestCount || 1);
+        const isFull = newTotalOccupants >= (targetTable.capacity || 2);
+
+        targetTable.status = isFull ? 'occupied' : 'available';
+        targetTable.currentOrderId = newOrder.id;
+        const currentIds = targetTable.currentOrderIds || [];
+        if (!currentIds.includes(newOrder.id)) {
+          targetTable.currentOrderIds = [...currentIds, newOrder.id];
+        }
+
+        // If targetTable is part of a combined group, sync state across companions
+        if (targetTable.combinedWithTableIds && targetTable.combinedWithTableIds.length > 0) {
+          tables.forEach((t) => {
+            if (targetTable.combinedWithTableIds?.includes(t.id)) {
+              t.status = targetTable.status;
+              t.currentOrderId = targetTable.currentOrderId;
+              t.currentOrderIds = targetTable.currentOrderIds;
+              setDoc(doc(db, 'tables', String(t.id)), cleanForFirestore(t)).catch(() => {});
+            }
+          });
+        }
+
+        this.saveTables(tables);
+      }
     }
 
     return newOrder;
@@ -1412,11 +1800,26 @@ export class AppStore {
         order.cookStatus = 'to_prep';
       }
     }
-    if (status === 'processing' && !order.processingStartedAt) {
-      order.processingStartedAt = nowIso;
+    if (status === 'processing') {
+      if (!order.confirmedAt) order.confirmedAt = nowIso;
+      if (!order.processingStartedAt) order.processingStartedAt = nowIso;
+      const breakdown = getOrderFulfillmentBreakdown(order, this.getMenuItems());
+      if (breakdown.hasDrinks && (!order.baristaStatus || order.baristaStatus === 'pending' || order.baristaStatus === 'to_prep')) {
+        order.baristaStatus = 'processing';
+      }
+      if (breakdown.hasFood && (!order.cookStatus || order.cookStatus === 'pending' || order.cookStatus === 'to_prep')) {
+        order.cookStatus = 'processing';
+      }
     }
     if (status === 'to_serve') {
       if (!order.readyToServeAt) order.readyToServeAt = nowIso;
+      // Complete all check boxes first
+      if (order.items && order.items.length > 0) {
+        order.items.forEach((item) => {
+          item.isServed = true;
+          if (!item.servedAt) item.servedAt = nowIso;
+        });
+      }
       const breakdown = getOrderFulfillmentBreakdown(order, this.getMenuItems());
       if (breakdown.hasDrinks && order.baristaStatus !== 'ready') {
         order.baristaStatus = 'ready';
@@ -1431,6 +1834,13 @@ export class AppStore {
       if (!order.completedAt) order.completedAt = nowIso;
       if (!order.readyToServeAt) order.readyToServeAt = nowIso;
       if (!order.processingStartedAt) order.processingStartedAt = order.createdAt;
+      // Complete all check boxes first
+      if (order.items && order.items.length > 0) {
+        order.items.forEach((item) => {
+          item.isServed = true;
+          if (!item.servedAt) item.servedAt = nowIso;
+        });
+      }
       const breakdown = getOrderFulfillmentBreakdown(order, this.getMenuItems());
       if (breakdown.hasDrinks) order.baristaStatus = 'ready';
       if (breakdown.hasFood) order.cookStatus = 'ready';
@@ -1483,15 +1893,129 @@ export class AppStore {
       setDoc(doc(db, 'orders', String(orderId)), cleanForFirestore(order)).catch(() => {});
     });
 
-    // If order finished or cancelled, free table
-    if ((status === 'completed' || status === 'cancelled') && order.tableId) {
+    // If order finished or cancelled, free chair / table
+    if ((status === 'completed' || status === 'cancelled') && (order.tableId || order.tableNumber)) {
       const tables = this.getTables();
-      const table = tables.find((t) => t.id === order.tableId);
-      if (table && table.currentOrderId === order.id) {
-        this.updateTableStatus(table.id, 'available', null);
+      const table = tables.find(
+        (t) =>
+          (order.tableId && t.id === order.tableId) ||
+          (order.tableNumber && t.tableNumber === order.tableNumber)
+      );
+      if (table) {
+        const remainingActive = orders.filter(
+          (o) =>
+            o.id !== order.id &&
+            o.orderType === 'dine_in' &&
+            o.status !== 'completed' &&
+            o.status !== 'cancelled' &&
+            ((table.id && o.tableId === table.id) ||
+              (table.tableNumber && o.tableNumber === table.tableNumber))
+        );
+        if (remainingActive.length === 0) {
+          table.status = 'available';
+          table.currentOrderId = null;
+          table.currentOrderIds = [];
+        } else {
+          const totalOccupants = remainingActive.reduce(
+            (sum, o) => sum + Math.max(1, o.guestCount || 1),
+            0
+          );
+          table.status = totalOccupants >= (table.capacity || 2) ? 'occupied' : 'available';
+          table.currentOrderId = remainingActive[0].id;
+          table.currentOrderIds = remainingActive.map((o) => o.id);
+        }
+
+        // If table is part of a combined group, sync state across companions
+        if (table.combinedWithTableIds && table.combinedWithTableIds.length > 0) {
+          tables.forEach((t) => {
+            if (table.combinedWithTableIds?.includes(t.id)) {
+              t.status = table.status;
+              t.currentOrderId = table.currentOrderId;
+              t.currentOrderIds = table.currentOrderIds;
+              setDoc(doc(db, 'tables', String(t.id)), cleanForFirestore(t)).catch(() => {});
+            }
+          });
+        }
+
+        this.saveTables(tables);
       }
     }
 
+    return order;
+  }
+
+  static toggleOrderItemServed(
+    orderId: number,
+    itemIndex: number,
+    staffName?: string
+  ): Order | null {
+    const orders = this.getOrders();
+    const order = orders.find((o) => o.id === orderId);
+    if (!order || !order.items || !order.items[itemIndex]) return null;
+
+    const item = order.items[itemIndex];
+    const newServed = !item.isServed;
+    item.isServed = newServed;
+    const nowIso = new Date().toISOString();
+    if (newServed) {
+      item.servedAt = nowIso;
+      if (staffName) item.servedBy = staffName;
+    } else {
+      delete item.servedAt;
+      delete item.servedBy;
+    }
+
+    const allServed = order.items.every((it) => it.isServed);
+    if (allServed) {
+      order.status = 'to_serve';
+      order.readyToServeAt = nowIso;
+      if (order.baristaStatus) order.baristaStatus = 'ready';
+      if (order.cookStatus) order.cookStatus = 'ready';
+    } else {
+      if (order.status === 'to_serve' || order.status === 'completed') {
+        order.status = 'processing';
+      }
+    }
+
+    this.saveOrders(orders);
+    setDoc(doc(db, 'orders', String(orderId)), cleanForFirestore(order)).catch(() => {});
+    return order;
+  }
+
+  static markAllOrderItemsServed(
+    orderId: number,
+    served: boolean = true,
+    staffName?: string
+  ): Order | null {
+    const orders = this.getOrders();
+    const order = orders.find((o) => o.id === orderId);
+    if (!order || !order.items) return null;
+
+    const nowIso = new Date().toISOString();
+    order.items.forEach((item) => {
+      item.isServed = served;
+      if (served) {
+        item.servedAt = nowIso;
+        if (staffName) item.servedBy = staffName;
+      } else {
+        delete item.servedAt;
+        delete item.servedBy;
+      }
+    });
+
+    if (served) {
+      order.status = 'to_serve';
+      order.readyToServeAt = nowIso;
+      if (order.baristaStatus) order.baristaStatus = 'ready';
+      if (order.cookStatus) order.cookStatus = 'ready';
+    } else {
+      if (order.status === 'to_serve' || order.status === 'completed') {
+        order.status = 'processing';
+      }
+    }
+
+    this.saveOrders(orders);
+    setDoc(doc(db, 'orders', String(orderId)), cleanForFirestore(order)).catch(() => {});
     return order;
   }
 
@@ -1517,17 +2041,26 @@ export class AppStore {
       order.baristaCompletedAt = nowIso;
       order.baristaCompletedBy = staffName || 'Barista';
 
-      // Check if food is also needed
-      const breakdown = getOrderFulfillmentBreakdown(order, this.getMenuItems());
-      if (!breakdown.hasFood || order.cookStatus === 'ready') {
-        // Both (or only drinks) are ready! Advance order to 'to_serve'
+      // Mark all drink item checkboxes as completed
+      const menuItems = this.getMenuItems();
+      if (order.items && order.items.length > 0) {
+        order.items.forEach((item) => {
+          if (isDrinkOrderItem(item, menuItems)) {
+            item.isServed = true;
+            if (!item.servedAt) item.servedAt = nowIso;
+            if (staffName && !item.servedBy) item.servedBy = staffName;
+          }
+        });
+      }
+
+      // Check if ALL checkboxes in the order are completed before ticket is called served
+      const allChecked = order.items && order.items.length > 0 && order.items.every((it) => it.isServed);
+      if (allChecked) {
         order.status = 'to_serve';
         if (!order.readyToServeAt) order.readyToServeAt = nowIso;
       } else {
-        // Food is still being cooked by kitchen cook. Keep order in processing
-        if (order.status === 'to_prep') {
+        if (order.status !== 'cancelled' && order.status !== 'to_confirm') {
           order.status = 'processing';
-          if (!order.processingStartedAt) order.processingStartedAt = nowIso;
         }
       }
     }
@@ -1572,17 +2105,26 @@ export class AppStore {
       order.cookCompletedAt = nowIso;
       order.cookCompletedBy = staffName || 'Cook';
 
-      // Check if drinks are also needed
-      const breakdown = getOrderFulfillmentBreakdown(order, this.getMenuItems());
-      if (!breakdown.hasDrinks || order.baristaStatus === 'ready') {
-        // Both (or only food) are ready! Advance order to 'to_serve'
+      // Mark all food item checkboxes as completed
+      const menuItems = this.getMenuItems();
+      if (order.items && order.items.length > 0) {
+        order.items.forEach((item) => {
+          if (!isDrinkOrderItem(item, menuItems)) {
+            item.isServed = true;
+            if (!item.servedAt) item.servedAt = nowIso;
+            if (staffName && !item.servedBy) item.servedBy = staffName;
+          }
+        });
+      }
+
+      // Check if ALL checkboxes in the order are completed before ticket is called served
+      const allChecked = order.items && order.items.length > 0 && order.items.every((it) => it.isServed);
+      if (allChecked) {
         order.status = 'to_serve';
         if (!order.readyToServeAt) order.readyToServeAt = nowIso;
       } else {
-        // Drinks are still being prepared by barista. Keep order in processing
-        if (order.status === 'to_prep') {
+        if (order.status !== 'cancelled' && order.status !== 'to_confirm') {
           order.status = 'processing';
-          if (!order.processingStartedAt) order.processingStartedAt = nowIso;
         }
       }
     }
@@ -1612,6 +2154,15 @@ export class AppStore {
 
     const nowIso = new Date().toISOString();
     const breakdown = getOrderFulfillmentBreakdown(order, this.getMenuItems());
+
+    // Complete all checkboxes first before ticket is called served
+    if (order.items && order.items.length > 0) {
+      order.items.forEach((item) => {
+        item.isServed = true;
+        if (!item.servedAt) item.servedAt = nowIso;
+        if (staffName && !item.servedBy) item.servedBy = staffName;
+      });
+    }
 
     if (breakdown.hasDrinks) {
       order.baristaStatus = 'ready';

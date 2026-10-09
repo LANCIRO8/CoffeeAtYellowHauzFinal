@@ -333,7 +333,7 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
                       </h4>
                     </div>
                     <p className="text-[10px] sm:text-[11px] text-stone-600 dark:text-stone-400 mt-0.5">
-                      1st Aircon (3 tables), 2nd Aircon (1 table), 3rd Aircon (long table), &amp; Kolin (couch &amp; tables).
+                      1st Aircon (3 tables), 2nd Aircon (1 table), 3rd Aircon (long table), &amp; Kolin (long couch shared by 2 tables with 1 chair each).
                     </p>
                   </div>
                   <span className="rounded-full bg-sky-100 dark:bg-sky-950/70 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800/60 text-[9px] sm:text-[10px] font-bold px-2 py-0.5 shrink-0">
@@ -366,7 +366,7 @@ export const CustomerFloorPlan: React.FC<CustomerFloorPlanProps> = ({
                       </h4>
                     </div>
                     <p className="text-[10px] sm:text-[11px] text-stone-600 dark:text-stone-400 mt-0.5">
-                      Center high chairs, Left side long tables, Door &amp; Entrance couches, Spotlight, and Window bar.
+                      Center high chairs, Left side long tables, Door &amp; Entrance (long couch shared by 2 tables with 1 chair each), Spotlight, and Window bar.
                     </p>
                   </div>
                   <span className="rounded-full bg-amber-100 dark:bg-[#261a10] text-amber-900 dark:text-[#f59e0b] border border-amber-300/80 dark:border-[#78350f]/60 text-[9px] sm:text-[10px] font-bold px-2 py-0.5 shrink-0">

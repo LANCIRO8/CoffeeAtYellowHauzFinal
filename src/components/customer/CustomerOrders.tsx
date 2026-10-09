@@ -774,10 +774,15 @@ export const CustomerOrders: React.FC<CustomerOrdersProps> = ({
                               <span className="rounded-md bg-amber-100 dark:bg-amber-950/70 border border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-300 font-extrabold px-1.5 py-0.2 text-[10px]">
                                 {it.quantity}x
                               </span>
-                              <span>{it.name}</span>
+                              <span className={it.isServed ? 'line-through text-stone-400 dark:text-stone-500' : ''}>{it.name}</span>
                               {variantName && (
                                 <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.2 rounded-md bg-amber-100/80 dark:bg-amber-950/70 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-300">
                                   {variantName}
+                                </span>
+                              )}
+                              {it.isServed && (
+                                <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 px-1.5 py-0.2 text-[8px] font-black uppercase tracking-wider shrink-0 border border-emerald-200 dark:border-emerald-800/60">
+                                  Served
                                 </span>
                               )}
                             </div>

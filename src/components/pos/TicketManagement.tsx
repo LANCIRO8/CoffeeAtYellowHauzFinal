@@ -23,6 +23,7 @@ import {
   Utensils,
   Sparkles,
   AlertCircle,
+  AlertTriangle,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -38,7 +39,13 @@ import {
   Grid3X3,
   LayoutGrid,
   ClipboardList,
+  Maximize2,
+  Calendar,
+  Banknote,
+  CreditCard,
+  QrCode,
 } from 'lucide-react';
+import { ExpandedTicketModal } from './ExpandedTicketModal';
 
 interface TicketManagementProps {
   activeStaff: User;
@@ -68,6 +75,109 @@ const RETURN_REASONS = [
   'Other custom return reason',
 ];
 
+export type DatePeriod =
+  | 'today'
+  | 'yesterday'
+  | 'last_7_days'
+  | 'last_30_days'
+  | 'custom'
+  | 'all_time';
+
+export const DATE_PERIOD_OPTIONS: {
+  id: DatePeriod;
+  label: string;
+  description: string;
+}[] = [
+  { id: 'today', label: 'Today', description: 'Orders placed today' },
+  { id: 'yesterday', label: 'Yesterday', description: 'Orders placed yesterday' },
+  { id: 'last_7_days', label: 'Last 7 Days', description: 'Past 7 calendar days' },
+  { id: 'last_30_days', label: 'Last 30 Days', description: 'Past 30 calendar days' },
+  { id: 'custom', label: 'Custom Date', description: 'Pick specific date or range' },
+  { id: 'all_time', label: 'All Time', description: 'All orders across all time' },
+];
+
+export const getDatePeriodLabel = (
+  period: DatePeriod,
+  customStart?: string,
+  customEnd?: string
+): string => {
+  switch (period) {
+    case 'today':
+      return 'Today';
+    case 'yesterday':
+      return 'Yesterday';
+    case 'last_7_days':
+      return 'Last 7 Days';
+    case 'last_30_days':
+      return 'Last 30 Days';
+    case 'custom':
+      if (customStart && customEnd && customStart !== customEnd) {
+        return `${customStart} to ${customEnd}`;
+      }
+      return customStart ? `Date: ${customStart}` : 'Custom Date';
+    case 'all_time':
+    default:
+      return 'All Time';
+  }
+};
+
+export const isOrderInDatePeriod = (
+  orderDateIso: string,
+  period: DatePeriod,
+  customStart?: string,
+  customEnd?: string
+): boolean => {
+  if (period === 'all_time') return true;
+  if (!orderDateIso) return false;
+
+  const orderDate = new Date(orderDateIso);
+  if (isNaN(orderDate.getTime())) return true;
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
+  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
+  const orderTime = orderDate.getTime();
+
+  if (period === 'today') {
+    return orderTime >= todayStart && orderTime <= todayEnd;
+  }
+
+  if (period === 'yesterday') {
+    const yesterdayStart = todayStart - 86400000;
+    const yesterdayEnd = todayStart - 1;
+    return orderTime >= yesterdayStart && orderTime <= yesterdayEnd;
+  }
+
+  if (period === 'last_7_days') {
+    const sevenDaysStart = todayStart - 6 * 86400000;
+    return orderTime >= sevenDaysStart && orderTime <= todayEnd;
+  }
+
+  if (period === 'last_30_days') {
+    const thirtyDaysStart = todayStart - 29 * 86400000;
+    return orderTime >= thirtyDaysStart && orderTime <= todayEnd;
+  }
+
+  if (period === 'custom') {
+    if (!customStart && !customEnd) return true;
+    const startStr = customStart || customEnd;
+    const endStr = customEnd || customStart;
+
+    if (startStr && endStr) {
+      const [sYear, sMonth, sDay] = startStr.split('-').map(Number);
+      const [eYear, eMonth, eDay] = endStr.split('-').map(Number);
+
+      const customStartTime = new Date(sYear, sMonth - 1, sDay, 0, 0, 0, 0).getTime();
+      const customEndTime = new Date(eYear, eMonth - 1, eDay, 23, 59, 59, 999).getTime();
+
+      return orderTime >= customStartTime && orderTime <= customEndTime;
+    }
+    return true;
+  }
+
+  return true;
+};
+
 export const TicketManagement: React.FC<TicketManagementProps> = ({
   activeStaff,
   settings,
@@ -88,6 +198,73 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [now, setNow] = useState<number>(() => Date.now());
+
+  // Date period filter state
+  const [datePeriod, setDatePeriod] = useState<DatePeriod>(() => {
+    try {
+      const saved = localStorage.getItem('yh_staff_ticket_date_period') as DatePeriod;
+      if (
+        saved &&
+        ['today', 'yesterday', 'last_7_days', 'last_30_days', 'custom', 'all_time'].includes(saved)
+      ) {
+        return saved;
+      }
+    } catch {}
+    const allOrders = AppStore.getOrders();
+    if (allOrders.length > 0) {
+      const hasToday = allOrders.some((o) => isOrderInDatePeriod(o.createdAt, 'today'));
+      if (!hasToday) return 'all_time';
+    }
+    return 'today';
+  });
+  const [customDateStart, setCustomDateStart] = useState<string>(() => {
+    try {
+      return localStorage.getItem('yh_staff_ticket_custom_start') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [customDateEnd, setCustomDateEnd] = useState<string>(() => {
+    try {
+      return localStorage.getItem('yh_staff_ticket_custom_end') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [isDatePeriodMenuOpen, setIsDatePeriodMenuOpen] = useState(false);
+  const datePeriodMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close date period dropdown when clicking outside
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (datePeriodMenuRef.current && !datePeriodMenuRef.current.contains(e.target as Node)) {
+        setIsDatePeriodMenuOpen(false);
+      }
+    };
+    if (isDatePeriodMenuOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [isDatePeriodMenuOpen]);
+
+  const handleSetDatePeriod = (period: DatePeriod) => {
+    setDatePeriod(period);
+    try {
+      localStorage.setItem('yh_staff_ticket_date_period', period);
+    } catch {}
+    if (period !== 'custom') {
+      setIsDatePeriodMenuOpen(false);
+    }
+  };
+
+  const handleSetCustomDates = (start: string, end: string) => {
+    setCustomDateStart(start);
+    setCustomDateEnd(end);
+    try {
+      localStorage.setItem('yh_staff_ticket_custom_start', start);
+      localStorage.setItem('yh_staff_ticket_custom_end', end);
+    } catch {}
+  };
 
   const isStatusActive = (status: string) => {
     if (status === 'all') {
@@ -138,9 +315,9 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
         if (s === 'completed') return 'Complete';
       } else {
         if (s === 'to_confirm') return 'To Confirm';
-        if (s === 'to_prep') return 'To Prep';
-        if (s === 'processing') return 'Processing';
-        if (s === 'to_serve') return 'To Serve';
+        if (s === 'to_prep') return 'Preparing';
+        if (s === 'processing') return 'Preparing';
+        if (s === 'to_serve') return 'Served';
         if (s === 'completed') return 'Completed';
         if (s === 'cancelled') return 'Cancelled';
       }
@@ -156,6 +333,93 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
   const [cancellingOrder, setCancellingOrder] = useState<Order | null>(null);
   const [cancelReason, setCancelReason] = useState<string>(CANCEL_REASONS[0]);
   const [customCancelNotes, setCustomCancelNotes] = useState<string>('');
+
+  // Payment status filter: 'all' | 'paid' | 'nyp'
+  const [paymentFilter, setPaymentFilter] = useState<'all' | 'paid' | 'nyp'>('all');
+
+  // Ticket timer filter: 'all' | 'reminder' | 'priority' | 'overdue'
+  const [timerFilter, setTimerFilter] = useState<'all' | 'reminder' | 'priority' | 'overdue'>('all');
+
+  // Receive Payment Modal state for NYP tickets
+  const [tenderOrder, setTenderOrder] = useState<Order | null>(null);
+  const [tenderMethod, setTenderMethod] = useState<'cash' | 'gcash' | 'card'>('cash');
+  const [tenderAmountPaidInput, setTenderAmountPaidInput] = useState<string>('');
+
+  const openReceivePayment = (order: Order) => {
+    setTenderOrder(order);
+    setTenderMethod(order.paymentMethod || 'cash');
+    setTenderAmountPaidInput(order.totalAmount.toFixed(2));
+  };
+
+  const handleAddTenderAmount = (amt: number) => {
+    const cur = parseFloat(tenderAmountPaidInput) || 0;
+    setTenderAmountPaidInput((cur + amt).toFixed(2));
+  };
+
+  const handleTenderNumpad = (val: string) => {
+    if (val === 'CLEAR') {
+      setTenderAmountPaidInput('0');
+      return;
+    }
+    if (val === 'BACK') {
+      setTenderAmountPaidInput((prev) => (prev.length > 1 ? prev.slice(0, -1) : '0'));
+      return;
+    }
+    if (val === 'EXACT') {
+      if (tenderOrder) setTenderAmountPaidInput(tenderOrder.totalAmount.toFixed(2));
+      return;
+    }
+    setTenderAmountPaidInput((prev) => {
+      if (prev === '0' && val !== '.') return val;
+      if (val === '.' && prev.includes('.')) return prev;
+      return prev + val;
+    });
+  };
+
+  const handleConfirmReceivePayment = async () => {
+    if (!tenderOrder) return;
+    const totalAmount = tenderOrder.totalAmount;
+    const tenderedNumber = parseFloat(tenderAmountPaidInput) || 0;
+
+    if (tenderMethod === 'cash' && tenderedNumber < totalAmount) {
+      showAlert({
+        title: 'Insufficient Payment',
+        message: `Tendered cash (₱${tenderedNumber.toFixed(2)}) is less than total amount due (₱${totalAmount.toFixed(2)}).`,
+        type: 'error',
+      });
+      return;
+    }
+
+    const changeAmount = tenderMethod === 'cash' ? Math.max(0, tenderedNumber - totalAmount) : 0;
+    const amountPaid = tenderMethod === 'cash' ? tenderedNumber : totalAmount;
+
+    const updated = AppStore.markOrderAsPaid(tenderOrder.id, {
+      paymentMethod: tenderMethod,
+      amountPaid,
+      changeAmount,
+    });
+
+    refreshOrders();
+    setTenderOrder(null);
+
+    const isConfirmed = await showConfirm({
+      title: 'Payment Successful (PAID)',
+      message: `Payment received for Ticket #${tenderOrder.orderNumber}!\n\n• Amount Paid: ₱${amountPaid.toFixed(2)}\n• Method: ${tenderMethod.toUpperCase()}\n${tenderMethod === 'cash' ? `• Change: ₱${changeAmount.toFixed(2)}\n` : ''}• State: PAID\n\nWould you like to print or view the receipt now?`,
+      type: 'success',
+      confirmText: 'Print Receipt',
+      cancelText: 'Done',
+    });
+
+    if (isConfirmed && updated) {
+      onViewReceipt(updated);
+    }
+  };
+
+  // Expanded Ticket Modal state
+  const [expandedOrder, setExpandedOrder] = useState<Order | null>(null);
+  const activeExpandedOrder = expandedOrder
+    ? orders.find((o) => o.id === expandedOrder.id) || null
+    : null;
 
   // Grid column view mode for staff tickets: 1, 2, 3, or 4 columns (persisted in localStorage)
   const [gridColumns, setGridColumns] = useState<1 | 2 | 3 | 4>(() => {
@@ -195,6 +459,16 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
 
   const handleUpdateStatus = (orderId: number, nextStatus: OrderStatus) => {
     AppStore.updateOrderStatus(orderId, nextStatus);
+    refreshOrders();
+  };
+
+  const handleToggleItemServed = (orderId: number, itemIndex: number) => {
+    AppStore.toggleOrderItemServed(orderId, itemIndex, activeStaff.fullName);
+    refreshOrders();
+  };
+
+  const handleToggleAllServed = (orderId: number, served: boolean) => {
+    AppStore.markAllOrderItemsServed(orderId, served, activeStaff.fullName);
     refreshOrders();
   };
 
@@ -352,74 +626,128 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
       totalWaitDurationMs = Math.max(0, (completedTime || now) - createdTime);
     }
 
-    const isUrgent =
-      (isPendingOrConfirm || isToPrep || isProcessing || isToServe) &&
-      totalWaitDurationMs >= 15 * 60 * 1000;
-    const isWarning =
-      (isPendingOrConfirm || isToPrep || isProcessing || isToServe) &&
-      totalWaitDurationMs >= 8 * 60 * 1000 &&
-      !isUrgent;
+    const isActive = isPendingOrConfirm || isToPrep || isProcessing || isToServe;
+
+    // Ticket Timer thresholds per official rules:
+    // 15mins is yellow so Reminder
+    // 30mins is red so Priority
+    // 40mins is the max so Overdue
+    const isOverdue = isActive && totalWaitDurationMs >= 40 * 60 * 1000;
+    const isPriority = isActive && totalWaitDurationMs >= 30 * 60 * 1000 && !isOverdue;
+    const isReminder = isActive && totalWaitDurationMs >= 15 * 60 * 1000 && !isPriority && !isOverdue;
+
+    const timerTier: 'normal' | 'reminder' | 'priority' | 'overdue' = isOverdue
+      ? 'overdue'
+      : isPriority
+      ? 'priority'
+      : isReminder
+      ? 'reminder'
+      : 'normal';
+
+    const timerLabel: 'Normal' | 'Reminder' | 'Priority' | 'Overdue' = isOverdue
+      ? 'Overdue'
+      : isPriority
+      ? 'Priority'
+      : isReminder
+      ? 'Reminder'
+      : 'Normal';
+
+    const isUrgent = isOverdue || isPriority;
+    const isWarning = isReminder;
 
     return {
       pendingDurationMs,
       processingDurationMs,
       totalWaitDurationMs,
+      isOverdue,
+      isPriority,
+      isReminder,
       isUrgent,
       isWarning,
+      timerTier,
+      timerLabel,
     };
   };
 
   const menuItems = AppStore.getMenuItems();
 
-  const inStoreOrdersAll = orders.filter((o) => getChannel(o) === 'in_store');
-  const onlineOrdersAll = orders.filter((o) => getChannel(o) === 'online');
-  const pendingConfirmCount = orders.filter(
+  // Subset of orders filtered by selected date period
+  const dateFilteredOrders = orders.filter((o) =>
+    isOrderInDatePeriod(o.createdAt, datePeriod, customDateStart, customDateEnd)
+  );
+
+  const inStoreOrdersAll = dateFilteredOrders.filter((o) => getChannel(o) === 'in_store');
+  const onlineOrdersAll = dateFilteredOrders.filter((o) => getChannel(o) === 'online');
+  const pendingConfirmCount = dateFilteredOrders.filter(
     (o) => o.status === 'to_confirm' || o.status === 'pending'
   ).length;
-  const toPrepCount = orders.filter((o) => o.status === 'to_prep').length;
-  const processingCount = orders.filter((o) => o.status === 'processing').length;
-  const toServeCount = orders.filter((o) => o.status === 'to_serve').length;
-  const completedCount = orders.filter((o) => o.status === 'completed').length;
-  const cancelledCount = orders.filter((o) => o.status === 'cancelled').length;
+  const toPrepCount = dateFilteredOrders.filter((o) => o.status === 'to_prep').length;
+  const processingCount = dateFilteredOrders.filter((o) => o.status === 'processing').length;
+  const toServeCount = dateFilteredOrders.filter((o) => o.status === 'to_serve').length;
+  const completedCount = dateFilteredOrders.filter((o) => o.status === 'completed').length;
+  const cancelledCount = dateFilteredOrders.filter((o) => o.status === 'cancelled').length;
 
   // Barista-specific queues (orders containing drink items)
-  const baristaOrdersAll = orders.filter(
+  const baristaOrdersAll = dateFilteredOrders.filter(
     (o) => getOrderFulfillmentBreakdown(o, menuItems).hasDrinks && o.status !== 'cancelled'
   );
-  const baristaToPrepCount = orders.filter((o) => {
+  const baristaToPrepCount = dateFilteredOrders.filter((o) => {
     const b = getOrderFulfillmentBreakdown(o, menuItems);
     return b.hasDrinks && (o.baristaStatus === 'to_prep' || (!o.baristaStatus && o.status === 'to_prep'));
   }).length;
-  const baristaProcessingCount = orders.filter((o) => {
+  const baristaProcessingCount = dateFilteredOrders.filter((o) => {
     const b = getOrderFulfillmentBreakdown(o, menuItems);
     return b.hasDrinks && o.baristaStatus === 'processing';
   }).length;
-  const baristaCompletedCount = orders.filter((o) => {
+  const baristaCompletedCount = dateFilteredOrders.filter((o) => {
     const b = getOrderFulfillmentBreakdown(o, menuItems);
     return b.hasDrinks && (o.baristaStatus === 'ready' || o.status === 'to_serve' || o.status === 'completed');
   }).length;
 
   // Cook-specific queues (orders containing food items)
-  const cookOrdersAll = orders.filter(
+  const cookOrdersAll = dateFilteredOrders.filter(
     (o) => getOrderFulfillmentBreakdown(o, menuItems).hasFood && o.status !== 'cancelled'
   );
-  const cookToPrepCount = orders.filter((o) => {
+  const cookToPrepCount = dateFilteredOrders.filter((o) => {
     const b = getOrderFulfillmentBreakdown(o, menuItems);
     return b.hasFood && (o.cookStatus === 'to_prep' || (!o.cookStatus && o.status === 'to_prep'));
   }).length;
-  const cookProcessingCount = orders.filter((o) => {
+  const cookProcessingCount = dateFilteredOrders.filter((o) => {
     const b = getOrderFulfillmentBreakdown(o, menuItems);
     return b.hasFood && o.cookStatus === 'processing';
   }).length;
-  const cookCompletedCount = orders.filter((o) => {
+  const cookCompletedCount = dateFilteredOrders.filter((o) => {
     const b = getOrderFulfillmentBreakdown(o, menuItems);
     return b.hasFood && (o.cookStatus === 'ready' || o.status === 'to_serve' || o.status === 'completed');
   }).length;
 
+  // Active orders timer counts (Reminder >= 15m, Priority >= 30m, Overdue >= 40m)
+  const activeOrdersAll = dateFilteredOrders.filter(
+    (o) => o.status !== 'completed' && o.status !== 'cancelled'
+  );
+  const reminderCount = activeOrdersAll.filter((o) => getOrderTimings(o).isReminder).length;
+  const priorityCount = activeOrdersAll.filter((o) => getOrderTimings(o).isPriority).length;
+  const overdueCount = activeOrdersAll.filter((o) => getOrderTimings(o).isOverdue).length;
+
   const matchesFilter = (order: Order, targetChannel?: 'in_store' | 'online') => {
+    if (!isOrderInDatePeriod(order.createdAt, datePeriod, customDateStart, customDateEnd)) {
+      return false;
+    }
     if (targetChannel && getChannel(order) !== targetChannel) return false;
     if (channelTab !== 'all' && channelTab !== 'split' && getChannel(order) !== channelTab) {
       return false;
+    }
+
+    // Payment state filter: 'all' | 'paid' | 'nyp'
+    if (paymentFilter === 'paid' && order.paymentStatus !== 'paid') return false;
+    if (paymentFilter === 'nyp' && order.paymentStatus !== 'nyp') return false;
+
+    // Ticket timer status filter: 'all' | 'reminder' | 'priority' | 'overdue'
+    if (timerFilter !== 'all') {
+      const timings = getOrderTimings(order);
+      if (timerFilter === 'reminder' && !timings.isReminder) return false;
+      if (timerFilter === 'priority' && !timings.isPriority) return false;
+      if (timerFilter === 'overdue' && !timings.isOverdue) return false;
     }
 
     const breakdown = getOrderFulfillmentBreakdown(order, menuItems);
@@ -472,11 +800,14 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
     return true;
   };
 
-  const filteredOrders = orders.filter((o) => matchesFilter(o));
-  const filteredInStore = orders.filter((o) => matchesFilter(o, 'in_store'));
-  const filteredOnline = orders.filter((o) => matchesFilter(o, 'online'));
+  const filteredOrders = dateFilteredOrders.filter((o) => matchesFilter(o));
+  const filteredInStore = dateFilteredOrders.filter((o) => matchesFilter(o, 'in_store'));
+  const filteredOnline = dateFilteredOrders.filter((o) => matchesFilter(o, 'online'));
 
-  const activeStatusCount = orders.filter((o) => {
+  const nypCount = dateFilteredOrders.filter((o) => o.paymentStatus === 'nyp' && o.status !== 'cancelled').length;
+  const paidCount = dateFilteredOrders.filter((o) => o.paymentStatus === 'paid' && o.status !== 'cancelled').length;
+
+  const activeStatusCount = dateFilteredOrders.filter((o) => {
     const breakdown = getOrderFulfillmentBreakdown(o, menuItems);
     if (isBarista) {
       if (!breakdown.hasDrinks || o.status === 'cancelled') return false;
@@ -517,44 +848,33 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
       if (order.baristaStatus === 'ready' || isToServe || isCompleted) {
         return (
           <span
-            title="Drinks Ready"
+            title="Drinks Served"
             className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-400 dark:border-emerald-700 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-emerald-950 dark:text-emerald-300"
           >
             <CheckCircle2 className="h-3 w-3 text-emerald-900 dark:text-emerald-400 stroke-[2.4] shrink-0" />
-            <span className="hidden sm:inline">Drinks Ready</span>
+            <span className="hidden sm:inline">Served</span>
           </span>
         );
       }
-      if (order.baristaStatus === 'processing') {
+      if (order.baristaStatus === 'processing' || order.baristaStatus === 'to_prep' || isProcessing || isToPrep) {
         return (
           <span
-            title="Brewing / Prepping"
+            title="Preparing Drinks"
             className="inline-flex items-center gap-1 rounded-full bg-sky-100 dark:bg-sky-950/70 border border-sky-400 dark:border-sky-700 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-sky-950 dark:text-sky-300"
           >
             <Coffee className="h-3 w-3 text-sky-900 dark:text-sky-400 stroke-[2.4] shrink-0" />
-            <span className="hidden sm:inline">Brewing / Prepping</span>
-          </span>
-        );
-      }
-      if (order.baristaStatus === 'to_prep' || isToPrep) {
-        return (
-          <span
-            title="Drinks To Prep"
-            className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950/70 border border-amber-400 dark:border-amber-700 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-amber-950 dark:text-amber-300 animate-pulse"
-          >
-            <Coffee className="h-3 w-3 text-amber-900 dark:text-amber-400 stroke-[2.4] shrink-0" />
-            <span className="hidden sm:inline">Start Prep</span>
+            <span className="hidden sm:inline">Preparing</span>
           </span>
         );
       }
       if (isToConfirm) {
         return (
           <span
-            title="Awaiting Confirmation"
-            className="inline-flex items-center gap-1 rounded-full bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-stone-900 dark:text-stone-200"
+            title="To Confirm"
+            className="inline-flex items-center gap-1 rounded-full bg-rose-100 dark:bg-rose-950/70 border border-rose-400 dark:border-rose-700 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-rose-950 dark:text-rose-300 animate-pulse"
           >
-            <Clock className="h-3 w-3 text-stone-800 dark:text-stone-400 stroke-[2.4] shrink-0" />
-            <span className="hidden sm:inline">Awaiting Confirmation</span>
+            <Clock className="h-3 w-3 text-rose-900 dark:text-rose-400 stroke-[2.4] shrink-0" />
+            <span className="hidden sm:inline">To Confirm</span>
           </span>
         );
       }
@@ -564,44 +884,33 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
       if (order.cookStatus === 'ready' || isToServe || isCompleted) {
         return (
           <span
-            title="Kitchen Ready"
+            title="Food Served"
             className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-400 dark:border-emerald-700 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-emerald-950 dark:text-emerald-300"
           >
             <CheckCircle2 className="h-3 w-3 text-emerald-900 dark:text-emerald-400 stroke-[2.4] shrink-0" />
-            <span className="hidden sm:inline">Kitchen Ready</span>
+            <span className="hidden sm:inline">Served</span>
           </span>
         );
       }
-      if (order.cookStatus === 'processing') {
+      if (order.cookStatus === 'processing' || order.cookStatus === 'to_prep' || isProcessing || isToPrep) {
         return (
           <span
-            title="Cooking / Processing"
+            title="Preparing Food"
             className="inline-flex items-center gap-1 rounded-full bg-sky-100 dark:bg-sky-950/70 border border-sky-400 dark:border-sky-700 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-sky-950 dark:text-sky-300"
           >
             <ChefHat className="h-3 w-3 text-sky-900 dark:text-sky-400 stroke-[2.4] shrink-0" />
-            <span className="hidden sm:inline">Cooking</span>
-          </span>
-        );
-      }
-      if (order.cookStatus === 'to_prep' || isToPrep) {
-        return (
-          <span
-            title="Start Prep"
-            className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950/70 border border-amber-400 dark:border-amber-700 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-amber-950 dark:text-amber-300 animate-pulse"
-          >
-            <Flame className="h-3 w-3 text-amber-900 dark:text-amber-400 stroke-[2.4] shrink-0" />
-            <span className="hidden sm:inline">Start Prep</span>
+            <span className="hidden sm:inline">Preparing</span>
           </span>
         );
       }
       if (isToConfirm) {
         return (
           <span
-            title="Awaiting Confirmation"
-            className="inline-flex items-center gap-1 rounded-full bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-stone-900 dark:text-stone-200"
+            title="To Confirm"
+            className="inline-flex items-center gap-1 rounded-full bg-rose-100 dark:bg-rose-950/70 border border-rose-400 dark:border-rose-700 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-rose-950 dark:text-rose-300 animate-pulse"
           >
-            <Clock className="h-3 w-3 text-stone-800 dark:text-stone-400 stroke-[2.4] shrink-0" />
-            <span className="hidden sm:inline">Awaiting Confirmation</span>
+            <Clock className="h-3 w-3 text-rose-900 dark:text-rose-400 stroke-[2.4] shrink-0" />
+            <span className="hidden sm:inline">To Confirm</span>
           </span>
         );
       }
@@ -619,47 +928,25 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
         </span>
       );
     }
-    if (isToPrep) {
+    if (isProcessing || isToPrep) {
       return (
         <span
-          title="To Prep"
-          className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950/70 border border-amber-400 dark:border-amber-700 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-amber-950 dark:text-amber-300"
-        >
-          <Clock className="h-3 w-3 text-amber-900 dark:text-amber-400 stroke-[2.4] shrink-0" />
-          <span className="hidden sm:inline">To Prep</span>
-        </span>
-      );
-    }
-    if (isProcessing) {
-      return (
-        <span
-          title="Processing"
+          title="Preparing"
           className="inline-flex items-center gap-1 rounded-full bg-sky-100 dark:bg-sky-950/70 border border-sky-400 dark:border-sky-700 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-sky-950 dark:text-sky-300"
         >
           <ChefHat className="h-3 w-3 text-sky-900 dark:text-sky-400 stroke-[2.4] shrink-0" />
-          <span className="hidden sm:inline">Processing</span>
+          <span className="hidden sm:inline">Preparing</span>
         </span>
       );
     }
-    if (isToServe) {
+    if (isToServe || isCompleted) {
       return (
         <span
-          title="To Serve"
-          className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-400 dark:border-emerald-700 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-emerald-950 dark:text-emerald-300 animate-bounce"
-        >
-          <Bell className="h-3 w-3 text-emerald-900 dark:text-emerald-400 stroke-[2.4] shrink-0" />
-          <span className="hidden sm:inline">To Serve</span>
-        </span>
-      );
-    }
-    if (isCompleted) {
-      return (
-        <span
-          title="Completed"
-          className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-emerald-950 dark:text-emerald-300"
+          title="Served"
+          className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-400 dark:border-emerald-700 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black text-emerald-950 dark:text-emerald-300"
         >
           <Check className="h-3 w-3 text-emerald-900 dark:text-emerald-400 stroke-[2.5] shrink-0" />
-          <span className="hidden sm:inline">Completed</span>
+          <span className="hidden sm:inline">Served</span>
         </span>
       );
     }
@@ -669,6 +956,32 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
         className="rounded-full bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 px-1.5 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-bold text-stone-900 dark:text-stone-300"
       >
         <span className="hidden sm:inline">{order.status}</span>
+      </span>
+    );
+  };
+
+  // Render payment status badge
+  const renderPaymentBadge = (order: Order) => {
+    if (order.status === 'cancelled') return null;
+    const isNyp = order.paymentStatus === 'nyp';
+    if (isNyp) {
+      return (
+        <span
+          title="Not Yet Paid (NYP) - Payment is pending/deferred"
+          className="inline-flex items-center gap-0.5 sm:gap-1 rounded-md px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wide bg-amber-500/15 border border-amber-500 text-amber-950 dark:text-amber-300 animate-pulse"
+        >
+          <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-700 dark:text-amber-400 stroke-[2.5]" />
+          <span>NYP</span>
+        </span>
+      );
+    }
+    return (
+      <span
+        title="Payment completed (Paid)"
+        className="inline-flex items-center gap-0.5 sm:gap-1 rounded-md px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wide bg-emerald-500/15 border border-emerald-500 text-emerald-950 dark:text-emerald-300"
+      >
+        <Check className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-700 dark:text-emerald-400 stroke-[3]" />
+        <span>Paid</span>
       </span>
     );
   };
@@ -684,19 +997,43 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
     const channel = getChannel(order);
     const isOnline = channel === 'online';
 
-    const { pendingDurationMs, processingDurationMs, totalWaitDurationMs, isUrgent, isWarning } =
-      getOrderTimings(order);
+    const {
+      pendingDurationMs,
+      processingDurationMs,
+      totalWaitDurationMs,
+      isOverdue,
+      isPriority,
+      isReminder,
+      isUrgent,
+      isWarning,
+      timerTier,
+      timerLabel,
+    } = getOrderTimings(order);
+
+    const allItemsServed = order.items.length > 0 && order.items.every((it) => it.isServed);
+    const servedCount = order.items.filter((it) => it.isServed).length;
+
+    const isServedAndPaid =
+      order.paymentStatus === 'paid' &&
+      (order.status === 'to_serve' || order.status === 'completed' || allItemsServed);
+    const isHideCheckboxes = isServedAndPaid || isCompleted;
 
     return (
       <div
         key={order.id}
-        className={`flex flex-col justify-between rounded-2xl sm:rounded-3xl border bg-white dark:bg-stone-900 p-2.5 sm:p-4 md:p-5 shadow-xs transition hover:shadow-md ${
-          isToServe
+        onClick={() => setExpandedOrder(order)}
+        title={`Click to expand ticket #${order.orderNumber}`}
+        className={`group flex flex-col justify-between rounded-2xl sm:rounded-3xl border bg-white dark:bg-stone-900 p-2.5 sm:p-4 md:p-5 shadow-xs transition hover:shadow-md cursor-pointer hover:border-amber-400 dark:hover:border-amber-600 ${
+          allItemsServed && !isCompleted && !isCancelled
+            ? 'border-emerald-400 dark:border-emerald-600 ring-2 ring-emerald-500/25 bg-linear-to-b from-emerald-50/20 to-white dark:from-emerald-950/25 dark:to-stone-900'
+            : isToServe
             ? 'border-emerald-400 dark:border-emerald-600 ring-2 ring-emerald-500/20 bg-linear-to-b from-emerald-50/20 to-white dark:from-emerald-950/20 dark:to-stone-900'
-            : isUrgent
-            ? 'border-rose-400 dark:border-rose-600 ring-2 ring-rose-500/20'
-            : isWarning
-            ? 'border-amber-400 dark:border-amber-600 ring-1 ring-amber-500/20'
+            : isOverdue
+            ? 'border-red-600 dark:border-red-500 ring-4 ring-red-600/40 bg-red-50/25 dark:bg-red-950/20 animate-pulse'
+            : isPriority
+            ? 'border-rose-500 dark:border-rose-600 ring-2 ring-rose-500/30 bg-rose-50/15 dark:bg-rose-950/15'
+            : isReminder
+            ? 'border-amber-400 dark:border-amber-500 ring-2 ring-amber-500/25 bg-amber-50/15 dark:bg-amber-950/15'
             : isToConfirm
             ? 'border-rose-300 dark:border-rose-700/60 ring-1 ring-rose-500/10'
             : isToPrep
@@ -710,15 +1047,71 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
           {/* Header Bar */}
           <div className="flex items-center justify-between border-b border-stone-100 dark:border-stone-800 pb-2 sm:pb-3 gap-1">
             <div className="flex items-center gap-1 sm:gap-2 min-w-0">
-              <span className="font-mono text-[11px] sm:text-xs font-extrabold text-stone-900 dark:text-stone-100 truncate">
+              <button
+                type="button"
+                onClick={() => setExpandedOrder(order)}
+                title="Expand ticket in modal"
+                className="font-mono text-[11px] sm:text-xs font-extrabold text-stone-900 dark:text-stone-100 truncate hover:text-amber-600 dark:hover:text-amber-400 transition cursor-pointer text-left"
+              >
                 #{order.orderNumber}
-              </span>
+              </button>
               <span className="text-[9px] sm:text-[10px] text-stone-600 dark:text-stone-400 font-semibold shrink-0">
                 {new Date(order.createdAt).toLocaleTimeString([], {
                   hour: '2-digit',
                   minute: '2-digit',
                 })}
               </span>
+
+              {/* Ticket Timer Status Badge */}
+              {!isCompleted && !isCancelled && (
+                <span
+                  title={
+                    isOverdue
+                      ? `Overdue: ${formatDuration(totalWaitDurationMs)} (exceeded 40 mins max limit)`
+                      : isPriority
+                      ? `Priority: ${formatDuration(totalWaitDurationMs)} (exceeded 30 mins)`
+                      : isReminder
+                      ? `Reminder: ${formatDuration(totalWaitDurationMs)} (exceeded 15 mins)`
+                      : `Wait timer: ${formatDuration(totalWaitDurationMs)}`
+                  }
+                  className={`inline-flex items-center gap-1 rounded-md px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wide shrink-0 ${
+                    isOverdue
+                      ? 'bg-red-600 text-white animate-pulse shadow-xs ring-1 ring-red-700'
+                      : isPriority
+                      ? 'bg-rose-600 text-white shadow-xs'
+                      : isReminder
+                      ? 'bg-amber-400 dark:bg-amber-500 text-stone-950 shadow-xs'
+                      : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700'
+                  }`}
+                >
+                  {isOverdue ? (
+                    <>
+                      <AlertTriangle className="h-2.5 w-2.5 sm:h-3 sm:w-3 stroke-[2.8]" />
+                      <span>Overdue</span>
+                    </>
+                  ) : isPriority ? (
+                    <>
+                      <Flame className="h-2.5 w-2.5 sm:h-3 sm:w-3 stroke-[2.5]" />
+                      <span>Priority</span>
+                    </>
+                  ) : isReminder ? (
+                    <>
+                      <Timer className="h-2.5 w-2.5 sm:h-3 sm:w-3 stroke-[2.5]" />
+                      <span>Reminder</span>
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                      <span>{formatDuration(totalWaitDurationMs)}</span>
+                    </>
+                  )}
+                  {(isOverdue || isPriority || isReminder) && (
+                    <span className="font-mono text-[9px] sm:text-[10px] opacity-95">
+                      {formatDuration(totalWaitDurationMs)}
+                    </span>
+                  )}
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-1 shrink-0">
@@ -744,8 +1137,25 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                 )}
               </span>
 
+              {/* Payment status badge (NYP or Paid) */}
+              {renderPaymentBadge(order)}
+
               {/* Role-adapted Status pill */}
               {renderStatusBadge(order)}
+
+              {/* Expand ticket modal button */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpandedOrder(order);
+                }}
+                title="Expand ticket in modal"
+                aria-label={`Expand ticket #${order.orderNumber}`}
+                className="grid h-5 w-5 sm:h-6 sm:w-6 place-items-center rounded-md sm:rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-amber-100 hover:border-amber-300 hover:text-stone-950 dark:hover:bg-stone-700 transition cursor-pointer shrink-0"
+              >
+                <Maximize2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 stroke-[2.4]" />
+              </button>
             </div>
           </div>
 
@@ -837,39 +1247,73 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
             {isToPrep && (
               <div
                 className={`rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 border flex items-center justify-between gap-1.5 shadow-2xs ${
-                  isUrgent
-                    ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-950 dark:text-rose-200'
-                    : isWarning
-                    ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-200'
+                  isOverdue
+                    ? 'bg-red-100 dark:bg-red-950/80 border-red-500 text-red-950 dark:text-red-100'
+                    : isPriority
+                    ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-400 dark:border-rose-800 text-rose-950 dark:text-rose-200'
+                    : isReminder
+                    ? 'bg-amber-100 dark:bg-amber-950/80 border-amber-400 dark:border-amber-700 text-amber-950 dark:text-amber-200'
                     : 'bg-amber-50/70 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800/80 text-amber-950 dark:text-amber-200'
                 }`}
               >
                 <div className="flex items-center gap-1.5 min-w-0">
                   <div
                     className={`grid h-5 w-5 sm:h-7 sm:w-7 place-items-center rounded-lg sm:rounded-xl shrink-0 ${
-                      isUrgent
+                      isOverdue
+                        ? 'bg-red-600 text-white animate-bounce'
+                        : isPriority
                         ? 'bg-rose-600 text-white animate-bounce'
-                        : isWarning
-                        ? 'bg-amber-500 text-stone-950'
+                        : isReminder
+                        ? 'bg-amber-500 text-stone-950 animate-pulse'
                         : 'bg-amber-400 text-stone-950'
                     }`}
                   >
-                    {isUrgent ? <Flame className="h-3 w-3 sm:h-4 sm:w-4" /> : <Timer className="h-3 w-3 sm:h-4 sm:w-4" />}
+                    {isOverdue ? (
+                      <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4 stroke-[2.8]" />
+                    ) : isPriority ? (
+                      <Flame className="h-3 w-3 sm:h-4 sm:w-4" />
+                    ) : (
+                      <Timer className="h-3 w-3 sm:h-4 sm:w-4" />
+                    )}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1">
-                      <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wide text-amber-900 dark:text-amber-300 truncate">
-                        Ready for Prep
+                      <span className={`text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wide truncate ${
+                        isOverdue
+                          ? 'text-red-900 dark:text-red-300'
+                          : isPriority
+                          ? 'text-rose-900 dark:text-rose-300'
+                          : 'text-amber-900 dark:text-amber-300'
+                      }`}>
+                        {isOverdue
+                          ? 'Overdue (40m Max Exceeded)'
+                          : isPriority
+                          ? 'Priority (30m+ Wait)'
+                          : isReminder
+                          ? 'Reminder (15m+ Wait)'
+                          : 'Ready for Prep'}
                       </span>
                     </div>
                     <div className="text-[9px] sm:text-[11px] text-stone-600 dark:text-stone-400 truncate hidden sm:block">
-                      Press Start Prep
+                      {isOverdue
+                        ? 'Exceeded 40m max • Immediate action'
+                        : isPriority
+                        ? 'Exceeded 30m • High priority'
+                        : isReminder
+                        ? 'Exceeded 15m • Prep soon'
+                        : 'Press Start Prep'}
                     </div>
                   </div>
                 </div>
 
                 <div className="text-right shrink-0">
-                  <div className="font-mono text-[10px] sm:text-xs font-black text-amber-900 dark:text-amber-300">
+                  <div className={`font-mono text-[10px] sm:text-xs font-black ${
+                    isOverdue
+                      ? 'text-red-900 dark:text-red-300'
+                      : isPriority
+                      ? 'text-rose-900 dark:text-rose-300'
+                      : 'text-amber-900 dark:text-amber-300'
+                  }`}>
                     {formatDuration(pendingDurationMs)}
                   </div>
                 </div>
@@ -879,33 +1323,80 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
             {isProcessing && (
               <div
                 className={`rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 border space-y-1 shadow-2xs ${
-                  isUrgent
+                  isOverdue
+                    ? 'bg-red-50/90 dark:bg-red-950/70 border-red-400 dark:border-red-700 text-red-950 dark:text-red-200'
+                    : isPriority
                     ? 'bg-rose-50/80 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-950 dark:text-rose-200'
+                    : isReminder
+                    ? 'bg-amber-50/80 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-200'
                     : 'bg-sky-50/90 dark:bg-sky-950/60 border-sky-200 dark:border-sky-800 text-sky-950 dark:text-sky-200'
                 }`}
               >
                 <div className="flex items-center justify-between text-[10px] sm:text-xs">
                   <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
-                    <span className="grid h-4 w-4 sm:h-5 sm:w-5 place-items-center rounded-md bg-sky-600 text-white animate-spin shrink-0">
-                      <ChefHat className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                    <span className={`grid h-4 w-4 sm:h-5 sm:w-5 place-items-center rounded-md text-white shrink-0 ${
+                      isOverdue
+                        ? 'bg-red-600 animate-pulse'
+                        : isPriority
+                        ? 'bg-rose-600'
+                        : 'bg-sky-600 animate-spin'
+                    }`}>
+                      {isOverdue ? (
+                        <AlertTriangle className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                      ) : (
+                        <ChefHat className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                      )}
                     </span>
-                    <span className="text-[9px] sm:text-[11px] font-bold text-sky-900 dark:text-sky-300 truncate">
+                    <span className={`text-[9px] sm:text-[11px] font-bold truncate ${
+                      isOverdue
+                        ? 'text-red-900 dark:text-red-300'
+                        : isPriority
+                        ? 'text-rose-900 dark:text-rose-300'
+                        : 'text-sky-900 dark:text-sky-300'
+                    }`}>
                       {isCook ? 'Cooking:' : 'Preparing:'}
                     </span>
                   </div>
-                  <span className="font-mono text-[10px] sm:text-xs font-black text-sky-800 dark:text-sky-300 shrink-0">
+                  <span className={`font-mono text-[10px] sm:text-xs font-black shrink-0 ${
+                    isOverdue
+                      ? 'text-red-800 dark:text-red-300'
+                      : isPriority
+                      ? 'text-rose-800 dark:text-rose-300'
+                      : 'text-sky-800 dark:text-sky-300'
+                  }`}>
                     {formatDuration(processingDurationMs)}
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between text-[9px] sm:text-[11px] pt-1 border-t border-sky-200/70 dark:border-sky-800/70 text-stone-600 dark:text-stone-400">
+                <div className={`flex items-center justify-between text-[9px] sm:text-[11px] pt-1 border-t ${
+                  isOverdue
+                    ? 'border-red-200/80 dark:border-red-800/80 text-red-900 dark:text-red-300'
+                    : isPriority
+                    ? 'border-rose-200/80 dark:border-rose-800/80 text-rose-900 dark:text-rose-300'
+                    : isReminder
+                    ? 'border-amber-200/80 dark:border-amber-800/80 text-amber-900 dark:text-amber-300'
+                    : 'border-sky-200/70 dark:border-sky-800/70 text-stone-600 dark:text-stone-400'
+                }`}>
                   <span className="flex items-center gap-1 text-[9px] sm:text-[10px]">
                     <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-stone-400 dark:text-stone-500" />
                     <span className="hidden sm:inline">Wait:</span>
                   </span>
-                  <span className="font-mono font-bold text-stone-900 dark:text-stone-200 text-[10px] sm:text-xs">
-                    {formatDuration(totalWaitDurationMs)}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    {(isOverdue || isPriority || isReminder) && (
+                      <span className={`rounded-sm px-1 py-0.2 text-[8px] font-black uppercase ${
+                        isOverdue
+                          ? 'bg-red-600 text-white'
+                          : isPriority
+                          ? 'bg-rose-500 text-white'
+                          : 'bg-amber-400 text-stone-950'
+                      }`}>
+                        {timerLabel}
+                      </span>
+                    )}
+                    <span className="font-mono font-bold text-stone-900 dark:text-stone-200 text-[10px] sm:text-xs">
+                      {formatDuration(totalWaitDurationMs)}
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
@@ -913,15 +1404,15 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
             {isToServe && (
               <div className="rounded-xl sm:rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 p-1.5 sm:p-2.5 text-emerald-950 dark:text-emerald-200 flex items-center justify-between gap-1.5 shadow-xs">
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <div className="grid h-5 w-5 sm:h-7 sm:w-7 place-items-center rounded-lg sm:rounded-xl bg-emerald-600 text-white shrink-0 animate-bounce">
-                    <Bell className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <div className="grid h-5 w-5 sm:h-7 sm:w-7 place-items-center rounded-lg sm:rounded-xl bg-emerald-600 text-white shrink-0">
+                    <Check className="h-3 w-3 sm:h-4 sm:w-4 stroke-[3]" />
                   </div>
                   <div className="min-w-0">
                     <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wide text-emerald-900 dark:text-emerald-300 block truncate">
-                      Ready to Serve!
+                      Served
                     </span>
                     <span className="text-[9px] sm:text-[11px] font-medium text-emerald-800 dark:text-emerald-400 hidden sm:block truncate">
-                      Kitchen complete
+                      All items checked &amp; served
                     </span>
                   </div>
                 </div>
@@ -1052,6 +1543,12 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                 </span>
               </div>
               <div className="flex items-center gap-1 shrink-0">
+                {allItemsServed && (
+                  <span className="rounded-md bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 px-1 sm:px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black text-emerald-900 dark:text-emerald-300 flex items-center gap-0.5">
+                    <Check className="h-2.5 w-2.5 stroke-[3]" />
+                    <span>All Served</span>
+                  </span>
+                )}
                 {order.orderClassification === 'live_in_house' || order.tableNumber ? (
                   <span className="rounded-md bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 px-1 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black text-emerald-950 dark:text-emerald-300 flex items-center gap-0.5 sm:gap-1">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
@@ -1076,23 +1573,107 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
             )}
           </div>
 
-          {/* Items List */}
-          <div className="my-2 sm:my-3 space-y-1 border-y border-stone-100 dark:border-stone-800 py-2 sm:py-3 text-[10px] sm:text-xs max-h-28 sm:max-h-36 overflow-y-auto pr-0.5">
+          {/* Items List Header */}
+          <div className="flex items-center justify-between mt-2 pt-1 px-0.5 text-[9px] sm:text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+            <span className="flex items-center gap-1.5">
+              <span>Items</span>
+              <span
+                className={`px-1.5 py-0.5 rounded-full text-[9px] font-black transition-colors ${
+                  allItemsServed
+                    ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300/80 dark:border-emerald-800/80'
+                    : servedCount > 0
+                    ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300 border border-amber-300/70 dark:border-amber-800/60'
+                    : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300'
+                }`}
+              >
+                {servedCount}/{order.items.length} served
+              </span>
+            </span>
+
+            {order.items.length > 1 && !isToConfirm && !isCancelled && !isHideCheckboxes && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleToggleAllServed(order.id, !allItemsServed);
+                }}
+                className="text-[9px] font-bold text-amber-800 dark:text-amber-400 hover:text-amber-950 dark:hover:text-amber-300 underline underline-offset-2 transition cursor-pointer"
+                title={allItemsServed ? 'Mark all items as unserved' : 'Mark all items as served'}
+              >
+                {allItemsServed ? 'Unserve all' : 'Serve all'}
+              </button>
+            )}
+          </div>
+
+          {/* Items List with Served Checkboxes */}
+          <div className="my-1.5 sm:my-2 space-y-1.5 border-y border-stone-100 dark:border-stone-800 py-1.5 sm:py-2.5 text-[10px] sm:text-xs max-h-36 sm:max-h-48 overflow-y-auto pr-0.5">
             {order.items.map((item, idx) => {
               const isDrink = isDrinkOrderItem(item, menuItems);
               const isDimmed = (isBarista && !isDrink) || (isCook && isDrink);
+              const isServed = Boolean(item.isServed);
 
               return (
                 <div
                   key={idx}
-                  className={`flex justify-between items-start gap-1 py-0.5 rounded px-1 transition ${
-                    isDimmed ? 'opacity-40 bg-stone-100/50 dark:bg-stone-800/50' : ''
+                  className={`group/item flex items-start gap-1.5 sm:gap-2 py-1 px-1.5 rounded-lg transition-all ${
+                    isServed
+                      ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-900/60'
+                      : isDimmed
+                      ? 'opacity-40 bg-stone-100/50 dark:bg-stone-800/50 border border-transparent'
+                      : 'hover:bg-stone-50 dark:hover:bg-stone-800/50 border border-transparent'
                   }`}
                 >
+                  {/* Served Checkbox (Hidden when ticket is served & paid or completed) */}
+                  {!isHideCheckboxes && (
+                    <button
+                      type="button"
+                      disabled={isToConfirm || isCancelled}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleItemServed(order.id, idx);
+                      }}
+                      title={
+                        isCancelled
+                          ? 'Order is cancelled'
+                          : isToConfirm
+                          ? 'Confirm order first before marking items as served'
+                          : isServed
+                          ? 'Served (Click to mark unserved)'
+                          : 'Click to mark item as served'
+                      }
+                      aria-label={`Mark ${item.name} as ${isServed ? 'unserved' : 'served'}`}
+                      className={`mt-0.5 shrink-0 h-4.5 w-4.5 rounded-md flex items-center justify-center transition-all border ${
+                        isToConfirm || isCancelled
+                          ? 'opacity-40 cursor-not-allowed border-stone-200 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 text-transparent'
+                          : isServed
+                          ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs cursor-pointer'
+                          : 'border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-transparent cursor-pointer'
+                      }`}
+                    >
+                      {isServed ? (
+                        <Check className="h-3 w-3 stroke-[3]" />
+                      ) : (
+                        <Check className="h-2.5 w-2.5 opacity-0 group-hover/item:opacity-40 text-stone-500 transition-opacity" />
+                      )}
+                    </button>
+                  )}
+
                   <div className="flex-1 pr-1 min-w-0">
-                    <div className="flex items-center gap-1 font-medium text-stone-800 dark:text-stone-200 truncate">
-                      <span className="font-bold text-amber-800 dark:text-amber-400 mr-0.5">{item.quantity}x</span>
-                      <span className="truncate">{item.name}</span>
+                    <div className="flex items-center gap-1 font-medium text-stone-800 dark:text-stone-200 flex-wrap">
+                      <span
+                        className={`font-bold mr-0.5 transition-colors ${
+                          isServed ? 'text-stone-400 dark:text-stone-500' : 'text-amber-800 dark:text-amber-400'
+                        }`}
+                      >
+                        {item.quantity}x
+                      </span>
+                      <span
+                        className={`truncate font-semibold transition-all ${
+                          isServed ? 'line-through text-stone-400 dark:text-stone-500' : 'text-stone-800 dark:text-stone-200'
+                        }`}
+                      >
+                        {item.name}
+                      </span>
                       {isDrink ? (
                         <span className="inline-flex items-center gap-0.5 rounded bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300 px-1 py-0.2 text-[8px] font-bold shrink-0 border border-amber-200 dark:border-amber-800/60">
                           <Coffee className="h-2 w-2 text-amber-700 dark:text-amber-400" />
@@ -1104,14 +1685,34 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                           <span>Kitchen</span>
                         </span>
                       )}
+                      {isServed && (
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 px-1.5 py-0.2 text-[8px] font-black uppercase tracking-wider shrink-0 border border-emerald-200 dark:border-emerald-800/60">
+                          <Check className="h-2 w-2 stroke-[3]" />
+                          <span>Served</span>
+                        </span>
+                      )}
                     </div>
                     {item.specialInstructions && (
-                      <p className="text-[8px] sm:text-[10px] italic text-amber-700 dark:text-amber-400 ml-2 font-semibold line-clamp-1">
+                      <p
+                        className={`text-[8px] sm:text-[10px] italic ml-1 font-semibold line-clamp-1 transition-colors ${
+                          isServed ? 'text-stone-400 dark:text-stone-500 line-through' : 'text-amber-700 dark:text-amber-400'
+                        }`}
+                      >
                         "{item.specialInstructions}"
                       </p>
                     )}
+                    {item.servedAt && isServed && (
+                      <p className="text-[8px] text-emerald-700 dark:text-emerald-400 font-medium ml-1">
+                        Served {new Date(item.servedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {item.servedBy ? ` • ${item.servedBy}` : ''}
+                      </p>
+                    )}
                   </div>
-                  <span className="font-mono text-stone-600 dark:text-stone-400 shrink-0 text-[10px] sm:text-xs">
+                  <span
+                    className={`font-mono text-stone-600 dark:text-stone-400 shrink-0 text-[10px] sm:text-xs ${
+                      isServed ? 'line-through text-stone-400 dark:text-stone-500' : ''
+                    }`}
+                  >
                     ₱{item.totalPrice.toFixed(2)}
                   </span>
                 </div>
@@ -1121,9 +1722,20 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
 
           {/* Financial & Payment Info */}
           <div className="flex items-center justify-between text-[9px] sm:text-xs">
-            <span className="text-stone-500 dark:text-stone-400 uppercase font-bold text-[8px] sm:text-[10px] flex items-center gap-1 truncate max-w-[80px] sm:max-w-none">
-              {order.paymentMethod}
-            </span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-stone-500 dark:text-stone-400 uppercase font-bold text-[8px] sm:text-[10px] flex items-center gap-1 truncate max-w-[80px] sm:max-w-none">
+                {order.paymentMethod}
+              </span>
+              {order.paymentStatus === 'nyp' ? (
+                <span className="rounded bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700 px-1 py-0.2 text-[8px] sm:text-[9px] font-black text-amber-900 dark:text-amber-300 uppercase tracking-tight">
+                  NYP
+                </span>
+              ) : (
+                <span className="rounded bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-700 px-1 py-0.2 text-[8px] sm:text-[9px] font-black text-emerald-900 dark:text-emerald-300 uppercase tracking-tight">
+                  Paid
+                </span>
+              )}
+            </div>
             <span className="font-mono text-xs sm:text-base font-extrabold text-stone-900 dark:text-stone-100">
               ₱{order.totalAmount.toFixed(2)}
             </span>
@@ -1132,17 +1744,37 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
 
         {/* Role-Specific Status Actions */}
         <div className="mt-2.5 sm:mt-4 pt-2 sm:pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between gap-1 sm:gap-2">
-          <button
-            type="button"
-            onClick={() => onViewReceipt(order)}
-            title="Print Receipt"
-            className={`flex items-center justify-center gap-1 rounded-lg sm:rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-750 p-1.5 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-bold text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700 transition active:scale-95 cursor-pointer shrink-0 ${
-              gridColumns === 1 ? 'px-2.5 py-1.5' : ''
-            }`}
-          >
-            <Printer className="h-3.5 w-3.5" />
-            <span className={gridColumns === 1 ? 'inline' : 'hidden sm:inline'}>Receipt</span>
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewReceipt(order);
+              }}
+              title="Print Receipt"
+              className={`flex items-center justify-center gap-1 rounded-lg sm:rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-750 p-1.5 sm:px-2.5 sm:py-1.5 text-[10px] sm:text-xs font-bold text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700 transition active:scale-95 cursor-pointer shrink-0 ${
+                gridColumns === 1 ? 'px-2.5 py-1.5' : ''
+              }`}
+            >
+              <Printer className="h-3.5 w-3.5" />
+              <span className={gridColumns === 1 ? 'inline' : 'hidden sm:inline'}>Receipt</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpandedOrder(order);
+              }}
+              title="Expand ticket in modal"
+              className={`flex items-center justify-center gap-1 rounded-lg sm:rounded-xl bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 p-1.5 sm:px-2.5 sm:py-1.5 text-[10px] sm:text-xs font-extrabold text-amber-950 dark:text-amber-200 border border-amber-300/80 dark:border-amber-800/80 transition active:scale-95 cursor-pointer shrink-0 ${
+                gridColumns === 1 ? 'px-2.5 py-1.5' : ''
+              }`}
+            >
+              <Maximize2 className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400 stroke-[2.2]" />
+              <span className={gridColumns === 1 ? 'inline' : 'hidden md:inline'}>Expand</span>
+            </button>
+          </div>
 
           <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 justify-end flex-wrap">
             {/* === BARISTA ROLE ACTIONS === */}
@@ -1152,7 +1784,8 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                 {(order.baristaStatus === 'to_prep' || (!order.baristaStatus && (isToPrep || isProcessing))) && (
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       AppStore.updateOrderBaristaStatus(order.id, 'processing', activeStaff.fullName);
                       refreshOrders();
                     }}
@@ -1170,7 +1803,8 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                 {order.baristaStatus === 'processing' && (
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       AppStore.updateOrderBaristaStatus(order.id, 'ready', activeStaff.fullName);
                       refreshOrders();
                     }}
@@ -1202,7 +1836,8 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                 {/* Void/Issue */}
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setVoidReturnReason(RETURN_REASONS[0]);
                     setVoidReturnCustomNote('');
                     setVoidingOrder(order);
@@ -1223,7 +1858,8 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                 {(order.cookStatus === 'to_prep' || (!order.cookStatus && (isToPrep || isProcessing))) && (
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       AppStore.updateOrderCookStatus(order.id, 'processing', activeStaff.fullName);
                       refreshOrders();
                     }}
@@ -1241,7 +1877,8 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                 {order.cookStatus === 'processing' && (
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       AppStore.updateOrderCookStatus(order.id, 'ready', activeStaff.fullName);
                       refreshOrders();
                     }}
@@ -1273,7 +1910,8 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                 {/* Void/Issue */}
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setVoidReturnReason(RETURN_REASONS[0]);
                     setVoidReturnCustomNote('');
                     setVoidingOrder(order);
@@ -1290,25 +1928,48 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
             {/* === CASHIER & ADMIN ACTIONS === */}
             {!isBarista && !isCook && (
               <>
+                {/* NYP Direct Collect Payment Button */}
+                {order.paymentStatus === 'nyp' && !isCancelled && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openReceivePayment(order);
+                    }}
+                    className={`flex items-center gap-1 rounded-lg sm:rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 p-1.5 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-black transition shadow-xs active:scale-95 cursor-pointer ring-1 ring-amber-600/30 shrink-0 ${
+                      gridColumns === 1 ? 'px-3 py-1.5' : ''
+                    }`}
+                    title={`Collect payment for ticket #${order.orderNumber}`}
+                  >
+                    <Banknote className="h-3.5 w-3.5 shrink-0" />
+                    <span className={gridColumns === 1 ? 'inline' : 'hidden sm:inline'}>Collect Payment</span>
+                    <span className={gridColumns === 1 ? 'hidden' : 'sm:hidden'}>Collect</span>
+                  </button>
+                )}
+
                 {/* 1. TO CONFIRM (Cashier / Admin): Confirm & Cancel */}
                 {isToConfirm && (
                   <>
                     <button
                       type="button"
-                      onClick={() => handleUpdateStatus(order.id, 'to_prep')}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUpdateStatus(order.id, 'processing');
+                      }}
                       className={`flex items-center gap-1 rounded-lg sm:rounded-xl bg-amber-500 hover:bg-amber-400 p-1.5 sm:px-3.5 sm:py-1.5 text-[10px] sm:text-xs font-extrabold text-stone-950 transition shadow-xs active:scale-95 cursor-pointer shrink-0 ${
                         gridColumns === 1 ? 'px-3 py-1.5' : ''
                       }`}
-                      title="Confirm order and send to Barista & Kitchen"
+                      title="Confirm order and set to Preparing"
                     >
                       <Check className="h-3.5 w-3.5 stroke-[2.5]" />
                       <span className={gridColumns === 1 ? 'inline' : 'hidden sm:inline'}>Confirm</span>
-                      <span className="hidden lg:inline"> &amp; Send</span>
+                      <span className="hidden lg:inline"> &amp; Prep</span>
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setCancelReason(CANCEL_REASONS[0]);
                         setCustomCancelNotes('');
                         setCancellingOrder(order);
@@ -1335,7 +1996,8 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                           {order.baristaStatus !== 'ready' && (
                             <button
                               type="button"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 AppStore.updateOrderBaristaStatus(order.id, 'ready', activeStaff.fullName);
                                 refreshOrders();
                               }}
@@ -1349,7 +2011,8 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                           {order.cookStatus !== 'ready' && (
                             <button
                               type="button"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 AppStore.updateOrderCookStatus(order.id, 'ready', activeStaff.fullName);
                                 refreshOrders();
                               }}
@@ -1363,27 +2026,29 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                         </>
                       )}
 
-                      {/* Complete All / Ready button */}
+                      {/* Serve All / Complete items button */}
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           AppStore.completeAllOrderSections(order.id, activeStaff.fullName);
                           refreshOrders();
                         }}
                         className={`flex items-center gap-1 rounded-lg sm:rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white p-1.5 sm:px-3.5 sm:py-1.5 text-[10px] sm:text-xs font-extrabold transition shadow-xs active:scale-95 cursor-pointer shadow-emerald-600/20 shrink-0 ${
                           gridColumns === 1 ? 'px-3 py-1.5' : ''
                         }`}
-                        title="Cashier complete all items and mark ready to serve"
+                        title="Check all items and mark ticket as Served"
                       >
-                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        <Check className="h-3.5 w-3.5 stroke-[2.5]" />
                         <span className={gridColumns === 1 ? 'inline' : 'hidden sm:inline'}>
-                          {breakdown.hasDrinks && breakdown.hasFood ? 'Complete All' : breakdown.hasDrinks ? 'Complete Drinks' : 'Complete Food'}
+                          {breakdown.hasDrinks && breakdown.hasFood ? 'Serve All' : breakdown.hasDrinks ? 'Serve Drinks' : 'Serve Food'}
                         </span>
                       </button>
 
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setVoidReturnReason(RETURN_REASONS[0]);
                           setVoidReturnCustomNote('');
                           setVoidingOrder(order);
@@ -1400,24 +2065,28 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                   );
                 })()}
 
-                {/* 3. TO SERVE: Mark as Served & Void */}
+                {/* 3. SERVED (to_serve): Mark as Completed & Void */}
                 {isToServe && (
                   <>
                     <button
                       type="button"
-                      onClick={() => handleUpdateStatus(order.id, 'completed')}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUpdateStatus(order.id, 'completed');
+                      }}
                       className={`flex items-center gap-1 rounded-lg sm:rounded-xl bg-emerald-600 hover:bg-emerald-500 p-1.5 sm:px-3.5 sm:py-1.5 text-[10px] sm:text-xs font-extrabold text-white transition shadow-xs active:scale-95 cursor-pointer shrink-0 ${
                         gridColumns === 1 ? 'px-3 py-1.5' : ''
                       }`}
-                      title="Mark order as served to customer"
+                      title="All items served — click to finalize/complete order"
                     >
-                      <Bell className="h-3.5 w-3.5" />
-                      <span className={gridColumns === 1 ? 'inline' : 'hidden sm:inline'}>Serve</span>
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      <span className={gridColumns === 1 ? 'inline' : 'hidden sm:inline'}>Complete</span>
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setVoidReturnReason(RETURN_REASONS[0]);
                         setVoidReturnCustomNote('');
                         setVoidingOrder(order);
@@ -1437,12 +2106,13 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                 {isCompleted && (
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setVoidReturnReason(RETURN_REASONS[0]);
                       setVoidReturnCustomNote('');
                       setVoidingOrder(order);
                     }}
-                    className={`flex items-center gap-1 rounded-lg sm:rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 hover:bg-rose-50 dark:hover:bg-rose-950/60 hover:border-rose-300 dark:hover:border-rose-800 hover:text-rose-700 dark:hover:text-rose-300 p-1.5 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-bold text-stone-600 dark:text-stone-300 transition active:scale-95 cursor-pointer shrink-0 ${
+                    className={`flex items-center gap-1 rounded-lg sm:rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 hover:bg-rose-50 dark:hover:bg-rose-950/60 hover:border-rose-300 dark:border-rose-800 hover:text-rose-700 dark:hover:text-rose-300 p-1.5 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-bold text-stone-600 dark:text-stone-300 transition active:scale-95 cursor-pointer shrink-0 ${
                       gridColumns === 1 ? 'px-2.5 py-1.5' : ''
                     }`}
                     title="Void completed transaction"
@@ -1498,15 +2168,15 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
             type="button"
             onClick={() => setIsFilterModalOpen(true)}
             className={`flex items-center gap-2 rounded-xl px-3.5 py-1.5 border text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs ${
-              channelTab !== 'all' || stationFilter !== 'all'
+              channelTab !== 'all' || stationFilter !== 'all' || datePeriod !== 'all_time' || paymentFilter !== 'all' || timerFilter !== 'all'
                 ? 'border-amber-400 dark:border-amber-600 bg-amber-50/90 dark:bg-amber-950/70 text-amber-950 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/60 ring-1 ring-amber-400/40'
                 : 'border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-750 hover:border-stone-400 dark:hover:border-stone-600'
             }`}
-            title="Filter Orders: Station, Channel & Grid Layout"
+            title="Filter Orders: Station, Channel, Payment Status, Ticket Timer, Date Period & Grid Layout"
           >
             <SlidersHorizontal
               className={`h-3.5 w-3.5 ${
-                channelTab !== 'all' || stationFilter !== 'all'
+                channelTab !== 'all' || stationFilter !== 'all' || datePeriod !== 'all_time' || paymentFilter !== 'all' || timerFilter !== 'all'
                   ? 'text-amber-700 dark:text-amber-400'
                   : 'text-stone-500 dark:text-stone-400'
               }`}
@@ -1518,6 +2188,38 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
               {(isCashier || isAdmin) && stationFilter !== 'all' && (
                 <span className="rounded-md bg-amber-200/90 dark:bg-amber-900/70 px-1.5 py-0.2 text-[10px] font-black text-amber-950 dark:text-amber-200 uppercase">
                   {stationFilter === 'barista' ? 'Bar' : 'Kitchen'}
+                </span>
+              )}
+
+              {/* Payment Status Badge (if filtered) */}
+              {paymentFilter !== 'all' && (
+                <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-200/90 dark:bg-amber-900/70 px-1.5 py-0.2 text-[10px] font-black text-amber-950 dark:text-amber-200">
+                  <Banknote className="h-2.5 w-2.5" />
+                  <span>{paymentFilter === 'nyp' ? 'NYP' : 'Paid'}</span>
+                </span>
+              )}
+
+              {/* Ticket Timer Badge (if filtered) */}
+              {timerFilter !== 'all' && (
+                <span
+                  className={`inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.2 text-[10px] font-black ${
+                    timerFilter === 'reminder'
+                      ? 'bg-amber-300 dark:bg-amber-800 text-stone-950 dark:text-amber-100'
+                      : timerFilter === 'priority'
+                      ? 'bg-rose-600 text-white'
+                      : 'bg-red-600 text-white animate-pulse'
+                  }`}
+                >
+                  <Timer className="h-2.5 w-2.5" />
+                  <span>{timerFilter === 'reminder' ? '15m' : timerFilter === 'priority' ? '30m' : '40m'}</span>
+                </span>
+              )}
+
+              {/* Date Period Badge */}
+              {datePeriod !== 'all_time' && (
+                <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-200/90 dark:bg-amber-900/70 px-1.5 py-0.2 text-[10px] font-black text-amber-950 dark:text-amber-200">
+                  <Calendar className="h-2.5 w-2.5" />
+                  <span>{getDatePeriodLabel(datePeriod, customDateStart, customDateEnd)}</span>
                 </span>
               )}
 
@@ -1548,6 +2250,112 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
             </div>
             <ChevronDown className="h-3.5 w-3.5 opacity-60 ml-0.5" />
           </button>
+
+          {/* Quick Date Period Filter Dropdown */}
+          <div className="relative" ref={datePeriodMenuRef}>
+            <button
+              id="ticket-date-period-filter-btn"
+              type="button"
+              onClick={() => setIsDatePeriodMenuOpen((prev) => !prev)}
+              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 border text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs ${
+                datePeriod !== 'all_time'
+                  ? 'border-amber-400 dark:border-amber-600 bg-amber-50/90 dark:bg-amber-950/70 text-amber-950 dark:text-amber-200 ring-1 ring-amber-400/40'
+                  : 'border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-750'
+              }`}
+              title="Filter Tickets by Date Period"
+            >
+              <Calendar className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400 shrink-0" />
+              <span className="font-extrabold truncate max-w-[120px] sm:max-w-none">
+                {getDatePeriodLabel(datePeriod, customDateStart, customDateEnd)}
+              </span>
+              <ChevronDown className={`h-3 w-3 opacity-60 transition-transform ${isDatePeriodMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Floating Dropdown Menu */}
+            {isDatePeriodMenuOpen && (
+              <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-1.5 z-40 w-72 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-2 shadow-xl space-y-1 animate-in fade-in zoom-in-95 duration-100">
+                <div className="px-2.5 py-1.5 border-b border-stone-100 dark:border-stone-800 flex items-center justify-between">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                    Date Period
+                  </span>
+                  {datePeriod !== 'all_time' && (
+                    <button
+                      type="button"
+                      onClick={() => handleSetDatePeriod('all_time')}
+                      className="text-[10px] font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
+                    >
+                      Reset (All Time)
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-0.5">
+                  {DATE_PERIOD_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => handleSetDatePeriod(opt.id)}
+                      className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-left text-xs transition cursor-pointer ${
+                        datePeriod === opt.id
+                          ? 'bg-amber-500 text-stone-950 font-black shadow-xs'
+                          : 'text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 font-semibold'
+                      }`}
+                    >
+                      <div>
+                        <div className="font-bold leading-tight">{opt.label}</div>
+                        <div
+                          className={`text-[10px] ${
+                            datePeriod === opt.id
+                              ? 'text-stone-900/80 font-normal'
+                              : 'text-stone-500 dark:text-stone-400 font-normal'
+                          }`}
+                        >
+                          {opt.description}
+                        </div>
+                      </div>
+                      {datePeriod === opt.id && <Check className="h-4 w-4 stroke-[3] shrink-0 ml-2" />}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom Date Pickers when 'custom' is active */}
+                {datePeriod === 'custom' && (
+                  <div className="mt-2 pt-2 border-t border-stone-100 dark:border-stone-800 p-1 space-y-2 bg-stone-50/70 dark:bg-stone-850 rounded-xl">
+                    <span className="text-[10px] font-bold text-stone-500 dark:text-stone-400 block px-1">
+                      Custom Range:
+                    </span>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <div>
+                        <label className="text-[9px] font-bold text-stone-400 block mb-0.5">Start Date</label>
+                        <input
+                          type="date"
+                          value={customDateStart}
+                          onChange={(e) => handleSetCustomDates(e.target.value, customDateEnd)}
+                          className="w-full text-[11px] rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 p-1 text-stone-800 dark:text-stone-200"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-stone-400 block mb-0.5">End Date</label>
+                        <input
+                          type="date"
+                          value={customDateEnd}
+                          onChange={(e) => handleSetCustomDates(customDateStart, e.target.value)}
+                          className="w-full text-[11px] rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 p-1 text-stone-800 dark:text-stone-200"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsDatePeriodMenuOpen(false)}
+                      className="w-full rounded-lg bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 py-1 text-xs font-bold transition active:scale-95 cursor-pointer mt-1"
+                    >
+                      Apply Range
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Search bar: compact icon toggle on mobile, full input on tablet/desktop */}
           {!isMobileSearchOpen && !searchQuery ? (
@@ -1873,7 +2681,7 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
 
           <button
             onClick={() => toggleStatusFilter('processing')}
-            title="Toggle Processing"
+            title="Toggle Preparing"
             className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
               isStatusActive('processing')
                 ? 'bg-sky-600 text-white font-extrabold shadow-xs ring-2 ring-sky-600/30'
@@ -1885,7 +2693,7 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
             ) : (
               <ChefHat className="h-3.5 w-3.5 text-sky-800 dark:text-sky-400 stroke-[2.2] shrink-0" />
             )}
-            <span>Processing</span>
+            <span>Preparing</span>
             <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
               isStatusActive('processing') ? 'bg-white/20 text-white' : 'bg-sky-100 dark:bg-sky-950/80 text-sky-950 dark:text-sky-300 border border-sky-300 dark:border-sky-800'
             }`}>
@@ -1895,7 +2703,7 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
 
           <button
             onClick={() => toggleStatusFilter('to_serve')}
-            title="Toggle To Serve"
+            title="Toggle Served"
             className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
               isStatusActive('to_serve')
                 ? 'bg-emerald-600 text-white font-extrabold shadow-xs ring-2 ring-emerald-600/30'
@@ -1905,9 +2713,9 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
             {isStatusActive('to_serve') ? (
               <Check className="h-3.5 w-3.5 text-white stroke-[2.5] shrink-0" />
             ) : (
-              <Bell className="h-3.5 w-3.5 text-emerald-800 dark:text-emerald-400 stroke-[2.2] shrink-0" />
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-800 dark:text-emerald-400 stroke-[2.2] shrink-0" />
             )}
-            <span>To Serve</span>
+            <span>Served</span>
             <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
               isStatusActive('to_serve') ? 'bg-white/20 text-white' : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
             }`}>
@@ -1967,6 +2775,82 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
               Reset to All
             </button>
           )}
+        </div>
+      )}
+
+      {/* Active Filter Chips (shown only when Payment Status or Ticket Timer filter is applied from the filter modal) */}
+      {(paymentFilter !== 'all' || timerFilter !== 'all') && (
+        <div className="flex flex-wrap items-center gap-2 pt-1 pb-1">
+          <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 flex items-center gap-1">
+            <SlidersHorizontal className="h-3 w-3" />
+            <span>Active Filters:</span>
+          </span>
+          {paymentFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800 shadow-2xs">
+              <Banknote className="h-3 w-3 text-amber-700 dark:text-amber-400" />
+              <span>Payment: {paymentFilter === 'nyp' ? 'Not Yet Paid' : 'Paid'}</span>
+              <button
+                type="button"
+                onClick={() => setPaymentFilter('all')}
+                className="hover:text-amber-950 dark:hover:text-white cursor-pointer ml-0.5 rounded p-0.5"
+                title="Clear payment filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {timerFilter !== 'all' && (
+            <span
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border shadow-2xs ${
+                timerFilter === 'reminder'
+                  ? 'bg-amber-400/20 text-amber-950 dark:text-amber-200 border-amber-400'
+                  : timerFilter === 'priority'
+                  ? 'bg-rose-500/20 text-rose-950 dark:text-rose-200 border-rose-500'
+                  : 'bg-red-500/20 text-red-950 dark:text-red-200 border-red-500 ring-1 ring-red-500/50'
+              }`}
+            >
+              {timerFilter === 'reminder' ? (
+                <Timer className="h-3 w-3 text-amber-600 dark:text-amber-400 stroke-[2.5]" />
+              ) : timerFilter === 'priority' ? (
+                <Flame className="h-3 w-3 text-rose-600 dark:text-rose-400" />
+              ) : (
+                <AlertTriangle className="h-3 w-3 text-red-600 dark:text-red-400 stroke-[2.8]" />
+              )}
+              <span>
+                Timer:{' '}
+                {timerFilter === 'reminder'
+                  ? '15m Reminder'
+                  : timerFilter === 'priority'
+                  ? '30m Priority'
+                  : '40m Overdue'}
+              </span>
+              <button
+                type="button"
+                onClick={() => setTimerFilter('all')}
+                className="hover:opacity-100 opacity-70 cursor-pointer ml-0.5 rounded p-0.5"
+                title="Clear timer filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => setIsFilterModalOpen(true)}
+            className="text-[11px] font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer ml-1"
+          >
+            Adjust in Filter Modal
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setPaymentFilter('all');
+              setTimerFilter('all');
+            }}
+            className="text-[11px] font-bold text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 underline cursor-pointer"
+          >
+            Clear all
+          </button>
         </div>
       )}
 
@@ -2053,8 +2937,27 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
         /* Unified Grid Mode (All, In-Store, or Online Tab) */
         <div>
           {filteredOrders.length === 0 ? (
-            <div className="rounded-2xl sm:rounded-3xl border border-dashed border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800/50 p-8 sm:p-12 text-center text-xs text-stone-500 dark:text-stone-400">
-              No orders found matching current filter.
+            <div className="rounded-2xl sm:rounded-3xl border border-dashed border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800/50 p-8 sm:p-12 text-center text-xs text-stone-500 dark:text-stone-400 space-y-3">
+              <div className="grid h-10 w-10 place-items-center rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 mx-auto">
+                <Calendar className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-bold text-sm text-stone-800 dark:text-stone-200">
+                  No orders found for {getDatePeriodLabel(datePeriod, customDateStart, customDateEnd)}
+                </p>
+                <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
+                  Try choosing a different date period or check All Time.
+                </p>
+              </div>
+              {datePeriod !== 'all_time' && orders.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleSetDatePeriod('all_time')}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 px-3.5 py-1.5 text-xs font-bold text-stone-950 transition active:scale-95 cursor-pointer shadow-xs"
+                >
+                  <span>View All Time ({orders.length} Total Tickets)</span>
+                </button>
+              )}
             </div>
           ) : (
             <div
@@ -2329,6 +3232,238 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
         </div>
       )}
 
+      {/* EXPANDED TICKET MODAL */}
+      {activeExpandedOrder && (
+        <ExpandedTicketModal
+          order={activeExpandedOrder}
+          activeStaff={activeStaff}
+          onClose={() => setExpandedOrder(null)}
+          onViewReceipt={onViewReceipt}
+          onUpdateStatus={handleUpdateStatus}
+          onToggleItemServed={handleToggleItemServed}
+          onToggleAllServed={handleToggleAllServed}
+          onCompleteAllSections={(orderId) => {
+            AppStore.completeAllOrderSections(orderId, activeStaff.fullName);
+            refreshOrders();
+          }}
+          onUpdateBaristaStatus={(orderId, status) => {
+            AppStore.updateOrderBaristaStatus(orderId, status, activeStaff.fullName);
+            refreshOrders();
+          }}
+          onUpdateCookStatus={(orderId, status) => {
+            AppStore.updateOrderCookStatus(orderId, status, activeStaff.fullName);
+            refreshOrders();
+          }}
+          onOpenVoidModal={(ord) => {
+            setVoidReturnReason(RETURN_REASONS[0]);
+            setVoidReturnCustomNote('');
+            setVoidingOrder(ord);
+          }}
+          onOpenCancelModal={(ord) => {
+            setCancelReason(CANCEL_REASONS[0]);
+            setCustomCancelNotes('');
+            setCancellingOrder(ord);
+          }}
+          onApproveCancellation={handleApproveCustomerCancellation}
+          onDeclineCancellation={handleDeclineCustomerCancellation}
+          onReceivePayment={(ord) => {
+            setExpandedOrder(null);
+            openReceivePayment(ord);
+          }}
+          formatDuration={formatDuration}
+          now={now}
+        />
+      )}
+
+      {/* RECEIVE PAYMENT / TENDER MODAL */}
+      {tenderOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-stone-900 p-5 sm:p-6 shadow-2xl border border-stone-200 dark:border-stone-800 space-y-4 animate-in zoom-in-95 duration-150 max-h-[92vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-stone-100 dark:border-stone-800 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500 text-stone-950 font-black shadow-xs">
+                  <Banknote className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-display text-base sm:text-lg font-black text-stone-900 dark:text-stone-100">
+                      Receive Payment
+                    </h3>
+                    <span className="rounded-md bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 text-[9px] font-black text-amber-900 dark:text-amber-300 uppercase">
+                      Ticket #{tenderOrder.orderNumber}
+                    </span>
+                  </div>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                    {tenderOrder.customerName || 'Walk-in Guest'} • {tenderOrder.orderType === 'dine_in' ? `Dine-In (Table #${tenderOrder.tableNumber || 1})` : 'Takeaway'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTenderOrder(null)}
+                className="rounded-full p-1.5 text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-700 dark:hover:text-stone-200 cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Total Due Banner */}
+            <div className="rounded-2xl border border-amber-300 dark:border-amber-800/80 bg-amber-50/80 dark:bg-amber-950/40 p-4 flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-amber-900 dark:text-amber-300 block">Total Amount Due</span>
+                <span className="text-[11px] text-amber-700 dark:text-amber-400">
+                  {tenderOrder.items.length} item{tenderOrder.items.length === 1 ? '' : 's'} • State: <strong className="underline">NOT YET PAID (NYP)</strong>
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="font-mono text-2xl sm:text-3xl font-black text-amber-950 dark:text-amber-200">
+                  ₱{tenderOrder.totalAmount.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Payment Method Selector */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-stone-700 dark:text-stone-300 block">
+                Select Payment Method
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'cash' as const, label: 'Cash', icon: Banknote },
+                  { id: 'gcash' as const, label: 'GCash', icon: QrCode },
+                  { id: 'card' as const, label: 'Card', icon: CreditCard },
+                ].map((m) => {
+                  const Icon = m.icon;
+                  const isSel = tenderMethod === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        setTenderMethod(m.id);
+                        if (m.id !== 'cash' && tenderOrder) {
+                          setTenderAmountPaidInput(tenderOrder.totalAmount.toFixed(2));
+                        }
+                      }}
+                      className={`flex flex-col items-center justify-center gap-1 p-2.5 rounded-xl border text-center transition cursor-pointer ${
+                        isSel
+                          ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/60 text-stone-950 dark:text-amber-200 font-black shadow-xs ring-2 ring-amber-500/20'
+                          : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-750'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span className="text-xs font-bold">{m.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Cash Tender Input & Quick Amounts */}
+            {tenderMethod === 'cash' ? (
+              <div className="space-y-3">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-stone-700 dark:text-stone-300">
+                      Tendered Cash Amount (₱)
+                    </label>
+                    {parseFloat(tenderAmountPaidInput) > 0 && parseFloat(tenderAmountPaidInput) < tenderOrder.totalAmount && (
+                      <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400">
+                        Short by ₱{(tenderOrder.totalAmount - parseFloat(tenderAmountPaidInput)).toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-2.5 font-mono text-base font-bold text-stone-400">₱</span>
+                    <input
+                      type="number"
+                      step="any"
+                      value={tenderAmountPaidInput}
+                      onChange={(e) => setTenderAmountPaidInput(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 pl-8 pr-4 py-2 font-mono text-lg font-black text-stone-900 dark:text-stone-100 focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Quick Cash Buttons */}
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleTenderNumpad('EXACT')}
+                    className="rounded-lg border border-stone-300 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 px-2.5 py-1 text-xs font-bold text-stone-800 dark:text-stone-200 cursor-pointer"
+                  >
+                    Exact (₱{tenderOrder.totalAmount.toFixed(2)})
+                  </button>
+                  {[20, 50, 100, 200, 500, 1000].map((denom) => (
+                    <button
+                      key={denom}
+                      type="button"
+                      onClick={() => {
+                        const current = parseFloat(tenderAmountPaidInput) || 0;
+                        setTenderAmountPaidInput((current + denom).toFixed(2));
+                      }}
+                      className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 px-2 py-1 text-xs font-bold text-amber-900 dark:text-amber-300 cursor-pointer"
+                    >
+                      +{denom}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => handleTenderNumpad('CLEAR')}
+                    className="rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 hover:bg-rose-50 px-2 py-1 text-xs font-bold text-rose-600 cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                </div>
+
+                {/* Change calculation display */}
+                <div className="rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/60 p-3 flex items-center justify-between">
+                  <span className="text-xs font-bold text-stone-600 dark:text-stone-300">Change Due:</span>
+                  <span className={`font-mono text-xl font-black ${
+                    (parseFloat(tenderAmountPaidInput) || 0) >= tenderOrder.totalAmount
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-stone-400'
+                  }`}>
+                    ₱{Math.max(0, (parseFloat(tenderAmountPaidInput) || 0) - tenderOrder.totalAmount).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/60 p-3.5 text-xs text-stone-600 dark:text-stone-300 space-y-1">
+                <p className="font-bold text-stone-900 dark:text-stone-100">
+                  {tenderMethod === 'gcash' ? 'GCash Digital Wallet' : 'Credit / Debit Card Terminal'}
+                </p>
+                <p>
+                  Please confirm transaction on terminal / mobile app for <strong>₱{tenderOrder.totalAmount.toFixed(2)}</strong>.
+                </p>
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-stone-100 dark:border-stone-800">
+              <button
+                type="button"
+                onClick={() => setTenderOrder(null)}
+                className="rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 px-4 py-2 text-xs font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-750 cursor-pointer"
+              >
+                Keep as NYP
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReceivePayment}
+                disabled={tenderMethod === 'cash' && (parseFloat(tenderAmountPaidInput) || 0) < tenderOrder.totalAmount}
+                className="flex items-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-stone-950 px-5 py-2.5 text-xs font-black shadow-md transition active:scale-95 cursor-pointer"
+              >
+                <Check className="h-4 w-4 stroke-[3]" />
+                <span>Confirm Payment (Mark as PAID)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Ticket Status Filter Modal */}
       {isStatusModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in duration-150">
@@ -2356,6 +3491,50 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                 <X className="h-5 w-5" />
               </button>
             </div>
+
+            {/* Payment Filter for Cashier & Admin in Mobile Modal */}
+            {!isBarista && !isCook && (
+              <div className="space-y-1.5 p-2 rounded-xl bg-stone-50 dark:bg-stone-850 border border-stone-200 dark:border-stone-750">
+                <span className="text-[10px] font-black uppercase tracking-wider text-stone-500 dark:text-stone-400 block">
+                  Payment Status Filter:
+                </span>
+                <div className="grid grid-cols-3 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentFilter('all')}
+                    className={`py-1.5 px-2 text-xs font-bold rounded-lg transition cursor-pointer text-center ${
+                      paymentFilter === 'all'
+                        ? 'bg-stone-950 dark:bg-stone-100 text-white dark:text-stone-950 font-black shadow-xs'
+                        : 'text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-750'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentFilter('nyp')}
+                    className={`py-1.5 px-2 text-xs font-bold rounded-lg transition cursor-pointer text-center ${
+                      paymentFilter === 'nyp'
+                        ? 'bg-amber-500 text-stone-950 font-black shadow-xs'
+                        : 'text-amber-800 dark:text-amber-400 hover:bg-amber-100/50'
+                    }`}
+                  >
+                    NYP ({nypCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentFilter('paid')}
+                    className={`py-1.5 px-2 text-xs font-bold rounded-lg transition cursor-pointer text-center ${
+                      paymentFilter === 'paid'
+                        ? 'bg-emerald-600 text-white font-black shadow-xs'
+                        : 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100/50'
+                    }`}
+                  >
+                    Paid ({paidCount})
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Quick Actions */}
             <div className="flex items-center justify-between gap-2 px-1">
@@ -2548,7 +3727,7 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                       </div>
                       <div className="flex items-center gap-2">
                         <ChefHat className="h-4 w-4 text-sky-500 dark:text-sky-400" />
-                        <span>Processing</span>
+                        <span>Preparing</span>
                       </div>
                     </div>
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${isStatusActive('processing') ? 'bg-sky-200 dark:bg-sky-900/60 text-sky-950 dark:text-sky-200' : 'bg-sky-100 dark:bg-sky-950/50 text-sky-900 dark:text-sky-300'}`}>
@@ -2676,7 +3855,7 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                       </div>
                       <div className="flex items-center gap-2">
                         <ChefHat className="h-4 w-4 text-sky-500 dark:text-sky-400" />
-                        <span>Processing</span>
+                        <span>Preparing</span>
                       </div>
                     </div>
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${isStatusActive('processing') ? 'bg-sky-200 dark:bg-sky-900/60 text-sky-950 dark:text-sky-200' : 'bg-sky-100 dark:bg-sky-950/50 text-sky-900 dark:text-sky-300'}`}>
@@ -2700,8 +3879,8 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                         {isStatusActive('to_serve') && <Check className="h-3.5 w-3.5 stroke-[3]" />}
                       </div>
                       <div className="flex items-center gap-2">
-                        <Bell className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
-                        <span>To Serve</span>
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
+                        <span>Served</span>
                       </div>
                     </div>
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${isStatusActive('to_serve') ? 'bg-emerald-200 dark:bg-emerald-900/60 text-emerald-950 dark:text-emerald-200' : 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-300'}`}>
@@ -2806,7 +3985,7 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                     Filter &amp; View Settings
                   </h3>
                   <p className="text-xs text-stone-500 dark:text-stone-400 font-medium">
-                    Configure station focus, order channels, and grid layout
+                    Configure stations, channels, payment status, ticket timer, and grid layout
                   </p>
                 </div>
               </div>
@@ -3077,7 +4256,206 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
               </div>
             </div>
 
-            {/* Section 3: Grid Layout Columns */}
+            {/* Payment Status Filter (Cashier & Admin) */}
+            {!isBarista && !isCook && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-stone-600 dark:text-stone-400 flex items-center gap-1.5">
+                    <Banknote className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                    <span>Payment Status</span>
+                  </span>
+                  <span className="text-[11px] text-stone-400 dark:text-stone-500">
+                    {paymentFilter === 'all' ? 'All Tickets' : paymentFilter === 'nyp' ? 'Not Yet Paid Only' : 'Paid Only'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentFilter('all')}
+                    className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-2 text-xs font-bold transition border cursor-pointer ${
+                      paymentFilter === 'all'
+                        ? 'border-stone-950 dark:border-stone-100 bg-stone-950 dark:bg-stone-100 text-white dark:text-stone-950 shadow-xs'
+                        : 'border-stone-200 dark:border-stone-750 bg-stone-50 dark:bg-stone-800/70 text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-750'
+                    }`}
+                  >
+                    {paymentFilter === 'all' && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                    <span>All ({dateFilteredOrders.filter((o) => o.status !== 'cancelled').length})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentFilter('nyp')}
+                    className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-2 text-xs font-bold transition border cursor-pointer ${
+                      paymentFilter === 'nyp'
+                        ? 'border-amber-500 bg-amber-500 text-stone-950 shadow-xs font-black ring-1 ring-amber-600/40'
+                        : 'border-stone-200 dark:border-stone-750 bg-stone-50 dark:bg-stone-800/70 text-amber-800 dark:text-amber-400 hover:bg-amber-100/50 dark:hover:bg-amber-950/40'
+                    }`}
+                  >
+                    <Clock className="h-3.5 w-3.5 stroke-[2.5]" />
+                    <span>NYP ({nypCount})</span>
+                    {paymentFilter === 'nyp' && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentFilter('paid')}
+                    className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-2 text-xs font-bold transition border cursor-pointer ${
+                      paymentFilter === 'paid'
+                        ? 'border-emerald-600 bg-emerald-600 text-white shadow-xs font-black ring-1 ring-emerald-600/40'
+                        : 'border-stone-200 dark:border-stone-750 bg-stone-50 dark:bg-stone-800/70 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100/50 dark:hover:bg-emerald-950/40'
+                    }`}
+                  >
+                    <Check className="h-3.5 w-3.5 stroke-[2.5]" />
+                    <span>Paid ({paidCount})</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Ticket Timer Urgency Filter Section */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-stone-600 dark:text-stone-400 flex items-center gap-1.5">
+                  <Timer className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                  <span>Ticket Timer Status</span>
+                </span>
+                <span className="text-[11px] text-stone-400 dark:text-stone-500">
+                  {timerFilter === 'all'
+                    ? 'All Active'
+                    : timerFilter === 'reminder'
+                    ? '15m Reminder (Yellow)'
+                    : timerFilter === 'priority'
+                    ? '30m Priority (Red)'
+                    : '40m Overdue (Max)'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTimerFilter('all')}
+                  className={`flex items-center justify-center gap-1.5 rounded-xl py-2 px-2 text-xs font-bold transition border cursor-pointer ${
+                    timerFilter === 'all'
+                      ? 'border-stone-950 dark:border-stone-100 bg-stone-950 dark:bg-stone-100 text-white dark:text-stone-950 shadow-xs'
+                      : 'border-stone-200 dark:border-stone-750 bg-stone-50 dark:bg-stone-800/70 text-stone-700 dark:text-stone-200'
+                  }`}
+                >
+                  {timerFilter === 'all' && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                  <span>All Active ({activeOrdersAll.length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTimerFilter('reminder')}
+                  className={`flex items-center justify-center gap-1.5 rounded-xl py-2 px-2 text-xs font-bold transition border cursor-pointer ${
+                    timerFilter === 'reminder'
+                      ? 'border-amber-500 bg-amber-400 text-stone-950 shadow-xs font-black ring-1 ring-amber-500/50'
+                      : 'border-stone-200 dark:border-stone-750 bg-stone-50 dark:bg-stone-800/70 text-amber-800 dark:text-amber-300'
+                  }`}
+                >
+                  <Timer className="h-3.5 w-3.5 stroke-[2.5]" />
+                  <span>15m Reminder ({reminderCount})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTimerFilter('priority')}
+                  className={`flex items-center justify-center gap-1.5 rounded-xl py-2 px-2 text-xs font-bold transition border cursor-pointer ${
+                    timerFilter === 'priority'
+                      ? 'border-rose-600 bg-rose-600 text-white shadow-xs font-black ring-1 ring-rose-700/50'
+                      : 'border-stone-200 dark:border-stone-750 bg-stone-50 dark:bg-stone-800/70 text-rose-700 dark:text-rose-400'
+                  }`}
+                >
+                  <Flame className="h-3.5 w-3.5" />
+                  <span>30m Priority ({priorityCount})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTimerFilter('overdue')}
+                  className={`flex items-center justify-center gap-1.5 rounded-xl py-2 px-2 text-xs font-bold transition border cursor-pointer ${
+                    timerFilter === 'overdue'
+                      ? 'border-red-600 bg-red-600 text-white shadow-xs font-black ring-2 ring-red-700 animate-pulse'
+                      : 'border-stone-200 dark:border-stone-750 bg-stone-50 dark:bg-stone-800/70 text-red-700 dark:text-red-400'
+                  }`}
+                >
+                  <AlertTriangle className="h-3.5 w-3.5 stroke-[2.8]" />
+                  <span>40m Overdue ({overdueCount})</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Section 3: Date Period */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-stone-600 dark:text-stone-400 flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                  <span>Date Period</span>
+                </span>
+                <span className="text-[11px] text-stone-400 dark:text-stone-500">
+                  {getDatePeriodLabel(datePeriod, customDateStart, customDateEnd)}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {DATE_PERIOD_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => handleSetDatePeriod(opt.id)}
+                    className={`flex flex-col items-start p-2.5 rounded-xl border text-left transition cursor-pointer ${
+                      datePeriod === opt.id
+                        ? 'border-amber-500 bg-amber-500/10 dark:bg-amber-500/20 text-stone-950 dark:text-amber-100 ring-1 ring-amber-500/30'
+                        : 'border-stone-200 dark:border-stone-750 bg-stone-50 dark:bg-stone-800/70 text-stone-800 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-750'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <span className="text-xs font-black">{opt.label}</span>
+                      {datePeriod === opt.id && <Check className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 stroke-[3]" />}
+                    </div>
+                    <span className="text-[10px] text-stone-500 dark:text-stone-400 font-normal mt-0.5 line-clamp-1">
+                      {opt.description}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom Date Pickers */}
+              {datePeriod === 'custom' && (
+                <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/30 p-2.5 space-y-2">
+                  <span className="text-[11px] font-bold text-amber-950 dark:text-amber-200 block">
+                    Pick Custom Date or Range:
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-stone-500 dark:text-stone-400 block mb-0.5">
+                        Start Date
+                      </label>
+                      <input
+                        type="date"
+                        value={customDateStart}
+                        onChange={(e) => handleSetCustomDates(e.target.value, customDateEnd)}
+                        className="w-full text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 p-1.5 text-stone-900 dark:text-stone-100"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-stone-500 dark:text-stone-400 block mb-0.5">
+                        End Date
+                      </label>
+                      <input
+                        type="date"
+                        value={customDateEnd}
+                        onChange={(e) => handleSetCustomDates(customDateStart, e.target.value)}
+                        className="w-full text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 p-1.5 text-stone-900 dark:text-stone-100"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Section 4: Grid Layout Columns */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black uppercase tracking-wider text-stone-600 dark:text-stone-400">
@@ -3124,6 +4502,9 @@ export const TicketManagement: React.FC<TicketManagementProps> = ({
                 onClick={() => {
                   setStationFilter('all');
                   setChannelTab('all');
+                  setPaymentFilter('all');
+                  setTimerFilter('all');
+                  handleSetDatePeriod('all_time');
                 }}
                 className="text-xs font-bold text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 transition cursor-pointer"
               >

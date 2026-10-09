@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Table, Order, Reservation, TableRequest, User } from '../../types';
+import { Table, Order, Reservation, TableRequest, User, OrderStatus } from '../../types';
 import { AppStore } from '../../services/store';
 import { useModal } from '../../context/ModalContext';
+import { ExpandedTicketModal } from './ExpandedTicketModal';
+import { ReceiptModal } from '../ReceiptModal';
 import {
   Users,
   CheckCircle,
@@ -42,7 +44,16 @@ import {
   Grid2X2,
   Square,
   LayoutGrid,
+  Maximize2,
+  Receipt,
+  Armchair,
+  Utensils,
+  Ticket,
+  Sofa,
+  Link2,
+  Unlink,
 } from 'lucide-react';
+import { CombineTablesModal } from './CombineTablesModal';
 
 interface TableManagementProps {
   onSelectTableForOrder?: (tableNumber: number) => void;
@@ -192,6 +203,40 @@ export const TableManagement: React.FC<TableManagementProps> = ({
     status: 'available',
   });
 
+  // Combine Tables Modal state
+  const [isCombineModalOpen, setIsCombineModalOpen] = useState(false);
+  const [combineTargetAreaKey, setCombineTargetAreaKey] = useState<string | undefined>(undefined);
+  const [combineTargetPrimaryTableId, setCombineTargetPrimaryTableId] = useState<number | undefined>(undefined);
+
+  const handleOpenCombineModal = (areaKey?: string, primaryTableId?: number) => {
+    setCombineTargetAreaKey(areaKey);
+    setCombineTargetPrimaryTableId(primaryTableId);
+    setIsCombineModalOpen(true);
+  };
+
+  const handleUncombineTable = async (table: Table) => {
+    const groupName = table.combinedGroupName || `Table ${table.tableNumber}`;
+    const confirmed = await showConfirm({
+      title: 'Split / Uncombine Tables?',
+      message: `Are you sure you want to separate ${groupName} back into independent tables?`,
+      confirmText: 'Uncombine Tables',
+      cancelText: 'Cancel',
+      type: 'warning',
+    });
+
+    if (confirmed) {
+      const res = AppStore.uncombineTable(table.id);
+      if (res.success) {
+        refreshData();
+        showAlert({
+          title: 'Tables Split Successfully 🔓',
+          message: res.message,
+          type: 'success',
+        });
+      }
+    }
+  };
+
   // New reservation form state for staff manual entry
   const [newResForm, setNewResForm] = useState({
     customerName: '',
@@ -212,7 +257,75 @@ export const TableManagement: React.FC<TableManagementProps> = ({
     notes: '',
   });
 
+  // Ticket Modal & Receipt State for easy table-to-ticket navigation
+  const [expandedOrder, setExpandedOrder] = useState<Order | null>(null);
+  const [receiptOrder, setReceiptOrder] = useState<Order | null>(null);
+  const [now, setNow] = useState<number>(Date.now());
+  const [activeAreaFilterTab, setActiveAreaFilterTab] = useState<string>('all');
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatDuration = (ms: number): string => {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
+  };
+
+  const handleOpenTicketModal = (order?: Order | null) => {
+    if (!order) return;
+    setExpandedOrder(order);
+  };
+
+  const handleUpdateOrderStatus = (orderId: number, nextStatus: OrderStatus) => {
+    AppStore.updateOrderStatus(orderId, nextStatus);
+    refreshData();
+  };
+
+  const handleToggleItemServed = (orderId: number, itemIndex: number) => {
+    AppStore.toggleOrderItemServed(orderId, itemIndex, getEffectiveCashier().fullName);
+    refreshData();
+  };
+
+  const handleToggleAllServed = (orderId: number, served: boolean) => {
+    const freshOrders = AppStore.getOrders();
+    const ord = freshOrders.find((o) => o.id === orderId);
+    if (!ord) return;
+    ord.items.forEach((item) => {
+      item.isServed = served;
+    });
+    AppStore.saveOrders(freshOrders);
+    refreshData();
+  };
+
+  const handleCompleteAllSections = (orderId: number) => {
+    AppStore.completeAllOrderSections(orderId, getEffectiveCashier().fullName);
+    refreshData();
+  };
+
+  const handleUpdateBaristaStatus = (
+    orderId: number,
+    status: 'to_prep' | 'processing' | 'ready'
+  ) => {
+    AppStore.updateOrderBaristaStatus(orderId, status, getEffectiveCashier().fullName);
+    refreshData();
+  };
+
+  const handleUpdateCookStatus = (
+    orderId: number,
+    status: 'to_prep' | 'processing' | 'ready'
+  ) => {
+    AppStore.updateOrderCookStatus(orderId, status, getEffectiveCashier().fullName);
+    refreshData();
+  };
+
   const orders = AppStore.getOrders();
+  const activeExpandedOrder = expandedOrder
+    ? orders.find((o) => o.id === expandedOrder.id) || expandedOrder
+    : null;
 
   const refreshData = () => {
     const freshTables = AppStore.getTables();
@@ -661,21 +774,156 @@ export const TableManagement: React.FC<TableManagementProps> = ({
     return true;
   });
 
-  // Table Card Renderer matching image.png
+  interface AreaMeta {
+    key: string;
+    name: string;
+    description: string;
+    icon: string;
+    isAircon: boolean;
+  }
+
+  interface AreaGroup {
+    meta: AreaMeta;
+    tables: Table[];
+  }
+
+  // 10 Specified Official Areas
+  const OFFICIAL_AREAS: AreaMeta[] = [
+    {
+      key: '1st aircon area',
+      name: '1st Aircon Area',
+      description: '3 tables with 2 chairs each table',
+      icon: '❄️',
+      isAircon: true,
+    },
+    {
+      key: 'left side of center area',
+      name: 'Left Side of Center Area',
+      description: '3 long tables with 3 chairs each',
+      icon: '🌿',
+      isAircon: false,
+    },
+    {
+      key: 'kolin area',
+      name: 'Kolin Area',
+      description: 'Long couch shared by 2 tables (Table 1 & 2) • 1 chair each table',
+      icon: '❄️',
+      isAircon: true,
+    },
+    {
+      key: 'door area',
+      name: 'Door Area',
+      description: 'Long couch shared by 2 tables (Table 1 & 2) • 1 chair each table',
+      icon: '🚪',
+      isAircon: false,
+    },
+    {
+      key: 'entrance area',
+      name: 'Entrance Area',
+      description: '2 tables with 1 chair each • Long couch for 2 customers',
+      icon: '✨',
+      isAircon: false,
+    },
+    {
+      key: 'spotlight area',
+      name: 'Spotlight Area',
+      description: '1 table with 2 chairs',
+      icon: '💡',
+      isAircon: false,
+    },
+    {
+      key: '2nd aircon area',
+      name: '2nd Aircon Area',
+      description: '1 table • 4 seats',
+      icon: '❄️',
+      isAircon: true,
+    },
+    {
+      key: '3rd aircon area',
+      name: '3rd Aircon Area',
+      description: 'Long table • 8 seats',
+      icon: '❄️',
+      isAircon: true,
+    },
+    {
+      key: 'center area',
+      name: 'Center Area',
+      description: '10 seats • 10 high chairs',
+      icon: '🏛️',
+      isAircon: false,
+    },
+    {
+      key: 'window area',
+      name: 'Window Area',
+      description: 'Long table • 7 chairs',
+      icon: '🪟',
+      isAircon: false,
+    },
+  ];
+
+  // Group tables by area (Areas -> Tables -> Chairs)
+  const areaGroups: AreaGroup[] = useMemo(() => {
+    const areaMap = new Map<string, AreaGroup>();
+
+    OFFICIAL_AREAS.forEach((oa) => {
+      areaMap.set(oa.key, { meta: oa, tables: [] });
+    });
+
+    filteredTables.forEach((t) => {
+      const rawAreaName = (
+        t.areaName || (t.area === 'airconditioned' ? '1st aircon area' : 'entrance area')
+      ).toLowerCase();
+      let group = areaMap.get(rawAreaName);
+      if (!group) {
+        const meta: AreaMeta = {
+          key: rawAreaName,
+          name: t.areaName || (t.area === 'airconditioned' ? 'Air-Con Area' : 'Main Area'),
+          description: t.setup || `${t.capacity} Chairs`,
+          icon: t.area === 'airconditioned' ? '❄️' : '🌿',
+          isAircon: t.area === 'airconditioned',
+        };
+        group = { meta, tables: [] };
+        areaMap.set(rawAreaName, group);
+      }
+      group.tables.push(t);
+    });
+
+    return Array.from(areaMap.values());
+  }, [filteredTables]);
+
+  // Enhanced Table Card Renderer with 2D Visual Floor Plan Schematic, Visual Chairs & Ticket Stubs
   const renderTableCard = (table: Table) => {
     const activeRes = getTableActiveReservation(table.id);
-    const isAvailable = table.status === 'available';
-    const isOccupied = table.status === 'occupied';
+    const occ = AppStore.getTableOccupancyDetails(table, orders);
+    const isAvailable = occ.occupiedChairs === 0 && table.status === 'available';
+    const isOccupied = occ.isFullyOccupied || table.status === 'occupied';
+    const isPartiallyOccupied = occ.isPartiallyOccupied;
     const isReserved = table.status === 'reserved';
     const isCleaning = table.status === 'cleaning';
 
-    const isLargeTable = table.capacity >= 6;
-    const isExtraLargeTable = table.capacity >= 8;
+    const isCombinedPrimary = Boolean(
+      table.combinedWithTableIds && table.combinedWithTableIds.length > 0
+    );
+    const companionTables = isCombinedPrimary
+      ? tables.filter((t) => table.combinedWithTableIds?.includes(t.id))
+      : [];
+    const combinedNums = [
+      table.tableNumber,
+      ...companionTables.map((c) => c.tableNumber),
+    ].sort((a, b) => a - b);
+    const combinedGroupName =
+      table.combinedGroupName || `Table ${combinedNums.join(' + ')}`;
+    const combinedBadge = `T${combinedNums.join('+')}`;
 
-    // Chair loops:
-    // Top & bottom have 2 chairs each
-    // Side chairs if capacity >= 6
-    const hasSideChairs = isLargeTable;
+    const isCouch =
+      (table.name || '').toLowerCase().includes('couch') ||
+      (table.setup || '').toLowerCase().includes('couch');
+    const isSharesLongCouch =
+      !isCouch &&
+      ((table.setup || '').toLowerCase().includes('long couch') ||
+        (table.capacity === 1 &&
+          (table.areaName === 'kolin area' || table.areaName === 'door area')));
+    const isLongTable = table.capacity >= 3;
 
     return (
       <div
@@ -691,209 +939,667 @@ export const TableManagement: React.FC<TableManagementProps> = ({
             notes: '',
           });
         }}
-        className="relative group cursor-pointer select-none transition-all duration-200 hover:-translate-y-1 w-full max-w-[155px] sm:max-w-[280px] md:max-w-[320px] min-w-0"
-        style={{ width: '100%' }}
+        className={`relative flex flex-col justify-between rounded-2xl sm:rounded-3xl p-3.5 sm:p-4.5 transition-all duration-200 border shadow-xs hover:shadow-md cursor-pointer select-none ${
+          isCombinedPrimary
+            ? isOccupied
+              ? 'bg-stone-900 border-amber-400 text-white shadow-md ring-2 ring-amber-400/80'
+              : 'bg-gradient-to-br from-amber-500/10 via-amber-50/50 to-white dark:from-amber-950/40 dark:via-stone-850 dark:to-stone-900 border-amber-400 dark:border-amber-600 ring-2 ring-amber-400/50 shadow-md'
+            : isReserved
+            ? 'bg-amber-50/90 border-amber-300 dark:border-amber-700/60 dark:bg-stone-850'
+            : isCleaning
+            ? 'bg-sky-50/80 border-sky-300 dark:border-sky-800 dark:bg-stone-850'
+            : isOccupied
+            ? 'bg-stone-900 border-amber-500/80 text-white shadow-sm ring-1 ring-amber-500/30'
+            : isPartiallyOccupied
+            ? 'bg-gradient-to-br from-amber-50/80 to-white border-amber-400 dark:border-amber-600 dark:bg-stone-850 ring-1 ring-amber-400/40'
+            : 'bg-white border-stone-200 dark:border-stone-800 dark:bg-stone-850 hover:border-amber-400'
+        }`}
       >
-        {/* Top Chairs */}
-        <div className="absolute -top-1.5 sm:-top-3 left-0 right-0 flex justify-center gap-1.5 sm:gap-6 pointer-events-none z-0">
-          <div className="w-5 sm:w-10 md:w-12 h-1.5 sm:h-3.5 border sm:border-2 border-stone-300 bg-white/70 rounded-t-full transition-all group-hover:border-stone-400" />
-          <div className="w-5 sm:w-10 md:w-12 h-1.5 sm:h-3.5 border sm:border-2 border-stone-300 bg-white/70 rounded-t-full transition-all group-hover:border-stone-400" />
+        {/* Top Header: Table Title */}
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <h4
+            className={`font-serif text-base sm:text-lg font-bold leading-tight truncate ${
+              isOccupied ? 'text-white' : 'text-stone-950 dark:text-stone-100'
+            }`}
+          >
+            {isCombinedPrimary
+              ? combinedGroupName
+              : table.name || `Table ${table.tableNumber}`}
+          </h4>
+
+          {/* Status if Reserved/Cleaning */}
+          {(isReserved || isCleaning) && (
+            <span
+              className={`rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-wider flex items-center gap-1 ${
+                isReserved
+                  ? 'bg-amber-300 text-stone-950'
+                  : 'bg-sky-200 text-sky-950 border border-sky-300'
+              }`}
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  isReserved ? 'bg-amber-800' : 'bg-sky-700'
+                }`}
+              />
+              <span>{isReserved ? 'Reserved' : 'Clean'}</span>
+            </span>
+          )}
         </div>
 
-        {/* Bottom Chairs */}
-        <div className="absolute -bottom-1.5 sm:-bottom-3 left-0 right-0 flex justify-center gap-1.5 sm:gap-6 pointer-events-none z-0">
-          <div className="w-5 sm:w-10 md:w-12 h-1.5 sm:h-3.5 border sm:border-2 border-stone-300 bg-white/70 rounded-b-full transition-all group-hover:border-stone-400" />
-          <div className="w-5 sm:w-10 md:w-12 h-1.5 sm:h-3.5 border sm:border-2 border-stone-300 bg-white/70 rounded-b-full transition-all group-hover:border-stone-400" />
-        </div>
-
-        {/* Left Side Chairs (for 6 or 8 seaters) */}
-        {hasSideChairs && (
-          <div className="absolute -left-1.5 sm:-left-3 top-0 bottom-0 flex flex-col justify-center gap-1 sm:gap-4 pointer-events-none z-0">
-            <div className="h-5 sm:h-10 md:h-12 w-1.5 sm:w-3.5 border sm:border-2 border-stone-300 bg-white/70 rounded-l-full transition-all group-hover:border-stone-400" />
-            {isExtraLargeTable && (
-              <div className="h-5 sm:h-10 md:h-12 w-1.5 sm:w-3.5 border sm:border-2 border-stone-300 bg-white/70 rounded-l-full transition-all group-hover:border-stone-400" />
-            )}
+        {/* Reserved banner if active */}
+        {isReserved && activeRes && (
+          <div className="rounded-xl bg-amber-100/90 border border-amber-300/80 p-2 text-xs text-amber-950 flex items-center justify-between mb-2">
+            <span className="font-bold truncate">
+              {activeRes.customerName} ({activeRes.guestCount} Guests)
+            </span>
+            <span className="font-mono text-[10px] text-amber-800">
+              {activeRes.reservationAt
+                ? new Date(activeRes.reservationAt).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : ''}
+            </span>
           </div>
         )}
 
-        {/* Right Side Chairs (for 6 or 8 seaters) */}
-        {hasSideChairs && (
-          <div className="absolute -right-1.5 sm:-right-3 top-0 bottom-0 flex flex-col justify-center gap-1 sm:gap-4 pointer-events-none z-0">
-            <div className="h-5 sm:h-10 md:h-12 w-1.5 sm:w-3.5 border sm:border-2 border-stone-300 bg-white/70 rounded-r-full transition-all group-hover:border-stone-400" />
-            {isExtraLargeTable && (
-              <div className="h-5 sm:h-10 md:h-12 w-1.5 sm:w-3.5 border sm:border-2 border-stone-300 bg-white/70 rounded-r-full transition-all group-hover:border-stone-400" />
-            )}
-          </div>
-        )}
+        {/* 2D VISUAL TABLE BLUEPRINT: TABLES AND CHAIRS ONLY */}
+        <div className="py-1">
+          {isCombinedPrimary ? (
+              /* UNIFIED JOINED COMBINED TABLE SCHEMATIC */
+              <div className="flex flex-col items-center py-2 px-1 space-y-2">
+                {/* Top Row of Chairs for Unified Table */}
+                <div className="flex items-center justify-center gap-2 flex-wrap">
+                  {occ.chairsWithOccupants
+                    .slice(0, Math.ceil(occ.chairsWithOccupants.length / 2))
+                    .map((ch, idx) => {
+                      const isTaken = ch.isOccupied && ch.order;
+                      return (
+                        <button
+                          key={ch.id || idx}
+                          type="button"
+                          onClick={(e) => {
+                            if (isTaken && ch.order) {
+                              e.stopPropagation();
+                              handleOpenTicketModal(ch.order);
+                            }
+                          }}
+                          title={
+                            isTaken
+                              ? `${ch.customerName || 'Guest'} - #${ch.order?.orderNumber}`
+                              : `${ch.label || `Seat ${ch.chairNumber}`} (Free)`
+                          }
+                          className={`h-7 w-7 rounded-lg grid place-items-center text-[10px] font-black transition-all ${
+                            isTaken
+                              ? 'bg-amber-500 text-stone-950 shadow-xs ring-1 ring-amber-300 hover:bg-amber-400'
+                              : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/60'
+                          }`}
+                        >
+                          {isTaken ? (
+                            <span>{(ch.customerName || 'G')[0].toUpperCase()}</span>
+                          ) : (
+                            <Armchair className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      );
+                    })}
+                </div>
 
-        {/* Main Table Card */}
-        <div
-          className={`relative z-10 flex flex-col justify-between rounded-xl sm:rounded-[28px] p-2 sm:p-4 md:p-5 transition-all shadow-xs group-hover:shadow-lg ${
-            isReserved
-              ? 'bg-amber-100/90 border sm:border-2 border-amber-300'
-              : isOccupied
-              ? 'bg-stone-900 border sm:border-2 border-amber-400 text-white'
-              : isCleaning
-              ? 'bg-sky-50 border sm:border-2 border-sky-300'
-              : 'bg-white border sm:border-2 border-stone-200/90'
-          } ${
-            isExtraLargeTable
-              ? 'min-h-[105px] sm:min-h-[260px]'
-              : isLargeTable
-              ? 'min-h-[95px] sm:min-h-[230px]'
-              : 'min-h-[82px] sm:min-h-[170px]'
-          }`}
-        >
-          {/* Top Row: Table Badge, Edit/Delete Action Icons, & Timestamp if Occupied */}
-          <div className="flex items-start justify-between gap-0.5 sm:gap-1">
-            {/* Table Badge */}
-            <div
-              className={`grid h-5 w-5 sm:h-8 sm:w-8 place-items-center rounded-full text-[9px] sm:text-xs font-extrabold shrink-0 ${
-                isReserved
-                  ? 'bg-amber-300 text-stone-950 shadow-2xs font-bold'
-                  : isOccupied
-                  ? 'bg-amber-500 text-stone-950 shadow-2xs font-black'
-                  : isCleaning
-                  ? 'bg-sky-200 text-sky-950 font-bold'
-                  : 'bg-stone-100 text-stone-700 font-bold'
-              }`}
-            >
-              T{table.tableNumber}
-            </div>
+                {/* Single Continuous Unified Wooden Dining Table Top */}
+                <div className="w-full max-w-[280px] h-10 rounded-xl bg-gradient-to-r from-amber-800 via-amber-700 to-amber-800 border-2 border-amber-600/90 shadow-sm flex items-center justify-center gap-2 text-amber-100 px-3">
+                  <Link2 className="h-3.5 w-3.5 text-amber-300 shrink-0 stroke-[2.5]" />
+                  <span className="font-mono font-black text-xs">
+                    {combinedGroupName}
+                  </span>
+                  <span className="text-[9px] font-bold text-amber-200/90">
+                    • {table.capacity} Seats
+                  </span>
+                </div>
 
-            <div className="flex items-center gap-0.5 sm:gap-1.5 min-w-0">
-              {/* Occupied Timestamp */}
-              {isOccupied && (
-                <span className="font-mono text-[8px] sm:text-xs font-bold text-amber-400 tracking-tight truncate">
-                  12:03 PM
-                </span>
-              )}
-
-              {/* Admin Quick Actions (Edit / Delete) */}
-              <div className="flex items-center gap-0.5 sm:gap-1 rounded-full bg-white/90 backdrop-blur-xs p-0.5 border border-stone-200 shadow-2xs shrink-0">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleOpenEditModal(table);
-                  }}
-                  title={`Edit Table #${table.tableNumber}`}
-                  className="grid h-4 w-4 sm:h-6 sm:w-6 place-items-center rounded-full text-stone-600 hover:bg-amber-100 hover:text-amber-900 transition active:scale-90 cursor-pointer"
-                >
-                  <Edit3 className="h-2 w-2 sm:h-3 sm:w-3" />
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteTable(table);
-                  }}
-                  title={`Delete Table #${table.tableNumber}`}
-                  className="grid h-4 w-4 sm:h-6 sm:w-6 place-items-center rounded-full text-stone-400 hover:bg-rose-100 hover:text-rose-700 transition active:scale-90 cursor-pointer"
-                >
-                  <Trash2 className="h-2 w-2 sm:h-3 sm:w-3" />
-                </button>
+                {/* Bottom Row of Chairs for Unified Table */}
+                <div className="flex items-center justify-center gap-2 flex-wrap">
+                  {occ.chairsWithOccupants
+                    .slice(Math.ceil(occ.chairsWithOccupants.length / 2))
+                    .map((ch, idx) => {
+                      const isTaken = ch.isOccupied && ch.order;
+                      return (
+                        <button
+                          key={ch.id || idx}
+                          type="button"
+                          onClick={(e) => {
+                            if (isTaken && ch.order) {
+                              e.stopPropagation();
+                              handleOpenTicketModal(ch.order);
+                            }
+                          }}
+                          title={
+                            isTaken
+                              ? `${ch.customerName || 'Guest'} - #${ch.order?.orderNumber}`
+                              : `${ch.label || `Seat ${ch.chairNumber}`} (Free)`
+                          }
+                          className={`h-7 w-7 rounded-lg grid place-items-center text-[10px] font-black transition-all ${
+                            isTaken
+                              ? 'bg-amber-500 text-stone-950 shadow-xs ring-1 ring-amber-300 hover:bg-amber-400'
+                              : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/60'
+                          }`}
+                        >
+                          {isTaken ? (
+                            <span>{(ch.customerName || 'G')[0].toUpperCase()}</span>
+                          ) : (
+                            <Armchair className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      );
+                    })}
+                </div>
               </div>
-            </div>
-          </div>
+            ) : isCouch ? (
+              /* COUCH / SOFA SCHEMATIC */
+              <div className="flex flex-col items-center py-1">
+                <div className="w-full max-w-[260px] rounded-2xl border-2 border-stone-300 dark:border-stone-600 bg-stone-200/80 dark:bg-stone-800 p-1.5 shadow-xs">
+                  {/* Sofa Backrest Cushion */}
+                  <div className="h-2 rounded-lg bg-stone-300 dark:bg-stone-700 mb-1.5 flex items-center justify-center">
+                    <div className="w-14 h-0.5 rounded-full bg-stone-400 dark:bg-stone-500" />
+                  </div>
+                  {/* 2 Cushion Seats */}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {occ.chairsWithOccupants.map((ch, idx) => {
+                      const isTaken = ch.isOccupied && ch.order;
+                      return (
+                        <div
+                          key={ch.id || idx}
+                          onClick={(e) => {
+                            if (isTaken && ch.order) {
+                              e.stopPropagation();
+                              handleOpenTicketModal(ch.order);
+                            }
+                          }}
+                          className={`rounded-xl p-2 flex flex-col items-center justify-center text-center transition-all ${
+                            isTaken
+                              ? 'bg-gradient-to-b from-amber-400 to-amber-500 text-stone-950 shadow-xs ring-1 ring-amber-300 cursor-pointer active:scale-95 group'
+                              : 'bg-emerald-500/10 border border-dashed border-emerald-400/80 text-emerald-700 dark:text-emerald-300'
+                          }`}
+                        >
+                          <Sofa className="h-4 w-4 mb-0.5" />
+                          <span className="text-[10px] font-black truncate max-w-full">
+                            {isTaken ? ch.customerName || `Guest ${idx + 1}` : `Seat ${idx + 1}`}
+                          </span>
+                          {isTaken && ch.order ? (
+                            <span className="mt-1 inline-flex items-center gap-0.5 rounded-full bg-stone-950 text-amber-300 px-1.5 py-0.2 text-[8px] font-mono font-black group-hover:scale-105 transition-transform">
+                              <Ticket className="h-2.5 w-2.5" />
+                              #{ch.order.orderNumber.slice(-3)}
+                            </span>
+                          ) : (
+                            <span className="text-[8px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mt-0.5">
+                              Open
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 text-[9px] font-bold text-stone-400 mt-1.5">
+                  <Sofa className="h-3 w-3" />
+                  <span>
+                    {table.areaName === 'kolin area' || table.areaName === 'door area'
+                      ? 'Long Couch • Shared with Table 1 & 2'
+                      : 'Lounge Couch • 2 Seats'}
+                  </span>
+                </div>
+              </div>
+            ) : isLongTable ? (
+              /* LONG TABLE / HIGH TABLE SCHEMATIC */
+              <div className="flex flex-col items-center py-1">
+                {/* Top Chairs row */}
+                <div className="flex items-center justify-center gap-1.5 mb-1 flex-wrap">
+                  {occ.chairsWithOccupants
+                    .slice(0, Math.ceil(occ.chairsWithOccupants.length / 2))
+                    .map((ch, idx) => {
+                      const isTaken = ch.isOccupied && ch.order;
+                      return (
+                        <button
+                          key={ch.id || idx}
+                          type="button"
+                          onClick={(e) => {
+                            if (isTaken && ch.order) {
+                              e.stopPropagation();
+                              handleOpenTicketModal(ch.order);
+                            }
+                          }}
+                          title={
+                            isTaken
+                              ? `${ch.customerName || 'Guest'} - Order #${ch.order?.orderNumber}`
+                              : `Seat ${ch.chairNumber} (Free)`
+                          }
+                          className={`h-7 w-7 rounded-lg grid place-items-center text-[10px] font-black transition-all ${
+                            isTaken
+                              ? 'bg-amber-500 text-stone-950 shadow-xs ring-1 ring-amber-300 active:scale-95 cursor-pointer hover:bg-amber-400'
+                              : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/60'
+                          }`}
+                        >
+                          {isTaken ? (
+                            <span>{(ch.customerName || 'G')[0].toUpperCase()}</span>
+                          ) : (
+                            <Armchair className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      );
+                    })}
+                </div>
 
-          {/* Center Info: Name, Setup, and status info */}
-          <div className="my-auto py-0.5 sm:py-2">
-            <div className="mb-0.5 sm:mb-1">
-              <h4 className={`font-serif text-[11px] sm:text-base font-bold leading-tight truncate ${isOccupied ? 'text-white' : 'text-stone-900'}`}>
-                {table.name || `Table ${table.tableNumber}`}
-              </h4>
-              {table.setup && (
-                <p className={`text-[8px] sm:text-[11px] font-medium truncate ${isOccupied ? 'text-stone-300' : 'text-stone-600'}`}>
-                  {table.setup}
-                </p>
-              )}
-            </div>
+                {/* Wooden Table Top Surface */}
+                <div className="w-full max-w-[270px] h-8 rounded-xl bg-gradient-to-r from-amber-800 via-amber-700 to-amber-800 border border-amber-600/80 shadow-inner flex items-center justify-between px-3 text-amber-100">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-300 animate-pulse" />
+                    <span className="font-mono font-black text-[11px] tracking-wider">
+                      T{table.tableNumber}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 text-[10px] font-bold text-amber-200/90">
+                    <Armchair className="h-3 w-3" />
+                    <span>
+                      {occ.occupiedChairs}/{table.capacity}
+                    </span>
+                  </div>
+                </div>
 
-            {isReserved && (
-              <div className="space-y-0.5 pt-0.5 border-t border-amber-200/60">
-                <span className="text-[9px] sm:text-xs font-bold text-amber-900 leading-tight truncate block">
-                  {activeRes?.customerName || 'Reserved Guest'}
-                </span>
-                <p className="text-[8px] sm:text-xs text-stone-700 font-medium">
-                  {activeRes?.guestCount || table.capacity} Guests
-                  {activeRes?.reservationAt
-                    ? ` • ${new Date(activeRes.reservationAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                    : ''}
-                </p>
+                {/* Bottom Chairs row */}
+                <div className="flex items-center justify-center gap-1.5 mt-1 flex-wrap">
+                  {occ.chairsWithOccupants
+                    .slice(Math.ceil(occ.chairsWithOccupants.length / 2))
+                    .map((ch, idx) => {
+                      const isTaken = ch.isOccupied && ch.order;
+                      return (
+                        <button
+                          key={ch.id || idx}
+                          type="button"
+                          onClick={(e) => {
+                            if (isTaken && ch.order) {
+                              e.stopPropagation();
+                              handleOpenTicketModal(ch.order);
+                            }
+                          }}
+                          title={
+                            isTaken
+                              ? `${ch.customerName || 'Guest'} - Order #${ch.order?.orderNumber}`
+                              : `Seat ${ch.chairNumber} (Free)`
+                          }
+                          className={`h-7 w-7 rounded-lg grid place-items-center text-[10px] font-black transition-all ${
+                            isTaken
+                              ? 'bg-amber-500 text-stone-950 shadow-xs ring-1 ring-amber-300 active:scale-95 cursor-pointer hover:bg-amber-400'
+                              : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/60'
+                          }`}
+                        >
+                          {isTaken ? (
+                            <span>{(ch.customerName || 'G')[0].toUpperCase()}</span>
+                          ) : (
+                            <Armchair className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+            ) : isSharesLongCouch ? (
+              /* SHARED LONG COUCH TABLE (TABLE 1 OR TABLE 2 WITH 1 OPPOSITE CHAIR) */
+              <div className="flex flex-col items-center justify-center gap-2 py-1">
+                {/* Top: Long Couch Cushion Indicator */}
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-600 dark:text-stone-300 text-[10px] font-bold shadow-2xs">
+                  <Sofa className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                  <span>Shared Long Couch (Facing)</span>
+                </div>
+
+                {/* Central Cafe Table Surface */}
+                <div className="h-9 w-24 rounded-xl bg-gradient-to-r from-amber-800 via-amber-700 to-amber-800 border-2 border-amber-600/80 shadow-xs flex items-center justify-center gap-1.5 text-amber-100 px-2">
+                  <Utensils className="h-2.5 w-2.5 text-amber-300/80 shrink-0" />
+                  <span className="font-mono text-xs font-black truncate">T{table.tableNumber}</span>
+                </div>
+
+                {/* Bottom: Opposite Chair 1 */}
+                {occ.chairsWithOccupants[0] &&
+                  (() => {
+                    const ch = occ.chairsWithOccupants[0];
+                    const isTaken = ch.isOccupied && ch.order;
+                    return (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            if (isTaken && ch.order) {
+                              e.stopPropagation();
+                              handleOpenTicketModal(ch.order);
+                            }
+                          }}
+                          className={`h-8 w-8 rounded-xl grid place-items-center transition-all ${
+                            isTaken
+                              ? 'bg-amber-500 text-stone-950 shadow-xs ring-2 ring-amber-300 active:scale-95 cursor-pointer hover:bg-amber-400'
+                              : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/80'
+                          }`}
+                          title={isTaken ? `${ch.customerName || 'Guest'} - #${ch.order?.orderNumber}` : 'Chair 1 (Opposite Chair) - Available'}
+                        >
+                          {isTaken ? (
+                            <span className="font-black text-xs">
+                              {(ch.customerName || 'G')[0].toUpperCase()}
+                            </span>
+                          ) : (
+                            <Armchair className="h-4 w-4" />
+                          )}
+                        </button>
+                        <span className="text-[10px] font-bold text-stone-500 dark:text-stone-400">
+                          Opposite Chair 1
+                        </span>
+                      </div>
+                    );
+                  })()}
+              </div>
+            ) : (
+              /* STANDARD 1 TO 2 CHAIR TABLE SCHEMATIC */
+              <div className="flex items-center justify-center gap-3 py-1">
+                {/* Chair 1 */}
+                {occ.chairsWithOccupants[0] &&
+                  (() => {
+                    const ch = occ.chairsWithOccupants[0];
+                    const isTaken = ch.isOccupied && ch.order;
+                    return (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          if (isTaken && ch.order) {
+                            e.stopPropagation();
+                            handleOpenTicketModal(ch.order);
+                          }
+                        }}
+                        className={`h-8 w-8 rounded-xl grid place-items-center transition-all ${
+                          isTaken
+                            ? 'bg-amber-500 text-stone-950 shadow-xs ring-2 ring-amber-300 active:scale-95 cursor-pointer hover:bg-amber-400'
+                            : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/80'
+                        }`}
+                      >
+                        {isTaken ? (
+                          <span className="font-black text-xs">
+                            {(ch.customerName || 'G')[0].toUpperCase()}
+                          </span>
+                        ) : (
+                          <Armchair className="h-4 w-4" />
+                        )}
+                      </button>
+                    );
+                  })()}
+
+                {/* Central Cafe Table Disc */}
+                <div className="h-10 w-14 rounded-xl bg-gradient-to-br from-amber-800 to-amber-900 border-2 border-amber-600/80 shadow-sm flex flex-col items-center justify-center text-amber-100">
+                  <Utensils className="h-2.5 w-2.5 text-amber-300/80 mb-0.5" />
+                  <span className="font-mono text-[11px] font-black">T{table.tableNumber}</span>
+                </div>
+
+                {/* Chair 2 (if present) */}
+                {occ.chairsWithOccupants[1] ? (
+                  (() => {
+                    const ch = occ.chairsWithOccupants[1];
+                    const isTaken = ch.isOccupied && ch.order;
+                    return (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          if (isTaken && ch.order) {
+                            e.stopPropagation();
+                            handleOpenTicketModal(ch.order);
+                          }
+                        }}
+                        className={`h-8 w-8 rounded-xl grid place-items-center transition-all ${
+                          isTaken
+                            ? 'bg-amber-500 text-stone-950 shadow-xs ring-2 ring-amber-300 active:scale-95 cursor-pointer hover:bg-amber-400'
+                            : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/80'
+                        }`}
+                      >
+                        {isTaken ? (
+                          <span className="font-black text-xs">
+                            {(ch.customerName || 'G')[0].toUpperCase()}
+                          </span>
+                        ) : (
+                          <Armchair className="h-4 w-4" />
+                        )}
+                      </button>
+                    );
+                  })()
+                ) : (
+                  <div className="h-8 w-8" />
+                )}
               </div>
             )}
-
-            {isOccupied && (
-              <div className="space-y-0.5 pt-0.5 border-t border-stone-800">
-                <span className="text-[9px] sm:text-xs font-bold text-amber-400 leading-tight truncate block">
-                  Occupied
-                </span>
-                <p className="text-[8px] sm:text-xs text-stone-400 font-medium">
-                  {table.capacity} Guests
-                </p>
-              </div>
-            )}
-
-            {isCleaning && (
-              <div className="space-y-0.5 pt-0.5 border-t border-sky-200">
-                <h4 className="font-serif text-[9px] sm:text-sm font-bold text-sky-900 leading-tight">
-                  Being Sanitized
-                </h4>
-                <p className="text-[8px] sm:text-xs text-sky-700">Ready soon</p>
-              </div>
-            )}
-
-            {!isReserved && !isOccupied && !isCleaning && (
-              <div className="space-y-0.5">
-                <p className="text-[8px] sm:text-xs text-stone-500 font-medium truncate">
-                  <span className="sm:hidden">{table.capacity} Seats</span>
-                  <span className="hidden sm:inline">{table.capacity} Seats Available</span>
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Bottom Row: Area Tag & Status Tag */}
-          <div className="flex items-center justify-end gap-0.5 sm:gap-1.5 flex-wrap pt-0.5 sm:pt-2">
-            {/* Area Tag */}
-            <span
-              className={`rounded px-1 sm:px-2 py-0.2 sm:py-0.5 text-[7px] sm:text-[9px] md:text-[10px] font-bold uppercase tracking-wider ${
-                isOccupied
-                  ? 'bg-stone-800 border border-stone-700 text-stone-300'
-                  : isReserved
-                  ? 'bg-white/90 border border-stone-300 text-stone-700'
-                  : 'bg-stone-50 border border-stone-200 text-stone-600'
-              }`}
-            >
-              {table.area === 'airconditioned' ? 'Air-Con' : 'Non-A/C'}
-            </span>
-
-            {/* Status Tag */}
-            <span
-              className={`rounded px-1 sm:px-2 py-0.2 sm:py-0.5 text-[7px] sm:text-[9px] md:text-[10px] font-extrabold uppercase tracking-wider ${
-                isReserved
-                  ? 'bg-stone-950 text-amber-300'
-                  : isOccupied
-                  ? 'bg-stone-800 border border-amber-400/40 text-amber-300'
-                  : isCleaning
-                  ? 'bg-sky-200 text-sky-950 border border-sky-300'
-                  : 'bg-stone-50 border border-stone-200 text-stone-600'
-              }`}
-            >
-              {table.status}
-            </span>
-          </div>
         </div>
       </div>
     );
   };
 
+  // Specialized Architectural Blueprint for Areas where a Long Couch is shared by 2 Tables (Kolin Area & Door Area)
+  const renderSharedCouchAreaBlueprint = (group: AreaGroup, areaTables: Table[]) => {
+    const allAreaTables = tables.filter((t) => {
+      const a = (t.areaName || '').toLowerCase();
+      return a === group.meta.key;
+    });
+    const t1 =
+      areaTables.find((t) => (t.name || '').toLowerCase().includes('table 1') || t.code?.includes('_1')) ||
+      allAreaTables.find((t) => (t.name || '').toLowerCase().includes('table 1') || t.code?.includes('_1'));
+    const t2 =
+      areaTables.find((t) => (t.name || '').toLowerCase().includes('table 2') || t.code?.includes('_2')) ||
+      allAreaTables.find((t) => (t.name || '').toLowerCase().includes('table 2') || t.code?.includes('_2'));
+    const couch =
+      areaTables.find((t) => (t.name || '').toLowerCase().includes('couch') || t.code?.includes('couch')) ||
+      allAreaTables.find((t) => (t.name || '').toLowerCase().includes('couch') || t.code?.includes('couch'));
+
+    if (!t1 || !t2 || !couch) return null;
+
+    if (areaTables.length === 0) {
+      return (
+        <p className="text-xs text-stone-400 py-3 italic text-center">
+          No tables in this area match current status filters.
+        </p>
+      );
+    }
+
+    const occ1 = AppStore.getTableOccupancyDetails(t1, orders);
+    const occ2 = AppStore.getTableOccupancyDetails(t2, orders);
+    const occCouch = AppStore.getTableOccupancyDetails(couch, orders);
+
+    const t1Chair = occ1.chairsWithOccupants[0];
+    const t2Chair = occ2.chairsWithOccupants[0];
+    const couchSeat1 = occCouch.chairsWithOccupants[0];
+    const couchSeat2 = occCouch.chairsWithOccupants[1];
+
+    const totalOccupied = occ1.occupiedChairs + occ2.occupiedChairs + occCouch.occupiedChairs;
+
+    return (
+      <div className="w-full max-w-lg mx-auto py-1 space-y-3 font-sans">
+        {/* 1. TOP: The Continuous Long Couch */}
+        <div className="rounded-2xl border-2 border-stone-300 dark:border-stone-600 bg-stone-200/90 dark:bg-stone-800 p-2.5 shadow-sm">
+          {/* Sofa Backrest Cushion */}
+          <div
+            onClick={() => setSelectedTableForDetails(couch)}
+            className="h-4 rounded-lg bg-stone-300 dark:bg-stone-700 mb-2.5 flex items-center justify-center gap-1.5 px-3 cursor-pointer hover:bg-stone-350 dark:hover:bg-stone-650 transition"
+            title="Continuous Long Couch - Click to view table details"
+          >
+            <Sofa className="h-3 w-3 text-stone-500 dark:text-stone-400 shrink-0" />
+            <span className="text-[9px] font-black uppercase tracking-wider text-stone-600 dark:text-stone-300">
+              Long Couch (Shared by Table 1 &amp; Table 2)
+            </span>
+          </div>
+
+            {/* 2 Couch Seats side by side */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Left Couch Seat (Faces Table 1) */}
+              <div
+                onClick={() => {
+                  if (couchSeat1?.isOccupied && couchSeat1.order) {
+                    handleOpenTicketModal(couchSeat1.order);
+                  } else {
+                    setSelectedTableForDetails(couch);
+                  }
+                }}
+                className={`rounded-xl p-2.5 flex flex-col items-center justify-center text-center transition cursor-pointer active:scale-95 border ${
+                  couchSeat1?.isOccupied
+                    ? 'bg-gradient-to-b from-amber-400 to-amber-500 text-stone-950 border-amber-300 shadow-xs'
+                    : 'bg-emerald-500/10 border-dashed border-emerald-400/80 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20'
+                }`}
+                title={couchSeat1?.isOccupied ? `Occupied - ${couchSeat1.customerName}` : 'Couch Seat 1 (Table 1) - Available'}
+              >
+                <Sofa className="h-4 w-4 mb-0.5" />
+                <span className="text-[11px] font-black truncate max-w-full">
+                  {couchSeat1?.isOccupied ? couchSeat1.customerName || 'Guest' : 'Couch Seat 1'}
+                </span>
+                <span className="text-[9px] font-bold opacity-80 mt-0.5">
+                  Faces Table 1
+                </span>
+                {couchSeat1?.isOccupied && couchSeat1.order ? (
+                  <span className="mt-1 inline-flex items-center gap-0.5 rounded-full bg-stone-950 text-amber-300 px-1.5 py-0.2 text-[8px] font-mono font-black">
+                    <Ticket className="h-2.5 w-2.5" />
+                    #{couchSeat1.order.orderNumber.slice(-3)}
+                  </span>
+                ) : (
+                  <span className="text-[8px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mt-0.5">
+                    Open
+                  </span>
+                )}
+              </div>
+
+              {/* Right Couch Seat (Faces Table 2) */}
+              <div
+                onClick={() => {
+                  if (couchSeat2?.isOccupied && couchSeat2.order) {
+                    handleOpenTicketModal(couchSeat2.order);
+                  } else {
+                    setSelectedTableForDetails(couch);
+                  }
+                }}
+                className={`rounded-xl p-2.5 flex flex-col items-center justify-center text-center transition cursor-pointer active:scale-95 border ${
+                  couchSeat2?.isOccupied
+                    ? 'bg-gradient-to-b from-amber-400 to-amber-500 text-stone-950 border-amber-300 shadow-xs'
+                    : 'bg-emerald-500/10 border-dashed border-emerald-400/80 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20'
+                }`}
+                title={couchSeat2?.isOccupied ? `Occupied - ${couchSeat2.customerName}` : 'Couch Seat 2 (Table 2) - Available'}
+              >
+                <Sofa className="h-4 w-4 mb-0.5" />
+                <span className="text-[11px] font-black truncate max-w-full">
+                  {couchSeat2?.isOccupied ? couchSeat2.customerName || 'Guest' : 'Couch Seat 2'}
+                </span>
+                <span className="text-[9px] font-bold opacity-80 mt-0.5">
+                  Faces Table 2
+                </span>
+                {couchSeat2?.isOccupied && couchSeat2.order ? (
+                  <span className="mt-1 inline-flex items-center gap-0.5 rounded-full bg-stone-950 text-amber-300 px-1.5 py-0.2 text-[8px] font-mono font-black">
+                    <Ticket className="h-2.5 w-2.5" />
+                    #{couchSeat2.order.orderNumber.slice(-3)}
+                  </span>
+                ) : (
+                  <span className="text-[8px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mt-0.5">
+                    Open
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 2. CENTER: The Two Shared Tables */}
+          <div className="grid grid-cols-2 gap-4 sm:gap-6 pt-1">
+            {/* Table 1 */}
+            <div
+              onClick={() => setSelectedTableForDetails(t1)}
+              className="rounded-xl border-2 border-amber-700/80 bg-gradient-to-br from-amber-800 to-amber-900 p-3 text-amber-100 flex flex-col items-center justify-center text-center shadow-sm hover:border-amber-400 transition cursor-pointer active:scale-98"
+            >
+              <Utensils className="h-3 w-3 text-amber-300 mb-0.5" />
+              <span className="font-mono text-xs font-black">
+                T{t1.tableNumber} • Table 1
+              </span>
+              <span className="text-[9px] font-bold text-amber-200/80 mt-0.5">
+                {occ1.occupiedChairs > 0 ? `${occ1.occupiedChairs}/1 Occupied` : 'Available'}
+              </span>
+            </div>
+
+            {/* Table 2 */}
+            <div
+              onClick={() => setSelectedTableForDetails(t2)}
+              className="rounded-xl border-2 border-amber-700/80 bg-gradient-to-br from-amber-800 to-amber-900 p-3 text-amber-100 flex flex-col items-center justify-center text-center shadow-sm hover:border-amber-400 transition cursor-pointer active:scale-98"
+            >
+              <Utensils className="h-3 w-3 text-amber-300 mb-0.5" />
+              <span className="font-mono text-xs font-black">
+                T{t2.tableNumber} • Table 2
+              </span>
+              <span className="text-[9px] font-bold text-amber-200/80 mt-0.5">
+                {occ2.occupiedChairs > 0 ? `${occ2.occupiedChairs}/1 Occupied` : 'Available'}
+              </span>
+            </div>
+          </div>
+
+          {/* 3. FRONT: Each Table's Opposite Chair */}
+          <div className="grid grid-cols-2 gap-4 sm:gap-6">
+            {/* Chair for Table 1 */}
+            <div className="flex flex-col items-center justify-center gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  if (t1Chair?.isOccupied && t1Chair.order) {
+                    handleOpenTicketModal(t1Chair.order);
+                  } else {
+                    setSelectedTableForDetails(t1);
+                  }
+                }}
+                className={`h-9 w-9 rounded-xl grid place-items-center transition active:scale-95 cursor-pointer ${
+                  t1Chair?.isOccupied
+                    ? 'bg-amber-500 text-stone-950 ring-2 ring-amber-300 shadow-xs'
+                    : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/80 hover:bg-emerald-500/25'
+                }`}
+                title={t1Chair?.isOccupied ? `Occupied - ${t1Chair.customerName}` : 'Chair 1 (Table 1) - Available'}
+              >
+                {t1Chair?.isOccupied ? (
+                  <span className="font-black text-xs">{(t1Chair.customerName || 'G')[0].toUpperCase()}</span>
+                ) : (
+                  <Armchair className="h-4 w-4" />
+                )}
+              </button>
+              <span className="text-[10px] font-bold text-stone-600 dark:text-stone-400">
+                Chair (Table 1)
+              </span>
+            </div>
+
+            {/* Chair for Table 2 */}
+            <div className="flex flex-col items-center justify-center gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  if (t2Chair?.isOccupied && t2Chair.order) {
+                    handleOpenTicketModal(t2Chair.order);
+                  } else {
+                    setSelectedTableForDetails(t2);
+                  }
+                }}
+                className={`h-9 w-9 rounded-xl grid place-items-center transition active:scale-95 cursor-pointer ${
+                  t2Chair?.isOccupied
+                    ? 'bg-amber-500 text-stone-950 ring-2 ring-amber-300 shadow-xs'
+                    : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/80 hover:bg-emerald-500/25'
+                }`}
+                title={t2Chair?.isOccupied ? `Occupied - ${t2Chair.customerName}` : 'Chair 1 (Table 2) - Available'}
+              >
+                {t2Chair?.isOccupied ? (
+                  <span className="font-black text-xs">{(t2Chair.customerName || 'G')[0].toUpperCase()}</span>
+                ) : (
+                  <Armchair className="h-4 w-4" />
+                )}
+              </button>
+              <span className="text-[10px] font-bold text-stone-600 dark:text-stone-400">
+                Chair (Table 2)
+              </span>
+            </div>
+          </div>
+        </div>
+    );
+  };
+
   const handleResetToOfficial = async () => {
     const confirmed = await showConfirm({
-      title: 'Reset to Official Tables?',
+      title: 'Reset to Official Tables & Areas?',
       message:
-        'This will reset the layout to the 10 official Yellow Hauz tables (Table 1: 1st aircon to Table 10: window). Active reservations will be preserved.',
+        'This will reset the layout to the official Yellow Hauz floor plan divided into 10 areas (1st Aircon, Left Side of Center, Kolin, Door, Entrance, Spotlight, 2nd Aircon, 3rd Aircon, Center, Window) with 20 tables and 59 individual seats. Active reservations will be preserved.',
       type: 'warning',
       confirmText: 'Reset Tables',
       cancelText: 'Cancel',
@@ -904,7 +1610,7 @@ export const TableManagement: React.FC<TableManagementProps> = ({
       refreshData();
       showAlert({
         title: 'Official Tables Restored',
-        message: 'Loaded 10 official Yellow Hauz tables and areas.',
+        message: 'Loaded official Yellow Hauz layout with 10 areas, 20 tables, and 59 seats.',
         type: 'success',
       });
     }
@@ -1342,31 +2048,130 @@ export const TableManagement: React.FC<TableManagementProps> = ({
         </div>
       )}
 
-      {/* Floor Plan Canvas */}
-      <div className="rounded-xl sm:rounded-3xl border border-stone-200/80 bg-[#f7f7f7] p-1.5 sm:p-6 md:p-10 shadow-inner min-h-[340px] sm:min-h-[520px]">
-        {filteredTables.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-stone-300 bg-white/80 p-6 sm:p-12 text-center text-xs text-stone-500 space-y-3">
-            <p>No tables match the selected status or area filter.</p>
-            <button
-              type="button"
-              onClick={handleOpenAddTableModal}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-stone-950 hover:bg-amber-400"
-            >
-              <Plus className="h-4 w-4" />
-              Add New Table to Floor Plan
-            </button>
-          </div>
-        ) : (
-          <div
-            className={`grid gap-x-1.5 sm:gap-x-6 md:gap-x-8 gap-y-2 sm:gap-y-8 md:gap-y-12 justify-items-center items-center ${
-              gridColumns === 1
-                ? 'grid-cols-1 max-w-md mx-auto'
-                : 'grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+      {/* Floor Plan Canvas: Divided by Areas then Tables then Chairs */}
+      <div className="space-y-5">
+        {/* Area Filter Quick Switcher Bar */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          <button
+            type="button"
+            onClick={() => setActiveAreaFilterTab('all')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-black transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+              activeAreaFilterTab === 'all'
+                ? 'bg-stone-950 text-amber-400 shadow-xs'
+                : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
             }`}
           >
-            {filteredTables.map((table) => renderTableCard(table))}
-          </div>
-        )}
+            <LayoutGrid className="h-3.5 w-3.5" />
+            <span>All Areas</span>
+            <span className="rounded-full bg-amber-400/20 px-1.5 py-0.2 text-[10px] font-mono">
+              {tables.length}
+            </span>
+          </button>
+          {OFFICIAL_AREAS.map((oa: AreaMeta) => {
+            const group = areaGroups.find((g: AreaGroup) => g.meta.key === oa.key);
+            const count = group ? group.tables.length : 0;
+            const areaTables = group ? group.tables : [];
+            const occChairs = areaTables.reduce((s: number, t: Table) => {
+              const occ = AppStore.getTableOccupancyDetails(t, orders);
+              return s + occ.occupiedChairs;
+            }, 0);
+            const totalChairs = areaTables.reduce((s: number, t: Table) => s + t.capacity, 0);
+            const hasFree = totalChairs > occChairs;
+
+            return (
+              <button
+                key={oa.key}
+                type="button"
+                onClick={() => setActiveAreaFilterTab(oa.key)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                  activeAreaFilterTab === oa.key
+                    ? 'bg-amber-500 text-stone-950 font-black shadow-xs'
+                    : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
+                }`}
+              >
+                <span>{oa.icon}</span>
+                <span>{oa.name}</span>
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    hasFree ? 'bg-emerald-500 ring-2 ring-emerald-300' : 'bg-amber-500 ring-2 ring-amber-300'
+                  }`}
+                  title={hasFree ? 'Seats available' : 'Fully Occupied'}
+                />
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Display each Area Section */}
+        {areaGroups
+          .filter(
+            (group: AreaGroup) => activeAreaFilterTab === 'all' || group.meta.key === activeAreaFilterTab
+          )
+          .map((group: AreaGroup) => {
+            const areaTables = group.tables;
+
+            return (
+              <div
+                key={group.meta.key}
+                className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-4 sm:p-5 shadow-xs space-y-3.5"
+              >
+                {/* Visual Area Header */}
+                <div className="flex items-center justify-between gap-3 border-b border-stone-150 pb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">
+                      {group.meta.icon}
+                    </span>
+                    <div>
+                      <h3 className="font-serif text-base sm:text-lg font-black text-stone-950 uppercase tracking-wide">
+                        {group.meta.name}
+                      </h3>
+                      <p className="text-[11px] text-stone-500 font-medium">
+                        {group.meta.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Combine Tables in this Area Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleOpenCombineModal(group.meta.key)}
+                    title={`Combine tables in ${group.meta.name} to accommodate bigger guest count`}
+                    className="rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black px-3 py-1.5 text-xs shadow-2xs transition active:scale-95 cursor-pointer flex items-center gap-1.5 border border-amber-400"
+                  >
+                    <Link2 className="h-3.5 w-3.5 stroke-[2.5]" />
+                    <span>Combine Tables</span>
+                  </button>
+                </div>
+
+                {/* Tables / Layout within this Area */}
+                {(group.meta.key === 'kolin area' || group.meta.key === 'door area') ? (
+                  renderSharedCouchAreaBlueprint(group, areaTables)
+                ) : (
+                  /* Tables Grid within this Area */
+                  (() => {
+                    const visibleTables = areaTables.filter(
+                      (table: Table) => !table.isCombinedCompanion
+                    );
+                    return visibleTables.length === 0 ? (
+                      <p className="text-xs text-stone-400 py-3 italic text-center">
+                        No tables in this area match current status filters.
+                      </p>
+                    ) : (
+                      <div
+                        className={`grid gap-4 ${
+                          gridColumns === 1
+                            ? 'grid-cols-1 max-w-xl mx-auto'
+                            : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+                        }`}
+                      >
+                        {visibleTables.map((table: Table) => renderTableCard(table))}
+                      </div>
+                    );
+                  })()
+                )}
+              </div>
+            );
+          })}
       </div>
 
       {/* Interactive Table & Reservation Details Modal */}
@@ -1391,10 +2196,67 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                   {selectedTableForDetails.setup && (
                     <>
                       <span>•</span>
-                      <span className="font-semibold text-stone-700">{selectedTableForDetails.setup}</span>
+                      <span className="font-semibold text-stone-700">
+                        {selectedTableForDetails.setup}
+                      </span>
                     </>
                   )}
                 </p>
+
+                {(selectedTableForDetails.combinedWithTableIds?.length ||
+                  selectedTableForDetails.isCombinedCompanion) && (
+                  <div className="rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/80 p-2.5 flex items-center justify-between gap-2 mt-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Link2 className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 stroke-[2.5]" />
+                      <div className="min-w-0">
+                        <span className="text-xs font-black text-amber-950 dark:text-amber-200 block truncate">
+                          {selectedTableForDetails.combinedGroupName || 'Combined Station'}
+                        </span>
+                        <span className="text-[10px] text-amber-800 dark:text-amber-400">
+                          Unified party seating • {selectedTableForDetails.capacity} Total Seats
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleUncombineTable(selectedTableForDetails);
+                        setSelectedTableForDetails(null);
+                      }}
+                      className="rounded-lg bg-stone-950 hover:bg-stone-850 text-amber-300 font-black text-xs px-2.5 py-1 shadow-2xs transition active:scale-95 cursor-pointer flex items-center gap-1 shrink-0"
+                    >
+                      <Unlink className="h-3 w-3" />
+                      <span>Split Tables</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Combine action in details if not currently combined */}
+                {!(selectedTableForDetails.combinedWithTableIds?.length ||
+                  selectedTableForDetails.isCombinedCompanion) && (
+                  <div className="mt-2 flex items-center justify-between gap-2 rounded-xl bg-stone-50 border border-stone-200 p-2">
+                    <span className="text-[11px] text-stone-600 font-medium">
+                      Need more seats? Combine with an adjacent table.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetArea =
+                          selectedTableForDetails.areaName ||
+                          (selectedTableForDetails.area === 'airconditioned'
+                            ? '1st aircon area'
+                            : 'entrance area');
+                        const targetId = selectedTableForDetails.id;
+                        setSelectedTableForDetails(null);
+                        handleOpenCombineModal(targetArea, targetId);
+                      }}
+                      className="rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs px-2.5 py-1 shadow-2xs transition active:scale-95 cursor-pointer inline-flex items-center gap-1 shrink-0 border border-amber-400"
+                    >
+                      <Link2 className="h-3 w-3 stroke-[2.5]" />
+                      <span>Combine</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-1">
@@ -1696,8 +2558,19 @@ export const TableManagement: React.FC<TableManagementProps> = ({
 
                     {activeOrder ? (
                       <div className="text-xs space-y-1.5 bg-stone-800/80 p-3 rounded-xl border border-stone-700">
-                        <div className="flex justify-between font-bold">
-                          <span>Order #{activeOrder.orderNumber.slice(-3)}</span>
+                        <div className="flex justify-between items-center font-bold">
+                          <div className="flex items-center gap-1.5">
+                            <span>Order #{activeOrder.orderNumber.slice(-3)}</span>
+                            {activeOrder.paymentStatus === 'nyp' ? (
+                              <span className="rounded bg-amber-500/20 border border-amber-400 text-amber-300 px-1.5 py-0.2 text-[9px] font-black uppercase">
+                                NYP
+                              </span>
+                            ) : (
+                              <span className="rounded bg-emerald-500/20 border border-emerald-400 text-emerald-300 px-1.5 py-0.2 text-[9px] font-black uppercase">
+                                Paid
+                              </span>
+                            )}
+                          </div>
                           <span className="text-amber-400 font-mono">
                             ₱{activeOrder.totalAmount.toFixed(2)}
                           </span>
@@ -2812,6 +3685,91 @@ export const TableManagement: React.FC<TableManagementProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* EXPANDED TICKET MODAL TRIGGERED FROM ANY TABLE OR CHAIR */}
+      {activeExpandedOrder && (
+        <ExpandedTicketModal
+          order={activeExpandedOrder}
+          activeStaff={getEffectiveCashier()}
+          onClose={() => setExpandedOrder(null)}
+          onViewReceipt={(ord) => {
+            if (onViewOrderReceipt) {
+              onViewOrderReceipt(ord);
+            } else {
+              setReceiptOrder(ord);
+            }
+          }}
+          onUpdateStatus={handleUpdateOrderStatus}
+          onToggleItemServed={handleToggleItemServed}
+          onToggleAllServed={handleToggleAllServed}
+          onCompleteAllSections={handleCompleteAllSections}
+          onUpdateBaristaStatus={handleUpdateBaristaStatus}
+          onUpdateCookStatus={handleUpdateCookStatus}
+          onOpenVoidModal={async (ord) => {
+            const ok = await showConfirm({
+              title: 'Void Order?',
+              message: `Are you sure you want to void Order #${ord.orderNumber}?`,
+              type: 'warning',
+            });
+            if (ok) {
+              AppStore.updateOrderStatus(ord.id, 'cancelled', {
+                cancelReason: 'Voided by staff',
+              });
+              refreshData();
+              setExpandedOrder(null);
+            }
+          }}
+          onOpenCancelModal={async (ord) => {
+            const ok = await showConfirm({
+              title: 'Cancel Order?',
+              message: `Are you sure you want to cancel Order #${ord.orderNumber}?`,
+              type: 'warning',
+            });
+            if (ok) {
+              AppStore.updateOrderStatus(ord.id, 'cancelled', {
+                cancelReason: 'Cancelled by staff',
+              });
+              refreshData();
+              setExpandedOrder(null);
+            }
+          }}
+          onApproveCancellation={(ord) => {
+            AppStore.updateOrderStatus(ord.id, 'cancelled', {
+              cancelReason: 'Customer cancellation approved',
+            });
+            refreshData();
+            setExpandedOrder(null);
+          }}
+          onDeclineCancellation={(ord) => {
+            AppStore.updateOrderStatus(ord.id, 'processing');
+            refreshData();
+          }}
+          formatDuration={formatDuration}
+          now={now}
+        />
+      )}
+
+      {/* RECEIPT MODAL */}
+      {receiptOrder && (
+        <ReceiptModal
+          order={receiptOrder}
+          settings={AppStore.getSettings()}
+          onClose={() => setReceiptOrder(null)}
+        />
+      )}
+
+      {/* COMBINE TABLES MODAL */}
+      {isCombineModalOpen && (
+        <CombineTablesModal
+          isOpen={isCombineModalOpen}
+          onClose={() => setIsCombineModalOpen(false)}
+          initialAreaKey={combineTargetAreaKey}
+          initialPrimaryTableId={combineTargetPrimaryTableId}
+          onTablesCombined={() => {
+            refreshData();
+          }}
+        />
       )}
     </div>
   );

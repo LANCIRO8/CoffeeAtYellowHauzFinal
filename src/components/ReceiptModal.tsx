@@ -141,11 +141,23 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, settings, onC
 
           {/* Payment Breakdown */}
           <div className="py-2 space-y-0.5 text-[10px]">
+            <div className="flex justify-between items-center">
+              <span className="text-stone-500">Payment Status:</span>
+              {order.paymentStatus === 'nyp' ? (
+                <span className="font-black text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider">
+                  NOT YET PAID (NYP)
+                </span>
+              ) : (
+                <span className="font-black text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider">
+                  PAID
+                </span>
+              )}
+            </div>
             <div className="flex justify-between">
               <span className="text-stone-500">Payment Method:</span>
               <span className="uppercase font-bold">{order.paymentMethod}</span>
             </div>
-            {order.paymentMethod === 'cash' && order.amountPaid !== undefined && (
+            {order.paymentStatus !== 'nyp' && order.paymentMethod === 'cash' && order.amountPaid !== undefined && (
               <>
                 <div className="flex justify-between">
                   <span className="text-stone-500">Amount Tendered:</span>
@@ -156,6 +168,12 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, settings, onC
                   <span>₱{(order.changeAmount ?? 0).toFixed(2)}</span>
                 </div>
               </>
+            )}
+            {order.paidAt && (
+              <div className="flex justify-between text-[9px] text-stone-500">
+                <span>Paid At:</span>
+                <span>{new Date(order.paidAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
             )}
           </div>
 

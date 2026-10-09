@@ -46,18 +46,37 @@ export interface MenuItem {
   isIced?: boolean;
 }
 
+export interface Chair {
+  id: string; // e.g. "T1-C1"
+  chairNumber: number; // 1, 2, ...
+  label?: string; // "Chair 1", "Chair 2", "Couch Seat 1", etc.
+  isOccupied?: boolean;
+  orderId?: number | null;
+  customerName?: string;
+  orderNumber?: string;
+}
+
 export interface Table {
   id: number;
   tableNumber: number;
   capacity: number;
+  baseCapacity?: number;
   area: 'normal' | 'airconditioned';
   status: 'available' | 'occupied' | 'reserved' | 'cleaning';
   currentOrderId?: number | null;
+  currentOrderIds?: number[];
   name?: string;
+  baseName?: string;
   code?: string;
   setup?: string;
   description?: string;
   areaName?: string;
+  chairs?: Chair[];
+  baseChairs?: Chair[];
+  combinedWithTableIds?: number[];
+  isCombinedCompanion?: boolean;
+  primaryTableId?: number;
+  combinedGroupName?: string;
 }
 
 export interface CustomerAccount {
@@ -128,6 +147,9 @@ export interface OrderItem {
     discountValue: number;
     discountAmount: number;
   };
+  isServed?: boolean;
+  servedAt?: string;
+  servedBy?: string;
 }
 
 export interface AdvanceBookingDetails {
@@ -187,6 +209,8 @@ export type OrderStatus =
   | 'completed'
   | 'cancelled';
 
+export type TicketPaymentState = 'paid' | 'nyp';
+
 export interface Order {
   id: number;
   orderNumber: string;
@@ -203,6 +227,8 @@ export interface Order {
   guestCount?: number;
   orderType: 'dine_in' | 'take_away' | 'delivery';
   paymentMethod: 'cash' | 'card' | 'gcash';
+  paymentStatus?: 'paid' | 'nyp'; // 'paid' = Paid, 'nyp' = Not Yet Paid
+  paidAt?: string;
   subtotal: number;
   taxRate: number;
   taxAmount: number;

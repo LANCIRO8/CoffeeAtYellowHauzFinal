@@ -826,11 +826,20 @@ export const CustomerAccountView: React.FC<CustomerAccountProps> = ({
 
                   <div className="space-y-1 text-stone-600 border-y border-stone-100 py-2">
                     {ord.items.map((it, idx) => (
-                      <div key={idx} className="flex justify-between">
-                        <span>
-                          {it.quantity}x {it.name}
+                      <div key={idx} className="flex items-center justify-between text-xs">
+                        <span className="flex items-center gap-1.5 min-w-0">
+                          <span className={it.isServed ? 'line-through text-stone-400 dark:text-stone-500' : ''}>
+                            {it.quantity}x {it.name}
+                          </span>
+                          {it.isServed && (
+                            <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 px-1.5 py-0.2 text-[8px] font-bold uppercase tracking-wider shrink-0 border border-emerald-200 dark:border-emerald-800/60">
+                              Served
+                            </span>
+                          )}
                         </span>
-                        <span className="font-mono">₱{it.totalPrice.toFixed(2)}</span>
+                        <span className={`font-mono ${it.isServed ? 'text-stone-400 dark:text-stone-500 line-through' : ''}`}>
+                          ₱{it.totalPrice.toFixed(2)}
+                        </span>
                       </div>
                     ))}
                   </div>
