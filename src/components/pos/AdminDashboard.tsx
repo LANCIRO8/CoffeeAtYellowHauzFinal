@@ -55,6 +55,9 @@ import {
   Printer,
   ShieldCheck,
   Zap,
+  Building,
+  Phone,
+  Copy,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -106,6 +109,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   >('all');
   const [restockAmount, setRestockAmount] = useState<number>(10);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
+  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+  const [reservationTabFilter, setReservationTabFilter] = useState<
+    'all' | 'table' | 'venue' | 'pending' | 'confirmed'
+  >('all');
+  const [copiedResCode, setCopiedResCode] = useState(false);
 
   // Live Reactive Collections from AppStore
   const [orders, setOrders] = useState<Order[]>(() => AppStore.getOrders());
@@ -237,6 +245,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const pendingReservations = useMemo(() => {
     return reservations.filter((r) => r.status === 'pending');
   }, [reservations]);
+
+  const filteredReservationsList = useMemo(() => {
+    const list = [...reservations].sort((a, b) => {
+      if (a.status === 'pending' && b.status !== 'pending') return -1;
+      if (a.status !== 'pending' && b.status === 'pending') return 1;
+      return new Date(b.reservationAt).getTime() - new Date(a.reservationAt).getTime();
+    });
+
+    if (reservationTabFilter === 'table') {
+      return list.filter((r) => r.bookingType !== 'venue');
+    }
+    if (reservationTabFilter === 'venue') {
+      return list.filter((r) => r.bookingType === 'venue');
+    }
+    if (reservationTabFilter === 'pending') {
+      return list.filter((r) => r.status === 'pending');
+    }
+    if (reservationTabFilter === 'confirmed') {
+      return list.filter((r) => r.status === 'confirmed');
+    }
+    return list;
+  }, [reservations, reservationTabFilter]);
+
+  const tableReservationsCount = useMemo(
+    () => reservations.filter((r) => r.bookingType !== 'venue').length,
+    [reservations]
+  );
+  const venueReservationsCount = useMemo(
+    () => reservations.filter((r) => r.bookingType === 'venue').length,
+    [reservations]
+  );
+  const confirmedReservationsCount = useMemo(
+    () => reservations.filter((r) => r.status === 'confirmed').length,
+    [reservations]
+  );
 
   const pendingCancellationRequests = useMemo(() => {
     return orders.filter(
@@ -456,12 +499,65 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Handle Confirm Reservation
   const handleConfirmReservation = (resId: number) => {
-    AppStore.updateReservationStatus(resId, 'confirmed');
+    const updated = AppStore.updateReservationStatus(resId, 'confirmed');
+    if (selectedReservation?.id === resId && updated) {
+      setSelectedReservation(updated);
+    }
     showAlert({
       title: 'Reservation Confirmed',
       message: 'The reservation status has been set to Confirmed and synced to Firestore.',
       type: 'success',
     });
+  };
+
+  // Handle Complete Reservation (guests seated / fulfilled)
+  const handleCompleteReservation = async (resId: number) => {
+    const confirmed = await showConfirm({
+      title: 'Mark as Completed?',
+      message: 'Mark this reservation as completed / guests seated?',
+      confirmText: 'Mark Completed',
+      cancelText: 'Back',
+      type: 'info',
+    });
+    if (confirmed) {
+      const updated = AppStore.updateReservationStatus(resId, 'completed');
+      if (selectedReservation?.id === resId && updated) {
+        setSelectedReservation(updated);
+      }
+      showAlert({
+        title: 'Reservation Completed',
+        message: 'Reservation has been marked as completed.',
+        type: 'success',
+      });
+    }
+  };
+
+  // Handle Cancel Reservation
+  const handleCancelReservation = async (resId: number) => {
+    const confirmed = await showConfirm({
+      title: 'Cancel Reservation?',
+      message: 'Are you sure you want to cancel this booking? If a table was held, it will be made available.',
+      confirmText: 'Yes, Cancel Booking',
+      cancelText: 'Keep Active',
+      type: 'warning',
+    });
+    if (confirmed) {
+      const updated = AppStore.updateReservationStatus(resId, 'cancelled');
+      if (selectedReservation?.id === resId && updated) {
+        setSelectedReservation(updated);
+      }
+      showAlert({
+        title: 'Reservation Cancelled',
+        message: 'The reservation has been cancelled.',
+        type: 'info',
+      });
+    }
+  };
+
+  const handleCopyResCode = (code: string) => {
+    navigator.clipboard?.writeText(code);
+    setCopiedResCode(true);
+    setTimeout(() => setCopiedResCode(false), 2000);
   };
 
   // Handle 1-click Accept Order (moves from to_confirm to to_prep)
@@ -1601,96 +1697,215 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* 5. Reservations & Staff Performance Matrix */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Table & Venue Reservations */}
-        <div className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-6 shadow-xs">
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <div>
-              <h2 className="font-display text-xs sm:text-base font-bold text-stone-900 flex items-center gap-1.5 sm:gap-2">
-                <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600" />
-                <span>Table &amp; Venue Reservations</span>
-              </h2>
-              <p className="text-[10px] sm:text-xs text-stone-500">Upcoming guest bookings and room reservations.</p>
+        <div className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-3.5 sm:p-6 shadow-xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-2.5 sm:mb-3">
+              <div>
+                <h2 className="font-display text-xs sm:text-base font-bold text-stone-900 flex items-center gap-1.5 sm:gap-2">
+                  <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600" />
+                  <span>Table &amp; Venue Reservations</span>
+                </h2>
+                <p className="text-[10px] sm:text-xs text-stone-500">Upcoming guest bookings and room reservations.</p>
+              </div>
+
+              <button
+                onClick={() => onNavigateTab('tables')}
+                className="text-[10px] sm:text-xs font-bold text-amber-700 hover:text-amber-800 transition cursor-pointer flex items-center gap-1"
+              >
+                <span>View Floor Map</span>
+                <ChevronRight className="h-3 w-3" />
+              </button>
             </div>
 
-            <button
-              onClick={() => onNavigateTab('tables')}
-              className="text-[10px] sm:text-xs font-bold text-amber-700 hover:text-amber-800 transition cursor-pointer"
-            >
-              View Floor Map
-            </button>
+            {/* Quick Filter Tabs */}
+            <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto pb-2 mb-2.5 text-[10px] sm:text-xs font-bold scrollbar-none">
+              <button
+                type="button"
+                onClick={() => setReservationTabFilter('all')}
+                className={`px-2.5 py-1 rounded-lg transition whitespace-nowrap cursor-pointer ${
+                  reservationTabFilter === 'all'
+                    ? 'bg-stone-900 text-white shadow-2xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                All ({reservations.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setReservationTabFilter('table')}
+                className={`px-2.5 py-1 rounded-lg transition whitespace-nowrap cursor-pointer flex items-center gap-1 ${
+                  reservationTabFilter === 'table'
+                    ? 'bg-amber-500 text-stone-950 font-black shadow-2xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                <Utensils className="h-3 w-3" />
+                <span>Tables ({tableReservationsCount})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setReservationTabFilter('venue')}
+                className={`px-2.5 py-1 rounded-lg transition whitespace-nowrap cursor-pointer flex items-center gap-1 ${
+                  reservationTabFilter === 'venue'
+                    ? 'bg-purple-600 text-white shadow-2xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                <Building className="h-3 w-3" />
+                <span>Venue ({venueReservationsCount})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setReservationTabFilter('pending')}
+                className={`px-2.5 py-1 rounded-lg transition whitespace-nowrap cursor-pointer flex items-center gap-1 ${
+                  reservationTabFilter === 'pending'
+                    ? 'bg-amber-600 text-white shadow-2xs'
+                    : 'bg-amber-50 text-amber-800 border border-amber-200/80 hover:bg-amber-100'
+                }`}
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                <span>Pending ({pendingReservations.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setReservationTabFilter('confirmed')}
+                className={`px-2.5 py-1 rounded-lg transition whitespace-nowrap cursor-pointer flex items-center gap-1 ${
+                  reservationTabFilter === 'confirmed'
+                    ? 'bg-emerald-600 text-white shadow-2xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                <span>Confirmed ({confirmedReservationsCount})</span>
+              </button>
+            </div>
+
+            {filteredReservationsList.length === 0 ? (
+              <div className="rounded-xl sm:rounded-2xl bg-stone-50 border border-stone-200/70 p-6 text-center text-[10px] sm:text-xs text-stone-400">
+                No reservations found for this filter.
+              </div>
+            ) : (
+              <div className="space-y-2 sm:space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                {filteredReservationsList.map((res) => {
+                  const isVenue = res.bookingType === 'venue';
+                  const dateFormatted = new Date(res.reservationAt).toLocaleString([], {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  });
+
+                  return (
+                    <div
+                      key={res.id}
+                      onClick={() => setSelectedReservation(res)}
+                      className="group p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-stone-200 bg-stone-50/50 hover:bg-amber-50/30 hover:border-amber-400 transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-2xs hover:shadow-xs"
+                      title="Click to view full reservation details and manage booking"
+                    >
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                          <span className="font-mono font-bold text-[10px] sm:text-xs text-stone-900 group-hover:text-amber-800 transition">
+                            {res.reservationCode}
+                          </span>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[8px] sm:text-[10px] font-bold flex items-center gap-1 ${
+                              isVenue
+                                ? 'bg-purple-100 text-purple-900 border border-purple-200'
+                                : 'bg-amber-100 text-amber-900 border border-amber-200'
+                            }`}
+                          >
+                            {isVenue ? (
+                              <>
+                                <Building className="h-3 w-3 text-purple-700" />
+                                <span>Private Studio Venue</span>
+                              </>
+                            ) : (
+                              <>
+                                <Utensils className="h-3 w-3 text-amber-700" />
+                                <span>Table #{res.tableNumber || 1}</span>
+                              </>
+                            )}
+                          </span>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[8px] sm:text-[10px] font-bold uppercase tracking-wider ${
+                              res.status === 'confirmed'
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                : res.status === 'pending'
+                                ? 'bg-amber-100 text-amber-800 border border-amber-300 animate-pulse'
+                                : res.status === 'completed'
+                                ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                                : 'bg-stone-200 text-stone-600 line-through'
+                            }`}
+                          >
+                            {res.status}
+                          </span>
+                        </div>
+
+                        <div className="text-[10px] sm:text-xs text-stone-800 font-semibold flex items-center gap-1.5 flex-wrap">
+                          <span className="text-stone-950 font-bold">{res.customerName}</span>
+                          <span>•</span>
+                          <span>{res.guestCount} {res.guestCount === 1 ? 'Guest' : 'Guests'}</span>
+                          {isVenue && res.eventType && (
+                            <>
+                              <span>•</span>
+                              <span className="text-purple-700 truncate max-w-[140px] sm:max-w-none">
+                                {res.eventType}
+                              </span>
+                            </>
+                          )}
+                          <span>•</span>
+                          <span className="text-stone-500">{dateFormatted}</span>
+                        </div>
+
+                        {res.notes && (
+                          <div className="text-[9px] sm:text-[11px] text-stone-500 italic line-clamp-1">
+                            "{res.notes}"
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+                        {res.status === 'pending' && (
+                          <button
+                            id={`admin-confirm-res-${res.id}`}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleConfirmReservation(res.id);
+                            }}
+                            className="px-2.5 sm:px-3 py-1.5 rounded-lg sm:rounded-xl bg-emerald-600 text-white text-[10px] sm:text-xs font-bold hover:bg-emerald-700 shadow-2xs transition cursor-pointer"
+                          >
+                            Confirm
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedReservation(res);
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg sm:rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-[10px] sm:text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+                        >
+                          <Eye className="h-3 w-3" />
+                          <span>Details</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {reservations.length === 0 ? (
-            <div className="rounded-xl sm:rounded-2xl bg-stone-50 border border-stone-200/70 p-6 text-center text-[10px] sm:text-xs text-stone-400">
-              No reservations recorded yet.
-            </div>
-          ) : (
-            <div className="space-y-2 sm:space-y-2.5">
-              {reservations.slice(0, 4).map((res) => {
-                const isVenue = res.bookingType === 'venue';
-                const dateFormatted = new Date(res.reservationAt).toLocaleString([], {
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                });
-
-                return (
-                  <div
-                    key={res.id}
-                    className="p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-stone-200 bg-stone-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3"
-                  >
-                    <div className="space-y-0.5 sm:space-y-1">
-                      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                        <span className="font-mono font-bold text-[10px] sm:text-xs text-stone-900">
-                          {res.reservationCode}
-                        </span>
-                        <span
-                          className={`rounded-full px-1.5 sm:px-2 py-0.2 text-[8px] sm:text-[10px] font-bold ${
-                            isVenue ? 'bg-purple-100 text-purple-800' : 'bg-amber-100 text-amber-800'
-                          }`}
-                        >
-                          {isVenue ? 'Venue Rental' : `Table #${res.tableNumber || 1}`}
-                        </span>
-                        <span
-                          className={`rounded-full px-1.5 sm:px-2 py-0.2 text-[8px] sm:text-[10px] font-bold ${
-                            res.status === 'confirmed'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : res.status === 'pending'
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-stone-200 text-stone-600'
-                          }`}
-                        >
-                          {res.status}
-                        </span>
-                      </div>
-
-                      <div className="text-[10px] sm:text-xs text-stone-700 font-semibold">
-                        {res.customerName} • {res.guestCount} Guests •{' '}
-                        <span className="text-stone-500">{dateFormatted}</span>
-                      </div>
-                      {res.notes && (
-                        <div className="text-[9px] sm:text-[11px] text-stone-500 italic line-clamp-1">
-                          "{res.notes}"
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
-                      {res.status === 'pending' && (
-                        <button
-                          id={`admin-confirm-res-${res.id}`}
-                          onClick={() => handleConfirmReservation(res.id)}
-                          className="px-2.5 sm:px-3 py-1 rounded-lg sm:rounded-xl bg-emerald-600 text-white text-[10px] sm:text-xs font-bold hover:bg-emerald-700 shadow-2xs transition cursor-pointer"
-                        >
-                          Confirm
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <div className="pt-3 border-t border-stone-100 mt-3 flex items-center justify-between text-[10px] sm:text-xs text-stone-500">
+            <span>Showing {filteredReservationsList.length} of {reservations.length} bookings</span>
+            <button
+              onClick={() => onNavigateTab('tables')}
+              className="text-amber-700 font-bold hover:underline cursor-pointer"
+            >
+              Open Floor Plan →
+            </button>
+          </div>
         </div>
 
         {/* Staff & Cashier Shift Performance */}
@@ -1858,6 +2073,309 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               >
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reservation Details & Management Modal */}
+      {selectedReservation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/70 p-3 sm:p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="relative w-full max-w-lg sm:max-w-xl rounded-2xl sm:rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            {/* Header */}
+            <div
+              className={`p-4 sm:p-5 border-b flex items-start justify-between ${
+                selectedReservation.bookingType === 'venue'
+                  ? 'bg-gradient-to-r from-purple-50 via-purple-100/40 to-white dark:from-stone-900 dark:to-stone-900 border-purple-100 dark:border-stone-800'
+                  : 'bg-gradient-to-r from-amber-50 via-amber-100/40 to-white dark:from-stone-900 dark:to-stone-900 border-amber-100 dark:border-stone-800'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={`grid h-10 w-10 sm:h-12 sm:w-12 place-items-center rounded-2xl text-base font-black shadow-xs ${
+                    selectedReservation.bookingType === 'venue'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-amber-500 text-stone-950'
+                  }`}
+                >
+                  {selectedReservation.bookingType === 'venue' ? (
+                    <Building className="h-5 w-5 sm:h-6 sm:w-6" />
+                  ) : (
+                    <Utensils className="h-5 w-5 sm:h-6 sm:w-6" />
+                  )}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-display text-base sm:text-lg font-black text-stone-900 dark:text-stone-100">
+                      {selectedReservation.bookingType === 'venue'
+                        ? 'Private Studio Venue Booking'
+                        : `Table #${selectedReservation.tableNumber || 1} Reservation`}
+                    </h3>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider ${
+                        selectedReservation.status === 'confirmed'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                          : selectedReservation.status === 'pending'
+                          ? 'bg-amber-100 text-amber-800 border border-amber-300 animate-pulse'
+                          : selectedReservation.status === 'completed'
+                          ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                          : 'bg-stone-200 text-stone-600 line-through'
+                      }`}
+                    >
+                      {selectedReservation.status}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="font-mono text-xs font-bold text-stone-600 dark:text-stone-300">
+                      {selectedReservation.reservationCode}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyResCode(selectedReservation.reservationCode)}
+                      className="p-1 rounded text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition cursor-pointer"
+                      title="Copy reservation code"
+                    >
+                      {copiedResCode ? (
+                        <Check className="h-3 w-3 text-emerald-600 stroke-[3]" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
+                    </button>
+                    {copiedResCode && (
+                      <span className="text-[10px] text-emerald-600 font-bold">Copied!</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedReservation(null)}
+                className="rounded-xl border border-stone-200 dark:border-stone-700 p-1.5 text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-700 dark:hover:text-stone-200 transition cursor-pointer"
+              >
+                <X className="h-4 w-4 sm:h-5 sm:w-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs">
+              {/* Highlight Card */}
+              {selectedReservation.bookingType === 'venue' ? (
+                <div className="rounded-2xl border-2 border-purple-200 dark:border-purple-900/60 bg-purple-50/50 dark:bg-purple-950/20 p-3.5 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300 block">
+                        Event Type
+                      </span>
+                      <span className="font-display font-extrabold text-stone-900 dark:text-stone-100 text-sm sm:text-base">
+                        {selectedReservation.eventType || 'Private Event / Function'}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300 block">
+                        Duration &amp; Package
+                      </span>
+                      <span className="font-mono font-bold text-stone-900 dark:text-stone-100 text-sm">
+                        {selectedReservation.venueDurationHours || 3} Hours Block
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 border-t border-purple-200/80 dark:border-purple-900/40 text-[11px]">
+                    <div>
+                      <span className="text-stone-500 block">Seating Layout:</span>
+                      <span className="font-bold text-stone-800 dark:text-stone-200 capitalize">
+                        {selectedReservation.seatingLayout || 'Flexible Arrangement'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-stone-500 block">Consumable Rate:</span>
+                      <span className="font-bold font-mono text-purple-800 dark:text-purple-300">
+                        ₱
+                        {(
+                          selectedReservation.totalAmount ||
+                          selectedReservation.venueRate ||
+                          3500
+                        ).toLocaleString()}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-stone-500 block">Payment:</span>
+                      <span className="font-bold text-stone-800 dark:text-stone-200 capitalize">
+                        {selectedReservation.paymentMethod || 'GCash'} (
+                        {selectedReservation.paymentStatus === 'paid' ? 'Paid' : 'Unpaid'})
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-2xl border-2 border-amber-300/80 dark:border-amber-700/60 bg-amber-50/50 dark:bg-amber-950/20 p-3.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 block">
+                        Assigned Seating
+                      </span>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="font-display font-extrabold text-stone-900 dark:text-stone-100 text-base sm:text-lg">
+                          Table #{selectedReservation.tableNumber || 1}
+                        </span>
+                        {(() => {
+                          const tableObj = tables.find((t) => t.id === selectedReservation.tableId);
+                          return (
+                            <span className="rounded-full bg-amber-100 dark:bg-amber-900/60 px-2 py-0.5 text-[10px] font-bold text-amber-900 dark:text-amber-200">
+                              {tableObj?.area === 'airconditioned' ? '❄️ Air-Con' : '🌿 Non-A/C'}
+                            </span>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 block">
+                        Party Size
+                      </span>
+                      <span className="font-display font-black text-amber-950 dark:text-amber-200 text-base sm:text-lg">
+                        {selectedReservation.guestCount}{' '}
+                        {selectedReservation.guestCount === 1 ? 'Guest' : 'Guests'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Schedule Info */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 bg-stone-50 dark:bg-stone-850 p-3.5 rounded-2xl border border-stone-200 dark:border-stone-800">
+                <div className="flex items-start gap-2.5">
+                  <Calendar className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                  <div>
+                    <span className="text-stone-500 dark:text-stone-400 block text-[10px]">
+                      Reservation Schedule:
+                    </span>
+                    <span className="font-bold text-stone-900 dark:text-stone-100 text-xs">
+                      {new Date(selectedReservation.reservationAt).toLocaleString('en-PH', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2.5">
+                  <Clock className="h-4 w-4 text-stone-400 mt-0.5 shrink-0" />
+                  <div>
+                    <span className="text-stone-500 dark:text-stone-400 block text-[10px]">
+                      Booking Received:
+                    </span>
+                    <span className="font-medium text-stone-700 dark:text-stone-300 text-xs">
+                      {new Date(selectedReservation.createdAt).toLocaleString('en-PH', {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Guest & Contact Details */}
+              <div className="bg-stone-50 dark:bg-stone-850 p-3.5 rounded-2xl border border-stone-200 dark:border-stone-800 space-y-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500 block">
+                  Customer &amp; Contact Information
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-stone-500 block text-[10px]">Guest Name:</span>
+                    <span className="font-bold text-stone-900 dark:text-stone-100">
+                      {selectedReservation.customerName}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-stone-500 block text-[10px]">Phone Number:</span>
+                    <a
+                      href={`tel:${selectedReservation.contactNumber}`}
+                      className="font-bold text-amber-700 dark:text-amber-400 hover:underline flex items-center gap-1"
+                    >
+                      <Phone className="h-3 w-3" />
+                      <span>{selectedReservation.contactNumber}</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes & Special Requests */}
+              {selectedReservation.notes && (
+                <div className="bg-amber-50/40 dark:bg-stone-850 p-3.5 rounded-2xl border border-amber-200/70 dark:border-stone-750">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 block mb-1">
+                    Special Requests / Guest Notes
+                  </span>
+                  <p className="italic text-stone-800 dark:text-stone-200 text-xs">
+                    "{selectedReservation.notes}"
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Actions Footer */}
+            <div className="p-3.5 sm:p-5 border-t border-stone-100 dark:border-stone-800 bg-stone-50 dark:bg-stone-850 flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap">
+                {selectedReservation.status === 'pending' && (
+                  <button
+                    type="button"
+                    onClick={() => handleConfirmReservation(selectedReservation.id)}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Check className="h-3.5 w-3.5 stroke-[3]" />
+                    <span>Confirm Reservation</span>
+                  </button>
+                )}
+
+                {selectedReservation.status === 'confirmed' && (
+                  <button
+                    type="button"
+                    onClick={() => handleCompleteReservation(selectedReservation.id)}
+                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition cursor-pointer flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span>Mark as Seated / Completed</span>
+                  </button>
+                )}
+
+                {selectedReservation.status !== 'cancelled' && (
+                  <button
+                    type="button"
+                    onClick={() => handleCancelReservation(selectedReservation.id)}
+                    className="px-3 py-2 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-700 dark:text-rose-300 font-bold text-xs transition cursor-pointer"
+                  >
+                    Cancel Booking
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedReservation(null);
+                    onNavigateTab('tables');
+                  }}
+                  className="px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 hover:bg-stone-100 text-stone-700 dark:text-stone-300 font-bold text-xs transition cursor-pointer"
+                >
+                  View on Floor Map
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedReservation(null)}
+                  className="px-4 py-2 rounded-xl bg-stone-900 dark:bg-stone-800 text-white font-bold text-xs hover:bg-stone-800 transition cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -18,6 +18,33 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, settings, onC
     timeStyle: 'short',
   });
 
+  // Group identical items for consolidated receipt display (e.g. 2x, 3x)
+  const receiptItems = React.useMemo(() => {
+    const grouped: typeof order.items = [];
+    const map = new Map<string, (typeof order.items)[0]>();
+
+    for (const item of order.items) {
+      const variantStr =
+        typeof item.selectedVariant === 'string'
+          ? item.selectedVariant
+          : item.selectedVariant?.name || '';
+      const key = `${item.menuItemId}-${item.name}-${variantStr}-${item.specialInstructions || ''}-${item.unitPrice}`;
+
+      if (map.has(key)) {
+        const existing = map.get(key)!;
+        existing.quantity = (existing.quantity || 1) + (item.quantity || 1);
+        existing.totalPrice =
+          (existing.totalPrice || 0) +
+          (item.totalPrice || item.unitPrice * (item.quantity || 1));
+      } else {
+        const clone = { ...item, quantity: item.quantity || 1 };
+        map.set(key, clone);
+        grouped.push(clone);
+      }
+    }
+    return grouped;
+  }, [order.items]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-xs p-4 overflow-y-auto">
       <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-6 shadow-2xl animate-in fade-in zoom-in duration-200 text-stone-900 dark:text-stone-100">
@@ -94,7 +121,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, settings, onC
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
-                {order.items.map((item, idx) => (
+                {receiptItems.map((item, idx) => (
                   <tr key={idx} className="py-0.5">
                     <td className="py-0.5 pr-1 font-medium text-stone-900 text-[10px]">
                       {item.name}

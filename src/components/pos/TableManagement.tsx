@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Table, Order, Reservation, TableRequest, User, OrderStatus } from '../../types';
+import { Table, Order, Reservation, TableRequest, User, OrderStatus, FloorArea } from '../../types';
 import { AppStore } from '../../services/store';
 import { useModal } from '../../context/ModalContext';
 import { ExpandedTicketModal } from './ExpandedTicketModal';
@@ -145,6 +145,18 @@ export const TableManagement: React.FC<TableManagementProps> = ({
   const pendingRequests = tableRequests.filter((r) => r.status === 'pending');
   const resolvedRequests = tableRequests.filter((r) => r.status !== 'pending');
 
+  // Floor Areas state (persisted & editable)
+  const [floorAreas, setFloorAreas] = useState<FloorArea[]>(() => AppStore.getFloorAreas());
+  const [isEditAreaModalOpen, setIsEditAreaModalOpen] = useState(false);
+  const [areaToEdit, setAreaToEdit] = useState<FloorArea | null>(null);
+  const [activeAreaMenuKey, setActiveAreaMenuKey] = useState<string | null>(null);
+  const [editAreaForm, setEditAreaForm] = useState({
+    name: '',
+    icon: '☕',
+    isAircon: false,
+    description: '',
+  });
+
   // New reservation / new table / edit table modals
   const [isNewResModalOpen, setIsNewResModalOpen] = useState(false);
   const [isAddTableModalOpen, setIsAddTableModalOpen] = useState(false);
@@ -159,6 +171,7 @@ export const TableManagement: React.FC<TableManagementProps> = ({
     capacity: number;
     area: 'normal' | 'airconditioned';
     status: Table['status'];
+    areaName: string;
   }>({
     tableNumber: 1,
     name: '',
@@ -166,6 +179,7 @@ export const TableManagement: React.FC<TableManagementProps> = ({
     capacity: 4,
     area: 'normal',
     status: 'available',
+    areaName: '1st aircon area',
   });
 
   // Edit table state
@@ -177,6 +191,7 @@ export const TableManagement: React.FC<TableManagementProps> = ({
     capacity: number;
     area: 'normal' | 'airconditioned';
     status: Table['status'];
+    areaName: string;
   }>({
     tableNumber: 1,
     name: '',
@@ -184,6 +199,7 @@ export const TableManagement: React.FC<TableManagementProps> = ({
     capacity: 4,
     area: 'normal',
     status: 'available',
+    areaName: '1st aircon area',
   });
 
   // Dedicated Edit Table Modal form state
@@ -194,6 +210,7 @@ export const TableManagement: React.FC<TableManagementProps> = ({
     capacity: number;
     area: 'normal' | 'airconditioned';
     status: Table['status'];
+    areaName: string;
   }>({
     tableNumber: 1,
     name: '',
@@ -201,6 +218,7 @@ export const TableManagement: React.FC<TableManagementProps> = ({
     capacity: 4,
     area: 'normal',
     status: 'available',
+    areaName: '1st aircon area',
   });
 
   // Combine Tables Modal state
@@ -261,7 +279,6 @@ export const TableManagement: React.FC<TableManagementProps> = ({
   const [expandedOrder, setExpandedOrder] = useState<Order | null>(null);
   const [receiptOrder, setReceiptOrder] = useState<Order | null>(null);
   const [now, setNow] = useState<number>(Date.now());
-  const [activeAreaFilterTab, setActiveAreaFilterTab] = useState<string>('all');
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -269,7 +286,9 @@ export const TableManagement: React.FC<TableManagementProps> = ({
   }, []);
 
   const formatDuration = (ms: number): string => {
-    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    // Ticket timer capped at 40 mins max
+    const cappedMs = Math.min(Math.max(0, ms), 40 * 60 * 1000);
+    const totalSeconds = Math.floor(cappedMs / 1000);
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
     return `${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
@@ -285,19 +304,13 @@ export const TableManagement: React.FC<TableManagementProps> = ({
     refreshData();
   };
 
-  const handleToggleItemServed = (orderId: number, itemIndex: number) => {
-    AppStore.toggleOrderItemServed(orderId, itemIndex, getEffectiveCashier().fullName);
+  const handleToggleItemServed = (orderId: number, itemIndex: number, unitIndex?: number) => {
+    AppStore.toggleOrderItemServed(orderId, itemIndex, getEffectiveCashier().fullName, unitIndex);
     refreshData();
   };
 
   const handleToggleAllServed = (orderId: number, served: boolean) => {
-    const freshOrders = AppStore.getOrders();
-    const ord = freshOrders.find((o) => o.id === orderId);
-    if (!ord) return;
-    ord.items.forEach((item) => {
-      item.isServed = served;
-    });
-    AppStore.saveOrders(freshOrders);
+    AppStore.markAllOrderItemsServed(orderId, served, getEffectiveCashier().fullName);
     refreshData();
   };
 
@@ -330,6 +343,7 @@ export const TableManagement: React.FC<TableManagementProps> = ({
   const refreshData = () => {
     const freshTables = AppStore.getTables();
     setTables(freshTables);
+    setFloorAreas(AppStore.getFloorAreas());
     setReservations(AppStore.getReservations());
     setTableRequests(AppStore.getTableRequests());
     if (selectedTableForDetails) {
@@ -395,18 +409,88 @@ export const TableManagement: React.FC<TableManagementProps> = ({
     });
   };
 
-  const handleOpenAddTableModal = () => {
+  const handleOpenAddTableModal = (defaultAreaKey?: string | React.MouseEvent) => {
     const highestNum = tables.length ? Math.max(...tables.map((t) => t.tableNumber)) : 0;
+    const currentAreas = AppStore.getFloorAreas();
+    const areaParam = typeof defaultAreaKey === 'string' ? defaultAreaKey : undefined;
+    const matchedArea = areaParam
+      ? currentAreas.find(
+          (a) =>
+            a.id.toLowerCase() === areaParam.toLowerCase() ||
+            a.name.toLowerCase() === areaParam.toLowerCase()
+        )
+      : currentAreas[0];
+
+    const targetAreaKey = matchedArea ? matchedArea.id : currentAreas[0]?.id || '1st aircon area';
+    const isAircon = matchedArea ? Boolean(matchedArea.isAircon) : false;
+
     setNewTableForm({
       tableNumber: highestNum + 1,
       name: `Table ${highestNum + 1}`,
       setup: '',
       capacity: 4,
-      area: areaFilter !== 'all' ? areaFilter : 'normal',
+      area: isAircon ? 'airconditioned' : 'normal',
       status: 'available',
+      areaName: targetAreaKey,
     });
     setIsAddTableModalOpen(true);
   };
+
+  const handleOpenEditAreaModal = (meta: AreaMeta) => {
+    const currentAreas = AppStore.getFloorAreas();
+    const matched = currentAreas.find(
+      (a) =>
+        a.id.toLowerCase() === meta.key.toLowerCase() ||
+        a.name.toLowerCase() === meta.name.toLowerCase()
+    ) || {
+      id: meta.key,
+      name: meta.name,
+      icon: meta.icon,
+      isAircon: meta.isAircon,
+      description: meta.description,
+    };
+
+    setAreaToEdit(matched);
+    setEditAreaForm({
+      name: matched.name,
+      icon: matched.icon || '☕',
+      isAircon: Boolean(matched.isAircon),
+      description: matched.description || '',
+    });
+    setIsEditAreaModalOpen(true);
+  };
+
+  const handleSaveAreaSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!areaToEdit) return;
+    const trimmed = editAreaForm.name.trim();
+    if (!trimmed) {
+      showAlert({
+        title: 'Invalid Area Name',
+        message: 'Please enter a valid non-empty area name.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    AppStore.updateFloorArea(areaToEdit.id, {
+      name: trimmed,
+      icon: editAreaForm.icon,
+      isAircon: editAreaForm.isAircon,
+      description: editAreaForm.description.trim(),
+    });
+
+    refreshData();
+    setIsEditAreaModalOpen(false);
+    setAreaToEdit(null);
+
+    showAlert({
+      title: 'Area Name Updated',
+      message: `Area "${trimmed}" has been updated successfully.`,
+      type: 'success',
+    });
+  };
+
 
   const handleAddTableSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -430,13 +514,18 @@ export const TableManagement: React.FC<TableManagementProps> = ({
       return;
     }
 
+    const targetAreaName =
+      newTableForm.areaName ||
+      (newTableForm.area === 'airconditioned' ? '1st aircon area' : 'entrance area');
+    const newCap = Number(newTableForm.capacity) || 4;
+
     const created = AppStore.addTable({
       tableNumber: tableNum,
       name: newTableForm.name.trim() || `Table ${tableNum}`,
-      setup: newTableForm.setup.trim() || undefined,
-      description: newTableForm.setup.trim() || undefined,
-      areaName: newTableForm.name.trim() || (newTableForm.area === 'airconditioned' ? 'Air-Con' : 'Non-A/C'),
-      capacity: Number(newTableForm.capacity) || 4,
+      setup: newTableForm.setup.trim() || `${newCap} chairs`,
+      description: newTableForm.setup.trim() || `${newCap} chairs`,
+      areaName: targetAreaName,
+      capacity: newCap,
       area: newTableForm.area,
       status: newTableForm.status,
     });
@@ -504,6 +593,7 @@ export const TableManagement: React.FC<TableManagementProps> = ({
       capacity: table.capacity,
       area: table.area,
       status: table.status,
+      areaName: table.areaName || (table.area === 'airconditioned' ? '1st aircon area' : 'entrance area'),
     });
     setIsEditTableModalOpen(true);
   };
@@ -531,13 +621,19 @@ export const TableManagement: React.FC<TableManagementProps> = ({
       return;
     }
 
+    const targetAreaName =
+      editModalForm.areaName ||
+      tableToEdit.areaName ||
+      (editModalForm.area === 'airconditioned' ? '1st aircon area' : 'entrance area');
+    const newCap = Number(editModalForm.capacity) || 4;
+
     const updated = AppStore.updateTable(tableToEdit.id, {
       tableNumber: tableNum,
       name: editModalForm.name.trim() || `Table ${tableNum}`,
-      setup: editModalForm.setup.trim() || undefined,
-      description: editModalForm.setup.trim() || undefined,
-      areaName: editModalForm.name.trim() || (editModalForm.area === 'airconditioned' ? 'Air-Con' : 'Non-A/C'),
-      capacity: Number(editModalForm.capacity) || 4,
+      setup: editModalForm.setup.trim() || `${newCap} chairs`,
+      description: editModalForm.setup.trim() || `${newCap} chairs`,
+      areaName: targetAreaName,
+      capacity: newCap,
       area: editModalForm.area,
       status: editModalForm.status,
     });
@@ -565,6 +661,7 @@ export const TableManagement: React.FC<TableManagementProps> = ({
       capacity: table.capacity,
       area: table.area,
       status: table.status,
+      areaName: table.areaName || (table.area === 'airconditioned' ? '1st aircon area' : 'entrance area'),
     });
     setIsEditingTable(true);
   };
@@ -590,13 +687,19 @@ export const TableManagement: React.FC<TableManagementProps> = ({
       return;
     }
 
+    const targetAreaName =
+      editTableForm.areaName ||
+      table.areaName ||
+      (editTableForm.area === 'airconditioned' ? '1st aircon area' : 'entrance area');
+    const newCap = Number(editTableForm.capacity) || 4;
+
     const updated = AppStore.updateTable(table.id, {
       tableNumber: tableNum,
       name: editTableForm.name.trim() || `Table ${tableNum}`,
-      setup: editTableForm.setup.trim() || undefined,
-      description: editTableForm.setup.trim() || undefined,
-      areaName: editTableForm.name.trim() || (editTableForm.area === 'airconditioned' ? 'Air-Con' : 'Non-A/C'),
-      capacity: Number(editTableForm.capacity) || 4,
+      setup: editTableForm.setup.trim() || `${newCap} chairs`,
+      description: editTableForm.setup.trim() || `${newCap} chairs`,
+      areaName: targetAreaName,
+      capacity: newCap,
       area: editTableForm.area,
       status: editTableForm.status,
     });
@@ -787,97 +890,47 @@ export const TableManagement: React.FC<TableManagementProps> = ({
     tables: Table[];
   }
 
-  // 10 Specified Official Areas
-  const OFFICIAL_AREAS: AreaMeta[] = [
-    {
-      key: '1st aircon area',
-      name: '1st Aircon Area',
-      description: '3 tables with 2 chairs each table',
-      icon: '❄️',
-      isAircon: true,
-    },
-    {
-      key: 'left side of center area',
-      name: 'Left Side of Center Area',
-      description: '3 long tables with 3 chairs each',
-      icon: '🌿',
-      isAircon: false,
-    },
-    {
-      key: 'kolin area',
-      name: 'Kolin Area',
-      description: 'Long couch shared by 2 tables (Table 1 & 2) • 1 chair each table',
-      icon: '❄️',
-      isAircon: true,
-    },
-    {
-      key: 'door area',
-      name: 'Door Area',
-      description: 'Long couch shared by 2 tables (Table 1 & 2) • 1 chair each table',
-      icon: '🚪',
-      isAircon: false,
-    },
-    {
-      key: 'entrance area',
-      name: 'Entrance Area',
-      description: '2 tables with 1 chair each • Long couch for 2 customers',
-      icon: '✨',
-      isAircon: false,
-    },
-    {
-      key: 'spotlight area',
-      name: 'Spotlight Area',
-      description: '1 table with 2 chairs',
-      icon: '💡',
-      isAircon: false,
-    },
-    {
-      key: '2nd aircon area',
-      name: '2nd Aircon Area',
-      description: '1 table • 4 seats',
-      icon: '❄️',
-      isAircon: true,
-    },
-    {
-      key: '3rd aircon area',
-      name: '3rd Aircon Area',
-      description: 'Long table • 8 seats',
-      icon: '❄️',
-      isAircon: true,
-    },
-    {
-      key: 'center area',
-      name: 'Center Area',
-      description: '10 seats • 10 high chairs',
-      icon: '🏛️',
-      isAircon: false,
-    },
-    {
-      key: 'window area',
-      name: 'Window Area',
-      description: 'Long table • 7 chairs',
-      icon: '🪟',
-      isAircon: false,
-    },
-  ];
-
-  // Group tables by area (Areas -> Tables -> Chairs)
+  // Group tables by area (Areas -> Tables -> Chairs), sorted by occupancy
   const areaGroups: AreaGroup[] = useMemo(() => {
     const areaMap = new Map<string, AreaGroup>();
 
-    OFFICIAL_AREAS.forEach((oa) => {
-      areaMap.set(oa.key, { meta: oa, tables: [] });
+    floorAreas.forEach((oa) => {
+      areaMap.set(oa.id.toLowerCase(), {
+        meta: {
+          key: oa.id,
+          name: oa.name,
+          description: oa.description || '',
+          icon: oa.icon || '☕',
+          isAircon: Boolean(oa.isAircon),
+        },
+        tables: [],
+      });
     });
 
     filteredTables.forEach((t) => {
       const rawAreaName = (
         t.areaName || (t.area === 'airconditioned' ? '1st aircon area' : 'entrance area')
-      ).toLowerCase();
+      ).toLowerCase().trim();
+
       let group = areaMap.get(rawAreaName);
       if (!group) {
+        const matched = floorAreas.find(
+          (a) =>
+            a.name.toLowerCase().trim() === rawAreaName ||
+            a.id.toLowerCase().trim() === rawAreaName
+        );
+        if (matched) {
+          group = areaMap.get(matched.id.toLowerCase());
+        }
+      }
+
+      if (!group) {
+        const cleanAreaName = (t.areaName || (t.area === 'airconditioned' ? 'Air-Con' : 'Main'))
+          .replace(/\s*area\b/gi, '')
+          .trim();
         const meta: AreaMeta = {
           key: rawAreaName,
-          name: t.areaName || (t.area === 'airconditioned' ? 'Air-Con Area' : 'Main Area'),
+          name: cleanAreaName,
           description: t.setup || `${t.capacity} Chairs`,
           icon: t.area === 'airconditioned' ? '❄️' : '🌿',
           isAircon: t.area === 'airconditioned',
@@ -888,8 +941,63 @@ export const TableManagement: React.FC<TableManagementProps> = ({
       group.tables.push(t);
     });
 
-    return Array.from(areaMap.values());
-  }, [filteredTables]);
+    // Sort tables inside each area group: occupied tables first
+    const groups = Array.from(areaMap.values()).map((g) => {
+      const sortedTables = [...g.tables].sort((a, b) => {
+        const occA = AppStore.getTableOccupancyDetails(a, orders);
+        const occB = AppStore.getTableOccupancyDetails(b, orders);
+        const isOccA = occA.isFullyOccupied || occA.occupiedChairs > 0 || a.status === 'occupied';
+        const isOccB = occB.isFullyOccupied || occB.occupiedChairs > 0 || b.status === 'occupied';
+
+        if (isOccA && !isOccB) return -1;
+        if (!isOccA && isOccB) return 1;
+
+        // If both occupied, sort by occupied chairs descending
+        if (isOccA && isOccB) {
+          if (occB.occupiedChairs !== occA.occupiedChairs) {
+            return occB.occupiedChairs - occA.occupiedChairs;
+          }
+        }
+
+        // Next prioritize reserved
+        const isResA = a.status === 'reserved';
+        const isResB = b.status === 'reserved';
+        if (isResA && !isResB) return -1;
+        if (!isResA && isResB) return 1;
+
+        // Otherwise table number
+        return a.tableNumber - b.tableNumber;
+      });
+
+      return {
+        ...g,
+        tables: sortedTables,
+      };
+    });
+
+    // Sort area groups so areas with occupied tables/chairs appear first
+    return groups.sort((a, b) => {
+      const occChairsA = a.tables.reduce((sum, t) => {
+        const occ = AppStore.getTableOccupancyDetails(t, orders);
+        return sum + (occ.occupiedChairs > 0 || t.status === 'occupied' ? (occ.occupiedChairs || 1) : 0);
+      }, 0);
+      const occChairsB = b.tables.reduce((sum, t) => {
+        const occ = AppStore.getTableOccupancyDetails(t, orders);
+        return sum + (occ.occupiedChairs > 0 || t.status === 'occupied' ? (occ.occupiedChairs || 1) : 0);
+      }, 0);
+
+      if (occChairsA > 0 && occChairsB === 0) return -1;
+      if (occChairsA === 0 && occChairsB > 0) return 1;
+      if (occChairsA !== occChairsB) return occChairsB - occChairsA;
+
+      // Next check reservations count
+      const resCountA = a.tables.filter((t) => t.status === 'reserved').length;
+      const resCountB = b.tables.filter((t) => t.status === 'reserved').length;
+      if (resCountA !== resCountB) return resCountB - resCountA;
+
+      return 0;
+    });
+  }, [filteredTables, orders]);
 
   // Enhanced Table Card Renderer with 2D Visual Floor Plan Schematic, Visual Chairs & Ticket Stubs
   const renderTableCard = (table: Table) => {
@@ -922,7 +1030,9 @@ export const TableManagement: React.FC<TableManagementProps> = ({
       !isCouch &&
       ((table.setup || '').toLowerCase().includes('long couch') ||
         (table.capacity === 1 &&
-          (table.areaName === 'kolin area' || table.areaName === 'door area')));
+          (table.areaName === 'kolin area' ||
+            table.areaName === 'door area' ||
+            table.areaName === 'entrance area')));
     const isLongTable = table.capacity >= 3;
 
     return (
@@ -939,7 +1049,7 @@ export const TableManagement: React.FC<TableManagementProps> = ({
             notes: '',
           });
         }}
-        className={`relative flex flex-col justify-between rounded-2xl sm:rounded-3xl p-3.5 sm:p-4.5 transition-all duration-200 border shadow-xs hover:shadow-md cursor-pointer select-none ${
+        className={`relative flex flex-col justify-between rounded-2xl sm:rounded-3xl p-2.5 sm:p-3 md:p-2.5 lg:p-3.5 w-fit min-w-[140px] sm:min-w-[150px] md:min-w-[140px] lg:min-w-[160px] max-w-full transition-all duration-200 border shadow-xs hover:shadow-md cursor-pointer select-none ${
           isCombinedPrimary
             ? isOccupied
               ? 'bg-stone-900 border-amber-400 text-white shadow-md ring-2 ring-amber-400/80'
@@ -955,20 +1065,9 @@ export const TableManagement: React.FC<TableManagementProps> = ({
             : 'bg-white border-stone-200 dark:border-stone-800 dark:bg-stone-850 hover:border-amber-400'
         }`}
       >
-        {/* Top Header: Table Title */}
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <h4
-            className={`font-serif text-base sm:text-lg font-bold leading-tight truncate ${
-              isOccupied ? 'text-white' : 'text-stone-950 dark:text-stone-100'
-            }`}
-          >
-            {isCombinedPrimary
-              ? combinedGroupName
-              : table.name || `Table ${table.tableNumber}`}
-          </h4>
-
-          {/* Status if Reserved/Cleaning */}
-          {(isReserved || isCleaning) && (
+        {/* Top Header: Status if Reserved/Cleaning */}
+        {(isReserved || isCleaning) && (
+          <div className="flex items-center justify-end mb-2">
             <span
               className={`rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-wider flex items-center gap-1 ${
                 isReserved
@@ -983,8 +1082,8 @@ export const TableManagement: React.FC<TableManagementProps> = ({
               />
               <span>{isReserved ? 'Reserved' : 'Clean'}</span>
             </span>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Reserved banner if active */}
         {isReserved && activeRes && (
@@ -1007,9 +1106,9 @@ export const TableManagement: React.FC<TableManagementProps> = ({
         <div className="py-1">
           {isCombinedPrimary ? (
               /* UNIFIED JOINED COMBINED TABLE SCHEMATIC */
-              <div className="flex flex-col items-center py-2 px-1 space-y-2">
+              <div className="flex flex-col items-center py-2 px-1 space-y-2.5">
                 {/* Top Row of Chairs for Unified Table */}
-                <div className="flex items-center justify-center gap-2 flex-wrap">
+                <div className="flex items-center justify-center gap-2.5 flex-wrap">
                   {occ.chairsWithOccupants
                     .slice(0, Math.ceil(occ.chairsWithOccupants.length / 2))
                     .map((ch, idx) => {
@@ -1029,16 +1128,16 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                               ? `${ch.customerName || 'Guest'} - #${ch.order?.orderNumber}`
                               : `${ch.label || `Seat ${ch.chairNumber}`} (Free)`
                           }
-                          className={`h-7 w-7 rounded-lg grid place-items-center text-[10px] font-black transition-all ${
+                          className={`h-9 w-9 sm:h-10 sm:w-10 rounded-xl grid place-items-center text-xs font-black transition-all ${
                             isTaken
                               ? 'bg-amber-500 text-stone-950 shadow-xs ring-1 ring-amber-300 hover:bg-amber-400'
                               : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/60'
                           }`}
                         >
                           {isTaken ? (
-                            <span>{(ch.customerName || 'G')[0].toUpperCase()}</span>
+                            <span className="font-black text-xs sm:text-sm">{(ch.customerName || 'G')[0].toUpperCase()}</span>
                           ) : (
-                            <Armchair className="h-3.5 w-3.5" />
+                            <Armchair className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
                           )}
                         </button>
                       );
@@ -1046,18 +1145,15 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                 </div>
 
                 {/* Single Continuous Unified Wooden Dining Table Top */}
-                <div className="w-full max-w-[280px] h-10 rounded-xl bg-gradient-to-r from-amber-800 via-amber-700 to-amber-800 border-2 border-amber-600/90 shadow-sm flex items-center justify-center gap-2 text-amber-100 px-3">
-                  <Link2 className="h-3.5 w-3.5 text-amber-300 shrink-0 stroke-[2.5]" />
-                  <span className="font-mono font-black text-xs">
+                <div className="w-full max-w-[300px] h-12 sm:h-13 rounded-xl sm:rounded-2xl bg-amber-500 border border-amber-400 shadow-2xs flex items-center justify-center gap-2 text-stone-950 px-3 font-black">
+                  <Link2 className="h-4 w-4 text-stone-950 shrink-0 stroke-[2.5]" />
+                  <span className="font-mono font-black text-xs sm:text-sm text-stone-950">
                     {combinedGroupName}
-                  </span>
-                  <span className="text-[9px] font-bold text-amber-200/90">
-                    • {table.capacity} Seats
                   </span>
                 </div>
 
                 {/* Bottom Row of Chairs for Unified Table */}
-                <div className="flex items-center justify-center gap-2 flex-wrap">
+                <div className="flex items-center justify-center gap-2.5 flex-wrap">
                   {occ.chairsWithOccupants
                     .slice(Math.ceil(occ.chairsWithOccupants.length / 2))
                     .map((ch, idx) => {
@@ -1077,16 +1173,16 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                               ? `${ch.customerName || 'Guest'} - #${ch.order?.orderNumber}`
                               : `${ch.label || `Seat ${ch.chairNumber}`} (Free)`
                           }
-                          className={`h-7 w-7 rounded-lg grid place-items-center text-[10px] font-black transition-all ${
+                          className={`h-9 w-9 sm:h-10 sm:w-10 rounded-xl grid place-items-center text-xs font-black transition-all ${
                             isTaken
                               ? 'bg-amber-500 text-stone-950 shadow-xs ring-1 ring-amber-300 hover:bg-amber-400'
                               : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/60'
                           }`}
                         >
                           {isTaken ? (
-                            <span>{(ch.customerName || 'G')[0].toUpperCase()}</span>
+                            <span className="font-black text-xs sm:text-sm">{(ch.customerName || 'G')[0].toUpperCase()}</span>
                           ) : (
-                            <Armchair className="h-3.5 w-3.5" />
+                            <Armchair className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
                           )}
                         </button>
                       );
@@ -1096,13 +1192,13 @@ export const TableManagement: React.FC<TableManagementProps> = ({
             ) : isCouch ? (
               /* COUCH / SOFA SCHEMATIC */
               <div className="flex flex-col items-center py-1">
-                <div className="w-full max-w-[260px] rounded-2xl border-2 border-stone-300 dark:border-stone-600 bg-stone-200/80 dark:bg-stone-800 p-1.5 shadow-xs">
+                <div className="w-full max-w-[280px] sm:max-w-[300px] rounded-2xl border-2 border-stone-300 dark:border-stone-600 bg-stone-200/80 dark:bg-stone-800 p-2 shadow-xs">
                   {/* Sofa Backrest Cushion */}
-                  <div className="h-2 rounded-lg bg-stone-300 dark:bg-stone-700 mb-1.5 flex items-center justify-center">
-                    <div className="w-14 h-0.5 rounded-full bg-stone-400 dark:bg-stone-500" />
+                  <div className="h-2.5 rounded-lg bg-stone-300 dark:bg-stone-700 mb-1.5 flex items-center justify-center">
+                    <div className="w-16 h-0.5 rounded-full bg-stone-400 dark:bg-stone-500" />
                   </div>
                   {/* 2 Cushion Seats */}
-                  <div className="grid grid-cols-2 gap-1.5">
+                  <div className="grid grid-cols-2 gap-2">
                     {occ.chairsWithOccupants.map((ch, idx) => {
                       const isTaken = ch.isOccupied && ch.order;
                       return (
@@ -1114,14 +1210,14 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                               handleOpenTicketModal(ch.order);
                             }
                           }}
-                          className={`rounded-xl p-2 flex flex-col items-center justify-center text-center transition-all ${
+                          className={`rounded-xl p-2.5 sm:p-3 flex flex-col items-center justify-center text-center transition-all ${
                             isTaken
                               ? 'bg-gradient-to-b from-amber-400 to-amber-500 text-stone-950 shadow-xs ring-1 ring-amber-300 cursor-pointer active:scale-95 group'
                               : 'bg-emerald-500/10 border border-dashed border-emerald-400/80 text-emerald-700 dark:text-emerald-300'
                           }`}
                         >
-                          <Sofa className="h-4 w-4 mb-0.5" />
-                          <span className="text-[10px] font-black truncate max-w-full">
+                          <Sofa className="h-5 w-5 sm:h-5.5 sm:w-5.5 mb-1" />
+                          <span className="text-[11px] sm:text-xs font-black truncate max-w-full">
                             {isTaken ? ch.customerName || `Guest ${idx + 1}` : `Seat ${idx + 1}`}
                           </span>
                           {isTaken && ch.order ? (
@@ -1139,20 +1235,12 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                     })}
                   </div>
                 </div>
-                <div className="flex items-center gap-1 text-[9px] font-bold text-stone-400 mt-1.5">
-                  <Sofa className="h-3 w-3" />
-                  <span>
-                    {table.areaName === 'kolin area' || table.areaName === 'door area'
-                      ? 'Long Couch • Shared with Table 1 & 2'
-                      : 'Lounge Couch • 2 Seats'}
-                  </span>
-                </div>
               </div>
             ) : isLongTable ? (
               /* LONG TABLE / HIGH TABLE SCHEMATIC */
-              <div className="flex flex-col items-center py-1">
+              <div className="flex flex-col items-center py-1.5">
                 {/* Top Chairs row */}
-                <div className="flex items-center justify-center gap-1.5 mb-1 flex-wrap">
+                <div className="flex items-center justify-center gap-2 mb-1.5 flex-wrap">
                   {occ.chairsWithOccupants
                     .slice(0, Math.ceil(occ.chairsWithOccupants.length / 2))
                     .map((ch, idx) => {
@@ -1172,16 +1260,16 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                               ? `${ch.customerName || 'Guest'} - Order #${ch.order?.orderNumber}`
                               : `Seat ${ch.chairNumber} (Free)`
                           }
-                          className={`h-7 w-7 rounded-lg grid place-items-center text-[10px] font-black transition-all ${
+                          className={`h-9 w-9 sm:h-10 sm:w-10 rounded-xl grid place-items-center text-xs font-black transition-all ${
                             isTaken
                               ? 'bg-amber-500 text-stone-950 shadow-xs ring-1 ring-amber-300 active:scale-95 cursor-pointer hover:bg-amber-400'
                               : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/60'
                           }`}
                         >
                           {isTaken ? (
-                            <span>{(ch.customerName || 'G')[0].toUpperCase()}</span>
+                            <span className="font-black text-xs sm:text-sm">{(ch.customerName || 'G')[0].toUpperCase()}</span>
                           ) : (
-                            <Armchair className="h-3.5 w-3.5" />
+                            <Armchair className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
                           )}
                         </button>
                       );
@@ -1189,23 +1277,15 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                 </div>
 
                 {/* Wooden Table Top Surface */}
-                <div className="w-full max-w-[270px] h-8 rounded-xl bg-gradient-to-r from-amber-800 via-amber-700 to-amber-800 border border-amber-600/80 shadow-inner flex items-center justify-between px-3 text-amber-100">
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-300 animate-pulse" />
-                    <span className="font-mono font-black text-[11px] tracking-wider">
-                      T{table.tableNumber}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1 text-[10px] font-bold text-amber-200/90">
-                    <Armchair className="h-3 w-3" />
-                    <span>
-                      {occ.occupiedChairs}/{table.capacity}
-                    </span>
-                  </div>
+                <div className="w-full max-w-[290px] h-10 sm:h-11 rounded-xl sm:rounded-2xl bg-amber-500 border border-amber-400 shadow-2xs flex items-center justify-center gap-2 px-3 text-stone-950">
+                  <Utensils className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-stone-950 shrink-0" />
+                  <span className="font-mono font-black text-xs sm:text-sm tracking-wider text-stone-950">
+                    T{table.tableNumber}
+                  </span>
                 </div>
 
                 {/* Bottom Chairs row */}
-                <div className="flex items-center justify-center gap-1.5 mt-1 flex-wrap">
+                <div className="flex items-center justify-center gap-2 mt-1.5 flex-wrap">
                   {occ.chairsWithOccupants
                     .slice(Math.ceil(occ.chairsWithOccupants.length / 2))
                     .map((ch, idx) => {
@@ -1225,16 +1305,16 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                               ? `${ch.customerName || 'Guest'} - Order #${ch.order?.orderNumber}`
                               : `Seat ${ch.chairNumber} (Free)`
                           }
-                          className={`h-7 w-7 rounded-lg grid place-items-center text-[10px] font-black transition-all ${
+                          className={`h-9 w-9 sm:h-10 sm:w-10 rounded-xl grid place-items-center text-xs font-black transition-all ${
                             isTaken
                               ? 'bg-amber-500 text-stone-950 shadow-xs ring-1 ring-amber-300 active:scale-95 cursor-pointer hover:bg-amber-400'
                               : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/60'
                           }`}
                         >
                           {isTaken ? (
-                            <span>{(ch.customerName || 'G')[0].toUpperCase()}</span>
+                            <span className="font-black text-xs sm:text-sm">{(ch.customerName || 'G')[0].toUpperCase()}</span>
                           ) : (
-                            <Armchair className="h-3.5 w-3.5" />
+                            <Armchair className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
                           )}
                         </button>
                       );
@@ -1243,17 +1323,17 @@ export const TableManagement: React.FC<TableManagementProps> = ({
               </div>
             ) : isSharesLongCouch ? (
               /* SHARED LONG COUCH TABLE (TABLE 1 OR TABLE 2 WITH 1 OPPOSITE CHAIR) */
-              <div className="flex flex-col items-center justify-center gap-2 py-1">
+              <div className="flex flex-col items-center justify-center gap-2.5 py-1.5">
                 {/* Top: Long Couch Cushion Indicator */}
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-600 dark:text-stone-300 text-[10px] font-bold shadow-2xs">
-                  <Sofa className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                <div className="flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-600 dark:text-stone-300 text-[10px] sm:text-[11px] font-bold shadow-2xs">
+                  <Sofa className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
                   <span>Shared Long Couch (Facing)</span>
                 </div>
 
                 {/* Central Cafe Table Surface */}
-                <div className="h-9 w-24 rounded-xl bg-gradient-to-r from-amber-800 via-amber-700 to-amber-800 border-2 border-amber-600/80 shadow-xs flex items-center justify-center gap-1.5 text-amber-100 px-2">
-                  <Utensils className="h-2.5 w-2.5 text-amber-300/80 shrink-0" />
-                  <span className="font-mono text-xs font-black truncate">T{table.tableNumber}</span>
+                <div className="h-11 sm:h-12 w-28 sm:w-32 rounded-xl sm:rounded-2xl bg-amber-500 border border-amber-400 shadow-2xs flex items-center justify-center gap-1.5 text-stone-950 px-2 font-black">
+                  <Utensils className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-stone-950 shrink-0" />
+                  <span className="font-mono text-xs sm:text-sm font-black truncate text-stone-950">T{table.tableNumber}</span>
                 </div>
 
                 {/* Bottom: Opposite Chair 1 */}
@@ -1271,7 +1351,7 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                               handleOpenTicketModal(ch.order);
                             }
                           }}
-                          className={`h-8 w-8 rounded-xl grid place-items-center transition-all ${
+                          className={`h-10 w-10 sm:h-11 sm:w-11 rounded-xl sm:rounded-2xl grid place-items-center transition-all ${
                             isTaken
                               ? 'bg-amber-500 text-stone-950 shadow-xs ring-2 ring-amber-300 active:scale-95 cursor-pointer hover:bg-amber-400'
                               : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/80'
@@ -1279,23 +1359,20 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                           title={isTaken ? `${ch.customerName || 'Guest'} - #${ch.order?.orderNumber}` : 'Chair 1 (Opposite Chair) - Available'}
                         >
                           {isTaken ? (
-                            <span className="font-black text-xs">
+                            <span className="font-black text-sm">
                               {(ch.customerName || 'G')[0].toUpperCase()}
                             </span>
                           ) : (
-                            <Armchair className="h-4 w-4" />
+                            <Armchair className="h-5 w-5 sm:h-5.5 sm:w-5.5" />
                           )}
                         </button>
-                        <span className="text-[10px] font-bold text-stone-500 dark:text-stone-400">
-                          Opposite Chair 1
-                        </span>
                       </div>
                     );
                   })()}
               </div>
             ) : (
               /* STANDARD 1 TO 2 CHAIR TABLE SCHEMATIC */
-              <div className="flex items-center justify-center gap-3 py-1">
+              <div className="flex items-center justify-center gap-3.5 sm:gap-4 py-1.5">
                 {/* Chair 1 */}
                 {occ.chairsWithOccupants[0] &&
                   (() => {
@@ -1310,27 +1387,27 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                             handleOpenTicketModal(ch.order);
                           }
                         }}
-                        className={`h-8 w-8 rounded-xl grid place-items-center transition-all ${
+                        className={`h-10 w-10 sm:h-11 sm:w-11 rounded-xl sm:rounded-2xl grid place-items-center transition-all ${
                           isTaken
                             ? 'bg-amber-500 text-stone-950 shadow-xs ring-2 ring-amber-300 active:scale-95 cursor-pointer hover:bg-amber-400'
                             : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/80'
                         }`}
                       >
                         {isTaken ? (
-                          <span className="font-black text-xs">
+                          <span className="font-black text-sm">
                             {(ch.customerName || 'G')[0].toUpperCase()}
                           </span>
                         ) : (
-                          <Armchair className="h-4 w-4" />
+                          <Armchair className="h-5 w-5 sm:h-5.5 sm:w-5.5" />
                         )}
                       </button>
                     );
                   })()}
 
                 {/* Central Cafe Table Disc */}
-                <div className="h-10 w-14 rounded-xl bg-gradient-to-br from-amber-800 to-amber-900 border-2 border-amber-600/80 shadow-sm flex flex-col items-center justify-center text-amber-100">
-                  <Utensils className="h-2.5 w-2.5 text-amber-300/80 mb-0.5" />
-                  <span className="font-mono text-[11px] font-black">T{table.tableNumber}</span>
+                <div className="h-12 sm:h-14 w-16 sm:w-18 rounded-xl sm:rounded-2xl bg-amber-500 border border-amber-400 shadow-2xs flex flex-col items-center justify-center text-stone-950 font-black">
+                  <Utensils className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-stone-950 mb-0.5" />
+                  <span className="font-mono text-xs sm:text-sm font-black text-stone-950">T{table.tableNumber}</span>
                 </div>
 
                 {/* Chair 2 (if present) */}
@@ -1347,24 +1424,24 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                             handleOpenTicketModal(ch.order);
                           }
                         }}
-                        className={`h-8 w-8 rounded-xl grid place-items-center transition-all ${
+                        className={`h-10 w-10 sm:h-11 sm:w-11 rounded-xl sm:rounded-2xl grid place-items-center transition-all ${
                           isTaken
                             ? 'bg-amber-500 text-stone-950 shadow-xs ring-2 ring-amber-300 active:scale-95 cursor-pointer hover:bg-amber-400'
                             : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/80'
                         }`}
                       >
                         {isTaken ? (
-                          <span className="font-black text-xs">
+                          <span className="font-black text-sm">
                             {(ch.customerName || 'G')[0].toUpperCase()}
                           </span>
                         ) : (
-                          <Armchair className="h-4 w-4" />
+                          <Armchair className="h-5 w-5 sm:h-5.5 sm:w-5.5" />
                         )}
                       </button>
                     );
                   })()
                 ) : (
-                  <div className="h-8 w-8" />
+                  <div className="h-10 w-10 sm:h-11 sm:w-11" />
                 )}
               </div>
             )}
@@ -1373,21 +1450,73 @@ export const TableManagement: React.FC<TableManagementProps> = ({
     );
   };
 
-  // Specialized Architectural Blueprint for Areas where a Long Couch is shared by 2 Tables (Kolin Area & Door Area)
+  // Specialized Architectural Blueprint for Areas where a Long Couch is shared by 2 Tables (Kolin Area, Door Area & Entrance Area)
   const renderSharedCouchAreaBlueprint = (group: AreaGroup, areaTables: Table[]) => {
     const allAreaTables = tables.filter((t) => {
       const a = (t.areaName || '').toLowerCase();
       return a === group.meta.key;
     });
     const t1 =
-      areaTables.find((t) => (t.name || '').toLowerCase().includes('table 1') || t.code?.includes('_1')) ||
-      allAreaTables.find((t) => (t.name || '').toLowerCase().includes('table 1') || t.code?.includes('_1'));
+      areaTables.find(
+        (t) =>
+          t.code === 'table7_kolin_1' ||
+          t.code === 'table10_door_1' ||
+          t.code === 'table13_entrance_1' ||
+          (t.name || '').toLowerCase().includes('table 1') ||
+          t.code?.includes('_1') ||
+          t.tableNumber === 1 ||
+          t.tableNumber === 7 ||
+          t.tableNumber === 10 ||
+          t.tableNumber === 13
+      ) ||
+      allAreaTables.find(
+        (t) =>
+          t.code === 'table7_kolin_1' ||
+          t.code === 'table10_door_1' ||
+          t.code === 'table13_entrance_1' ||
+          (t.name || '').toLowerCase().includes('table 1') ||
+          t.code?.includes('_1')
+      );
+
     const t2 =
-      areaTables.find((t) => (t.name || '').toLowerCase().includes('table 2') || t.code?.includes('_2')) ||
-      allAreaTables.find((t) => (t.name || '').toLowerCase().includes('table 2') || t.code?.includes('_2'));
+      areaTables.find(
+        (t) =>
+          t.code === 'table8_kolin_2' ||
+          t.code === 'table11_door_2' ||
+          t.code === 'table14_entrance_2' ||
+          (t.name || '').toLowerCase().includes('table 2') ||
+          t.code?.includes('_2') ||
+          t.tableNumber === 2 ||
+          t.tableNumber === 8 ||
+          t.tableNumber === 11 ||
+          t.tableNumber === 14
+      ) ||
+      allAreaTables.find(
+        (t) =>
+          t.code === 'table8_kolin_2' ||
+          t.code === 'table11_door_2' ||
+          t.code === 'table14_entrance_2' ||
+          (t.name || '').toLowerCase().includes('table 2') ||
+          t.code?.includes('_2')
+      );
+
     const couch =
-      areaTables.find((t) => (t.name || '').toLowerCase().includes('couch') || t.code?.includes('couch')) ||
-      allAreaTables.find((t) => (t.name || '').toLowerCase().includes('couch') || t.code?.includes('couch'));
+      areaTables.find(
+        (t) =>
+          (t.name || '').toLowerCase().includes('couch') ||
+          t.code?.includes('couch') ||
+          t.tableNumber === 9 ||
+          t.tableNumber === 12 ||
+          t.tableNumber === 15
+      ) ||
+      allAreaTables.find(
+        (t) =>
+          (t.name || '').toLowerCase().includes('couch') ||
+          t.code?.includes('couch') ||
+          t.tableNumber === 9 ||
+          t.tableNumber === 12 ||
+          t.tableNumber === 15
+      );
 
     if (!t1 || !t2 || !couch) return null;
 
@@ -1403,203 +1532,167 @@ export const TableManagement: React.FC<TableManagementProps> = ({
     const occ2 = AppStore.getTableOccupancyDetails(t2, orders);
     const occCouch = AppStore.getTableOccupancyDetails(couch, orders);
 
-    const t1Chair = occ1.chairsWithOccupants[0];
-    const t2Chair = occ2.chairsWithOccupants[0];
-    const couchSeat1 = occCouch.chairsWithOccupants[0];
-    const couchSeat2 = occCouch.chairsWithOccupants[1];
-
-    const totalOccupied = occ1.occupiedChairs + occ2.occupiedChairs + occCouch.occupiedChairs;
-
     return (
-      <div className="w-full max-w-lg mx-auto py-1 space-y-3 font-sans">
-        {/* 1. TOP: The Continuous Long Couch */}
-        <div className="rounded-2xl border-2 border-stone-300 dark:border-stone-600 bg-stone-200/90 dark:bg-stone-800 p-2.5 shadow-sm">
-          {/* Sofa Backrest Cushion */}
+      <div className="w-full max-w-[310px] sm:max-w-[340px] mx-auto py-1.5 space-y-2.5 font-sans">
+        {/* 1. TOP: The Continuous Long Couch (1 Couch with 2 Occupants) */}
+        <div
+          onClick={() => setSelectedTableForDetails(couch)}
+          className="w-full rounded-2xl border-2 border-amber-500 dark:border-amber-400 bg-transparent p-1.5 shadow-2xs transition hover:border-amber-400 dark:hover:border-amber-300 cursor-pointer"
+          title={`${couch.name} (Table #${couch.tableNumber}) • Capacity: 2 • Shared with Table 1 & 2`}
+        >
+          {/* 2 Occupant Seats on the Single Couch */}
+          <div className="grid grid-cols-2 gap-1.5 sm:gap-2 md:gap-1.5 lg:gap-2.5">
+            {occCouch.chairsWithOccupants.map((ch, idx) => {
+              const isTaken = ch.isOccupied && ch.order;
+              return (
+                <button
+                  key={ch.id || idx}
+                  type="button"
+                  onClick={(e) => {
+                    if (isTaken && ch.order) {
+                      e.stopPropagation();
+                      handleOpenTicketModal(ch.order);
+                    } else {
+                      e.stopPropagation();
+                      setSelectedTableForDetails(couch);
+                    }
+                  }}
+                  className={`h-9 sm:h-10 rounded-xl flex items-center justify-center transition active:scale-95 cursor-pointer ${
+                    isTaken
+                      ? 'bg-amber-500 text-stone-950 ring-2 ring-amber-300 shadow-xs'
+                      : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/80 hover:bg-emerald-500/25'
+                  }`}
+                  title={
+                    isTaken
+                      ? `Occupied - ${ch.customerName}`
+                      : `${ch.label || `Couch Seat ${idx + 1}`} - Available`
+                  }
+                >
+                  {isTaken ? (
+                    <span className="font-black text-xs sm:text-sm">
+                      {(ch.customerName || 'G')[0].toUpperCase()}
+                    </span>
+                  ) : (
+                    <Sofa className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 2. CENTER: The Two Shared Tables */}
+        <div className="grid grid-cols-2 gap-1.5 sm:gap-2 md:gap-1.5 lg:gap-2.5">
+          {/* Table 1 */}
           <div
-            onClick={() => setSelectedTableForDetails(couch)}
-            className="h-4 rounded-lg bg-stone-300 dark:bg-stone-700 mb-2.5 flex items-center justify-center gap-1.5 px-3 cursor-pointer hover:bg-stone-350 dark:hover:bg-stone-650 transition"
-            title="Continuous Long Couch - Click to view table details"
+            onClick={() => setSelectedTableForDetails(t1)}
+            className="h-9 sm:h-10 md:h-9.5 lg:h-11 rounded-xl sm:rounded-2xl bg-amber-500 hover:bg-amber-400 border border-amber-400 px-2 text-stone-950 flex items-center justify-center gap-1 text-center shadow-2xs transition cursor-pointer active:scale-98 font-black"
           >
-            <Sofa className="h-3 w-3 text-stone-500 dark:text-stone-400 shrink-0" />
-            <span className="text-[9px] font-black uppercase tracking-wider text-stone-600 dark:text-stone-300">
-              Long Couch (Shared by Table 1 &amp; Table 2)
+            <Utensils className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-stone-950 shrink-0" />
+            <span className="font-mono text-xs sm:text-sm font-black leading-tight">
+              T{t1.tableNumber}
             </span>
           </div>
 
-            {/* 2 Couch Seats side by side */}
-            <div className="grid grid-cols-2 gap-3">
-              {/* Left Couch Seat (Faces Table 1) */}
-              <div
-                onClick={() => {
-                  if (couchSeat1?.isOccupied && couchSeat1.order) {
-                    handleOpenTicketModal(couchSeat1.order);
-                  } else {
-                    setSelectedTableForDetails(couch);
-                  }
-                }}
-                className={`rounded-xl p-2.5 flex flex-col items-center justify-center text-center transition cursor-pointer active:scale-95 border ${
-                  couchSeat1?.isOccupied
-                    ? 'bg-gradient-to-b from-amber-400 to-amber-500 text-stone-950 border-amber-300 shadow-xs'
-                    : 'bg-emerald-500/10 border-dashed border-emerald-400/80 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20'
-                }`}
-                title={couchSeat1?.isOccupied ? `Occupied - ${couchSeat1.customerName}` : 'Couch Seat 1 (Table 1) - Available'}
-              >
-                <Sofa className="h-4 w-4 mb-0.5" />
-                <span className="text-[11px] font-black truncate max-w-full">
-                  {couchSeat1?.isOccupied ? couchSeat1.customerName || 'Guest' : 'Couch Seat 1'}
-                </span>
-                <span className="text-[9px] font-bold opacity-80 mt-0.5">
-                  Faces Table 1
-                </span>
-                {couchSeat1?.isOccupied && couchSeat1.order ? (
-                  <span className="mt-1 inline-flex items-center gap-0.5 rounded-full bg-stone-950 text-amber-300 px-1.5 py-0.2 text-[8px] font-mono font-black">
-                    <Ticket className="h-2.5 w-2.5" />
-                    #{couchSeat1.order.orderNumber.slice(-3)}
-                  </span>
-                ) : (
-                  <span className="text-[8px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mt-0.5">
-                    Open
-                  </span>
-                )}
-              </div>
-
-              {/* Right Couch Seat (Faces Table 2) */}
-              <div
-                onClick={() => {
-                  if (couchSeat2?.isOccupied && couchSeat2.order) {
-                    handleOpenTicketModal(couchSeat2.order);
-                  } else {
-                    setSelectedTableForDetails(couch);
-                  }
-                }}
-                className={`rounded-xl p-2.5 flex flex-col items-center justify-center text-center transition cursor-pointer active:scale-95 border ${
-                  couchSeat2?.isOccupied
-                    ? 'bg-gradient-to-b from-amber-400 to-amber-500 text-stone-950 border-amber-300 shadow-xs'
-                    : 'bg-emerald-500/10 border-dashed border-emerald-400/80 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20'
-                }`}
-                title={couchSeat2?.isOccupied ? `Occupied - ${couchSeat2.customerName}` : 'Couch Seat 2 (Table 2) - Available'}
-              >
-                <Sofa className="h-4 w-4 mb-0.5" />
-                <span className="text-[11px] font-black truncate max-w-full">
-                  {couchSeat2?.isOccupied ? couchSeat2.customerName || 'Guest' : 'Couch Seat 2'}
-                </span>
-                <span className="text-[9px] font-bold opacity-80 mt-0.5">
-                  Faces Table 2
-                </span>
-                {couchSeat2?.isOccupied && couchSeat2.order ? (
-                  <span className="mt-1 inline-flex items-center gap-0.5 rounded-full bg-stone-950 text-amber-300 px-1.5 py-0.2 text-[8px] font-mono font-black">
-                    <Ticket className="h-2.5 w-2.5" />
-                    #{couchSeat2.order.orderNumber.slice(-3)}
-                  </span>
-                ) : (
-                  <span className="text-[8px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mt-0.5">
-                    Open
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* 2. CENTER: The Two Shared Tables */}
-          <div className="grid grid-cols-2 gap-4 sm:gap-6 pt-1">
-            {/* Table 1 */}
-            <div
-              onClick={() => setSelectedTableForDetails(t1)}
-              className="rounded-xl border-2 border-amber-700/80 bg-gradient-to-br from-amber-800 to-amber-900 p-3 text-amber-100 flex flex-col items-center justify-center text-center shadow-sm hover:border-amber-400 transition cursor-pointer active:scale-98"
-            >
-              <Utensils className="h-3 w-3 text-amber-300 mb-0.5" />
-              <span className="font-mono text-xs font-black">
-                T{t1.tableNumber} • Table 1
-              </span>
-              <span className="text-[9px] font-bold text-amber-200/80 mt-0.5">
-                {occ1.occupiedChairs > 0 ? `${occ1.occupiedChairs}/1 Occupied` : 'Available'}
-              </span>
-            </div>
-
-            {/* Table 2 */}
-            <div
-              onClick={() => setSelectedTableForDetails(t2)}
-              className="rounded-xl border-2 border-amber-700/80 bg-gradient-to-br from-amber-800 to-amber-900 p-3 text-amber-100 flex flex-col items-center justify-center text-center shadow-sm hover:border-amber-400 transition cursor-pointer active:scale-98"
-            >
-              <Utensils className="h-3 w-3 text-amber-300 mb-0.5" />
-              <span className="font-mono text-xs font-black">
-                T{t2.tableNumber} • Table 2
-              </span>
-              <span className="text-[9px] font-bold text-amber-200/80 mt-0.5">
-                {occ2.occupiedChairs > 0 ? `${occ2.occupiedChairs}/1 Occupied` : 'Available'}
-              </span>
-            </div>
-          </div>
-
-          {/* 3. FRONT: Each Table's Opposite Chair */}
-          <div className="grid grid-cols-2 gap-4 sm:gap-6">
-            {/* Chair for Table 1 */}
-            <div className="flex flex-col items-center justify-center gap-1">
-              <button
-                type="button"
-                onClick={() => {
-                  if (t1Chair?.isOccupied && t1Chair.order) {
-                    handleOpenTicketModal(t1Chair.order);
-                  } else {
-                    setSelectedTableForDetails(t1);
-                  }
-                }}
-                className={`h-9 w-9 rounded-xl grid place-items-center transition active:scale-95 cursor-pointer ${
-                  t1Chair?.isOccupied
-                    ? 'bg-amber-500 text-stone-950 ring-2 ring-amber-300 shadow-xs'
-                    : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/80 hover:bg-emerald-500/25'
-                }`}
-                title={t1Chair?.isOccupied ? `Occupied - ${t1Chair.customerName}` : 'Chair 1 (Table 1) - Available'}
-              >
-                {t1Chair?.isOccupied ? (
-                  <span className="font-black text-xs">{(t1Chair.customerName || 'G')[0].toUpperCase()}</span>
-                ) : (
-                  <Armchair className="h-4 w-4" />
-                )}
-              </button>
-              <span className="text-[10px] font-bold text-stone-600 dark:text-stone-400">
-                Chair (Table 1)
-              </span>
-            </div>
-
-            {/* Chair for Table 2 */}
-            <div className="flex flex-col items-center justify-center gap-1">
-              <button
-                type="button"
-                onClick={() => {
-                  if (t2Chair?.isOccupied && t2Chair.order) {
-                    handleOpenTicketModal(t2Chair.order);
-                  } else {
-                    setSelectedTableForDetails(t2);
-                  }
-                }}
-                className={`h-9 w-9 rounded-xl grid place-items-center transition active:scale-95 cursor-pointer ${
-                  t2Chair?.isOccupied
-                    ? 'bg-amber-500 text-stone-950 ring-2 ring-amber-300 shadow-xs'
-                    : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/80 hover:bg-emerald-500/25'
-                }`}
-                title={t2Chair?.isOccupied ? `Occupied - ${t2Chair.customerName}` : 'Chair 1 (Table 2) - Available'}
-              >
-                {t2Chair?.isOccupied ? (
-                  <span className="font-black text-xs">{(t2Chair.customerName || 'G')[0].toUpperCase()}</span>
-                ) : (
-                  <Armchair className="h-4 w-4" />
-                )}
-              </button>
-              <span className="text-[10px] font-bold text-stone-600 dark:text-stone-400">
-                Chair (Table 2)
-              </span>
-            </div>
+          {/* Table 2 */}
+          <div
+            onClick={() => setSelectedTableForDetails(t2)}
+            className="h-9 sm:h-10 md:h-9.5 lg:h-11 rounded-xl sm:rounded-2xl bg-amber-500 hover:bg-amber-400 border border-amber-400 px-2 text-stone-950 flex items-center justify-center gap-1 text-center shadow-2xs transition cursor-pointer active:scale-98 font-black"
+          >
+            <Utensils className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-stone-950 shrink-0" />
+            <span className="font-mono text-xs sm:text-sm font-black leading-tight">
+              T{t2.tableNumber}
+            </span>
           </div>
         </div>
+
+        {/* 3. FRONT: Each Table's Opposite Chairs */}
+        <div className="grid grid-cols-2 gap-1.5 sm:gap-2 md:gap-1.5 lg:gap-2.5">
+          {/* Chairs for Table 1 */}
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            {occ1.chairsWithOccupants.map((ch, idx) => {
+              const isTaken = ch.isOccupied && ch.order;
+              return (
+                <button
+                  key={ch.id || idx}
+                  type="button"
+                  onClick={() => {
+                    if (isTaken && ch.order) {
+                      handleOpenTicketModal(ch.order);
+                    } else {
+                      setSelectedTableForDetails(t1);
+                    }
+                  }}
+                  className={`h-9 w-9 sm:h-10 sm:w-10 rounded-xl grid place-items-center transition active:scale-95 cursor-pointer ${
+                    isTaken
+                      ? 'bg-amber-500 text-stone-950 ring-2 ring-amber-300 shadow-xs'
+                      : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/80 hover:bg-emerald-500/25'
+                  }`}
+                  title={
+                    isTaken
+                      ? `Occupied - ${ch.customerName}`
+                      : `${ch.label || `Chair ${idx + 1}`} (T${t1.tableNumber}) - Available`
+                  }
+                >
+                  {isTaken ? (
+                    <span className="font-black text-xs sm:text-sm">
+                      {(ch.customerName || 'G')[0].toUpperCase()}
+                    </span>
+                  ) : (
+                    <Armchair className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Chairs for Table 2 */}
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            {occ2.chairsWithOccupants.map((ch, idx) => {
+              const isTaken = ch.isOccupied && ch.order;
+              return (
+                <button
+                  key={ch.id || idx}
+                  type="button"
+                  onClick={() => {
+                    if (isTaken && ch.order) {
+                      handleOpenTicketModal(ch.order);
+                    } else {
+                      setSelectedTableForDetails(t2);
+                    }
+                  }}
+                  className={`h-9 w-9 sm:h-10 sm:w-10 rounded-xl grid place-items-center transition active:scale-95 cursor-pointer ${
+                    isTaken
+                      ? 'bg-amber-500 text-stone-950 ring-2 ring-amber-300 shadow-xs'
+                      : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/80 hover:bg-emerald-500/25'
+                  }`}
+                  title={
+                    isTaken
+                      ? `Occupied - ${ch.customerName}`
+                      : `${ch.label || `Chair ${idx + 1}`} (T${t2.tableNumber}) - Available`
+                  }
+                >
+                  {isTaken ? (
+                    <span className="font-black text-xs sm:text-sm">
+                      {(ch.customerName || 'G')[0].toUpperCase()}
+                    </span>
+                  ) : (
+                    <Armchair className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     );
   };
 
   const handleResetToOfficial = async () => {
     const confirmed = await showConfirm({
-      title: 'Reset to Official Tables & Areas?',
+      title: 'Reset to Official Tables & Sections?',
       message:
-        'This will reset the layout to the official Yellow Hauz floor plan divided into 10 areas (1st Aircon, Left Side of Center, Kolin, Door, Entrance, Spotlight, 2nd Aircon, 3rd Aircon, Center, Window) with 20 tables and 59 individual seats. Active reservations will be preserved.',
+        'This will reset the layout to the official Yellow Hauz floor plan divided into 10 sections (1st Aircon, Left Side of Center, Kolin, Door, Entrance, Spotlight, 2nd Aircon, 3rd Aircon, Center, Window) with 20 tables and 59 individual seats. Active reservations will be preserved.',
       type: 'warning',
       confirmText: 'Reset Tables',
       cancelText: 'Cancel',
@@ -1610,7 +1703,7 @@ export const TableManagement: React.FC<TableManagementProps> = ({
       refreshData();
       showAlert({
         title: 'Official Tables Restored',
-        message: 'Loaded official Yellow Hauz layout with 10 areas, 20 tables, and 59 seats.',
+        message: 'Loaded official Yellow Hauz layout with 10 sections, 20 tables, and 59 seats.',
         type: 'success',
       });
     }
@@ -1702,54 +1795,92 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                     Choose your preferred table layout:
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    {/* 1 Column Option */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {/* 1 Column Option: Realistic Floor Plan Visual Table (Full width layout) */}
                     <button
                       type="button"
                       id="tables-grid-col-1-btn"
                       onClick={() => handleSetGridColumns(1)}
-                      className={`flex flex-col items-center justify-center gap-2 p-3 rounded-2xl border text-center transition cursor-pointer ${
+                      className={`flex flex-col items-center justify-between p-3 rounded-2xl border text-center transition cursor-pointer select-none ${
                         gridColumns === 1
                           ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
                           : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
                       }`}
                     >
-                      <div className="grid h-8 w-8 place-items-center rounded-xl bg-white border border-stone-200 shadow-2xs text-amber-700">
-                        <Square className="h-4 w-4" />
+                      {/* Realistic 1-Col Table Blueprint Visual */}
+                      <div className="w-full h-18 rounded-xl bg-white border border-stone-200 p-2 shadow-2xs flex flex-col justify-between items-center">
+                        {/* Top Chairs */}
+                        <div className="flex gap-1.5">
+                          <span className="h-2.5 w-4 rounded-sm bg-emerald-500/30 border border-emerald-500/50" />
+                          <span className="h-2.5 w-4 rounded-sm bg-emerald-500/30 border border-emerald-500/50" />
+                        </div>
+                        {/* Full Width Table Surface */}
+                        <div className="w-full h-4 rounded-md bg-amber-500 border border-amber-400 text-[8px] font-mono text-stone-950 font-black flex items-center justify-center shadow-2xs">
+                          Table 1
+                        </div>
+                        {/* Bottom Chairs */}
+                        <div className="flex gap-1.5">
+                          <span className="h-2.5 w-4 rounded-sm bg-emerald-500/30 border border-emerald-500/50" />
+                          <span className="h-2.5 w-4 rounded-sm bg-emerald-500/30 border border-emerald-500/50" />
+                        </div>
                       </div>
-                      <div>
-                        <div className="text-xs font-bold">1 Column</div>
-                        <div className="text-[10px] text-stone-500 font-normal">Full-width view</div>
+
+                      <div className="mt-2">
+                        <div className="text-xs font-bold text-stone-900">1 Column</div>
+                        <div className="text-[10px] text-stone-500 font-normal">Full-width visual</div>
                       </div>
-                      {gridColumns === 1 && (
-                        <span className="flex items-center gap-1 text-[10px] font-black text-amber-700">
+
+                      {gridColumns === 1 ? (
+                        <span className="flex items-center gap-1 text-[10px] font-black text-amber-700 mt-1">
                           <Check className="h-3 w-3 stroke-[3]" /> Active
                         </span>
+                      ) : (
+                        <span className="text-[10px] text-stone-400 mt-1">Select</span>
                       )}
                     </button>
 
-                    {/* 2 Column Option */}
+                    {/* 2 Column Option: Realistic Floor Plan Visual Tables (Grid of 2 tables) */}
                     <button
                       type="button"
                       id="tables-grid-col-2-btn"
                       onClick={() => handleSetGridColumns(2)}
-                      className={`flex flex-col items-center justify-center gap-2 p-3 rounded-2xl border text-center transition cursor-pointer ${
+                      className={`flex flex-col items-center justify-between p-3 rounded-2xl border text-center transition cursor-pointer select-none ${
                         gridColumns === 2
                           ? 'bg-amber-500/10 border-amber-500 text-stone-950 font-black shadow-xs ring-2 ring-amber-500/20'
                           : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold'
                       }`}
                     >
-                      <div className="grid h-8 w-8 place-items-center rounded-xl bg-white border border-stone-200 shadow-2xs text-amber-700">
-                        <Grid2X2 className="h-4 w-4" />
+                      {/* Realistic 2-Col Tables Blueprint Visual */}
+                      <div className="w-full h-18 rounded-xl bg-white border border-stone-200 p-1.5 shadow-2xs grid grid-cols-2 gap-1.5 items-center">
+                        {/* Table A */}
+                        <div className="h-full flex flex-col justify-between items-center py-0.5">
+                          <span className="h-2 w-3 rounded-xs bg-emerald-500/30 border border-emerald-500/50" />
+                          <div className="w-full h-3.5 rounded-sm bg-amber-500 border border-amber-400 text-[7px] font-mono text-stone-950 font-black flex items-center justify-center">
+                            T1
+                          </div>
+                          <span className="h-2 w-3 rounded-xs bg-emerald-500/30 border border-emerald-500/50" />
+                        </div>
+                        {/* Table B */}
+                        <div className="h-full flex flex-col justify-between items-center py-0.5">
+                          <span className="h-2 w-3 rounded-xs bg-emerald-500/30 border border-emerald-500/50" />
+                          <div className="w-full h-3.5 rounded-sm bg-amber-500 border border-amber-400 text-[7px] font-mono text-stone-950 font-black flex items-center justify-center">
+                            T2
+                          </div>
+                          <span className="h-2 w-3 rounded-xs bg-emerald-500/30 border border-emerald-500/50" />
+                        </div>
                       </div>
-                      <div>
-                        <div className="text-xs font-bold">2 Columns</div>
-                        <div className="text-[10px] text-stone-500 font-normal">Standard grid</div>
+
+                      <div className="mt-2">
+                        <div className="text-xs font-bold text-stone-900">2 Columns</div>
+                        <div className="text-[10px] text-stone-500 font-normal">Side-by-side visual</div>
                       </div>
-                      {gridColumns === 2 && (
-                        <span className="flex items-center gap-1 text-[10px] font-black text-amber-700">
+
+                      {gridColumns === 2 ? (
+                        <span className="flex items-center gap-1 text-[10px] font-black text-amber-700 mt-1">
                           <Check className="h-3 w-3 stroke-[3]" /> Active
                         </span>
+                      ) : (
+                        <span className="text-[10px] text-stone-400 mt-1">Select</span>
                       )}
                     </button>
                   </div>
@@ -1773,7 +1904,17 @@ export const TableManagement: React.FC<TableManagementProps> = ({
 
           <button
             type="button"
-            onClick={handleOpenAddTableModal}
+            onClick={() => handleOpenCombineModal()}
+            title="Combine Tables to accommodate larger guest count"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 px-2.5 sm:px-3.5 py-2 text-xs font-black text-stone-950 transition active:scale-95 shadow-xs cursor-pointer border border-amber-400"
+          >
+            <Link2 className="h-4 w-4 stroke-[2.5] shrink-0" />
+            <span className="hidden sm:inline">Combine Tables</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleOpenAddTableModal()}
             title="Add Table"
             className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 px-2.5 sm:px-3.5 py-2 text-xs font-black text-stone-950 hover:bg-amber-400 transition active:scale-95 shadow-xs cursor-pointer"
           >
@@ -1972,8 +2113,8 @@ export const TableManagement: React.FC<TableManagementProps> = ({
 
       {/* REQUEST LOGS / HISTORY ACCORDION */}
       {isHistoryOpen && resolvedRequests.length > 0 && (
-        <div className="rounded-3xl border border-stone-200 bg-white p-5 space-y-3 shadow-sm animate-in fade-in duration-150">
-          <div className="flex items-center justify-between border-b border-stone-100 pb-2">
+        <div className="rounded-3xl border border-stone-200 bg-white p-5 space-y-3.5 shadow-sm animate-in fade-in duration-150">
+          <div className="flex items-center justify-between border-b border-stone-100 pb-2.5">
             <h3 className="font-bold text-stone-900 text-sm flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-emerald-600" />
               <span>Recent Table Assignment &amp; Approval History</span>
@@ -1987,191 +2128,217 @@ export const TableManagement: React.FC<TableManagementProps> = ({
             </button>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-stone-100 bg-stone-50 text-[11px] font-bold text-stone-500">
-                <tr>
-                  <th className="p-2.5">Time</th>
-                  <th className="p-2.5">Guest</th>
-                  <th className="p-2.5">Table</th>
-                  <th className="p-2.5">Type</th>
-                  <th className="p-2.5">Status</th>
-                  <th className="p-2.5">Signed By Cashier</th>
-                  <th className="p-2.5">Remarks / Reason</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-100">
-                {resolvedRequests.slice(0, 10).map((req) => (
-                  <tr key={req.id} className="hover:bg-stone-50/80">
-                    <td className="p-2.5 text-stone-500 font-mono text-[11px]">
-                      {new Date(req.createdAt).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </td>
-                    <td className="p-2.5 font-bold text-stone-900">{req.customerName}</td>
-                    <td className="p-2.5 font-black text-amber-950">
-                      #{req.requestedTableNumber}{' '}
-                      {req.currentTableNumber && (
-                        <span className="text-[10px] text-stone-400 font-normal">
-                          (from #{req.currentTableNumber})
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-2.5 capitalize text-stone-600">
-                      {req.type.replace('_', ' ')}
-                    </td>
-                    <td className="p-2.5">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase ${
-                          req.status === 'approved'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : req.status === 'rejected'
-                            ? 'bg-rose-100 text-rose-800'
-                            : 'bg-stone-100 text-stone-600'
-                        }`}
-                      >
-                        {req.status}
+          {/* Visual Cards Grid for Table Logs */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {resolvedRequests.slice(0, 12).map((req) => (
+              <div
+                key={req.id}
+                className="rounded-2xl border border-stone-200 bg-stone-50/70 p-3.5 space-y-2 hover:bg-stone-50 transition shadow-2xs"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="font-serif text-sm font-black text-amber-950">
+                      Table #{req.requestedTableNumber}
+                    </span>
+                    {req.currentTableNumber && (
+                      <span className="text-[10px] text-stone-400 font-medium">
+                        (from #{req.currentTableNumber})
                       </span>
-                    </td>
-                    <td className="p-2.5 font-medium text-stone-700">
-                      {req.cashierName || 'Staff'}
-                    </td>
-                    <td className="p-2.5 text-stone-500 text-[11px]">
-                      {req.rejectionReason || '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    )}
+                  </div>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase shrink-0 ${
+                      req.status === 'approved'
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                        : req.status === 'rejected'
+                        ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                        : 'bg-stone-100 text-stone-600 border border-stone-200'
+                    }`}
+                  >
+                    {req.status}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-stone-900 truncate">
+                    {req.customerName}
+                  </span>
+                  <span className="text-[10px] font-mono text-stone-500 shrink-0">
+                    {new Date(req.createdAt).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-stone-500 pt-1.5 border-t border-stone-100">
+                  <span className="capitalize font-medium text-stone-600">
+                    {req.type.replace('_', ' ')}
+                  </span>
+                  <span className="font-medium text-stone-500">
+                    By {req.cashierName || 'Staff'}
+                  </span>
+                </div>
+
+                {req.rejectionReason && (
+                  <div className="text-[10px] text-rose-700 bg-rose-50/80 rounded-lg p-1.5 border border-rose-200/80 line-clamp-2">
+                    {req.rejectionReason}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}
 
       {/* Floor Plan Canvas: Divided by Areas then Tables then Chairs */}
-      <div className="space-y-5">
-        {/* Area Filter Quick Switcher Bar */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-          <button
-            type="button"
-            onClick={() => setActiveAreaFilterTab('all')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-black transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
-              activeAreaFilterTab === 'all'
-                ? 'bg-stone-950 text-amber-400 shadow-xs'
-                : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
-            }`}
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-            <span>All Areas</span>
-            <span className="rounded-full bg-amber-400/20 px-1.5 py-0.2 text-[10px] font-mono">
-              {tables.length}
-            </span>
-          </button>
-          {OFFICIAL_AREAS.map((oa: AreaMeta) => {
-            const group = areaGroups.find((g: AreaGroup) => g.meta.key === oa.key);
-            const count = group ? group.tables.length : 0;
-            const areaTables = group ? group.tables : [];
-            const occChairs = areaTables.reduce((s: number, t: Table) => {
-              const occ = AppStore.getTableOccupancyDetails(t, orders);
-              return s + occ.occupiedChairs;
-            }, 0);
-            const totalChairs = areaTables.reduce((s: number, t: Table) => s + t.capacity, 0);
-            const hasFree = totalChairs > occChairs;
-
-            return (
-              <button
-                key={oa.key}
-                type="button"
-                onClick={() => setActiveAreaFilterTab(oa.key)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 flex items-center gap-1.5 cursor-pointer ${
-                  activeAreaFilterTab === oa.key
-                    ? 'bg-amber-500 text-stone-950 font-black shadow-xs'
-                    : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'
-                }`}
-              >
-                <span>{oa.icon}</span>
-                <span>{oa.name}</span>
-                <span
-                  className={`h-2 w-2 rounded-full ${
-                    hasFree ? 'bg-emerald-500 ring-2 ring-emerald-300' : 'bg-amber-500 ring-2 ring-amber-300'
-                  }`}
-                  title={hasFree ? 'Seats available' : 'Fully Occupied'}
-                />
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Display each Area Section */}
-        {areaGroups
-          .filter(
-            (group: AreaGroup) => activeAreaFilterTab === 'all' || group.meta.key === activeAreaFilterTab
-          )
-          .map((group: AreaGroup) => {
+      <div className="space-y-4 sm:space-y-5">
+        {/* Display each Area Section (At least 3 columns in tablet view) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5 sm:gap-3 md:gap-3 lg:gap-4 items-start">
+          {areaGroups.map((group: AreaGroup) => {
             const areaTables = group.tables;
 
             return (
               <div
                 key={group.meta.key}
-                className="rounded-2xl sm:rounded-3xl border border-stone-200 bg-white p-4 sm:p-5 shadow-xs space-y-3.5"
+                className="rounded-2xl md:rounded-3xl border border-stone-200 bg-white p-3 sm:p-3.5 md:p-3 lg:p-4 shadow-xs space-y-2.5 sm:space-y-3"
               >
                 {/* Visual Area Header */}
-                <div className="flex items-center justify-between gap-3 border-b border-stone-150 pb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">
+                <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-lg sm:text-xl shrink-0">
                       {group.meta.icon}
                     </span>
-                    <div>
-                      <h3 className="font-serif text-base sm:text-lg font-black text-stone-950 uppercase tracking-wide">
-                        {group.meta.name}
+                    <div className="flex items-center gap-1 min-w-0">
+                      <h3 className="font-serif text-sm sm:text-base md:text-sm lg:text-base font-black text-stone-950 uppercase tracking-wide truncate">
+                        {group.meta.name.replace(/\s*area\b/gi, '').trim()}
                       </h3>
-                      <p className="text-[11px] text-stone-500 font-medium">
-                        {group.meta.description}
-                      </p>
+                      {/* Edit Button with Dropdown containing Edit Area & Add Table */}
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setActiveAreaMenuKey(
+                              activeAreaMenuKey === group.meta.key ? null : group.meta.key
+                            )
+                          }
+                          title={`Edit ${group.meta.name} (rename or add table)`}
+                          className="rounded-lg p-1 text-stone-400 hover:text-stone-900 hover:bg-stone-100 transition cursor-pointer active:scale-95"
+                        >
+                          <Edit3 className="h-3.5 w-3.5" />
+                        </button>
+
+                        {activeAreaMenuKey === group.meta.key && (
+                          <>
+                            <div
+                              className="fixed inset-0 z-20 cursor-default"
+                              onClick={() => setActiveAreaMenuKey(null)}
+                            />
+                            <div className="absolute left-0 top-full mt-1.5 w-44 rounded-xl border border-stone-200 bg-white p-1.5 shadow-xl z-30 animate-in fade-in zoom-in-95 duration-100 text-xs space-y-0.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveAreaMenuKey(null);
+                                  handleOpenEditAreaModal(group.meta);
+                                }}
+                                className="w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 font-bold text-stone-700 hover:bg-stone-100 hover:text-stone-900 transition text-left cursor-pointer"
+                              >
+                                <Edit3 className="h-3.5 w-3.5 text-stone-500" />
+                                <span>Edit Area Name</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveAreaMenuKey(null);
+                                  handleOpenAddTableModal(group.meta.key);
+                                }}
+                                className="w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 font-bold text-stone-900 hover:bg-amber-50 hover:text-amber-950 transition text-left cursor-pointer bg-amber-500/10 text-amber-950"
+                              >
+                                <Plus className="h-3.5 w-3.5 text-amber-600 stroke-[3]" />
+                                <span>Add Table</span>
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Combine Tables in this Area Button */}
-                  <button
-                    type="button"
-                    onClick={() => handleOpenCombineModal(group.meta.key)}
-                    title={`Combine tables in ${group.meta.name} to accommodate bigger guest count`}
-                    className="rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black px-3 py-1.5 text-xs shadow-2xs transition active:scale-95 cursor-pointer flex items-center gap-1.5 border border-amber-400"
-                  >
-                    <Link2 className="h-3.5 w-3.5 stroke-[2.5]" />
-                    <span>Combine Tables</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {/* Occupancy Indicator Badge */}
+                    {(() => {
+                      const occCount = areaTables.filter((t: Table) => {
+                        const occ = AppStore.getTableOccupancyDetails(t, orders);
+                        return occ.isFullyOccupied || occ.occupiedChairs > 0 || t.status === 'occupied';
+                      }).length;
+                      if (occCount > 0) {
+                        return (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 border border-rose-300 text-rose-800 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider shadow-2xs">
+                            <span className="h-1.5 w-1.5 rounded-full bg-rose-600 animate-pulse" />
+                            Occupied ({occCount})
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
                 </div>
 
-                {/* Tables / Layout within this Area */}
-                {(group.meta.key === 'kolin area' || group.meta.key === 'door area') ? (
-                  renderSharedCouchAreaBlueprint(group, areaTables)
-                ) : (
-                  /* Tables Grid within this Area */
-                  (() => {
-                    const visibleTables = areaTables.filter(
-                      (table: Table) => !table.isCombinedCompanion
-                    );
-                    return visibleTables.length === 0 ? (
-                      <p className="text-xs text-stone-400 py-3 italic text-center">
-                        No tables in this area match current status filters.
-                      </p>
+                  {/* Tables / Layout within this Area */}
+                  <div className="w-full flex justify-center items-center">
+                    {(group.meta.key === 'kolin area' ||
+                    group.meta.key === 'door area' ||
+                    group.meta.key === 'entrance area') ? (
+                      renderSharedCouchAreaBlueprint(group, areaTables) || (
+                        (() => {
+                          const visibleTables = areaTables.filter(
+                            (table: Table) => !table.isCombinedCompanion
+                          );
+                          return visibleTables.length === 0 ? (
+                            <p className="text-xs text-stone-400 py-3 italic text-center w-full">
+                              No tables in this area match current status filters.
+                            </p>
+                          ) : (
+                            <div
+                              className={`flex flex-wrap gap-3 sm:gap-4 items-center justify-center w-fit max-w-full ${
+                                gridColumns === 1
+                                  ? 'flex-col max-w-xl mx-auto'
+                                  : ''
+                              }`}
+                            >
+                              {visibleTables.map((table: Table) => renderTableCard(table))}
+                            </div>
+                          );
+                        })()
+                      )
                     ) : (
-                      <div
-                        className={`grid gap-4 ${
-                          gridColumns === 1
-                            ? 'grid-cols-1 max-w-xl mx-auto'
-                            : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
-                        }`}
-                      >
-                        {visibleTables.map((table: Table) => renderTableCard(table))}
-                      </div>
-                    );
-                  })()
-                )}
-              </div>
-            );
-          })}
+                      /* Tables Grid within this Area */
+                      (() => {
+                        const visibleTables = areaTables.filter(
+                          (table: Table) => !table.isCombinedCompanion
+                        );
+                        return visibleTables.length === 0 ? (
+                          <p className="text-xs text-stone-400 py-3 italic text-center w-full">
+                            No tables in this area match current status filters.
+                          </p>
+                        ) : (
+                          <div
+                            className={`flex flex-wrap gap-3 sm:gap-4 items-center justify-center w-fit max-w-full ${
+                              gridColumns === 1
+                                ? 'flex-col max-w-xl mx-auto'
+                                : ''
+                            }`}
+                          >
+                            {visibleTables.map((table: Table) => renderTableCard(table))}
+                          </div>
+                        );
+                      })()
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+        </div>
       </div>
 
       {/* Interactive Table & Reservation Details Modal */}
@@ -2350,33 +2517,26 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                 </div>
 
                 <div>
-                  <label className="font-bold text-stone-700 block mb-1">Dining Area</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setEditTableForm({ ...editTableForm, area: 'normal' })}
-                      className={`p-2 rounded-xl border text-center font-bold transition ${
-                        editTableForm.area === 'normal'
-                          ? 'border-amber-500 bg-amber-50 text-amber-900'
-                          : 'border-stone-200 bg-white text-stone-600'
-                      }`}
-                    >
-                      🌿 Non-A/C
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditTableForm({ ...editTableForm, area: 'airconditioned' })
-                      }
-                      className={`p-2 rounded-xl border text-center font-bold transition ${
-                        editTableForm.area === 'airconditioned'
-                          ? 'border-sky-500 bg-sky-50 text-sky-900'
-                          : 'border-stone-200 bg-white text-stone-600'
-                      }`}
-                    >
-                      ❄️ Air-Con
-                    </button>
-                  </div>
+                  <label className="font-bold text-stone-700 block mb-1">Section</label>
+                  <select
+                    value={editTableForm.areaName}
+                    onChange={(e) => {
+                      const selKey = e.target.value;
+                      const matched = floorAreas.find((o) => o.id === selKey);
+                      setEditTableForm({
+                        ...editTableForm,
+                        areaName: selKey,
+                        area: matched ? (matched.isAircon ? 'airconditioned' : 'normal') : editTableForm.area,
+                      });
+                    }}
+                    className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-stone-900 font-bold focus:border-amber-500 focus:outline-none"
+                  >
+                    {floorAreas.map((oa) => (
+                      <option key={oa.id} value={oa.id}>
+                        {oa.icon} {oa.name.replace(/\s*area\b/gi, '').trim()} ({oa.isAircon ? 'Air-Con' : 'Non-A/C'})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="pt-2 flex justify-end gap-2">
@@ -3049,41 +3209,27 @@ export const TableManagement: React.FC<TableManagementProps> = ({
 
               <div>
                 <label className="font-bold text-stone-700 block mb-1 text-[11px] sm:text-xs">
-                  Dining Area *
+                  Section / Area *
                 </label>
-                <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setNewTableForm({ ...newTableForm, area: 'normal' })}
-                    className={`p-2 sm:p-2.5 rounded-xl sm:rounded-2xl border text-left transition flex items-center gap-2 ${
-                      newTableForm.area === 'normal'
-                        ? 'border-amber-500 bg-amber-50/70 ring-2 ring-amber-500/20'
-                        : 'border-stone-200 bg-stone-50 hover:bg-stone-100'
-                    }`}
-                  >
-                    <span className="text-base sm:text-lg">🌿</span>
-                    <span className="font-bold text-stone-900 block text-[11px] sm:text-xs">
-                      Non-A/C
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setNewTableForm({ ...newTableForm, area: 'airconditioned' })
-                    }
-                    className={`p-2 sm:p-2.5 rounded-xl sm:rounded-2xl border text-left transition flex items-center gap-2 ${
-                      newTableForm.area === 'airconditioned'
-                        ? 'border-sky-500 bg-sky-50/70 ring-2 ring-sky-500/20'
-                        : 'border-stone-200 bg-stone-50 hover:bg-stone-100'
-                    }`}
-                  >
-                    <span className="text-base sm:text-lg">❄️</span>
-                    <span className="font-bold text-stone-900 block text-[11px] sm:text-xs">
-                      Air-Con
-                    </span>
-                  </button>
-                </div>
+                <select
+                  value={newTableForm.areaName}
+                  onChange={(e) => {
+                    const selKey = e.target.value;
+                    const matched = floorAreas.find((o) => o.id === selKey);
+                    setNewTableForm({
+                      ...newTableForm,
+                      areaName: selKey,
+                      area: matched ? (matched.isAircon ? 'airconditioned' : 'normal') : newTableForm.area,
+                    });
+                  }}
+                  className="w-full rounded-xl border border-stone-300 bg-white py-1.5 sm:py-2 px-3 text-xs sm:text-sm font-bold text-stone-900 focus:border-amber-500 focus:outline-none"
+                >
+                  {floorAreas.map((oa) => (
+                    <option key={oa.id} value={oa.id}>
+                      {oa.icon} {oa.name.replace(/\s*area\b/gi, '').trim()} ({oa.isAircon ? 'Air-Con' : 'Non-A/C'})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -3301,44 +3447,30 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                 </div>
               </div>
 
-              {/* Dining Area */}
+              {/* Section */}
               <div>
                 <label className="font-bold text-stone-700 block mb-1 text-[11px] sm:text-xs">
-                  Dining Area *
+                  Section / Area *
                 </label>
-                <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditModalForm({ ...editModalForm, area: 'normal' })}
-                    className={`p-2 sm:p-2.5 rounded-xl sm:rounded-2xl border text-left transition flex items-center gap-2 ${
-                      editModalForm.area === 'normal'
-                        ? 'border-amber-500 bg-amber-50/70 ring-2 ring-amber-500/20'
-                        : 'border-stone-200 bg-stone-50 hover:bg-stone-100'
-                    }`}
-                  >
-                    <span className="text-base sm:text-lg">🌿</span>
-                    <span className="font-bold text-stone-900 block text-[11px] sm:text-xs">
-                      Non-A/C
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setEditModalForm({ ...editModalForm, area: 'airconditioned' })
-                    }
-                    className={`p-2 sm:p-2.5 rounded-xl sm:rounded-2xl border text-left transition flex items-center gap-2 ${
-                      editModalForm.area === 'airconditioned'
-                        ? 'border-sky-500 bg-sky-50/70 ring-2 ring-sky-500/20'
-                        : 'border-stone-200 bg-stone-50 hover:bg-stone-100'
-                    }`}
-                  >
-                    <span className="text-base sm:text-lg">❄️</span>
-                    <span className="font-bold text-stone-900 block text-[11px] sm:text-xs">
-                      Air-Con
-                    </span>
-                  </button>
-                </div>
+                <select
+                  value={editModalForm.areaName}
+                  onChange={(e) => {
+                    const selKey = e.target.value;
+                    const matched = floorAreas.find((o) => o.id === selKey);
+                    setEditModalForm({
+                      ...editModalForm,
+                      areaName: selKey,
+                      area: matched ? (matched.isAircon ? 'airconditioned' : 'normal') : editModalForm.area,
+                    });
+                  }}
+                  className="w-full rounded-xl border border-stone-300 bg-white py-1.5 sm:py-2 px-3 text-xs sm:text-sm font-bold text-stone-900 focus:border-amber-500 focus:outline-none"
+                >
+                  {floorAreas.map((oa) => (
+                    <option key={oa.id} value={oa.id}>
+                      {oa.icon} {oa.name.replace(/\s*area\b/gi, '').trim()} ({oa.isAircon ? 'Air-Con' : 'Non-A/C'})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Status */}
@@ -3400,6 +3532,190 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                     Save
                   </button>
                 </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Area Name & Settings Modal */}
+      {isEditAreaModalOpen && areaToEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-6 shadow-2xl space-y-4 border border-stone-200 animate-in zoom-in-95 duration-150 max-h-[92vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="grid h-8 w-8 sm:h-10 sm:w-10 place-items-center rounded-xl bg-amber-500 text-stone-950 font-black shrink-0 text-base sm:text-lg">
+                  {editAreaForm.icon || '☕'}
+                </div>
+                <div>
+                  <h3 className="font-display text-base sm:text-lg font-extrabold text-stone-900">
+                    Edit Area
+                  </h3>
+                  <p className="text-[11px] sm:text-xs text-stone-500 font-medium">
+                    Customize area name, icon, and environment
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditAreaModalOpen(false);
+                  setAreaToEdit(null);
+                }}
+                className="rounded-full p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700 transition cursor-pointer"
+              >
+                <X className="h-4 w-4 sm:h-5 sm:w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveAreaSubmit} className="space-y-3.5 text-xs">
+              {/* Area Name */}
+              <div>
+                <label className="font-bold text-stone-700 block mb-1 text-[11px] sm:text-xs">
+                  Area Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="e.g. VIP Lounge, 1st Aircon, Terrace"
+                  value={editAreaForm.name}
+                  onChange={(e) =>
+                    setEditAreaForm({ ...editAreaForm, name: e.target.value })
+                  }
+                  className="w-full rounded-xl border border-stone-300 bg-white py-2 px-3 text-xs sm:text-sm font-bold text-stone-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
+
+              {/* Area Icon Picker */}
+              <div>
+                <label className="font-bold text-stone-700 block mb-1 text-[11px] sm:text-xs">
+                  Area Icon / Emoji
+                </label>
+                <div className="flex flex-wrap gap-1.5 mb-2 p-2 rounded-xl bg-stone-50 border border-stone-200">
+                  {['❄️', '🌿', '🚪', '✨', '💡', '🏛️', '🪟', '☕', '🛋️', '🥂', '🌴', '🎯', '🌞', '🍽️', '🪴', '⭐'].map(
+                    (emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => setEditAreaForm({ ...editAreaForm, icon: emoji })}
+                        className={`h-8 w-8 rounded-lg flex items-center justify-center text-base transition cursor-pointer ${
+                          editAreaForm.icon === emoji
+                            ? 'bg-amber-400 border border-amber-500 scale-110 shadow-xs'
+                            : 'hover:bg-white hover:border border-stone-200'
+                        }`}
+                      >
+                        {emoji}
+                      </button>
+                    )
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-stone-500">Custom Emoji:</span>
+                  <input
+                    type="text"
+                    maxLength={4}
+                    value={editAreaForm.icon}
+                    onChange={(e) => setEditAreaForm({ ...editAreaForm, icon: e.target.value })}
+                    className="w-16 rounded-lg border border-stone-300 bg-white px-2 py-1 text-center font-bold text-sm focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Environment / Air-Con */}
+              <div>
+                <label className="font-bold text-stone-700 block mb-1 text-[11px] sm:text-xs">
+                  Area Climate / Environment
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditAreaForm({ ...editAreaForm, isAircon: true })}
+                    className={`py-2 px-3 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs transition cursor-pointer ${
+                      editAreaForm.isAircon
+                        ? 'bg-sky-50 border-sky-400 text-sky-900 shadow-xs ring-1 ring-sky-400/50'
+                        : 'border-stone-200 bg-stone-50 text-stone-600 hover:bg-stone-100'
+                    }`}
+                  >
+                    <span>❄️</span>
+                    <span>Air-Conditioned</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditAreaForm({ ...editAreaForm, isAircon: false })}
+                    className={`py-2 px-3 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs transition cursor-pointer ${
+                      !editAreaForm.isAircon
+                        ? 'bg-amber-50 border-amber-400 text-stone-900 shadow-xs ring-1 ring-amber-400/50'
+                        : 'border-stone-200 bg-stone-50 text-stone-600 hover:bg-stone-100'
+                    }`}
+                  >
+                    <span>🌿</span>
+                    <span>Normal / Non-A/C</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="font-bold text-stone-700 block mb-1 text-[11px] sm:text-xs">
+                  Description / Furniture Note
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 3 tables with 2 chairs each table"
+                  value={editAreaForm.description}
+                  onChange={(e) =>
+                    setEditAreaForm({ ...editAreaForm, description: e.target.value })
+                  }
+                  className="w-full rounded-xl border border-stone-300 bg-white py-1.5 sm:py-2 px-3 text-xs sm:text-sm font-medium text-stone-900 focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Add Table Inside Edit Area Section */}
+              <div className="rounded-2xl border border-amber-200/90 bg-amber-50/70 p-3 sm:p-3.5 flex items-center justify-between gap-3 shadow-2xs">
+                <div className="min-w-0">
+                  <div className="font-extrabold text-stone-900 text-xs flex items-center gap-1.5">
+                    <Plus className="h-3.5 w-3.5 text-amber-700 stroke-[3]" />
+                    <span>Add Table to this Area</span>
+                  </div>
+                  <p className="text-[11px] text-stone-600 mt-0.5 truncate">
+                    Create a new table assigned directly to {editAreaForm.name || areaToEdit.name}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetAreaKey = areaToEdit.id;
+                    setIsEditAreaModalOpen(false);
+                    setAreaToEdit(null);
+                    handleOpenAddTableModal(targetAreaKey);
+                  }}
+                  className="inline-flex items-center gap-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 px-3 py-1.5 text-xs font-black transition cursor-pointer border border-amber-400 active:scale-95 shadow-2xs shrink-0"
+                >
+                  <Plus className="h-3.5 w-3.5 stroke-[3]" />
+                  <span>+ Add Table</span>
+                </button>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-4 flex items-center justify-end gap-2 pt-3 border-t border-stone-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditAreaModalOpen(false);
+                    setAreaToEdit(null);
+                  }}
+                  className="rounded-xl border border-stone-200 px-4 py-2 text-xs font-bold text-stone-600 hover:bg-stone-50 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-amber-500 px-4 py-2 text-xs font-extrabold text-stone-950 hover:bg-amber-400 transition shadow-xs cursor-pointer border border-amber-400"
+                >
+                  Save Area Name
+                </button>
               </div>
             </form>
           </div>
@@ -3613,10 +3929,10 @@ export const TableManagement: React.FC<TableManagementProps> = ({
               {/* Area Section */}
               <div>
                 <label className="block text-xs font-black uppercase tracking-wider text-stone-500 mb-2">
-                  Area / Zone
+                  Section / Zone
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {/* Area: All Areas */}
+                  {/* Section: All */}
                   <button
                     type="button"
                     onClick={() => setAreaFilter('all')}
@@ -3627,7 +3943,7 @@ export const TableManagement: React.FC<TableManagementProps> = ({
                     }`}
                   >
                     <Globe className="h-4 w-4 shrink-0" />
-                    <span>All Areas</span>
+                    <span>All Sections</span>
                   </button>
 
                   {/* Area: Normal */}

@@ -466,12 +466,48 @@ function MainApp() {
   }, [appMode, activeCustomer, activeTableBinding, showAlert]);
 
   const bestSellers = useMemo(() => {
-    const activeCategoryIds = new Set(
-      categories.filter((c) => (c.status || 'active') === 'active').map((c) => c.id)
-    );
-    return menuItems
-      .filter((i) => i.isBestSeller && i.isAvailable && activeCategoryIds.has(i.categoryId))
-      .slice(0, 12);
+    const activeCategories = categories
+      .filter((c) => (c.status || 'active') === 'active')
+      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+    // Map available items by category
+    const itemsByCategory = new Map<number, MenuItem[]>();
+    menuItems.forEach((item) => {
+      if (item.isAvailable === false) return;
+      const catId = Number(item.categoryId);
+      const list = itemsByCategory.get(catId) || [];
+      list.push(item);
+      itemsByCategory.set(catId, list);
+    });
+
+    const result: MenuItem[] = [];
+    const addedIds = new Set<number>();
+
+    // Take up to 2 best sellers in each category across all categories.
+    // If there are no best sellers in a category, do not put any.
+    activeCategories.forEach((cat) => {
+      const catId = Number(cat.id);
+      const catItems = itemsByCategory.get(catId) || [];
+      // Only items explicitly marked as isBestSeller
+      const explicitBestSellers = catItems.filter((i) => Boolean(i.isBestSeller));
+
+      // If a category has no best sellers, don't put any
+      if (explicitBestSellers.length === 0) {
+        return;
+      }
+
+      // Take at most 2 best sellers from this category
+      const chosenTwo = explicitBestSellers.slice(0, 2);
+
+      chosenTwo.forEach((item) => {
+        if (!addedIds.has(item.id)) {
+          result.push(item);
+          addedIds.add(item.id);
+        }
+      });
+    });
+
+    return result;
   }, [menuItems, categories]);
 
   const handleStaffLogout = async () => {
@@ -515,7 +551,10 @@ function MainApp() {
 
   const handleOrderSuccess = (order: Order) => {
     refreshAppData();
-    setSelectedReceiptOrder(order);
+    // Do not show receipt yet if the order is NYP (Not Yet Paid)
+    if (order.paymentStatus === 'paid') {
+      setSelectedReceiptOrder(order);
+    }
   };
 
   const handleCustomerOrderSuccess = (order: Order) => {

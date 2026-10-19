@@ -18,6 +18,8 @@ import {
   Coffee,
   Check,
   ChevronRight,
+  Utensils,
+  Armchair,
 } from 'lucide-react';
 
 interface TableReservationModalProps {
@@ -308,6 +310,42 @@ export const TableReservationModal: React.FC<TableReservationModalProps> = ({
                   Verified
                 </span>
               )}
+            </div>
+
+            {/* Selected Table Blueprint & Information Card */}
+            <div className="rounded-2xl border-2 border-amber-400/80 bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-stone-850 dark:to-stone-800 p-3 sm:p-4 shadow-xs">
+              <div className="flex items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="grid h-9 w-9 sm:h-10 sm:w-10 place-items-center rounded-xl bg-amber-500 text-stone-950 font-black text-sm sm:text-base shadow-xs shrink-0">
+                    T{table.tableNumber}
+                  </span>
+                  <div className="min-w-0">
+                    <h4 className="font-display text-sm sm:text-base font-black text-stone-900 dark:text-stone-100 truncate">
+                      {table.name || `Table #${table.tableNumber}`}
+                    </h4>
+                    <p className="text-[10px] sm:text-xs text-stone-600 dark:text-stone-400 mt-0.5">
+                      {isAircon ? '❄️ Climate-Controlled Air-Con' : '🌿 Open Dining Non-A/C'} • Up to {table.capacity} Guests
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  {[...Array(Math.min(5, table.capacity))].map((_, idx) => (
+                    <div
+                      key={idx}
+                      className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-emerald-500/15 border border-emerald-400/80 text-emerald-700 dark:text-emerald-300 grid place-items-center"
+                      title={`Seat ${idx + 1}`}
+                    >
+                      <Armchair className="h-4 w-4" />
+                    </div>
+                  ))}
+                  {table.capacity > 5 && (
+                    <span className="text-[10px] font-black text-emerald-800 dark:text-emerald-300 ml-0.5">
+                      +{table.capacity - 5}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Date & Time Selection */}

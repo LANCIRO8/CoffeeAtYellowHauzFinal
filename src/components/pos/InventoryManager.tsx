@@ -53,6 +53,7 @@ import {
   FileUp,
   Zap,
   Images,
+  ImageMinus,
 } from 'lucide-react';
 import { compressImageFile, formatFileSize, calculateBase64Size } from '../../utils/imageCompression';
 import { LowStockNotificationModal } from './LowStockNotificationModal';
@@ -465,6 +466,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
   const [isAvailable, setIsAvailable] = useState<boolean>(true);
   const [isBestSeller, setIsBestSeller] = useState<boolean>(false);
   const [imageUrl, setImageUrl] = useState<string>('');
+  const [imageRemoved, setImageRemoved] = useState<boolean>(false);
 
   // Item Image Upload & Storage Compression State
   const [isCompressingImage, setIsCompressingImage] = useState<boolean>(false);
@@ -508,6 +510,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
       });
 
       setImageUrl(result.dataUrl);
+      setImageRemoved(false);
       setCompressionStats({
         originalSize: formatFileSize(result.originalSizeBytes),
         compressedSize: formatFileSize(result.compressedSizeBytes),
@@ -557,18 +560,34 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
 
   const handleRemoveCustomImage = () => {
     setImageUrl('');
+    setImageRemoved(true);
     setCompressionStats(null);
     setImageUploadError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    // If editing an existing item, remove the image in the store right away
+    if (editingItem) {
+      AppStore.removeMenuItemImage(editingItem.id);
+      refresh();
+      showAlert({
+        title: 'Image Removed',
+        message: `Removed custom photo from "${editingItem.name}". It is now using the default category icon.`,
+        type: 'info',
+      });
+    }
   };
 
   const handleSelectPresetImage = (presetUrl: string) => {
     setImageUrl(presetUrl);
+    setImageRemoved(false);
     setCompressionStats(null);
     setImageUploadError(null);
   };
 
   const handleSelectSystemImageForItem = (chosenUrl: string) => {
     setImageUrl(chosenUrl);
+    setImageRemoved(false);
     setCompressionStats({
       originalSize: 'System Library Image',
       compressedSize: 'Optimized Preset',
@@ -779,6 +798,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     setIsAvailable(true);
     setIsBestSeller(false);
     setImageUrl('');
+    setImageRemoved(true);
     setCompressionStats(null);
     setImageUploadError(null);
     setIsCompressingImage(false);
@@ -799,6 +819,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     setIsBestSeller(Boolean(item.isBestSeller));
     const currentImg = item.imageUrl || '';
     setImageUrl(currentImg);
+    setImageRemoved(Boolean(item.imageRemoved || !currentImg));
     setImageUploadError(null);
     setIsCompressingImage(false);
     setIsDraggingImage(false);
@@ -825,6 +846,9 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     e.preventDefault();
     if (!name.trim()) return;
 
+    const finalImageUrl = imageRemoved ? '' : imageUrl.trim();
+    const finalImageRemoved = Boolean(imageRemoved || !finalImageUrl);
+
     if (editingItem) {
       AppStore.updateMenuItem(editingItem.id, {
         name: name.trim(),
@@ -835,7 +859,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
         temperature,
         isAvailable: Boolean(isAvailable),
         isBestSeller: Boolean(isBestSeller),
-        imageUrl,
+        imageUrl: finalImageUrl,
+        imageRemoved: finalImageRemoved,
       });
       showAlert({
         title: 'Item Updated',
@@ -852,7 +877,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
         temperature,
         isAvailable: Boolean(isAvailable),
         isBestSeller: Boolean(isBestSeller),
-        imageUrl,
+        imageUrl: finalImageUrl,
+        imageRemoved: finalImageRemoved,
         sortOrder: items.length + 1,
       });
       showAlert({
@@ -1829,6 +1855,24 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                                     >
                                       <Edit2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                     </button>
+                                    {Boolean(item.imageUrl && !item.imageRemoved) && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          AppStore.removeMenuItemImage(item.id);
+                                          refresh();
+                                          showAlert({
+                                            title: 'Image Removed',
+                                            message: `"${item.name}" will now use the default category icon.`,
+                                            type: 'info',
+                                          });
+                                        }}
+                                        className="rounded-lg p-1 sm:p-1.5 text-stone-400 hover:bg-rose-50 hover:text-rose-600 transition cursor-pointer"
+                                        title="Remove Photo (Use Category Icon)"
+                                      >
+                                        <ImageMinus className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-rose-500" />
+                                      </button>
+                                    )}
                                     <button
                                       onClick={() => handleDeleteItem(item.id)}
                                       className="rounded-lg p-1 sm:p-1.5 text-stone-400 hover:bg-rose-50 hover:text-rose-600 cursor-pointer"
@@ -3030,15 +3074,16 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                               <Images className="h-3 w-3 text-amber-600 dark:text-amber-400" />
                               <span>Choose Existing</span>
                             </button>
-                            {compressionStats && (
-                              <button
-                                type="button"
-                                onClick={handleRemoveCustomImage}
-                                className="inline-flex items-center gap-1 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-2.5 py-1 text-xs font-semibold text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-750 transition cursor-pointer"
-                              >
-                                <span>Reset Default</span>
-                              </button>
-                            )}
+                            <button
+                              id="btn-remove-item-image"
+                              type="button"
+                              onClick={handleRemoveCustomImage}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 px-2.5 py-1 text-xs font-bold text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 hover:border-rose-400 transition cursor-pointer active:scale-95 shadow-2xs"
+                              title="Remove item photo and use the default category icon"
+                            >
+                              <Trash2 className="h-3 w-3 text-rose-600 dark:text-rose-400" />
+                              <span>Remove Image (Use Category Icon)</span>
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -3066,40 +3111,52 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                       </div>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center py-4 text-center space-y-3">
-                      <div
-                        onClick={() => fileInputRef.current?.click()}
-                        className="cursor-pointer space-y-1"
-                      >
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400 mb-1 mx-auto">
-                          <Upload className="h-5 w-5" />
-                        </div>
-                        <p className="text-xs font-bold text-stone-800 dark:text-stone-200">
-                          Click to upload photo, or drag and drop
-                        </p>
-                        <p className="text-[11px] text-stone-500 dark:text-stone-400">
-                          PNG, JPG, or WebP • Auto-compressed for lightweight storage
-                        </p>
+                    <div className="flex flex-col sm:flex-row items-center gap-3.5 p-1 text-center sm:text-left">
+                      {/* Live Category Icon Preview */}
+                      <div className="relative shrink-0">
+                        <ItemThumbnail
+                          imageUrl=""
+                          itemName={name || 'Item'}
+                          categoryId={categoryId}
+                          isDrink={categoryType === 'drinks'}
+                          variant="avatar"
+                          className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl border-2 border-dashed border-amber-300 dark:border-amber-700/80 bg-amber-50/80 dark:bg-stone-800 shadow-xs flex items-center justify-center text-amber-800 dark:text-amber-300"
+                        />
                       </div>
 
-                      <div className="flex items-center gap-2 pt-1 flex-wrap justify-center">
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-stone-900 dark:bg-amber-500 text-white dark:text-stone-950 text-xs font-bold hover:bg-stone-800 dark:hover:bg-amber-400 transition cursor-pointer active:scale-95 shadow-xs"
-                        >
-                          <Upload className="h-3.5 w-3.5" />
-                          <span>Upload Photo</span>
-                        </button>
-                        <span className="text-xs text-stone-400 font-medium">or</span>
-                        <button
-                          type="button"
-                          onClick={() => setIsItemSystemImagePickerOpen(true)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 text-xs font-bold hover:bg-stone-100 dark:hover:bg-stone-750 transition cursor-pointer active:scale-95 shadow-2xs"
-                        >
-                          <Images className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                          <span>Choose Existing Image</span>
-                        </button>
+                      {/* Explanation & Action Buttons */}
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center gap-1.5 justify-center sm:justify-start flex-wrap">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700/60 px-2 py-0.5 text-[11px] font-bold text-amber-900 dark:text-amber-200">
+                            <Sparkles className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                            <span>Using Default Category Icon</span>
+                          </span>
+                        </div>
+                        <p className="text-xs font-bold text-stone-800 dark:text-stone-200">
+                          No Custom Photo Assigned
+                        </p>
+                        <p className="text-[11px] text-stone-500 dark:text-stone-400 leading-tight">
+                          This item will display the standard category icon on the POS register and customer menu.
+                        </p>
+
+                        <div className="flex items-center gap-2 pt-1.5 justify-center sm:justify-start flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-stone-900 dark:bg-amber-500 text-white dark:text-stone-950 text-xs font-bold hover:bg-stone-800 dark:hover:bg-amber-400 transition cursor-pointer active:scale-95 shadow-xs"
+                          >
+                            <Upload className="h-3.5 w-3.5" />
+                            <span>Upload Photo</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsItemSystemImagePickerOpen(true)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 text-xs font-bold hover:bg-stone-100 dark:hover:bg-stone-750 transition cursor-pointer active:scale-95 shadow-2xs"
+                          >
+                            <Images className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                            <span>Choose Existing Image</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}

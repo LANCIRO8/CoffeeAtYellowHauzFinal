@@ -2,6 +2,7 @@ import {
   Category,
   MenuItem,
   Table,
+  Chair,
   User,
   Order,
   OrderStatus,
@@ -21,6 +22,7 @@ import {
   RefillRequestStatus,
   RefillUrgency,
   RefillStation,
+  FloorArea,
 } from '../types';
 import {
   SEED_CATEGORIES,
@@ -200,7 +202,81 @@ const STORAGE_KEYS = {
   GUEST_ORDERS: 'yh_guest_orders',
   REFILL_REQUESTS: 'yh_refill_requests',
   DELETED_USERS: 'yh_deleted_users',
+  AREAS: 'yh_floor_areas',
 };
+
+export const DEFAULT_FLOOR_AREAS: FloorArea[] = [
+  {
+    id: '1st aircon area',
+    name: '1st Aircon',
+    description: '3 tables with 2 chairs each table',
+    icon: '❄️',
+    isAircon: true,
+  },
+  {
+    id: 'left side of center area',
+    name: 'Left Side of Center',
+    description: '3 long tables with 3 chairs each',
+    icon: '🌿',
+    isAircon: false,
+  },
+  {
+    id: 'kolin area',
+    name: 'Kolin',
+    description: 'Long couch shared by 2 tables (Table 1 & 2) • 1 chair each table',
+    icon: '❄️',
+    isAircon: true,
+  },
+  {
+    id: 'door area',
+    name: 'Door',
+    description: 'Long couch shared by 2 tables (Table 1 & 2) • 1 chair each table',
+    icon: '🚪',
+    isAircon: false,
+  },
+  {
+    id: 'entrance area',
+    name: 'Entrance',
+    description: 'Long couch shared by 2 tables (Table 1 & 2) • 1 chair each table',
+    icon: '✨',
+    isAircon: false,
+  },
+  {
+    id: 'spotlight area',
+    name: 'Spotlight',
+    description: '1 table with 2 chairs',
+    icon: '💡',
+    isAircon: false,
+  },
+  {
+    id: '2nd aircon area',
+    name: '2nd Aircon',
+    description: '1 table • 4 seats',
+    icon: '❄️',
+    isAircon: true,
+  },
+  {
+    id: '3rd aircon area',
+    name: '3rd Aircon',
+    description: 'Long table • 8 seats',
+    icon: '❄️',
+    isAircon: true,
+  },
+  {
+    id: 'center area',
+    name: 'Center',
+    description: '10 seats • 10 high chairs',
+    icon: '🏛️',
+    isAircon: false,
+  },
+  {
+    id: 'window area',
+    name: 'Window',
+    description: 'Long table • 7 chairs',
+    icon: '🪟',
+    isAircon: false,
+  },
+];
 
 // Defensive helper to strip undefined values so Firestore never throws 'Unsupported field value: undefined'
 export function cleanForFirestore<T>(obj: T): T {
@@ -406,13 +482,15 @@ export class AppStore {
             items.forEach((item) => {
               const seed = seedMap.get(item.id);
               let changed = false;
-              // Sync image with seed (or clear if deleted in seed and not a custom data URL)
+              // Sync image with seed only if user has not removed the image, and not a custom data URL
               if (
                 seed &&
                 seed.imageUrl &&
                 seed.imageUrl.startsWith('/images/') &&
                 item.imageUrl !== seed.imageUrl &&
-                !item.imageUrl?.startsWith('data:image/')
+                !item.imageUrl?.startsWith('data:image/') &&
+                !item.imageRemoved &&
+                item.imageUrl !== ''
               ) {
                 item.imageUrl = seed.imageUrl;
                 changed = true;
@@ -460,12 +538,12 @@ export class AppStore {
         collection(db, 'tables'),
         (snapshot) => {
           if (!snapshot.empty) {
-            const tables = snapshot.docs.map((doc) => doc.data() as Table);
-            tables.sort((a, b) => a.tableNumber - b.tableNumber);
-            const needsMigration = tables.length < 10 || !tables.some((t) => t.name);
+            const rawTables = snapshot.docs.map((doc) => doc.data() as Table);
+            rawTables.sort((a, b) => a.tableNumber - b.tableNumber);
+            const needsMigration = rawTables.length < 10 || !rawTables.some((t) => t.name);
             if (needsMigration) {
               const merged = SEED_TABLES.map((seed) => {
-                const existing = tables.find((t) => t.tableNumber === seed.tableNumber);
+                const existing = rawTables.find((t) => t.tableNumber === seed.tableNumber);
                 return existing
                   ? { ...seed, status: existing.status, currentOrderId: existing.currentOrderId }
                   : seed;
@@ -477,7 +555,44 @@ export class AppStore {
               this.notify();
               return;
             }
+
+            // Heal any missing or corrupted areaName and sync chairs
+            let hasHealed = false;
+            const tables = rawTables.map((t) => {
+              const current = { ...t };
+              const cleanArea = (current.areaName || '').trim();
+              if (!cleanArea) {
+                const seedMatch = SEED_TABLES.find(
+                  (s) => s.id === current.id || s.code === current.code || s.tableNumber === current.tableNumber
+                );
+                current.areaName = seedMatch?.areaName || (current.area === 'airconditioned' ? '1st aircon area' : 'entrance area');
+                hasHealed = true;
+              }
+              const cap = Number(current.capacity) || 2;
+              current.capacity = cap;
+              const chs = Array.isArray(current.chairs) ? [...current.chairs] : [];
+              if (chs.length !== cap) {
+                if (chs.length < cap) {
+                  const extra = Array.from({ length: cap - chs.length }, (_, i) => ({
+                    id: `T${current.tableNumber}-C${chs.length + i + 1}`,
+                    chairNumber: chs.length + i + 1,
+                    label: `Chair ${chs.length + i + 1}`,
+                  }));
+                  current.chairs = [...chs, ...extra];
+                } else {
+                  current.chairs = chs.slice(0, cap);
+                }
+                hasHealed = true;
+              }
+              return current;
+            });
+
             setStored(STORAGE_KEYS.TABLES, tables);
+            if (hasHealed) {
+              tables.forEach((table) => {
+                setDoc(doc(db, 'tables', String(table.id)), cleanForFirestore(table)).catch(() => {});
+              });
+            }
             this.notify();
           } else {
             // Seed tables
@@ -505,6 +620,7 @@ export class AppStore {
             setStored(STORAGE_KEYS.ORDERS, []);
           }
           this.notify();
+          this.checkAndSplitServedPaidCombinedTables();
         },
         (error) => {
           handleFirestoreError(error, OperationType.GET, 'orders');
@@ -744,9 +860,32 @@ export class AppStore {
           // ignore gracefully if collection isn't yet created
         }
       );
+
+      // 12. Listen to Floor Areas (Editable Area Names & Layout)
+      onSnapshot(
+        collection(db, 'floor_areas'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const list = snapshot.docs.map((doc) => doc.data() as FloorArea);
+            setStored(STORAGE_KEYS.AREAS, list);
+            this.notify();
+          } else {
+            // Seed floor areas if none exist in cloud
+            const existing = getStored<FloorArea[]>(STORAGE_KEYS.AREAS, DEFAULT_FLOOR_AREAS);
+            const toSave = existing && existing.length > 0 ? existing : DEFAULT_FLOOR_AREAS;
+            toSave.forEach((a) => {
+              setDoc(doc(db, 'floor_areas', a.id), cleanForFirestore(a)).catch(() => {});
+            });
+            setStored(STORAGE_KEYS.AREAS, toSave);
+            this.notify();
+          }
+        },
+        () => {}
+      );
     } catch (err) {
       console.warn('Firebase sync initialization notice:', err);
     }
+    this.checkAndSplitServedPaidCombinedTables();
   }
 
   // Categories
@@ -836,7 +975,9 @@ export class AppStore {
         seed.imageUrl &&
         seed.imageUrl.startsWith('/images/') &&
         item.imageUrl !== seed.imageUrl &&
-        !item.imageUrl?.startsWith('data:image/')
+        !item.imageUrl?.startsWith('data:image/') &&
+        !item.imageRemoved &&
+        item.imageUrl !== ''
       ) {
         item.imageUrl = seed.imageUrl;
         modified = true;
@@ -887,7 +1028,9 @@ export class AppStore {
         seed.imageUrl &&
         seed.imageUrl.startsWith('/images/') &&
         item.imageUrl !== seed.imageUrl &&
-        !item.imageUrl?.startsWith('data:image/')
+        !item.imageUrl?.startsWith('data:image/') &&
+        !item.imageRemoved &&
+        item.imageUrl !== ''
       ) {
         item.imageUrl = seed.imageUrl;
         count++;
@@ -944,6 +1087,13 @@ export class AppStore {
     });
 
     return items[idx];
+  }
+
+  static removeMenuItemImage(id: number): MenuItem | null {
+    return this.updateMenuItem(id, {
+      imageUrl: '',
+      imageRemoved: true,
+    });
   }
 
   static deleteMenuItem(id: number): boolean {
@@ -1151,69 +1301,188 @@ export class AppStore {
 
   // Floor plan tables
   static getTables(): Table[] {
-    const tables = getStored<Table[]>(STORAGE_KEYS.TABLES, SEED_TABLES);
-    if (
-      !tables ||
-      tables.length !== SEED_TABLES.length ||
-      !tables.some((t) => t.chairs && t.chairs.length > 0) ||
-      !tables.some((t) => t.areaName === '2nd aircon area') ||
-      !tables.some((t) => t.areaName === 'window area')
-    ) {
+    let tables = getStored<Table[]>(STORAGE_KEYS.TABLES, SEED_TABLES);
+    if (!tables || !Array.isArray(tables) || tables.length === 0) {
       setStored(STORAGE_KEYS.TABLES, SEED_TABLES);
       return SEED_TABLES;
     }
-    // Sync Kolin, Door & Entrance Area setup/chair descriptions if needed
+
     let hasUpdated = false;
-    tables.forEach((t) => {
+    tables = tables.map((t) => {
+      const current = { ...t };
+      // 1. Recover corrupted/lost areaName
+      const cleanArea = (current.areaName || '').trim();
+      if (!cleanArea) {
+        const seedMatch = SEED_TABLES.find(
+          (s) => s.id === current.id || s.code === current.code || s.tableNumber === current.tableNumber
+        );
+        current.areaName = seedMatch?.areaName || (current.area === 'airconditioned' ? '1st aircon area' : 'entrance area');
+        hasUpdated = true;
+      }
+
+      // 2. Synchronize chairs array with capacity
+      const cap = Number(current.capacity) || 2;
+      current.capacity = cap;
+      const chs = Array.isArray(current.chairs) ? [...current.chairs] : [];
+      if (chs.length !== cap) {
+        if (chs.length < cap) {
+          const extra = Array.from({ length: cap - chs.length }, (_, i) => ({
+            id: `T${current.tableNumber}-C${chs.length + i + 1}`,
+            chairNumber: chs.length + i + 1,
+            label: `Chair ${chs.length + i + 1}`,
+          }));
+          current.chairs = [...chs, ...extra];
+        } else {
+          current.chairs = chs.slice(0, cap);
+        }
+        hasUpdated = true;
+      }
+
+      // Sync Kolin, Door & Entrance Area setup/chair descriptions if needed
       if (
-        t.code === 'table7_kolin_1' ||
-        t.code === 'table8_kolin_2' ||
-        t.code === 'table10_door_1' ||
-        t.code === 'table11_door_2' ||
-        t.code === 'table13_entrance_1' ||
-        t.code === 'table14_entrance_2'
+        current.code === 'table7_kolin_1' ||
+        current.code === 'table8_kolin_2' ||
+        current.code === 'table10_door_1' ||
+        current.code === 'table11_door_2' ||
+        current.code === 'table13_entrance_1' ||
+        current.code === 'table14_entrance_2'
       ) {
-        if (!t.setup?.includes('Shares Long Couch')) {
-          t.setup = '1 chair • Shares Long Couch';
-          t.description = `${t.name} (1 chair • shares long couch)`;
+        if (!current.setup?.includes('Shares Long Couch')) {
+          current.setup = '1 chair • Shares Long Couch';
+          current.description = `${current.name} (1 chair • shares long couch)`;
           hasUpdated = true;
         }
       } else if (
-        t.code === 'table9_kolin_couch' ||
-        t.code === 'table12_door_couch' ||
-        t.code === 'table15_entrance_couch'
+        current.code === 'table9_kolin_couch' ||
+        current.code === 'table12_door_couch' ||
+        current.code === 'table15_entrance_couch'
       ) {
-        if (!t.setup?.includes('Shared') || !t.chairs?.[0]?.label?.includes('Table 1')) {
-          t.setup = 'Long Couch (Shared by Table 1 & Table 2)';
-          t.description = 'Long Couch (2 Customers • Shared with Table 1 & 2)';
-          if (t.chairs && t.chairs.length >= 2) {
-            t.chairs[0].label = 'Couch Seat 1 (Table 1)';
-            t.chairs[1].label = 'Couch Seat 2 (Table 2)';
+        if (!current.setup?.includes('Shared') || !current.chairs?.[0]?.label?.includes('Table 1')) {
+          current.setup = 'Long Couch (Shared by Table 1 & Table 2)';
+          current.description = 'Long Couch (2 Customers • Shared with Table 1 & 2)';
+          if (current.chairs && current.chairs.length >= 2) {
+            current.chairs[0].label = 'Couch Seat 1 (Table 1)';
+            current.chairs[1].label = 'Couch Seat 2 (Table 2)';
           }
           hasUpdated = true;
         }
       }
+
+      return current;
     });
+
     if (hasUpdated) {
       setStored(STORAGE_KEYS.TABLES, tables);
-      tables.forEach((table) => {
-        if (
-          table.code === 'table13_entrance_1' ||
-          table.code === 'table14_entrance_2' ||
-          table.code === 'table15_entrance_couch'
-        ) {
-          setDoc(doc(db, 'tables', String(table.id)), cleanForFirestore(table)).catch(() => {});
-        }
-      });
     }
     return tables;
   }
 
+  // Floor Area Management (Editable Area Names, Icons, and Environments)
+  static getFloorAreas(): FloorArea[] {
+    let areas = getStored<FloorArea[]>(STORAGE_KEYS.AREAS, DEFAULT_FLOOR_AREAS);
+    if (!areas || !Array.isArray(areas) || areas.length === 0) {
+      setStored(STORAGE_KEYS.AREAS, DEFAULT_FLOOR_AREAS);
+      return DEFAULT_FLOOR_AREAS;
+    }
+    return areas;
+  }
+
+  static saveFloorAreas(areas: FloorArea[]): void {
+    setStored(STORAGE_KEYS.AREAS, areas);
+    this.notify();
+    areas.forEach((area) => {
+      setDoc(doc(db, 'floor_areas', area.id), cleanForFirestore(area)).catch(() => {});
+    });
+  }
+
+  static updateFloorArea(id: string, updates: Partial<FloorArea>): FloorArea | null {
+    const areas = this.getFloorAreas();
+    const idx = areas.findIndex(
+      (a) => a.id.toLowerCase() === id.toLowerCase() || a.name.toLowerCase() === id.toLowerCase()
+    );
+    if (idx === -1) return null;
+
+    const oldArea = areas[idx];
+    const newName = updates.name ? updates.name.trim() : oldArea.name;
+    const updated: FloorArea = {
+      ...oldArea,
+      ...updates,
+      name: newName,
+    };
+    areas[idx] = updated;
+    this.saveFloorAreas(areas);
+
+    // If area name or isAircon changed, update all tables belonging to this area
+    const tables = this.getTables();
+    let tablesChanged = false;
+    tables.forEach((t) => {
+      const matchKey = (t.areaName || '').toLowerCase().trim();
+      if (matchKey === oldArea.id.toLowerCase() || matchKey === oldArea.name.toLowerCase()) {
+        if (updates.isAircon !== undefined) {
+          t.area = updates.isAircon ? 'airconditioned' : 'normal';
+        }
+        // Keep the area reference synchronized
+        t.areaName = updated.id;
+        tablesChanged = true;
+      }
+    });
+
+    if (tablesChanged) {
+      this.saveTables(tables);
+    }
+
+    return updated;
+  }
+
+  static addFloorArea(areaData: Omit<FloorArea, 'id'> & { id?: string }): FloorArea {
+    const areas = this.getFloorAreas();
+    const cleanId = (
+      areaData.id || areaData.name.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() + ' area'
+    ).toLowerCase();
+    
+    // Ensure unique id
+    let uniqueId = cleanId;
+    let counter = 1;
+    while (areas.some((a) => a.id.toLowerCase() === uniqueId.toLowerCase())) {
+      uniqueId = `${cleanId}_${counter++}`;
+    }
+
+    const newArea: FloorArea = {
+      id: uniqueId,
+      name: areaData.name.trim(),
+      description: areaData.description?.trim() || '',
+      icon: areaData.icon || '☕',
+      isAircon: Boolean(areaData.isAircon),
+    };
+
+    areas.push(newArea);
+    this.saveFloorAreas(areas);
+    return newArea;
+  }
+
+  static deleteFloorArea(id: string): boolean {
+    let areas = this.getFloorAreas();
+    const prevLen = areas.length;
+    areas = areas.filter(
+      (a) => a.id.toLowerCase() !== id.toLowerCase() && a.name.toLowerCase() !== id.toLowerCase()
+    );
+    if (areas.length !== prevLen) {
+      this.saveFloorAreas(areas);
+      deleteDoc(doc(db, 'floor_areas', id)).catch(() => {});
+      return true;
+    }
+    return false;
+  }
+
   static resetToOfficialTables(): Table[] {
     setStored(STORAGE_KEYS.TABLES, SEED_TABLES);
+    setStored(STORAGE_KEYS.AREAS, DEFAULT_FLOOR_AREAS);
     this.notify();
     SEED_TABLES.forEach((table) => {
       setDoc(doc(db, 'tables', String(table.id)), cleanForFirestore(table)).catch(() => {});
+    });
+    DEFAULT_FLOOR_AREAS.forEach((area) => {
+      setDoc(doc(db, 'floor_areas', area.id), cleanForFirestore(area)).catch(() => {});
     });
     return SEED_TABLES;
   }
@@ -1232,6 +1501,7 @@ export class AppStore {
         o.orderType === 'dine_in' &&
         o.status !== 'completed' &&
         o.status !== 'cancelled' &&
+        (!this.isOrderServedAndPaid(o) || (table.currentOrderId === o.id || Boolean(table.currentOrderIds && table.currentOrderIds.includes(o.id)))) &&
         ((o.tableId && relatedTableIds.includes(o.tableId)) ||
           (table.id && o.tableId === table.id) ||
           (table.tableNumber && o.tableNumber === table.tableNumber))
@@ -1301,8 +1571,17 @@ export class AppStore {
   static addTable(tableData: Omit<Table, 'id'>): Table {
     const tables = this.getTables();
     const newId = tables.length ? Math.max(...tables.map((t) => t.id)) + 1 : 1;
+    const cap = Number(tableData.capacity) || 2;
+    const tableNum = Number(tableData.tableNumber) || 1;
+    const chairs = tableData.chairs || Array.from({ length: cap }, (_, i) => ({
+      id: `T${tableNum}-C${i + 1}`,
+      chairNumber: i + 1,
+      label: `Chair ${i + 1}`,
+    }));
     const newTable: Table = {
       ...tableData,
+      capacity: cap,
+      chairs,
       id: newId,
     };
     tables.push(newTable);
@@ -1322,7 +1601,39 @@ export class AppStore {
     const idx = tables.findIndex((t) => t.id === id);
     if (idx === -1) return null;
 
-    tables[idx] = { ...tables[idx], ...updates };
+    const currentTable = tables[idx];
+    const newCap = updates.capacity !== undefined ? Number(updates.capacity) : currentTable.capacity;
+    const tableNum = updates.tableNumber !== undefined ? Number(updates.tableNumber) : currentTable.tableNumber;
+
+    // Synchronize chairs array if capacity changed or chairs don't match
+    let updatedChairs = updates.chairs ? [...updates.chairs] : currentTable.chairs ? [...currentTable.chairs] : [];
+    if (newCap !== currentTable.capacity || updatedChairs.length !== newCap) {
+      if (updatedChairs.length < newCap) {
+        const extra: Chair[] = Array.from({ length: newCap - updatedChairs.length }, (_, i) => ({
+          id: `T${tableNum}-C${updatedChairs.length + i + 1}`,
+          chairNumber: updatedChairs.length + i + 1,
+          label: `Chair ${updatedChairs.length + i + 1}`,
+        }));
+        updatedChairs = [...updatedChairs, ...extra];
+      } else if (updatedChairs.length > newCap) {
+        updatedChairs = updatedChairs.slice(0, newCap);
+      }
+    }
+
+    // Preserve areaName if updates.areaName is missing or invalid
+    let targetAreaName = updates.areaName;
+    if (!targetAreaName || !targetAreaName.trim()) {
+      targetAreaName = currentTable.areaName || (currentTable.area === 'airconditioned' ? '1st aircon area' : 'entrance area');
+    }
+
+    tables[idx] = {
+      ...currentTable,
+      ...updates,
+      tableNumber: tableNum,
+      capacity: newCap,
+      areaName: targetAreaName,
+      chairs: updatedChairs,
+    };
     tables.sort((a, b) => a.tableNumber - b.tableNumber);
     this.saveTables(tables);
 
@@ -1494,6 +1805,9 @@ export class AppStore {
     primary.isCombinedCompanion = undefined;
     primary.primaryTableId = undefined;
     primary.baseName = undefined;
+    primary.status = 'available';
+    primary.currentOrderId = null;
+    primary.currentOrderIds = [];
 
     // Restore companion tables back to baseline
     companions.forEach((c) => {
@@ -1523,6 +1837,68 @@ export class AppStore {
       success: true,
       message: `Table group uncombined. Tables ${[primary.tableNumber, ...companions.map((c) => c.tableNumber)].join(', ')} are now separate.`,
     };
+  }
+
+  // Check whether an order is considered served and paid
+  static isOrderServedAndPaid(order: Order): boolean {
+    if (!order || order.status === 'cancelled') return false;
+    const isPaid = order.paymentStatus === 'paid' || Boolean(order.paidAt);
+    const allItemsServed = Boolean(
+      order.items &&
+      order.items.length > 0 &&
+      order.items.every((it) => it.isServed)
+    );
+    const isServed =
+      order.status === 'to_serve' ||
+      order.status === 'completed' ||
+      allItemsServed;
+
+    return Boolean(isPaid && isServed);
+  }
+
+  // Automatically split / uncombine combined tables once their ticket(s) are served and paid
+  static checkAndSplitServedPaidCombinedTables(): void {
+    const tables = this.getTables();
+    const orders = this.getOrders();
+
+    // Find all primary tables of combined groups
+    const combinedPrimaries = tables.filter(
+      (t) => t.combinedWithTableIds && t.combinedWithTableIds.length > 0
+    );
+
+    if (combinedPrimaries.length === 0) return;
+
+    for (const primary of combinedPrimaries) {
+      const companionIds = primary.combinedWithTableIds || [];
+      const companions = tables.filter((t) => companionIds.includes(t.id));
+
+      const allIds = [primary.id, ...companions.map((c) => c.id)];
+      const allNumbers = [primary.tableNumber, ...companions.map((c) => c.tableNumber)];
+
+      // Find all dine-in orders that ever referenced this combined group
+      const relatedOrders = orders.filter((o) => {
+        if (o.orderType !== 'dine_in' || o.status === 'cancelled') return false;
+        if (o.tableId && allIds.includes(o.tableId)) return true;
+        if (o.tableNumber && allNumbers.includes(o.tableNumber)) return true;
+        if (primary.currentOrderId === o.id || Boolean(primary.currentOrderIds && primary.currentOrderIds.includes(o.id))) return true;
+        if (companions.some((c) => c.currentOrderId === o.id || Boolean(c.currentOrderIds && c.currentOrderIds.includes(o.id)))) return true;
+        return false;
+      });
+
+      // If no dine-in orders exist at all, this might be a newly combined table awaiting guests
+      if (relatedOrders.length === 0) continue;
+
+      // Are all related active dine-in orders served and paid?
+      const allServedAndPaid = relatedOrders.every((o) => this.isOrderServedAndPaid(o));
+      const hasAtLeastOneServedAndPaid = relatedOrders.some((o) => this.isOrderServedAndPaid(o));
+
+      if (allServedAndPaid && hasAtLeastOneServedAndPaid) {
+        console.log(
+          `[AppStore] Combined table ${primary.name || `T${primary.tableNumber}`} split because ticket(s) are served and paid.`
+        );
+        this.uncombineTable(primary.id);
+      }
+    }
   }
 
   static getOrderChannel(order: Order): 'online' | 'in_store' {
@@ -1587,6 +1963,7 @@ export class AppStore {
     setDoc(doc(db, 'orders', String(order.id)), cleanForFirestore(order)).catch((e) =>
       console.error('Firestore markOrderAsPaid error:', e)
     );
+    this.checkAndSplitServedPaidCombinedTables();
     return order;
   }
 
@@ -1764,6 +2141,7 @@ export class AppStore {
       }
     }
 
+    this.checkAndSplitServedPaidCombinedTables();
     return newOrder;
   }
 
@@ -1941,31 +2319,70 @@ export class AppStore {
       }
     }
 
+    this.checkAndSplitServedPaidCombinedTables();
     return order;
   }
 
   static toggleOrderItemServed(
     orderId: number,
     itemIndex: number,
-    staffName?: string
+    staffName?: string,
+    unitIndex?: number
   ): Order | null {
     const orders = this.getOrders();
     const order = orders.find((o) => o.id === orderId);
     if (!order || !order.items || !order.items[itemIndex]) return null;
 
     const item = order.items[itemIndex];
-    const newServed = !item.isServed;
-    item.isServed = newServed;
+    const qty = item.quantity || 1;
     const nowIso = new Date().toISOString();
-    if (newServed) {
-      item.servedAt = nowIso;
-      if (staffName) item.servedBy = staffName;
+
+    if (qty > 1 && unitIndex !== undefined) {
+      const currentServedUnits =
+        item.servedUnits !== undefined
+          ? item.servedUnits
+          : item.isServed
+          ? qty
+          : 0;
+
+      const isThisUnitServed = unitIndex < currentServedUnits;
+      let nextServedUnits = currentServedUnits;
+      if (isThisUnitServed) {
+        // Was served, unserve one unit
+        nextServedUnits = Math.max(0, currentServedUnits - 1);
+      } else {
+        // Was unserved, mark one unit as served
+        nextServedUnits = Math.min(qty, currentServedUnits + 1);
+      }
+
+      item.servedUnits = nextServedUnits;
+      item.isServed = nextServedUnits >= qty;
+      if (item.isServed) {
+        item.servedAt = nowIso;
+        if (staffName) item.servedBy = staffName;
+      } else if (nextServedUnits === 0) {
+        delete item.servedAt;
+        delete item.servedBy;
+      }
     } else {
-      delete item.servedAt;
-      delete item.servedBy;
+      const newServed = !item.isServed;
+      item.isServed = newServed;
+      item.servedUnits = newServed ? qty : 0;
+      if (newServed) {
+        item.servedAt = nowIso;
+        if (staffName) item.servedBy = staffName;
+      } else {
+        delete item.servedAt;
+        delete item.servedBy;
+      }
     }
 
-    const allServed = order.items.every((it) => it.isServed);
+    const allServed = order.items.every((it) => {
+      const q = it.quantity || 1;
+      const s = it.servedUnits !== undefined ? it.servedUnits : it.isServed ? q : 0;
+      return s >= q && Boolean(it.isServed);
+    });
+
     if (allServed) {
       order.status = 'to_serve';
       order.readyToServeAt = nowIso;
@@ -1979,6 +2396,7 @@ export class AppStore {
 
     this.saveOrders(orders);
     setDoc(doc(db, 'orders', String(orderId)), cleanForFirestore(order)).catch(() => {});
+    this.checkAndSplitServedPaidCombinedTables();
     return order;
   }
 
@@ -1993,7 +2411,9 @@ export class AppStore {
 
     const nowIso = new Date().toISOString();
     order.items.forEach((item) => {
+      const qty = item.quantity || 1;
       item.isServed = served;
+      item.servedUnits = served ? qty : 0;
       if (served) {
         item.servedAt = nowIso;
         if (staffName) item.servedBy = staffName;
@@ -2016,6 +2436,7 @@ export class AppStore {
 
     this.saveOrders(orders);
     setDoc(doc(db, 'orders', String(orderId)), cleanForFirestore(order)).catch(() => {});
+    this.checkAndSplitServedPaidCombinedTables();
     return order;
   }
 
@@ -2047,6 +2468,7 @@ export class AppStore {
         order.items.forEach((item) => {
           if (isDrinkOrderItem(item, menuItems)) {
             item.isServed = true;
+            item.servedUnits = item.quantity || 1;
             if (!item.servedAt) item.servedAt = nowIso;
             if (staffName && !item.servedBy) item.servedBy = staffName;
           }
@@ -2054,7 +2476,14 @@ export class AppStore {
       }
 
       // Check if ALL checkboxes in the order are completed before ticket is called served
-      const allChecked = order.items && order.items.length > 0 && order.items.every((it) => it.isServed);
+      const allChecked =
+        order.items &&
+        order.items.length > 0 &&
+        order.items.every((it) => {
+          const q = it.quantity || 1;
+          const s = it.servedUnits !== undefined ? it.servedUnits : it.isServed ? q : 0;
+          return s >= q && Boolean(it.isServed);
+        });
       if (allChecked) {
         order.status = 'to_serve';
         if (!order.readyToServeAt) order.readyToServeAt = nowIso;
@@ -2080,6 +2509,7 @@ export class AppStore {
       setDoc(doc(db, 'orders', String(orderId)), cleanForFirestore(order)).catch(() => {});
     });
 
+    this.checkAndSplitServedPaidCombinedTables();
     return order;
   }
 
@@ -2111,6 +2541,7 @@ export class AppStore {
         order.items.forEach((item) => {
           if (!isDrinkOrderItem(item, menuItems)) {
             item.isServed = true;
+            item.servedUnits = item.quantity || 1;
             if (!item.servedAt) item.servedAt = nowIso;
             if (staffName && !item.servedBy) item.servedBy = staffName;
           }
@@ -2118,7 +2549,14 @@ export class AppStore {
       }
 
       // Check if ALL checkboxes in the order are completed before ticket is called served
-      const allChecked = order.items && order.items.length > 0 && order.items.every((it) => it.isServed);
+      const allChecked =
+        order.items &&
+        order.items.length > 0 &&
+        order.items.every((it) => {
+          const q = it.quantity || 1;
+          const s = it.servedUnits !== undefined ? it.servedUnits : it.isServed ? q : 0;
+          return s >= q && Boolean(it.isServed);
+        });
       if (allChecked) {
         order.status = 'to_serve';
         if (!order.readyToServeAt) order.readyToServeAt = nowIso;
@@ -2144,6 +2582,7 @@ export class AppStore {
       setDoc(doc(db, 'orders', String(orderId)), cleanForFirestore(order)).catch(() => {});
     });
 
+    this.checkAndSplitServedPaidCombinedTables();
     return order;
   }
 
@@ -2159,6 +2598,7 @@ export class AppStore {
     if (order.items && order.items.length > 0) {
       order.items.forEach((item) => {
         item.isServed = true;
+        item.servedUnits = item.quantity || 1;
         if (!item.servedAt) item.servedAt = nowIso;
         if (staffName && !item.servedBy) item.servedBy = staffName;
       });
@@ -2203,6 +2643,7 @@ export class AppStore {
       setDoc(doc(db, 'orders', String(orderId)), cleanForFirestore(order)).catch(() => {});
     });
 
+    this.checkAndSplitServedPaidCombinedTables();
     return order;
   }
 

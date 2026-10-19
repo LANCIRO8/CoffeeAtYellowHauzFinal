@@ -267,7 +267,7 @@ export const CombineTablesModal: React.FC<CombineTablesModalProps> = ({
           <div className="space-y-1.5">
             <label className="text-[11px] font-black uppercase tracking-wider text-stone-600 dark:text-stone-400 flex items-center gap-1.5">
               <LayoutGrid className="h-3.5 w-3.5 text-amber-500" />
-              <span>Select Area for Combined Party:</span>
+              <span>Select Section for Combined Party:</span>
             </label>
             <div className="flex flex-wrap gap-1.5 bg-stone-100 dark:bg-stone-800/80 p-1.5 rounded-2xl">
               {areas.map((aKey) => {
@@ -276,6 +276,16 @@ export const CombineTablesModal: React.FC<CombineTablesModalProps> = ({
                   (t) =>
                     (t.areaName || (t.area === 'airconditioned' ? '1st aircon area' : 'entrance area')).toLowerCase() === aKey
                 ).length;
+                const floorAreas = AppStore.getFloorAreas();
+                const matchedFa = floorAreas.find(
+                  (fa) =>
+                    fa.id.toLowerCase() === aKey.toLowerCase() ||
+                    fa.name.toLowerCase() === aKey.toLowerCase()
+                );
+                const displayName = matchedFa
+                  ? matchedFa.name.replace(/\s*area\b/gi, '').trim()
+                  : aKey.replace(/\s*area\b/gi, '').trim();
+                const icon = matchedFa?.icon || (aKey.includes('aircon') ? '❄️' : '🌿');
                 return (
                   <button
                     key={aKey}
@@ -287,8 +297,8 @@ export const CombineTablesModal: React.FC<CombineTablesModalProps> = ({
                         : 'text-stone-600 dark:text-stone-400 hover:bg-white dark:hover:bg-stone-700'
                     }`}
                   >
-                    <span>{aKey.includes('aircon') ? '❄️' : '🌿'}</span>
-                    <span>{aKey}</span>
+                    <span>{icon}</span>
+                    <span>{displayName}</span>
                     <span className="text-[10px] opacity-75">({count})</span>
                   </button>
                 );
@@ -301,7 +311,7 @@ export const CombineTablesModal: React.FC<CombineTablesModalProps> = ({
             <div className="rounded-2xl border border-amber-300 dark:border-amber-700 bg-amber-50/80 dark:bg-amber-950/40 p-3 space-y-2">
               <div className="flex items-center gap-2 text-xs font-black text-amber-950 dark:text-amber-200">
                 <Link2 className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                <span>Currently Combined Tables in this Area:</span>
+                <span>Currently Combined Tables:</span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {areaTables

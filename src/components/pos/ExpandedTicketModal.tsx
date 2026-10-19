@@ -20,12 +20,12 @@ import {
   Flame,
   CheckSquare,
   Square,
-  Receipt,
   Timer,
-  Info,
   CreditCard,
   Banknote,
   QrCode,
+  Undo2,
+  Sparkles,
 } from 'lucide-react';
 import { Order, User, OrderStatus } from '../../types';
 import { AppStore, isDrinkOrderItem, getOrderFulfillmentBreakdown } from '../../services/store';
@@ -36,7 +36,7 @@ interface ExpandedTicketModalProps {
   onClose: () => void;
   onViewReceipt: (order: Order) => void;
   onUpdateStatus: (orderId: number, nextStatus: OrderStatus) => void;
-  onToggleItemServed: (orderId: number, itemIndex: number) => void;
+  onToggleItemServed: (orderId: number, itemIndex: number, unitIndex?: number) => void;
   onToggleAllServed: (orderId: number, served: boolean) => void;
   onCompleteAllSections: (orderId: number) => void;
   onUpdateBaristaStatus?: (orderId: number, status: 'to_prep' | 'processing' | 'ready') => void;
@@ -69,7 +69,7 @@ export const ExpandedTicketModal: React.FC<ExpandedTicketModalProps> = ({
   formatDuration,
   now,
 }) => {
-  // Listen for Escape key
+  // Listen for Escape key to close modal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -80,7 +80,9 @@ export const ExpandedTicketModal: React.FC<ExpandedTicketModalProps> = ({
 
   const menuItems = AppStore.getMenuItems();
   const tables = AppStore.getTables();
-  const matchedTable = order.tableNumber ? tables.find((t) => t.tableNumber === order.tableNumber) : null;
+  const matchedTable = order.tableNumber
+    ? tables.find((t) => t.tableNumber === order.tableNumber)
+    : null;
   const breakdown = getOrderFulfillmentBreakdown(order, menuItems);
 
   const isBarista = activeStaff.role === 'barista';
@@ -96,67 +98,95 @@ export const ExpandedTicketModal: React.FC<ExpandedTicketModalProps> = ({
   const channel = AppStore.getOrderChannel(order);
   const isOnline = channel === 'online';
 
-  const allItemsServed = order.items.length > 0 && order.items.every((it) => it.isServed);
-  const servedCount = order.items.filter((it) => it.isServed).length;
+  const totalUnitsCount = order.items.reduce((acc, it) => acc + (it.quantity || 1), 0);
+  const servedUnitsCount = order.items.reduce((acc, it) => {
+    const qty = it.quantity || 1;
+    const s = it.servedUnits !== undefined ? it.servedUnits : it.isServed ? qty : 0;
+    return acc + Math.min(qty, Math.max(0, s));
+  }, 0);
+  const allItemsServed = totalUnitsCount > 0 && servedUnitsCount >= totalUnitsCount;
+  const servedCount = servedUnitsCount;
 
   const isServedAndPaid =
     order.paymentStatus === 'paid' &&
     (order.status === 'to_serve' || order.status === 'completed' || allItemsServed);
   const isHideCheckboxes = isServedAndPaid || isCompleted;
 
+  // Calculate order timings identical to TicketManagement
   const createdTime = new Date(order.createdAt).getTime();
-  const totalWaitMs = Math.max(0, now - createdTime);
+  const processingTime = order.processingStartedAt
+    ? new Date(order.processingStartedAt).getTime()
+    : null;
+  const readyTime = order.readyToServeAt ? new Date(order.readyToServeAt).getTime() : null;
+  const completedTime = order.completedAt ? new Date(order.completedAt).getTime() : null;
+
+  let pendingDurationMs = 0;
+  let processingDurationMs = 0;
+  let totalWaitDurationMs = 0;
+
+  if (isToConfirm || isToPrep) {
+    pendingDurationMs = Math.max(0, now - createdTime);
+    processingDurationMs = 0;
+    totalWaitDurationMs = pendingDurationMs;
+  } else if (isProcessing) {
+    const prepStart = processingTime || createdTime;
+    pendingDurationMs = Math.max(0, prepStart - createdTime);
+    processingDurationMs = Math.max(0, now - prepStart);
+    totalWaitDurationMs = Math.max(0, now - createdTime);
+  } else if (isToServe) {
+    const prepStart = processingTime || createdTime;
+    const readyAt = readyTime || now;
+    pendingDurationMs = Math.max(0, prepStart - createdTime);
+    processingDurationMs = Math.max(0, readyAt - prepStart);
+    totalWaitDurationMs = Math.max(0, now - createdTime);
+  } else if (isCompleted) {
+    const end = completedTime || now;
+    const prepStart = processingTime || createdTime;
+    pendingDurationMs = Math.max(0, prepStart - createdTime);
+    processingDurationMs = Math.max(0, (readyTime || end) - prepStart);
+    totalWaitDurationMs = Math.max(0, end - createdTime);
+  } else {
+    totalWaitDurationMs = Math.max(0, (completedTime || now) - createdTime);
+  }
+
+  const MAX_TICKET_TIMER_MS = 40 * 60 * 1000;
   const isActive = !isCompleted && !isCancelled;
+  const isOverdue = isActive && totalWaitDurationMs >= MAX_TICKET_TIMER_MS;
+  const isPriority = isActive && totalWaitDurationMs >= 30 * 60 * 1000 && !isOverdue;
+  const isReminder = isActive && totalWaitDurationMs >= 15 * 60 * 1000 && !isPriority && !isOverdue;
 
-  // Ticket timer rules: 15m yellow (Reminder), 30m red (Priority), 40m max (Overdue)
-  const isOverdue = isActive && totalWaitMs >= 40 * 60 * 1000;
-  const isPriority = isActive && totalWaitMs >= 30 * 60 * 1000 && !isOverdue;
-  const isReminder = isActive && totalWaitMs >= 15 * 60 * 1000 && !isPriority && !isOverdue;
+  // Cap displayed durations at 40 minutes max per requirements
+  totalWaitDurationMs = Math.min(totalWaitDurationMs, MAX_TICKET_TIMER_MS);
+  pendingDurationMs = Math.min(pendingDurationMs, MAX_TICKET_TIMER_MS);
+  processingDurationMs = Math.min(processingDurationMs, MAX_TICKET_TIMER_MS);
 
-  const getStatusBadge = () => {
-    if (isCancelled) {
+  const timerLabel = isOverdue
+    ? 'Overdue'
+    : isPriority
+    ? 'Priority'
+    : isReminder
+    ? 'Reminder'
+    : 'Normal';
+
+  const renderPaymentBadge = () => {
+    if (order.paymentStatus === 'nyp') {
       return (
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-stone-200 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 px-3 py-1 text-xs font-bold text-stone-700 dark:text-stone-300">
-          <Ban className="h-3.5 w-3.5 text-stone-500" />
-          <span>Cancelled</span>
-        </span>
-      );
-    }
-    if (isCompleted) {
-      return (
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-400 dark:border-emerald-700 px-3 py-1 text-xs font-black text-emerald-950 dark:text-emerald-300">
-          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-          <span>Completed</span>
-        </span>
-      );
-    }
-    if (isToServe) {
-      return (
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-400 dark:border-emerald-700 px-3 py-1 text-xs font-black text-emerald-950 dark:text-emerald-300 animate-pulse">
-          <Check className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-400 stroke-[3]" />
-          <span>Served • Ready</span>
-        </span>
-      );
-    }
-    if (isProcessing || isToPrep) {
-      return (
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 dark:bg-sky-950/70 border border-sky-400 dark:border-sky-700 px-3 py-1 text-xs font-black text-sky-950 dark:text-sky-300">
-          <ChefHat className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400 animate-bounce" />
-          <span>Preparing</span>
-        </span>
-      );
-    }
-    if (isToConfirm) {
-      return (
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 dark:bg-rose-950/70 border border-rose-400 dark:border-rose-700 px-3 py-1 text-xs font-black text-rose-950 dark:text-rose-300 animate-pulse">
-          <AlertCircle className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
-          <span>To Confirm (Cashier Review)</span>
+        <span
+          title="Not Yet Paid (Collect payment at cashier)"
+          className="inline-flex items-center gap-0.5 sm:gap-1 rounded-md px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wide bg-amber-500/15 border border-amber-500 text-amber-950 dark:text-amber-200 animate-pulse"
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-600 dark:bg-amber-400" />
+          <span>NYP</span>
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 dark:bg-stone-800 px-3 py-1 text-xs font-bold text-stone-700 dark:text-stone-300">
-        {order.status}
+      <span
+        title="Payment completed (Paid)"
+        className="inline-flex items-center gap-0.5 sm:gap-1 rounded-md px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wide bg-emerald-500/15 border border-emerald-500 text-emerald-950 dark:text-emerald-300"
+      >
+        <Check className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-700 dark:text-emerald-400 stroke-[3]" />
+        <span>Paid</span>
       </span>
     );
   };
@@ -177,106 +207,28 @@ export const ExpandedTicketModal: React.FC<ExpandedTicketModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="expanded-ticket-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 md:p-6 bg-stone-950/70 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 md:p-6 bg-stone-950/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="relative w-full max-w-3xl max-h-[92vh] flex flex-col rounded-3xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
-        {/* Modal Top Header Bar */}
-        <div className="flex items-center justify-between gap-3 border-b border-stone-200 dark:border-stone-800 bg-stone-50/80 dark:bg-stone-900/80 px-4 sm:px-6 py-3.5 shrink-0">
+      <div className="relative w-full max-w-2xl max-h-[92vh] flex flex-col rounded-3xl bg-white dark:bg-stone-900 shadow-2xl border border-stone-200 dark:border-stone-800 overflow-hidden animate-in zoom-in-95 duration-150">
+        {/* Focus Ticket Top Header Bar */}
+        <div className="flex items-center justify-between gap-3 border-b border-stone-200 dark:border-stone-800 bg-stone-50/90 dark:bg-stone-900/90 px-4 sm:px-6 py-3 shrink-0">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-wrap">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500 text-stone-950 font-black text-[10px] sm:text-xs px-2.5 py-0.5 uppercase tracking-wider shadow-xs">
+              <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5 stroke-[2.5]" />
+              <span>Focus Ticket</span>
+            </span>
             <span
               id="expanded-ticket-title"
-              className="font-mono text-base sm:text-lg font-black text-stone-950 dark:text-stone-50 tracking-tight"
+              className="font-mono text-sm sm:text-base font-black text-stone-950 dark:text-stone-50 tracking-tight"
             >
               #{order.orderNumber}
             </span>
-
-            {/* Channel badge */}
-            <span
-              className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] sm:text-xs font-black uppercase tracking-wide ${
-                isOnline
-                  ? 'bg-indigo-100 dark:bg-indigo-950/80 text-indigo-950 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800'
-                  : 'bg-amber-100 dark:bg-amber-950/80 text-amber-950 dark:text-amber-300 border border-amber-400 dark:border-amber-800'
-              }`}
-            >
-              {isOnline ? (
-                <>
-                  <Globe className="h-3 w-3 stroke-[2.4]" />
-                  <span>Online Storefront</span>
-                </>
-              ) : (
-                <>
-                  <Store className="h-3 w-3 stroke-[2.4]" />
-                  <span>In-Store POS</span>
-                </>
-              )}
+            <span className="text-[11px] text-stone-500 dark:text-stone-400 font-medium hidden sm:inline">
+              • Active Ticket View
             </span>
-
-            {/* Order Type badge */}
-            <span className="rounded-md bg-stone-200/80 dark:bg-stone-800 px-2 py-0.5 text-[10px] sm:text-xs font-bold text-stone-800 dark:text-stone-200 capitalize">
-              {order.orderType.replace('_', ' ')}
-            </span>
-
-            {/* Table Badge if applicable */}
-            {order.tableNumber && (
-              <span className="rounded-md bg-amber-500/20 text-amber-950 dark:text-amber-200 border border-amber-400/50 px-2 py-0.5 text-[10px] sm:text-xs font-black">
-                Table #{order.tableNumber} {matchedTable?.areaName ? `(${matchedTable.areaName})` : ''}
-              </span>
-            )}
-
-            {/* Status badge */}
-            {getStatusBadge()}
-
-            {/* Payment status badge */}
-            {order.paymentStatus === 'nyp' ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950/80 border border-amber-400 dark:border-amber-700 px-2.5 py-0.5 text-[10px] sm:text-xs font-black text-amber-950 dark:text-amber-300 uppercase animate-pulse">
-                <span>⚠️ NYP • Unpaid</span>
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-400 dark:border-emerald-700 px-2.5 py-0.5 text-[10px] sm:text-xs font-black text-emerald-950 dark:text-emerald-300 uppercase">
-                <Check className="h-3 w-3 stroke-[3]" />
-                <span>Paid</span>
-              </span>
-            )}
-
-            {/* Ticket Timer Status badge if active */}
-            {isActive && (
-              <span
-                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] sm:text-xs font-black uppercase tracking-wide shrink-0 ${
-                  isOverdue
-                    ? 'bg-red-600 text-white animate-pulse shadow-xs ring-1 ring-red-700'
-                    : isPriority
-                    ? 'bg-rose-600 text-white shadow-xs'
-                    : isReminder
-                    ? 'bg-amber-400 dark:bg-amber-500 text-stone-950 shadow-xs'
-                    : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700'
-                }`}
-              >
-                {isOverdue ? (
-                  <>
-                    <AlertTriangle className="h-3 w-3 stroke-[2.8]" />
-                    <span>Overdue ({formatDuration(totalWaitMs)})</span>
-                  </>
-                ) : isPriority ? (
-                  <>
-                    <Flame className="h-3 w-3" />
-                    <span>Priority ({formatDuration(totalWaitMs)})</span>
-                  </>
-                ) : isReminder ? (
-                  <>
-                    <Timer className="h-3 w-3 stroke-[2.5]" />
-                    <span>Reminder ({formatDuration(totalWaitMs)})</span>
-                  </>
-                ) : (
-                  <>
-                    <Clock className="h-3 w-3" />
-                    <span>Wait: {formatDuration(totalWaitMs)}</span>
-                  </>
-                )}
-              </span>
-            )}
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
@@ -292,7 +244,7 @@ export const ExpandedTicketModal: React.FC<ExpandedTicketModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              title="Close modal"
+              title="Close focus view (Esc)"
               className="grid h-8 w-8 place-items-center rounded-xl text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-800 hover:text-stone-700 dark:hover:text-stone-200 transition cursor-pointer"
             >
               <X className="h-5 w-5" />
@@ -300,849 +252,863 @@ export const ExpandedTicketModal: React.FC<ExpandedTicketModalProps> = ({
           </div>
         </div>
 
-        {/* Modal Scrollable Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-5">
-          {/* Customer Cancellation Request Alert Banner */}
-          {order.cancellationRequested && !isCancelled && (
-            <div className="rounded-2xl border-2 border-rose-400 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/60 p-3 sm:p-4 text-rose-950 dark:text-rose-200 shadow-sm animate-in fade-in duration-150">
-              <div className="flex items-start gap-2.5">
-                <div className="grid h-7 w-7 place-items-center rounded-xl bg-rose-600 text-white shrink-0 mt-0.5">
-                  <AlertCircle className="h-4 w-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-xs sm:text-sm font-black uppercase tracking-wide text-rose-900 dark:text-rose-300">
-                    Customer Cancellation Request Pending Review
-                  </h4>
-                  <p className="text-xs font-medium text-rose-800 dark:text-rose-400 mt-1">
-                    Reason: <span className="font-bold">"{order.cancellationReason || 'Customer requested'}"</span>
-                    {order.cancellationNotes ? ` — Note: "${order.cancellationNotes}"` : ''}
-                  </p>
-                  <p className="text-[11px] text-rose-700 dark:text-rose-500 mt-0.5">
-                    Requested on: {order.cancellationRequestedAt ? new Date(order.cancellationRequestedAt).toLocaleTimeString() : 'Recently'}
-                  </p>
-                </div>
-              </div>
-              {!isBarista && !isCook && (
-                <div className="mt-3 flex items-center justify-end gap-2 pt-2 border-t border-rose-200 dark:border-rose-800">
-                  <button
-                    type="button"
-                    onClick={() => onDeclineCancellation(order)}
-                    className="rounded-xl border border-rose-300 dark:border-rose-800 bg-white dark:bg-stone-900 hover:bg-rose-100 text-rose-800 dark:text-rose-200 px-3 py-1.5 text-xs font-bold transition cursor-pointer"
-                  >
-                    Decline Request
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onApproveCancellation(order)}
-                    className="flex items-center gap-1 rounded-xl bg-rose-600 hover:bg-rose-500 text-white px-3.5 py-1.5 text-xs font-black transition cursor-pointer shadow-xs"
-                  >
-                    <Ban className="h-3.5 w-3.5" />
-                    <span>Approve &amp; Void Ticket</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Not Yet Paid (NYP) Alert Banner */}
-          {order.paymentStatus === 'nyp' && !isCancelled && (
-            <div className="rounded-2xl border-2 border-amber-400 dark:border-amber-700 bg-amber-50/90 dark:bg-amber-950/60 p-3 sm:p-3.5 flex items-center justify-between gap-3 shadow-2xs">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="grid h-8 w-8 place-items-center rounded-xl bg-amber-500 text-stone-950 shrink-0 font-black text-sm shadow-xs">
-                  ⚠️
-                </div>
-                <div className="min-w-0">
-                  <span className="text-xs font-black uppercase tracking-wider text-amber-950 dark:text-amber-200 block">
-                    Ticket Is Not Yet Paid (NYP)
+        {/* Modal Scrollable Ticket View Container */}
+        <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 md:p-6 space-y-4">
+          {/* Authentic Order Ticket Card matching Order Tickets */}
+          <div
+            className={`flex flex-col justify-between rounded-2xl sm:rounded-3xl border bg-white dark:bg-stone-900 p-3.5 sm:p-5 md:p-6 shadow-sm transition ${
+              allItemsServed && !isCompleted && !isCancelled
+                ? 'border-emerald-400 dark:border-emerald-600 ring-2 ring-emerald-500/25 bg-linear-to-b from-emerald-50/20 to-white dark:from-emerald-950/25 dark:to-stone-900'
+                : isToServe
+                ? 'border-emerald-400 dark:border-emerald-600 ring-2 ring-emerald-500/20 bg-linear-to-b from-emerald-50/20 to-white dark:from-emerald-950/20 dark:to-stone-900'
+                : isOverdue
+                ? 'border-red-600 dark:border-red-500 ring-4 ring-red-600/40 bg-red-50/25 dark:bg-red-950/20 animate-pulse'
+                : isPriority
+                ? 'border-rose-500 dark:border-rose-600 ring-2 ring-rose-500/30 bg-rose-50/15 dark:bg-rose-950/15'
+                : isReminder
+                ? 'border-amber-400 dark:border-amber-500 ring-2 ring-amber-500/25 bg-amber-50/15 dark:bg-amber-950/15'
+                : isToConfirm
+                ? 'border-rose-300 dark:border-rose-700/60 ring-1 ring-rose-500/10'
+                : isToPrep
+                ? 'border-amber-300 dark:border-amber-700/60 ring-1 ring-amber-500/10'
+                : isProcessing
+                ? 'border-sky-300 dark:border-sky-700/60 ring-1 ring-sky-500/10'
+                : 'border-stone-200/80 dark:border-stone-800'
+            }`}
+          >
+            <div>
+              {/* Header Bar */}
+              <div className="flex items-center justify-between border-b border-stone-100 dark:border-stone-800 pb-2.5 sm:pb-3 gap-1 flex-wrap">
+                <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-wrap">
+                  <span className="font-mono text-xs sm:text-sm font-extrabold text-stone-900 dark:text-stone-100 truncate">
+                    #{order.orderNumber}
                   </span>
-                  <span className="text-[11px] text-amber-800 dark:text-amber-300 font-semibold block truncate">
-                    Total Due: ₱{order.totalAmount.toFixed(2)} • Customer has deferred payment
+                  <span className="text-[10px] sm:text-[11px] text-stone-600 dark:text-stone-400 font-semibold shrink-0">
+                    {new Date(order.createdAt).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
                   </span>
-                </div>
-              </div>
-              {onReceivePayment && !isCancelled && (
-                <button
-                  type="button"
-                  onClick={() => onReceivePayment(order)}
-                  className="flex items-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 px-3.5 py-1.5 text-xs font-black shadow-xs transition active:scale-95 cursor-pointer shrink-0"
-                >
-                  <Banknote className="h-3.5 w-3.5" />
-                  <span>Receive Payment</span>
-                </button>
-              )}
-            </div>
-          )}
 
-          {/* Metadata Cards Grid: Customer, Table/Service, Timeline */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {/* Customer Details Card */}
-            <div className="rounded-2xl border border-stone-200 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-850 p-3 sm:p-3.5 space-y-1.5">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
-                <UserIcon className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                <span>Customer</span>
-              </div>
-              <p className="text-sm font-black text-stone-900 dark:text-stone-100 truncate">
-                {order.customerName || (isOnline ? 'Online Customer' : 'Walk-in Guest')}
-              </p>
-              {order.customerPhone && (
-                <div className="flex items-center gap-1 text-xs text-stone-600 dark:text-stone-400">
-                  <Phone className="h-3 w-3 text-stone-400" />
-                  <span>{order.customerPhone}</span>
-                </div>
-              )}
-              {order.deliveryAddress && (
-                <div className="flex items-start gap-1 text-xs text-stone-600 dark:text-stone-400 pt-0.5">
-                  <MapPin className="h-3 w-3 text-stone-400 shrink-0 mt-0.5" />
-                  <span className="line-clamp-2">{order.deliveryAddress}</span>
-                </div>
-              )}
-              {order.guestCount && (
-                <div className="text-[11px] font-semibold text-amber-800 dark:text-amber-400">
-                  👥 {order.guestCount} Guest{order.guestCount > 1 ? 's' : ''}
-                </div>
-              )}
-            </div>
-
-            {/* Service & Staff Card */}
-            <div className="rounded-2xl border border-stone-200 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-850 p-3 sm:p-3.5 space-y-1.5">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
-                <Store className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                <span>Service / Staff</span>
-              </div>
-              <p className="text-sm font-black text-stone-900 dark:text-stone-100 truncate">
-                {order.cashierName || 'Staff Member'}
-              </p>
-              <div className="text-xs text-stone-600 dark:text-stone-400">
-                {order.tableNumber ? (
-                  <span>
-                    Table: <strong className="text-stone-900 dark:text-stone-200">#{order.tableNumber}</strong>{' '}
-                    {matchedTable?.areaName ? `(${matchedTable.areaName})` : ''}
-                  </span>
-                ) : (
-                  <span>Counter / Take-Away</span>
-                )}
-              </div>
-              <div className="text-[11px] text-stone-500 dark:text-stone-400 capitalize">
-                Type: {order.orderType.replace('_', ' ')}
-              </div>
-              {order.orderClassification && (
-                <div className="text-[11px] font-bold text-indigo-700 dark:text-indigo-400">
-                  {order.orderClassification === 'live_in_house' ? '🏠 Live In-House' : '📅 Advance Booking'}
-                </div>
-              )}
-            </div>
-
-            {/* Timeline & Durations Card */}
-            <div
-              className={`rounded-2xl border p-3 sm:p-3.5 space-y-2.5 transition ${
-                isOverdue
-                  ? 'border-red-500 bg-red-50/70 dark:bg-red-950/40 text-red-950 dark:text-red-100 ring-2 ring-red-500/30'
-                  : isPriority
-                  ? 'border-rose-400 bg-rose-50/70 dark:bg-rose-950/40 text-rose-950 dark:text-rose-100 ring-2 ring-rose-500/25'
-                  : isReminder
-                  ? 'border-amber-400 bg-amber-50/70 dark:bg-amber-950/40 text-amber-950 dark:text-amber-100 ring-1 ring-amber-500/25'
-                  : 'border-stone-200 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-850'
-              }`}
-            >
-              <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
-                <span className="flex items-center gap-1.5">
-                  {isOverdue ? (
-                    <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 stroke-[2.8]" />
-                  ) : isPriority ? (
-                    <Flame className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-                  ) : (
-                    <Timer className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                  )}
-                  <span>Wait Timer</span>
-                </span>
-                <div className="flex items-center gap-1.5">
-                  {isActive && (
-                    <span
-                      className={`rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${
-                        isOverdue
-                          ? 'bg-red-600 text-white animate-pulse'
-                          : isPriority
-                          ? 'bg-rose-600 text-white'
-                          : isReminder
-                          ? 'bg-amber-400 text-stone-950'
-                          : 'bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300'
-                      }`}
-                    >
-                      {isOverdue
-                        ? 'Overdue (40m Max)'
-                        : isPriority
-                        ? 'Priority (30m+)'
-                        : isReminder
-                        ? 'Reminder (15m+)'
-                        : 'Normal Wait'}
-                    </span>
-                  )}
-                  <span className="font-mono text-xs font-black text-stone-900 dark:text-stone-100">
-                    {formatDuration(totalWaitMs)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Threshold Milestone Tracker */}
-              {isActive && (
-                <div className="space-y-1 pt-1.5 border-t border-stone-200/80 dark:border-stone-700/80">
-                  <div className="flex justify-between text-[8px] sm:text-[9px] font-extrabold uppercase tracking-wide text-stone-500 dark:text-stone-400">
-                    <span>0m</span>
-                    <span
-                      className={
-                        totalWaitMs >= 15 * 60 * 1000
-                          ? 'text-amber-700 dark:text-amber-400 font-black'
-                          : ''
-                      }
-                    >
-                      15m Reminder (Yellow)
-                    </span>
-                    <span
-                      className={
-                        totalWaitMs >= 30 * 60 * 1000
-                          ? 'text-rose-700 dark:text-rose-400 font-black'
-                          : ''
-                      }
-                    >
-                      30m Priority (Red)
-                    </span>
-                    <span
-                      className={
-                        totalWaitMs >= 40 * 60 * 1000
-                          ? 'text-red-700 dark:text-red-400 font-black animate-pulse'
-                          : ''
-                      }
-                    >
-                      40m Max Overdue
-                    </span>
-                  </div>
-                  {/* Progress Bar (capped at 40m max) */}
-                  <div className="h-2 w-full rounded-full bg-stone-200 dark:bg-stone-700 overflow-hidden flex">
-                    {/* Segment 1: 0 - 15m (37.5%) */}
-                    <div className="w-[37.5%] h-full bg-stone-300 dark:bg-stone-650 relative border-r border-white dark:border-stone-900">
-                      <div
-                        className="h-full bg-emerald-500"
-                        style={{ width: `${Math.min(100, (totalWaitMs / (15 * 60 * 1000)) * 100)}%` }}
-                      />
-                    </div>
-                    {/* Segment 2: 15 - 30m (37.5%) */}
-                    <div className="w-[37.5%] h-full bg-stone-300 dark:bg-stone-650 relative border-r border-white dark:border-stone-900">
-                      <div
-                        className="h-full bg-amber-400"
-                        style={{
-                          width: `${Math.max(
-                            0,
-                            Math.min(100, ((totalWaitMs - 15 * 60 * 1000) / (15 * 60 * 1000)) * 100)
-                          )}%`,
-                        }}
-                      />
-                    </div>
-                    {/* Segment 3: 30 - 40m (25%) */}
-                    <div className="w-[25%] h-full bg-stone-300 dark:bg-stone-650 relative">
-                      <div
-                        className={`h-full ${isOverdue ? 'bg-red-600 animate-pulse' : 'bg-rose-500'}`}
-                        style={{
-                          width: `${Math.max(
-                            0,
-                            Math.min(100, ((totalWaitMs - 30 * 60 * 1000) / (10 * 60 * 1000)) * 100)
-                          )}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-1 text-[11px] text-stone-600 dark:text-stone-400 pt-1 border-t border-stone-200/60 dark:border-stone-800">
-                <div className="flex justify-between">
-                  <span>Ordered:</span>
-                  <span className="font-medium text-stone-900 dark:text-stone-200">
-                    {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-                {order.confirmedAt && (
-                  <div className="flex justify-between">
-                    <span>Confirmed:</span>
-                    <span className="font-medium text-stone-900 dark:text-stone-200">
-                      {new Date(order.confirmedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                )}
-                {order.processingStartedAt && (
-                  <div className="flex justify-between">
-                    <span>Prep Started:</span>
-                    <span className="font-medium text-stone-900 dark:text-stone-200">
-                      {new Date(order.processingStartedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                )}
-                {order.readyToServeAt && (
-                  <div className="flex justify-between text-emerald-700 dark:text-emerald-400 font-semibold">
-                    <span>Served:</span>
-                    <span>
-                      {new Date(order.readyToServeAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                )}
-                {order.completedAt && (
-                  <div className="flex justify-between text-stone-900 dark:text-stone-200 font-bold">
-                    <span>Completed:</span>
-                    <span>
-                      {new Date(order.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Advance Booking Reservation Section if present */}
-          {order.advanceBooking && (
-            <div className="rounded-2xl border border-amber-300 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/40 p-3 sm:p-4 text-amber-950 dark:text-amber-200 space-y-2">
-              <div className="flex items-center justify-between">
-                <h4 className="flex items-center gap-1.5 text-xs sm:text-sm font-extrabold uppercase tracking-wide">
-                  <Calendar className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                  <span>Advance Table Booking Details</span>
-                </h4>
-                <span className="rounded-full bg-amber-200 dark:bg-amber-900/80 px-2 py-0.5 text-[10px] font-black">
-                  Scheduled
-                </span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                <div>
-                  <span className="text-[10px] text-stone-500 dark:text-stone-400 block font-bold">Booking Date</span>
-                  <span className="font-bold">{order.advanceBooking.bookingDate}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-stone-500 dark:text-stone-400 block font-bold">Arrival Time</span>
-                  <span className="font-bold">{order.advanceBooking.arrivalTime}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-stone-500 dark:text-stone-400 block font-bold">Party Size</span>
-                  <span className="font-bold">👥 {order.advanceBooking.partySize} Guests</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-stone-500 dark:text-stone-400 block font-bold">Seating</span>
-                  <span className="font-bold capitalize">{order.advanceBooking.seatingPreference?.replace('_', ' ') || 'Any Area'}</span>
-                </div>
-              </div>
-              {order.advanceBooking.specialRequests && (
-                <p className="text-xs italic bg-white/70 dark:bg-stone-900/70 p-2 rounded-xl border border-amber-200/80 dark:border-amber-900/60 text-amber-900 dark:text-amber-200">
-                  Special Request: "{order.advanceBooking.specialRequests}"
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Order Items Table Section with Live Checkboxes */}
-          <div className="rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 overflow-hidden shadow-xs">
-            <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-850 px-4 py-2.5">
-              <div className="flex items-center gap-2">
-                <span className="text-xs sm:text-sm font-black text-stone-900 dark:text-stone-100">
-                  Ordered Items ({order.items.reduce((acc, it) => acc + it.quantity, 0)})
-                </span>
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-black transition-colors ${
-                    allItemsServed
-                      ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300/80 dark:border-emerald-800/80'
-                      : servedCount > 0
-                      ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300 border border-amber-300/70 dark:border-amber-800/60'
-                      : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300'
-                  }`}
-                >
-                  {servedCount}/{order.items.length} served
-                </span>
-              </div>
-
-              {order.items.length > 1 && !isToConfirm && !isCancelled && !isHideCheckboxes && (
-                <button
-                  type="button"
-                  onClick={() => onToggleAllServed(order.id, !allItemsServed)}
-                  className="flex items-center gap-1 text-xs font-bold text-amber-800 dark:text-amber-400 hover:text-amber-950 dark:hover:text-amber-300 underline underline-offset-2 transition cursor-pointer"
-                  title={allItemsServed ? 'Mark all items as unserved' : 'Mark all items as served'}
-                >
-                  {allItemsServed ? (
-                    <>
-                      <Square className="h-3.5 w-3.5" />
-                      <span>Unserve all items</span>
-                    </>
-                  ) : (
-                    <>
-                      <CheckSquare className="h-3.5 w-3.5" />
-                      <span>Serve all items</span>
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-
-            <div className="divide-y divide-stone-100 dark:divide-stone-800">
-              {order.items.map((item, idx) => {
-                const isDrink = isDrinkOrderItem(item, menuItems);
-                const isDimmed = (isBarista && !isDrink) || (isCook && isDrink);
-                const isServed = Boolean(item.isServed);
-                const variantName =
-                  typeof item.selectedVariant === 'string'
-                    ? item.selectedVariant
-                    : item.selectedVariant?.name;
-
-                return (
-                  <div
-                    key={idx}
-                    className={`flex items-start gap-3 p-3 sm:p-4 transition-colors ${
-                      isServed
-                        ? 'bg-emerald-50/50 dark:bg-emerald-950/20'
-                        : isDimmed
-                        ? 'opacity-40 bg-stone-50/40 dark:bg-stone-900/40'
-                        : 'hover:bg-stone-50/60 dark:hover:bg-stone-800/40'
+                  {/* Channel badge */}
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-md px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wide shrink-0 ${
+                      isOnline
+                        ? 'bg-indigo-100 dark:bg-indigo-950/80 text-indigo-950 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800'
+                        : 'bg-amber-100 dark:bg-amber-950/80 text-amber-950 dark:text-amber-300 border border-amber-400 dark:border-amber-800'
                     }`}
                   >
-                    {/* Served Checkbox (Hidden when ticket is served & paid or completed) */}
-                    {!isHideCheckboxes && (
-                      <button
-                        type="button"
-                        disabled={isToConfirm || isCancelled}
-                        onClick={() => onToggleItemServed(order.id, idx)}
-                        title={
-                          isCancelled
-                            ? 'Order is cancelled'
-                            : isToConfirm
-                            ? 'Confirm order first before marking items as served'
-                            : isServed
-                            ? 'Served (Click to mark unserved)'
-                            : 'Click to mark item as served'
-                        }
-                        aria-label={`Mark ${item.name} as ${isServed ? 'unserved' : 'served'}`}
-                        className={`mt-0.5 shrink-0 h-5 w-5 rounded-lg flex items-center justify-center transition-all border ${
-                          isToConfirm || isCancelled
-                            ? 'opacity-40 cursor-not-allowed border-stone-200 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 text-transparent'
-                            : isServed
-                            ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs cursor-pointer'
-                            : 'border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-transparent cursor-pointer'
-                        }`}
-                      >
-                        {isServed ? (
-                          <Check className="h-3.5 w-3.5 stroke-[3]" />
-                        ) : (
-                          <Check className="h-3 w-3 opacity-0 text-stone-500" />
-                        )}
-                      </button>
+                    {isOnline ? (
+                      <>
+                        <Globe className="h-2.5 w-2.5 sm:h-3 sm:w-3 stroke-[2.4]" />
+                        <span>Online</span>
+                      </>
+                    ) : (
+                      <>
+                        <Store className="h-2.5 w-2.5 sm:h-3 sm:w-3 stroke-[2.4]" />
+                        <span>In-Store</span>
+                      </>
                     )}
+                  </span>
 
-                    {/* Quantity pill */}
+                  {/* Order Type badge */}
+                  <span className="rounded-md bg-stone-200/80 dark:bg-stone-800 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-bold text-stone-800 dark:text-stone-200 capitalize shrink-0">
+                    {order.orderType.replace('_', ' ')}
+                  </span>
+
+                  {/* Table Badge if applicable */}
+                  {order.tableNumber && (
+                    <span className="rounded-md bg-amber-500/20 text-amber-950 dark:text-amber-200 border border-amber-400/50 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black shrink-0">
+                      Table #{order.tableNumber}{' '}
+                      {matchedTable?.areaName ? `(${matchedTable.areaName})` : ''}
+                    </span>
+                  )}
+
+                  {/* Ticket Timer Status Badge */}
+                  {!isCompleted && !isCancelled && (
                     <span
-                      className={`font-mono text-xs font-black px-2 py-0.5 rounded-md shrink-0 ${
-                        isServed
-                          ? 'bg-stone-200/70 text-stone-500 dark:bg-stone-800 dark:text-stone-400'
-                          : 'bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                      title={
+                        isOverdue
+                          ? `Overdue: ${formatDuration(totalWaitDurationMs)} (40 mins max reached)`
+                          : isPriority
+                          ? `Priority: ${formatDuration(totalWaitDurationMs)} (exceeded 30 mins)`
+                          : isReminder
+                          ? `Reminder: ${formatDuration(totalWaitDurationMs)} (exceeded 15 mins)`
+                          : `Wait timer: ${formatDuration(totalWaitDurationMs)}`
+                      }
+                      className={`inline-flex items-center gap-1 rounded-md px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wide shrink-0 ${
+                        isOverdue
+                          ? 'bg-red-600 text-white animate-pulse shadow-xs ring-1 ring-red-700'
+                          : isPriority
+                          ? 'bg-rose-600 text-white shadow-xs'
+                          : isReminder
+                          ? 'bg-amber-400 dark:bg-amber-500 text-stone-950 shadow-xs'
+                          : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700'
                       }`}
                     >
-                      {item.quantity}x
-                    </span>
-
-                    {/* Item details */}
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span
-                          className={`text-xs sm:text-sm font-bold ${
-                            isServed
-                              ? 'line-through text-stone-400 dark:text-stone-500'
-                              : 'text-stone-900 dark:text-stone-100'
-                          }`}
-                        >
-                          {item.name}
+                      {isOverdue ? (
+                        <>
+                          <AlertTriangle className="h-2.5 w-2.5 sm:h-3 sm:w-3 stroke-[2.8]" />
+                          <span>Overdue</span>
+                        </>
+                      ) : isPriority ? (
+                        <>
+                          <Flame className="h-2.5 w-2.5 sm:h-3 sm:w-3 stroke-[2.5]" />
+                          <span>Priority</span>
+                        </>
+                      ) : isReminder ? (
+                        <>
+                          <Timer className="h-2.5 w-2.5 sm:h-3 sm:w-3 stroke-[2.5]" />
+                          <span>Reminder</span>
+                        </>
+                      ) : (
+                        <>
+                          <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                          <span>{formatDuration(totalWaitDurationMs)}</span>
+                        </>
+                      )}
+                      {(isOverdue || isPriority || isReminder) && (
+                        <span className="font-mono text-[9px] sm:text-[10px] opacity-95">
+                          {formatDuration(totalWaitDurationMs)}
                         </span>
+                      )}
+                    </span>
+                  )}
+                </div>
 
-                        {variantName && (
-                          <span className="rounded bg-stone-100 dark:bg-stone-800 px-1.5 py-0.2 text-[9px] font-extrabold uppercase text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700">
-                            {variantName}
-                          </span>
-                        )}
+                <div className="flex items-center gap-1 shrink-0">
+                  {renderPaymentBadge()}
+                </div>
+              </div>
 
-                        {/* Station Pill */}
-                        {isDrink ? (
-                          <span className="inline-flex items-center gap-1 rounded bg-amber-100 dark:bg-amber-950/80 text-amber-950 dark:text-amber-300 px-1.5 py-0.5 text-[9px] font-black border border-amber-300 dark:border-amber-800">
-                            <Coffee className="h-2.5 w-2.5 text-amber-700 dark:text-amber-400" />
-                            <span>Bar</span>
+              {/* Time Spent & State Indicator Banner */}
+              <div className="mt-2.5 sm:mt-3">
+                {/* Customer Cancellation Requested Alert Banner */}
+                {order.cancellationRequested && !isCancelled && (
+                  <div className="mb-2.5 rounded-xl sm:rounded-2xl border-2 border-rose-400 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/60 p-2.5 sm:p-3 text-rose-950 dark:text-rose-200 shadow-xs animate-in fade-in-0 duration-150">
+                    <div className="flex items-start justify-between gap-1.5">
+                      <div className="flex items-start gap-1.5 min-w-0">
+                        <div className="grid h-6 w-6 place-items-center rounded-lg bg-rose-600 text-white shrink-0 animate-pulse mt-0.5">
+                          <AlertCircle className="h-3.5 w-3.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[10px] sm:text-xs font-black uppercase tracking-wide text-rose-900 dark:text-rose-300 block">
+                            Customer Requested Cancellation
                           </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-950 dark:text-emerald-300 px-1.5 py-0.5 text-[9px] font-black border border-emerald-300 dark:border-emerald-800">
-                            <Utensils className="h-2.5 w-2.5 text-emerald-700 dark:text-emerald-400" />
-                            <span>Kitchen</span>
-                          </span>
-                        )}
-
-                        {/* Served Badge */}
-                        {isServed && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 px-2 py-0.2 text-[9px] font-black uppercase tracking-wider border border-emerald-300 dark:border-emerald-800">
-                            <Check className="h-2.5 w-2.5 stroke-[3]" />
-                            <span>Served</span>
-                          </span>
-                        )}
+                          <p className="text-[10px] sm:text-[11px] font-semibold text-rose-800 dark:text-rose-400 leading-tight mt-0.5">
+                            Reason: {order.cancellationReason || 'Customer requested'}
+                            {order.cancellationNotes ? ` — "${order.cancellationNotes}"` : ''}
+                          </p>
+                        </div>
                       </div>
-
-                      {item.specialInstructions && (
-                        <p
-                          className={`text-[11px] italic font-medium ${
-                            isServed ? 'text-stone-400 line-through' : 'text-amber-800 dark:text-amber-400'
-                          }`}
-                        >
-                          Note: "{item.specialInstructions}"
-                        </p>
-                      )}
-
-                      {isServed && item.servedAt && (
-                        <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">
-                          Served at {new Date(item.servedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          {item.servedBy ? ` • By ${item.servedBy}` : ''}
-                        </p>
-                      )}
                     </div>
+                    {/* Quick Action Buttons for Cancellation */}
+                    {!isBarista && !isCook && (
+                      <div className="mt-2 flex items-center gap-2 pt-2 border-t border-rose-200 dark:border-rose-800/80">
+                        <button
+                          type="button"
+                          onClick={() => onApproveCancellation(order)}
+                          className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white py-1.5 px-2.5 text-[10px] sm:text-xs font-black transition active:scale-95 cursor-pointer shadow-2xs"
+                          title="Approve customer cancellation and void ticket"
+                        >
+                          <Check className="h-3 w-3 stroke-[3]" />
+                          <span>Approve &amp; Void</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onDeclineCancellation(order)}
+                          className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 hover:bg-stone-100 dark:hover:bg-stone-750 text-stone-800 dark:text-stone-200 py-1.5 px-2.5 text-[10px] sm:text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs"
+                          title="Decline request and notify customer"
+                        >
+                          <X className="h-3 w-3" />
+                          <span>Decline Request</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-                    {/* Price column */}
-                    <div className="text-right shrink-0">
+                {isToConfirm && (
+                  <div className="space-y-1.5 sm:space-y-2">
+                    {order.returnReason && (
+                      <div className="rounded-xl sm:rounded-2xl p-2 sm:p-2.5 border bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-200 flex items-start gap-1.5 shadow-2xs">
+                        <div className="grid h-5 w-5 sm:h-6 sm:w-6 place-items-center rounded-md sm:rounded-lg bg-amber-500 text-stone-950 shrink-0 mt-0.5">
+                          <Undo2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                        </div>
+                        <div className="min-w-0 text-[10px] sm:text-xs flex-1">
+                          <span className="font-extrabold text-amber-900 dark:text-amber-300 block uppercase text-[9px] sm:text-[10px]">
+                            Returned to Cashier
+                          </span>
+                          <p className="text-amber-800 dark:text-amber-400 text-[10px] sm:text-[11px] font-medium mt-0.5 line-clamp-2">
+                            "{order.returnReason}"
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    <div className="rounded-xl sm:rounded-2xl p-2 sm:p-2.5 border bg-rose-50/80 dark:bg-rose-950/60 border-rose-200 dark:border-rose-800 text-rose-950 dark:text-rose-200 flex items-center justify-between gap-1.5 shadow-2xs">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <div className="grid h-5 w-5 sm:h-7 sm:w-7 place-items-center rounded-lg sm:rounded-xl bg-rose-600 text-white shrink-0 animate-pulse">
+                          <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wide text-rose-900 dark:text-rose-300 block truncate">
+                            Self-Order
+                          </span>
+                          <span className="text-[9px] sm:text-[11px] font-medium text-rose-800 dark:text-rose-400 block truncate">
+                            Review needed
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right text-[10px] sm:text-xs font-mono font-bold text-rose-900 dark:text-rose-300 shrink-0">
+                        {formatDuration(pendingDurationMs)}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {isToPrep && (
+                  <div
+                    className={`rounded-xl sm:rounded-2xl p-2 sm:p-2.5 border flex items-center justify-between gap-1.5 shadow-2xs ${
+                      isOverdue
+                        ? 'bg-red-100 dark:bg-red-950/80 border-red-500 text-red-950 dark:text-red-100'
+                        : isPriority
+                        ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-400 dark:border-rose-800 text-rose-950 dark:text-rose-200'
+                        : isReminder
+                        ? 'bg-amber-100 dark:bg-amber-950/80 border-amber-400 dark:border-amber-700 text-amber-950 dark:text-amber-200'
+                        : 'bg-amber-50/70 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800/80 text-amber-950 dark:text-amber-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
                       <div
-                        className={`font-mono text-xs sm:text-sm font-extrabold ${
-                          isServed ? 'line-through text-stone-400' : 'text-stone-900 dark:text-stone-100'
+                        className={`grid h-5 w-5 sm:h-7 sm:w-7 place-items-center rounded-lg sm:rounded-xl shrink-0 ${
+                          isOverdue
+                            ? 'bg-red-600 text-white animate-bounce'
+                            : isPriority
+                            ? 'bg-rose-600 text-white animate-bounce'
+                            : isReminder
+                            ? 'bg-amber-500 text-stone-950 animate-pulse'
+                            : 'bg-amber-400 text-stone-950'
                         }`}
                       >
-                        ₱{(item.totalPrice || item.unitPrice * item.quantity).toFixed(2)}
+                        {isOverdue ? (
+                          <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4 stroke-[2.8]" />
+                        ) : isPriority ? (
+                          <Flame className="h-3 w-3 sm:h-4 sm:w-4" />
+                        ) : (
+                          <Timer className="h-3 w-3 sm:h-4 sm:w-4" />
+                        )}
                       </div>
-                      {item.quantity > 1 && (
-                        <div className="text-[10px] text-stone-400 dark:text-stone-500 font-mono">
-                          ₱{item.unitPrice.toFixed(2)} ea
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1">
+                          <span
+                            className={`text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wide truncate ${
+                              isOverdue
+                                ? 'text-red-900 dark:text-red-300'
+                                : isPriority
+                                ? 'text-rose-900 dark:text-rose-300'
+                                : 'text-amber-900 dark:text-amber-300'
+                            }`}
+                          >
+                            {isOverdue
+                              ? 'Overdue (40m Max Exceeded)'
+                              : isPriority
+                              ? 'Priority (30m+ Wait)'
+                              : isReminder
+                              ? 'Reminder (15m+ Wait)'
+                              : 'Ready for Prep'}
+                          </span>
                         </div>
-                      )}
+                        <div className="text-[9px] sm:text-[11px] text-stone-600 dark:text-stone-400 truncate">
+                          {isOverdue
+                            ? 'Exceeded 40m max • Immediate action'
+                            : isPriority
+                            ? 'Exceeded 30m • High priority'
+                            : isReminder
+                            ? 'Exceeded 15m • Prep soon'
+                            : 'Press Start Prep'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <div
+                        className={`font-mono text-[10px] sm:text-xs font-black ${
+                          isOverdue
+                            ? 'text-red-900 dark:text-red-300'
+                            : isPriority
+                            ? 'text-rose-900 dark:text-rose-300'
+                            : 'text-amber-900 dark:text-amber-300'
+                        }`}
+                      >
+                        {formatDuration(pendingDurationMs)}
+                      </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Station Status Overview (Drinks & Kitchen) */}
-          {(breakdown.hasDrinks || breakdown.hasFood) && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {breakdown.hasDrinks && (
-                <div className="rounded-2xl border border-amber-200 dark:border-amber-800/80 bg-amber-50/50 dark:bg-amber-950/30 p-3.5 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-xs font-black text-amber-950 dark:text-amber-200">
-                      <Coffee className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-                      <span>Barista Station ({breakdown.drinkItems.length} Drinks)</span>
-                    </span>
-                    <span className="rounded-full px-2 py-0.5 text-[10px] font-black bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-200 capitalize">
-                      {order.baristaStatus || 'Pending'}
-                    </span>
-                  </div>
-                  {order.baristaCompletedAt && (
-                    <p className="text-[11px] text-amber-800 dark:text-amber-300 font-medium">
-                      ✓ Drinks Ready at {new Date(order.baristaCompletedAt).toLocaleTimeString()} by {order.baristaCompletedBy || 'Barista'}
-                    </p>
-                  )}
-                  {/* Quick Bar Button */}
-                  {isBarista && order.baristaStatus !== 'ready' && !isCancelled && !isToConfirm && (
-                    <button
-                      type="button"
-                      onClick={() => onUpdateBaristaStatus?.(order.id, 'ready')}
-                      className="w-full flex items-center justify-center gap-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 py-1.5 text-xs font-extrabold transition cursor-pointer"
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      <span>Mark Drinks Ready</span>
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {breakdown.hasFood && (
-                <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800/80 bg-emerald-50/50 dark:bg-emerald-950/30 p-3.5 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-xs font-black text-emerald-950 dark:text-emerald-200">
-                      <ChefHat className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
-                      <span>Kitchen Cook Station ({breakdown.foodItems.length} Dishes)</span>
-                    </span>
-                    <span className="rounded-full px-2 py-0.5 text-[10px] font-black bg-emerald-100 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 capitalize">
-                      {order.cookStatus || 'Pending'}
-                    </span>
-                  </div>
-                  {order.cookCompletedAt && (
-                    <p className="text-[11px] text-emerald-800 dark:text-emerald-300 font-medium">
-                      ✓ Kitchen Food Ready at {new Date(order.cookCompletedAt).toLocaleTimeString()} by {order.cookCompletedBy || 'Cook'}
-                    </p>
-                  )}
-                  {/* Quick Cook Button */}
-                  {isCook && order.cookStatus !== 'ready' && !isCancelled && !isToConfirm && (
-                    <button
-                      type="button"
-                      onClick={() => onUpdateCookStatus?.(order.id, 'ready')}
-                      className="w-full flex items-center justify-center gap-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white py-1.5 text-xs font-extrabold transition cursor-pointer"
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      <span>Mark Food Ready</span>
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Cancellation or Void Notes if present */}
-          {isCancelled && (
-            <div className="rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 p-4 text-xs text-rose-950 dark:text-rose-200 space-y-1">
-              <div className="flex items-center gap-1.5 font-bold text-rose-900 dark:text-rose-300">
-                <Ban className="h-4 w-4" />
-                <span>Ticket Cancellation Details</span>
-              </div>
-              <p>Reason: <strong className="font-semibold">{order.cancelReason || 'Not specified'}</strong></p>
-              {order.cancelNotes && <p>Notes: "{order.cancelNotes}"</p>}
-              {order.cancelledBy && <p>Cancelled by: {order.cancelledBy}</p>}
-              {order.cancelledAt && <p>Time: {new Date(order.cancelledAt).toLocaleString()}</p>}
-            </div>
-          )}
-
-          {/* Payment Breakdown & Financials */}
-          <div className="rounded-2xl border border-stone-200 dark:border-stone-800 bg-stone-50/80 dark:bg-stone-850 p-4 space-y-2">
-            <div className="flex items-center justify-between pb-2 border-b border-stone-200 dark:border-stone-800 flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <span className="flex items-center gap-1.5 text-xs font-bold text-stone-700 dark:text-stone-300">
-                  {getPaymentIcon()}
-                  <span className="uppercase">{order.paymentMethod}</span>
-                </span>
-                {order.paymentStatus === 'nyp' ? (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 dark:bg-amber-950/80 border border-amber-400 dark:border-amber-700 px-2 py-0.5 text-[10px] font-black text-amber-950 dark:text-amber-300 uppercase animate-pulse">
-                    ⚠️ Not Yet Paid (NYP)
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-400 dark:border-emerald-700 px-2 py-0.5 text-[10px] font-black text-emerald-950 dark:text-emerald-300 uppercase">
-                    ✓ Paid
-                  </span>
                 )}
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-sm sm:text-base font-black text-amber-900 dark:text-amber-300">
-                  Total: ₱{order.totalAmount.toFixed(2)}
-                </span>
-                {order.paymentStatus === 'nyp' && onReceivePayment && !isCancelled && !isBarista && !isCook && (
-                  <button
-                    type="button"
-                    onClick={() => onReceivePayment(order)}
-                    className="flex items-center gap-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 px-3 py-1 text-xs font-black shadow-xs transition active:scale-95 cursor-pointer"
+
+                {isProcessing && (
+                  <div
+                    className={`rounded-xl sm:rounded-2xl p-2 sm:p-2.5 border space-y-1 shadow-2xs ${
+                      isOverdue
+                        ? 'bg-red-50/90 dark:bg-red-950/70 border-red-400 dark:border-red-700 text-red-950 dark:text-red-200'
+                        : isPriority
+                        ? 'bg-rose-50/80 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-950 dark:text-rose-200'
+                        : isReminder
+                        ? 'bg-amber-50/80 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-200'
+                        : 'bg-sky-50/90 dark:bg-sky-950/60 border-sky-200 dark:border-sky-800 text-sky-950 dark:text-sky-200'
+                    }`}
                   >
-                    <Banknote className="h-3.5 w-3.5" />
-                    <span>Collect</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-stone-600 dark:text-stone-400">
-              <div>
-                <span>Subtotal:</span>{' '}
-                <strong className="text-stone-900 dark:text-stone-200">₱{order.subtotal.toFixed(2)}</strong>
-              </div>
-              {order.discountAmount > 0 && (
-                <div className="text-rose-600 dark:text-rose-400">
-                  <span>Discount:</span>{' '}
-                  <strong>-₱{order.discountAmount.toFixed(2)}</strong>
-                </div>
-              )}
-              <div>
-                <span>Tax ({order.taxRate}%):</span>{' '}
-                <strong className="text-stone-900 dark:text-stone-200">₱{order.taxAmount.toFixed(2)}</strong>
-              </div>
-              {order.paymentMethod === 'cash' && order.amountPaid ? (
-                <div>
-                  <span>Tendered / Change:</span>{' '}
-                  <strong className="text-stone-900 dark:text-stone-200">
-                    ₱{order.amountPaid.toFixed(2)} / ₱{(order.changeAmount || 0).toFixed(2)}
-                  </strong>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </div>
-
-        {/* Modal Bottom Action Controls Bar */}
-        <div className="flex items-center justify-between gap-2 border-t border-stone-200 dark:border-stone-800 bg-stone-50/90 dark:bg-stone-900/90 px-4 sm:px-6 py-3.5 shrink-0 flex-wrap">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 px-4 py-2 text-xs font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-750 transition cursor-pointer"
-            >
-              Close
-            </button>
-            <button
-              type="button"
-              onClick={() => onViewReceipt(order)}
-              className="flex items-center gap-1.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 hover:bg-stone-100 dark:hover:bg-stone-750 px-3.5 py-2 text-xs font-bold text-stone-800 dark:text-stone-200 transition cursor-pointer"
-            >
-              <Printer className="h-3.5 w-3.5 text-stone-600 dark:text-stone-300" />
-              <span>Print Receipt</span>
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* CASHIER / ADMIN ACTIONS */}
-            {!isBarista && !isCook && (
-              <>
-                {order.paymentStatus === 'nyp' && onReceivePayment && !isCancelled && (
-                  <button
-                    type="button"
-                    onClick={() => onReceivePayment(order)}
-                    className="flex items-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 px-4 py-2 text-xs font-black transition cursor-pointer shadow-xs active:scale-95"
-                  >
-                    <Banknote className="h-4 w-4" />
-                    <span>Receive Payment (₱{order.totalAmount.toFixed(2)})</span>
-                  </button>
+                    <div className="flex items-center justify-between text-[10px] sm:text-xs">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span
+                          className={`grid h-4 w-4 sm:h-5 sm:w-5 place-items-center rounded-md text-white shrink-0 ${
+                            isOverdue
+                              ? 'bg-red-600 animate-pulse'
+                              : isPriority
+                              ? 'bg-rose-600'
+                              : 'bg-sky-600 animate-spin'
+                          }`}
+                        >
+                          {isOverdue ? (
+                            <AlertTriangle className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                          ) : (
+                            <ChefHat className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                          )}
+                        </span>
+                        <span
+                          className={`text-[9px] sm:text-[11px] font-bold truncate ${
+                            isOverdue
+                              ? 'text-red-900 dark:text-red-300'
+                              : isPriority
+                              ? 'text-rose-900 dark:text-rose-300'
+                              : 'text-sky-900 dark:text-sky-300'
+                          }`}
+                        >
+                          {isCook ? 'Cooking:' : 'Preparing:'}
+                        </span>
+                        {(isOverdue || isPriority || isReminder) && (
+                          <span
+                            className={`rounded-sm px-1 py-0.2 text-[8px] font-black uppercase ${
+                              isOverdue
+                                ? 'bg-red-600 text-white'
+                                : isPriority
+                                ? 'bg-rose-500 text-white'
+                                : 'bg-amber-400 text-stone-950'
+                            }`}
+                          >
+                            {timerLabel}
+                          </span>
+                        )}
+                      </div>
+                      <span
+                        className={`font-mono text-[10px] sm:text-xs font-black shrink-0 ${
+                          isOverdue
+                            ? 'text-red-800 dark:text-red-300'
+                            : isPriority
+                            ? 'text-rose-800 dark:text-rose-300'
+                            : 'text-sky-800 dark:text-sky-300'
+                        }`}
+                      >
+                        {formatDuration(processingDurationMs)}
+                      </span>
+                    </div>
+                  </div>
                 )}
 
-                {/* 1. TO CONFIRM: Confirm & Prep, Cancel */}
-                {isToConfirm && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => onUpdateStatus(order.id, 'processing')}
-                      className="flex items-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 px-4 py-2 text-xs font-extrabold transition cursor-pointer shadow-xs active:scale-95"
-                    >
-                      <Check className="h-3.5 w-3.5 stroke-[2.5]" />
-                      <span>Confirm &amp; Start Prep</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onOpenCancelModal(order)}
-                      className="flex items-center gap-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 text-rose-700 dark:text-rose-300 px-3.5 py-2 text-xs font-bold transition cursor-pointer"
-                    >
-                      <Ban className="h-3.5 w-3.5" />
-                      <span>Cancel Ticket</span>
-                    </button>
-                  </>
-                )}
-
-                {/* 2. PROCESSING: Serve All, Void */}
-                {(isToPrep || isProcessing) && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => onCompleteAllSections(order.id)}
-                      className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 text-xs font-extrabold transition cursor-pointer shadow-xs active:scale-95"
-                    >
-                      <Check className="h-3.5 w-3.5 stroke-[2.5]" />
-                      <span>Serve All Items</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onOpenVoidModal(order)}
-                      className="flex items-center gap-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 text-rose-700 dark:text-rose-300 px-3.5 py-2 text-xs font-bold transition cursor-pointer"
-                    >
-                      <Ban className="h-3.5 w-3.5" />
-                      <span>Void Ticket</span>
-                    </button>
-                  </>
-                )}
-
-                {/* 3. TO SERVE: Complete Order, Void */}
                 {isToServe && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => onUpdateStatus(order.id, 'completed')}
-                      className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 text-xs font-extrabold transition cursor-pointer shadow-xs active:scale-95"
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      <span>Complete Order</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onOpenVoidModal(order)}
-                      className="flex items-center gap-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 text-rose-700 dark:text-rose-300 px-3.5 py-2 text-xs font-bold transition cursor-pointer"
-                    >
-                      <Ban className="h-3.5 w-3.5" />
-                      <span>Void</span>
-                    </button>
-                  </>
+                  <div className="rounded-xl sm:rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 p-2 sm:p-2.5 text-emerald-950 dark:text-emerald-200 flex items-center justify-between gap-1.5 shadow-xs">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <div className="grid h-5 w-5 sm:h-7 sm:w-7 place-items-center rounded-lg sm:rounded-xl bg-emerald-600 text-white shrink-0">
+                        <Check className="h-3 w-3 sm:h-4 sm:w-4 stroke-[3]" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wide text-emerald-900 dark:text-emerald-300 block truncate">
+                          Served
+                        </span>
+                        <span className="text-[9px] sm:text-[11px] font-medium text-emerald-800 dark:text-emerald-400 block truncate">
+                          All items checked &amp; served
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 font-mono text-[10px] sm:text-xs font-black text-emerald-950 dark:text-emerald-200">
+                      {formatDuration(totalWaitDurationMs)}
+                    </div>
+                  </div>
                 )}
 
-                {/* 4. COMPLETED: Void */}
                 {isCompleted && (
-                  <button
-                    type="button"
-                    onClick={() => onOpenVoidModal(order)}
-                    className="flex items-center gap-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 hover:bg-rose-50 text-stone-700 dark:text-stone-300 px-3.5 py-2 text-xs font-bold transition cursor-pointer"
-                  >
-                    <Ban className="h-3.5 w-3.5 text-rose-500" />
-                    <span>Void</span>
-                  </button>
+                  <div className="rounded-xl sm:rounded-2xl bg-stone-50 dark:bg-stone-800/80 p-2 sm:p-2.5 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 flex items-center justify-between gap-1.5 shadow-2xs">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <div className="grid h-5 w-5 sm:h-6 sm:w-6 place-items-center rounded-md sm:rounded-lg bg-emerald-600 text-white shrink-0">
+                        <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wide text-stone-800 dark:text-stone-200 block truncate">
+                          Completed
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right font-mono text-[10px] sm:text-xs font-bold text-stone-900 dark:text-stone-100 shrink-0">
+                      {formatDuration(totalWaitDurationMs)}
+                    </div>
+                  </div>
                 )}
-              </>
-            )}
 
-            {/* BARISTA ROLE ACTIONS */}
-            {isBarista && (
-              <>
-                {order.baristaStatus === 'to_prep' && (
-                  <button
-                    type="button"
-                    onClick={() => onUpdateBaristaStatus?.(order.id, 'processing')}
-                    className="flex items-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 px-4 py-2 text-xs font-extrabold transition cursor-pointer shadow-xs"
-                  >
-                    <Flame className="h-3.5 w-3.5" />
-                    <span>Start Brewing</span>
-                  </button>
+                {isCancelled && (
+                  <div className="rounded-xl sm:rounded-2xl bg-rose-50/80 dark:bg-rose-950/60 p-2 sm:p-2.5 border border-rose-200 dark:border-rose-800 text-rose-950 dark:text-rose-200 space-y-1 shadow-2xs">
+                    <div className="flex items-center justify-between text-[10px] sm:text-xs font-bold text-rose-900 dark:text-rose-300">
+                      <span className="flex items-center gap-1">
+                        <Ban className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-rose-600 dark:text-rose-400" />
+                        <span>Voided</span>
+                      </span>
+                      <span className="font-mono text-[9px] sm:text-[10px] text-rose-700 dark:text-rose-400">
+                        {formatDuration(totalWaitDurationMs)}
+                      </span>
+                    </div>
+                    {order.cancelReason && (
+                      <div className="text-[9px] sm:text-[11px] font-semibold text-rose-900 dark:text-rose-300 line-clamp-1">
+                        {order.cancelReason}
+                      </div>
+                    )}
+                  </div>
                 )}
-                {order.baristaStatus === 'processing' && (
-                  <button
-                    type="button"
-                    onClick={() => onUpdateBaristaStatus?.(order.id, 'ready')}
-                    className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 text-xs font-extrabold transition cursor-pointer shadow-xs"
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    <span>Drinks Ready</span>
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => onOpenVoidModal(order)}
-                  className="flex items-center gap-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 text-rose-700 dark:text-rose-300 px-3.5 py-2 text-xs font-bold transition cursor-pointer"
-                >
-                  <Ban className="h-3.5 w-3.5" />
-                  <span>Report Issue / Void</span>
-                </button>
-              </>
-            )}
+              </div>
 
-            {/* COOK ROLE ACTIONS */}
-            {isCook && (
-              <>
-                {order.cookStatus === 'to_prep' && (
-                  <button
-                    type="button"
-                    onClick={() => onUpdateCookStatus?.(order.id, 'processing')}
-                    className="flex items-center gap-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 text-xs font-extrabold transition cursor-pointer shadow-xs"
-                  >
-                    <Flame className="h-3.5 w-3.5" />
-                    <span>Start Cooking</span>
-                  </button>
+              {/* Customer & Dining Context */}
+              <div className="mt-2.5 sm:mt-3 space-y-1.5 text-[10px] sm:text-xs">
+                <div className="flex items-center justify-between gap-1">
+                  <div className="flex items-center gap-1.5 font-semibold text-stone-900 dark:text-stone-100 truncate">
+                    <UserIcon className="h-3.5 w-3.5 text-stone-400 shrink-0" />
+                    <span className="truncate">
+                      {order.customerName || (isOnline ? 'Online Guest' : 'Walk-in')}
+                    </span>
+                    {order.customerPhone && (
+                      <span className="text-stone-500 text-[10px] hidden sm:inline">
+                        • {order.customerPhone}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {allItemsServed && (
+                      <span className="rounded-md bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 px-1 sm:px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black text-emerald-900 dark:text-emerald-300 flex items-center gap-0.5">
+                        <Check className="h-2.5 w-2.5 stroke-[3]" />
+                        <span>All Served</span>
+                      </span>
+                    )}
+                    {order.orderClassification === 'live_in_house' || order.tableNumber ? (
+                      <span className="rounded-md bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black text-emerald-950 dark:text-emerald-300 flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                        <span>T#{order.tableNumber || 1}</span>
+                      </span>
+                    ) : (
+                      <span className="rounded-md bg-amber-100 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-800 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black text-amber-950 dark:text-amber-300 uppercase">
+                        Adv
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Optional Delivery Address */}
+                {order.deliveryAddress && (
+                  <div className="flex items-start gap-1 text-[10px] sm:text-[11px] text-stone-600 dark:text-stone-400">
+                    <MapPin className="h-3 w-3 text-stone-400 shrink-0 mt-0.5" />
+                    <span className="line-clamp-1">{order.deliveryAddress}</span>
+                  </div>
                 )}
-                {order.cookStatus === 'processing' && (
-                  <button
-                    type="button"
-                    onClick={() => onUpdateCookStatus?.(order.id, 'ready')}
-                    className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 text-xs font-extrabold transition cursor-pointer shadow-xs"
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    <span>Food Ready</span>
-                  </button>
+
+                {/* If Advance Booking: Show Reservation Details */}
+                {order.advanceBooking && (
+                  <div className="rounded-lg sm:rounded-xl bg-amber-500/10 dark:bg-amber-950/50 border border-amber-200/80 dark:border-amber-800/70 p-2 text-[10px] sm:text-[11px] text-amber-950 dark:text-amber-300 space-y-1">
+                    <div className="flex items-center justify-between font-bold">
+                      <span>📅 {order.advanceBooking.arrivalTime}</span>
+                      <span>👥 {order.advanceBooking.partySize || 2} Guests</span>
+                    </div>
+                    {order.advanceBooking.specialRequests && (
+                      <p className="text-[10px] italic text-amber-800 dark:text-amber-400">
+                        "{order.advanceBooking.specialRequests}"
+                      </p>
+                    )}
+                  </div>
                 )}
-                <button
-                  type="button"
-                  onClick={() => onOpenVoidModal(order)}
-                  className="flex items-center gap-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 text-rose-700 dark:text-rose-300 px-3.5 py-2 text-xs font-bold transition cursor-pointer"
-                >
-                  <Ban className="h-3.5 w-3.5" />
-                  <span>Report Issue / Void</span>
-                </button>
-              </>
-            )}
+              </div>
+
+              {/* Items List with Live Served Checkboxes */}
+              <div className="my-2 sm:my-3 space-y-1.5 border-y border-stone-100 dark:border-stone-800 py-2 sm:py-3 text-[10px] sm:text-xs max-h-60 sm:max-h-72 overflow-y-auto pr-0.5">
+                {/* Header bar for served count & batch toggle */}
+                <div className="flex items-center justify-between pb-1.5 mb-1 border-b border-stone-100/80 dark:border-stone-800/80 text-[10px] sm:text-[11px] text-stone-500 dark:text-stone-400 font-bold">
+                  <span>
+                    Items ({totalUnitsCount}) •{' '}
+                    <strong className="text-stone-800 dark:text-stone-200">
+                      {servedUnitsCount}/{totalUnitsCount} served
+                    </strong>
+                  </span>
+                  {totalUnitsCount > 1 && !isToConfirm && !isCancelled && !isHideCheckboxes && (
+                    <button
+                      type="button"
+                      onClick={() => onToggleAllServed(order.id, !allItemsServed)}
+                      className="flex items-center gap-1 font-bold text-amber-800 dark:text-amber-400 hover:text-amber-950 dark:hover:text-amber-200 transition cursor-pointer"
+                    >
+                      {allItemsServed ? (
+                        <>
+                          <Square className="h-3 w-3" />
+                          <span>Unserve all</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckSquare className="h-3 w-3" />
+                          <span>Serve all</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+
+                {order.items.flatMap((item, itemIdx) => {
+                  const qty = Math.max(1, item.quantity || 1);
+                  const currentServedUnits =
+                    item.servedUnits !== undefined
+                      ? item.servedUnits
+                      : item.isServed
+                      ? qty
+                      : 0;
+                  const unitPrice =
+                    item.unitPrice ||
+                    (item.totalPrice && qty > 0 ? item.totalPrice / qty : 0);
+                  const isDrink = isDrinkOrderItem(item, menuItems);
+                  const isDimmed = (isBarista && !isDrink) || (isCook && isDrink);
+
+                  return Array.from({ length: qty }, (_, u) => {
+                    const isUnitServed = u < currentServedUnits;
+
+                    return (
+                      <div
+                        key={`${itemIdx}-${u}`}
+                        className={`group/item flex items-start gap-2 sm:gap-2.5 py-1.5 px-2 rounded-xl transition-all ${
+                          isUnitServed
+                            ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-900/60'
+                            : isDimmed
+                            ? 'opacity-40 bg-stone-100/50 dark:bg-stone-800/50 border border-transparent'
+                            : 'hover:bg-stone-50 dark:hover:bg-stone-800/50 border border-transparent'
+                        }`}
+                      >
+                        {/* Served Checkbox (Hidden when ticket is served & paid or completed) */}
+                        {!isHideCheckboxes && (
+                          <button
+                            type="button"
+                            disabled={isToConfirm || isCancelled}
+                            onClick={() => onToggleItemServed(order.id, itemIdx, u)}
+                            title={
+                              isCancelled
+                                ? 'Order is cancelled'
+                                : isToConfirm
+                                ? 'Confirm order first before marking items as served'
+                                : isUnitServed
+                                ? 'Served (Click to mark unserved)'
+                                : 'Click to mark item as served'
+                            }
+                            aria-label={`Mark ${item.name} as ${isUnitServed ? 'unserved' : 'served'}`}
+                            className={`mt-0.5 shrink-0 h-6 w-6 sm:h-7 sm:w-7 rounded-xl flex items-center justify-center transition-all border-2 ${
+                              isToConfirm || isCancelled
+                                ? 'opacity-40 cursor-not-allowed border-stone-200 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 text-transparent'
+                                : isUnitServed
+                                ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs cursor-pointer'
+                                : 'border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-transparent cursor-pointer'
+                            }`}
+                          >
+                            {isUnitServed ? (
+                              <Check className="h-4 w-4 stroke-[3]" />
+                            ) : (
+                              <Check className="h-3.5 w-3.5 opacity-0 group-hover/item:opacity-40 text-stone-500 transition-opacity" />
+                            )}
+                          </button>
+                        )}
+
+                        <div className="flex-1 pr-1 min-w-0">
+                          <div className="flex items-center gap-1 font-medium text-stone-800 dark:text-stone-200 flex-wrap">
+                            <span
+                              className={`truncate font-semibold transition-all ${
+                                isUnitServed
+                                  ? 'line-through text-stone-400 dark:text-stone-500'
+                                  : 'text-stone-800 dark:text-stone-200'
+                              }`}
+                            >
+                              {item.name}
+                            </span>
+                            {isDrink ? (
+                              <span className="inline-flex items-center gap-0.5 rounded bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300 px-1 py-0.2 text-[8px] font-bold shrink-0 border border-amber-200 dark:border-amber-800/60">
+                                <Coffee className="h-2 w-2 text-amber-700 dark:text-amber-400" />
+                                <span>Bar</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-0.5 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-900 dark:text-emerald-300 px-1 py-0.2 text-[8px] font-bold shrink-0 border border-emerald-200 dark:border-emerald-800/60">
+                                <Utensils className="h-2 w-2 text-emerald-700 dark:text-emerald-400" />
+                                <span>Kitchen</span>
+                              </span>
+                            )}
+                          </div>
+                          {item.specialInstructions && (
+                            <p
+                              className={`text-[8px] sm:text-[10px] italic ml-1 font-semibold line-clamp-1 transition-colors ${
+                                isUnitServed
+                                  ? 'text-stone-400 dark:text-stone-500 line-through'
+                                  : 'text-amber-700 dark:text-amber-400'
+                              }`}
+                            >
+                              "{item.specialInstructions}"
+                            </p>
+                          )}
+                        </div>
+
+                        <span
+                          className={`font-mono text-stone-600 dark:text-stone-400 shrink-0 text-[10px] sm:text-xs ${
+                            isUnitServed ? 'line-through text-stone-400 dark:text-stone-500' : ''
+                          }`}
+                        >
+                          ₱{unitPrice.toFixed(2)}
+                        </span>
+                      </div>
+                    );
+                  });
+                })}
+              </div>
+
+              {/* Financial & Payment Info */}
+              <div className="flex items-center justify-between text-[10px] sm:text-xs pt-1">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-stone-500 dark:text-stone-400 uppercase font-bold text-[9px] sm:text-[10px] flex items-center gap-1">
+                    {getPaymentIcon()}
+                    <span>{order.paymentMethod}</span>
+                  </span>
+                  {order.paymentStatus === 'nyp' ? (
+                    <span className="rounded bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700 px-1.5 py-0.2 text-[8px] sm:text-[9px] font-black text-amber-900 dark:text-amber-300 uppercase tracking-tight">
+                      NYP
+                    </span>
+                  ) : (
+                    <span className="rounded bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-700 px-1.5 py-0.2 text-[8px] sm:text-[9px] font-black text-emerald-900 dark:text-emerald-300 uppercase tracking-tight">
+                      Paid
+                    </span>
+                  )}
+                </div>
+                <span className="font-mono text-xs sm:text-base font-extrabold text-stone-900 dark:text-stone-100">
+                  ₱{order.totalAmount.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Role-Specific Status Actions */}
+            {(() => {
+              const hasBaristaActions =
+                isBarista &&
+                (order.baristaStatus === 'to_prep' ||
+                  (!order.baristaStatus && (isToPrep || isProcessing)) ||
+                  order.baristaStatus === 'processing' ||
+                  order.baristaStatus === 'ready');
+              const hasCookActions =
+                isCook &&
+                (order.cookStatus === 'to_prep' ||
+                  (!order.cookStatus && (isToPrep || isProcessing)) ||
+                  order.cookStatus === 'processing' ||
+                  order.cookStatus === 'ready');
+              const hasCashierActions =
+                !isBarista &&
+                !isCook &&
+                ((order.paymentStatus === 'nyp' && !isCancelled && onReceivePayment) ||
+                  isToConfirm ||
+                  isToPrep ||
+                  isProcessing ||
+                  isToServe ||
+                  (isCompleted && activeStaff.role === 'admin'));
+
+              if (!hasBaristaActions && !hasCookActions && !hasCashierActions) {
+                return null;
+              }
+
+              return (
+                <div className="mt-3.5 sm:mt-5 pt-3 sm:pt-4 border-t border-stone-100 dark:border-stone-800 flex items-center justify-end gap-1.5 sm:gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 justify-end flex-wrap">
+                    {/* === BARISTA ROLE ACTIONS === */}
+                    {isBarista && (
+                      <>
+                        {(order.baristaStatus === 'to_prep' ||
+                          (!order.baristaStatus && (isToPrep || isProcessing))) && (
+                          <button
+                            type="button"
+                            onClick={() => onUpdateBaristaStatus?.(order.id, 'processing')}
+                            className="flex items-center gap-1 rounded-xl bg-amber-600 hover:bg-amber-500 text-white px-3.5 py-1.5 text-xs font-extrabold transition shadow-xs active:scale-95 cursor-pointer shrink-0"
+                            title="Start preparing drinks at barista bar"
+                          >
+                            <Coffee className="h-3.5 w-3.5" />
+                            <span>Prep Drinks</span>
+                          </button>
+                        )}
+
+                        {order.baristaStatus === 'processing' && (
+                          <button
+                            type="button"
+                            onClick={() => onUpdateBaristaStatus?.(order.id, 'ready')}
+                            className="flex items-center gap-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 text-xs font-extrabold transition shadow-xs active:scale-95 cursor-pointer shrink-0"
+                            title="Complete drinks preparation"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            <span>Drinks Ready</span>
+                          </button>
+                        )}
+
+                        {order.baristaStatus === 'ready' && (
+                          <div className="flex items-center gap-1">
+                            <span className="flex items-center gap-1 rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-1 text-[10px] font-black text-emerald-950 dark:text-emerald-300">
+                              <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400 stroke-[3]" />
+                              <span>Drinks Ready</span>
+                            </span>
+                            {breakdown.hasFood && order.cookStatus !== 'ready' && (
+                              <span className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/60 px-1.5 py-1 text-[9px] font-bold text-amber-950 dark:text-amber-300">
+                                Wait Kitchen
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* === COOK ROLE ACTIONS === */}
+                    {isCook && (
+                      <>
+                        {(order.cookStatus === 'to_prep' ||
+                          (!order.cookStatus && (isToPrep || isProcessing))) && (
+                          <button
+                            type="button"
+                            onClick={() => onUpdateCookStatus?.(order.id, 'processing')}
+                            className="flex items-center gap-1 rounded-xl bg-sky-600 hover:bg-sky-500 text-white px-3.5 py-1.5 text-xs font-extrabold transition shadow-xs active:scale-95 cursor-pointer shrink-0"
+                            title="Start cooking kitchen dishes"
+                          >
+                            <Flame className="h-3.5 w-3.5" />
+                            <span>Prep Food</span>
+                          </button>
+                        )}
+
+                        {order.cookStatus === 'processing' && (
+                          <button
+                            type="button"
+                            onClick={() => onUpdateCookStatus?.(order.id, 'ready')}
+                            className="flex items-center gap-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 text-xs font-extrabold transition shadow-xs active:scale-95 cursor-pointer shrink-0"
+                            title="Complete cooking and mark kitchen food ready"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            <span>Food Ready</span>
+                          </button>
+                        )}
+
+                        {order.cookStatus === 'ready' && (
+                          <div className="flex items-center gap-1">
+                            <span className="flex items-center gap-1 rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-1 text-[10px] font-black text-emerald-950 dark:text-emerald-300">
+                              <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400 stroke-[3]" />
+                              <span>Food Ready</span>
+                            </span>
+                            {breakdown.hasDrinks && order.baristaStatus !== 'ready' && (
+                              <span className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/60 px-1.5 py-1 text-[9px] font-bold text-amber-950 dark:text-amber-300">
+                                Wait Barista
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* === CASHIER & ADMIN ACTIONS === */}
+                    {!isBarista && !isCook && (
+                      <>
+                        {/* NYP Direct Collect Payment Button */}
+                        {order.paymentStatus === 'nyp' && !isCancelled && onReceivePayment && (
+                          <button
+                            type="button"
+                            onClick={() => onReceivePayment(order)}
+                            className="flex items-center gap-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 px-3.5 py-1.5 text-xs font-black transition shadow-xs active:scale-95 cursor-pointer ring-1 ring-amber-600/30 shrink-0"
+                            title={`Collect payment for ticket #${order.orderNumber}`}
+                          >
+                            <Banknote className="h-3.5 w-3.5 shrink-0" />
+                            <span>Collect Payment</span>
+                          </button>
+                        )}
+
+                        {/* 1. TO CONFIRM: Confirm & Prep, Cancel */}
+                        {isToConfirm && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => onUpdateStatus(order.id, 'processing')}
+                              className="flex items-center gap-1 rounded-xl bg-amber-500 hover:bg-amber-400 px-3.5 py-1.5 text-xs font-extrabold text-stone-950 transition shadow-xs active:scale-95 cursor-pointer shrink-0"
+                              title="Confirm order and set to Preparing"
+                            >
+                              <Check className="h-3.5 w-3.5 stroke-[2.5]" />
+                              <span>Confirm &amp; Prep</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onOpenCancelModal(order)}
+                              className="flex items-center gap-1 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 text-rose-700 dark:text-rose-300 px-3 py-1.5 text-xs font-bold transition cursor-pointer shrink-0"
+                              title="Cancel ticket"
+                            >
+                              <Ban className="h-3.5 w-3.5" />
+                              <span>Cancel</span>
+                            </button>
+                          </>
+                        )}
+
+                        {/* 2. TO PREP & PROCESSING: Void only */}
+                        {(isToPrep || isProcessing) && (
+                          <button
+                            type="button"
+                            onClick={() => onOpenVoidModal(order)}
+                            className="flex items-center gap-1 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 text-rose-700 dark:text-rose-300 px-2.5 py-1.5 text-xs font-bold transition cursor-pointer shrink-0"
+                            title="Void ticket"
+                          >
+                            <Ban className="h-3.5 w-3.5" />
+                            <span>Void</span>
+                          </button>
+                        )}
+
+                        {/* 3. SERVED (to_serve): Mark as Completed, Void */}
+                        {isToServe && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => onUpdateStatus(order.id, 'completed')}
+                              className="flex items-center gap-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-3.5 py-1.5 text-xs font-extrabold text-white transition shadow-xs active:scale-95 cursor-pointer shrink-0"
+                              title="All items served — click to finalize/complete order"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              <span>Complete Order</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onOpenVoidModal(order)}
+                              className="flex items-center gap-1 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 text-rose-700 dark:text-rose-300 px-2.5 py-1.5 text-xs font-bold transition cursor-pointer shrink-0"
+                              title="Void ticket"
+                            >
+                              <Ban className="h-3.5 w-3.5" />
+                              <span>Void</span>
+                            </button>
+                          </>
+                        )}
+
+                        {/* 4. COMPLETED: Void option for Admin */}
+                        {isCompleted && activeStaff.role === 'admin' && (
+                          <button
+                            type="button"
+                            onClick={() => onOpenVoidModal(order)}
+                            className="flex items-center gap-1 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 hover:bg-rose-50 text-stone-700 dark:text-stone-300 px-3 py-1.5 text-xs font-bold transition cursor-pointer"
+                            title="Void completed order"
+                          >
+                            <Ban className="h-3.5 w-3.5 text-rose-500" />
+                            <span>Void</span>
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>

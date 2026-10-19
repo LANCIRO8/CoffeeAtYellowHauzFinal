@@ -47,12 +47,13 @@ export const ItemThumbnail: React.FC<ItemThumbnailProps> = ({
 
   // If image is present and has not errored, render <img>
   if (hasImage && imageUrl) {
+    const isCircular = variant === 'circular';
     return (
-      <div className={`relative overflow-hidden ${className}`}>
+      <div className={`relative overflow-hidden ${isCircular ? 'rounded-full' : ''} ${className}`}>
         <img
           src={imageUrl}
           alt={itemName}
-          className={`h-full w-full object-cover ${imageClassName}`}
+          className={`h-full w-full object-cover ${isCircular ? 'rounded-full' : ''} ${imageClassName}`}
           onError={() => setHasError(true)}
         />
         {children}

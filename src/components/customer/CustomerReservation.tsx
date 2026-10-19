@@ -30,6 +30,13 @@ export const CustomerReservation: React.FC<CustomerReservationProps> = ({
   const [activeReservationType, setActiveReservationType] = useState<'tables' | 'venue'>('venue');
   const [confirmedReservation, setConfirmedReservation] = useState<Reservation | null>(null);
 
+  React.useEffect(() => {
+    const unsub = AppStore.subscribe(() => {
+      setTables(AppStore.getTables());
+    });
+    return () => unsub();
+  }, []);
+
   const handleTableClickFromFloorPlan = (table: Table) => {
     setModalTable(table);
   };

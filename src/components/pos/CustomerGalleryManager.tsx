@@ -481,11 +481,11 @@ export const CustomerGalleryManager: React.FC<CustomerGalleryManagerProps> = ({
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-stone-200/70 dark:border-stone-750">
+                <div className="grid grid-cols-3 gap-1 pt-1 border-t border-stone-200/70 dark:border-stone-750">
                   <button
                     type="button"
                     onClick={() => handleOpenUpload(pic.key)}
-                    className="flex items-center justify-center gap-1 rounded-xl bg-stone-900 dark:bg-amber-500 text-white dark:text-stone-950 py-1.5 text-[10.5px] font-bold hover:bg-stone-800 dark:hover:bg-amber-400 transition cursor-pointer active:scale-95"
+                    className="flex items-center justify-center gap-1 rounded-xl bg-stone-900 dark:bg-amber-500 text-white dark:text-stone-950 py-1.5 text-[10px] font-bold hover:bg-stone-800 dark:hover:bg-amber-400 transition cursor-pointer active:scale-95"
                   >
                     <Upload className="h-3 w-3" />
                     <span>Upload</span>
@@ -493,10 +493,24 @@ export const CustomerGalleryManager: React.FC<CustomerGalleryManagerProps> = ({
                   <button
                     type="button"
                     onClick={() => handleOpenPicker(pic.key)}
-                    className="flex items-center justify-center gap-1 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-850 text-stone-800 dark:text-stone-200 py-1.5 text-[10.5px] font-bold hover:bg-stone-100 dark:hover:bg-stone-750 transition cursor-pointer active:scale-95"
+                    className="flex items-center justify-center gap-1 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-850 text-stone-800 dark:text-stone-200 py-1.5 text-[10px] font-bold hover:bg-stone-100 dark:hover:bg-stone-750 transition cursor-pointer active:scale-95"
                   >
                     <Images className="h-3 w-3 text-amber-600 dark:text-amber-400" />
                     <span>Choose</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateGallerySlot(pic.key, pic.defaultUrl)}
+                    disabled={isDef}
+                    className={`flex items-center justify-center gap-1 rounded-xl py-1.5 text-[10px] font-bold transition cursor-pointer active:scale-95 ${
+                      isDef
+                        ? 'border border-stone-200 dark:border-stone-800 text-stone-300 dark:text-stone-600 cursor-not-allowed'
+                        : 'border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 hover:bg-amber-100'
+                    }`}
+                    title={isDef ? 'At default' : 'Reset to default'}
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    <span>Reset</span>
                   </button>
                 </div>
               </div>
@@ -663,79 +677,14 @@ export const CustomerGalleryManager: React.FC<CustomerGalleryManagerProps> = ({
                 </div>
               </div>
 
-              {/* Quick Presets Carousel on the Card */}
-              <div className="px-4 sm:px-5 py-3 border-t border-stone-100 dark:border-stone-800 bg-white dark:bg-stone-900">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
-                    Quick Recommended Presets
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenPicker(slot.key)}
-                    className="text-[11px] font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
-                  >
-                    View All &rarr;
-                  </button>
-                </div>
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-                  {SYSTEM_EXISTING_IMAGES.filter((img) => {
-                    if (slot.key === 'heroFeaturedImage') {
-                      return img.category === 'drinks' || img.recommendedFor.includes('hero');
-                    }
-                    if (slot.key === 'heroFeaturedImage2') {
-                      return img.category === 'areas' || img.recommendedFor.includes('reservation');
-                    }
-                    if (slot.key === 'heroFeaturedImage3') {
-                      return img.category === 'food' || img.recommendedFor.includes('food');
-                    }
-                    if (slot.key === 'heroFeaturedImage4') {
-                      return img.category === 'ambiance' || img.recommendedFor.includes('hero');
-                    }
-                    if (slot.key === 'heroBackground') {
-                      return img.category === 'ambiance' || img.recommendedFor.includes('hero');
-                    }
-                    if (slot.key === 'reservationBanner') {
-                      return img.category === 'areas' || img.recommendedFor.includes('reservation');
-                    }
-                    return img.category === 'ambiance' || img.recommendedFor.includes('hero');
-                  })
-                    .slice(0, 5)
-                    .map((preset) => {
-                      const isSelected = currentUrl === preset.url;
-                      return (
-                        <button
-                          key={preset.id}
-                          type="button"
-                          onClick={() => updateGallerySlot(slot.key, preset.url)}
-                          className={`group shrink-0 flex items-center gap-1.5 px-2 py-1 rounded-xl border text-[11px] font-bold transition cursor-pointer ${
-                            isSelected
-                              ? 'border-amber-500 bg-amber-100/90 dark:bg-amber-950/80 text-amber-950 dark:text-amber-200 ring-1 ring-amber-400'
-                              : 'border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 hover:border-amber-300 dark:hover:border-amber-600 text-stone-700 dark:text-stone-300'
-                          }`}
-                        >
-                          <img
-                            src={preset.url}
-                            alt={preset.title}
-                            className="h-4 w-4 rounded-md object-cover"
-                            onError={(e) => {
-                              (e.currentTarget as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                          <span className="truncate max-w-[100px]">{preset.title.split(' ')[0]}</span>
-                        </button>
-                      );
-                    })}
-                </div>
-              </div>
-
               {/* Action Buttons */}
-              <div className="p-4 sm:p-5 border-t border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-900/80 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
+              <div className="p-4 sm:p-5 border-t border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-900/80 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   {/* Upload Button */}
                   <button
                     type="button"
                     onClick={() => handleOpenUpload(slot.key)}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-stone-900 dark:bg-amber-500 px-3 py-2 text-xs font-extrabold text-white dark:text-stone-950 hover:bg-stone-800 dark:hover:bg-amber-400 transition shadow-2xs cursor-pointer active:scale-95"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-stone-900 dark:bg-amber-500 px-3.5 py-2 text-xs font-extrabold text-white dark:text-stone-950 hover:bg-stone-800 dark:hover:bg-amber-400 transition shadow-2xs cursor-pointer active:scale-95"
                   >
                     <Upload className="h-3.5 w-3.5" />
                     <span>Upload Image</span>
@@ -745,7 +694,7 @@ export const CustomerGalleryManager: React.FC<CustomerGalleryManagerProps> = ({
                   <button
                     type="button"
                     onClick={() => handleOpenPicker(slot.key)}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 px-3 py-2 text-xs font-bold text-stone-800 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-750 transition shadow-2xs cursor-pointer active:scale-95"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 px-3.5 py-2 text-xs font-bold text-stone-800 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-750 transition shadow-2xs cursor-pointer active:scale-95"
                   >
                     <Images className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
                     <span>Choose Existing</span>
@@ -753,16 +702,20 @@ export const CustomerGalleryManager: React.FC<CustomerGalleryManagerProps> = ({
                 </div>
 
                 {/* Reset to Default Button */}
-                {!isDefault && (
-                  <button
-                    type="button"
-                    onClick={() => handleResetSlot(slot)}
-                    className="inline-flex items-center gap-1 rounded-xl p-2 text-xs font-semibold text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 hover:bg-stone-200/60 dark:hover:bg-stone-800 transition cursor-pointer"
-                    title="Reset to default preset"
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" />
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => handleResetSlot(slot)}
+                  disabled={isDefault}
+                  className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition cursor-pointer active:scale-95 ${
+                    isDefault
+                      ? 'border border-stone-200 dark:border-stone-800 text-stone-400 dark:text-stone-600 bg-stone-100/50 dark:bg-stone-850/50 cursor-not-allowed'
+                      : 'border border-amber-300 dark:border-amber-700/80 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 shadow-2xs'
+                  }`}
+                  title={isDefault ? 'Already at default preset' : 'Reset to default preset'}
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span>Reset to Default</span>
+                </button>
               </div>
             </div>
           );

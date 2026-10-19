@@ -811,7 +811,7 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
     return (
       <div
         key={`order-${order.id}`}
-        className="rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-850 dark:bg-stone-800 p-2.5 sm:p-3.5 shadow-2xs hover:border-emerald-300 dark:hover:border-emerald-600/60 transition space-y-2"
+        className="rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-2.5 sm:p-3.5 shadow-2xs hover:border-emerald-300 dark:hover:border-emerald-600/60 transition space-y-2"
       >
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -905,7 +905,7 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
     return (
       <div
         key={`cancellation-req-${order.id}`}
-        className="rounded-xl border-2 border-rose-300 dark:border-rose-900/60 bg-white dark:bg-stone-850 dark:bg-stone-800 p-2.5 sm:p-3.5 shadow-xs space-y-2"
+        className="rounded-xl border-2 border-rose-300 dark:border-rose-900/60 bg-white dark:bg-stone-900 p-2.5 sm:p-3.5 shadow-xs space-y-2"
       >
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -1001,7 +1001,7 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
     return (
       <div
         key={`prepping-order-${order.id}`}
-        className="rounded-xl border border-amber-300 dark:border-amber-700/60 bg-white dark:bg-stone-850 dark:bg-stone-800 p-2.5 sm:p-3.5 shadow-2xs hover:border-amber-400 transition space-y-2.5"
+        className="rounded-xl border border-amber-300 dark:border-amber-700/60 bg-white dark:bg-stone-900 p-2.5 sm:p-3.5 shadow-2xs hover:border-amber-400 transition space-y-2.5"
       >
         {/* Top bar with category & channel badges, and timestamp */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1199,7 +1199,7 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
     return (
       <div
         key={`to-serve-order-${order.id}`}
-        className="rounded-xl border-2 border-emerald-400 dark:border-emerald-600/70 bg-white dark:bg-stone-850 dark:bg-stone-800 p-2.5 sm:p-3.5 shadow-2xs hover:border-emerald-500 transition space-y-2.5 ring-2 ring-emerald-400/10"
+        className="rounded-xl border-2 border-emerald-400 dark:border-emerald-600/70 bg-white dark:bg-stone-900 p-2.5 sm:p-3.5 shadow-2xs hover:border-emerald-500 transition space-y-2.5 ring-2 ring-emerald-400/10"
       >
         {/* Top bar with category & channel badges, and timestamp */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1319,22 +1319,23 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
     return (
       <div
         key={`table-req-${req.id}`}
-        className="rounded-xl border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50/40 dark:bg-indigo-950/30 p-2.5 sm:p-3.5 shadow-2xs space-y-2"
+        id={`table-req-notif-${req.id}`}
+        className="rounded-xl border border-indigo-200 dark:border-indigo-900/50 bg-white dark:bg-stone-900 p-2.5 sm:p-3.5 shadow-2xs space-y-2"
       >
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="inline-flex items-center gap-1 rounded-md bg-indigo-100 dark:bg-indigo-950/70 text-indigo-950 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-700 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
+            <span className="inline-flex items-center gap-1 rounded-md bg-indigo-100 dark:bg-indigo-950/80 text-indigo-950 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
               <Utensils className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
               <span>Table Request</span>
             </span>
-            <span className="rounded-md bg-indigo-200/80 dark:bg-indigo-900/60 text-indigo-950 dark:text-indigo-200 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold">
+            <span className="rounded-md bg-indigo-100 dark:bg-stone-800 text-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-stone-700 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold">
               {req.type === 'change_table' ? 'Transfer Request' : 'Table Request'}
             </span>
           </div>
 
           <div className="flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] text-stone-500 dark:text-stone-400 shrink-0 ml-auto">
             <Clock className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
-            <span className="font-bold text-indigo-900 dark:text-indigo-200 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800/60 px-1.5 py-0.5 rounded">
+            <span className="font-bold text-indigo-900 dark:text-indigo-300 bg-indigo-50 dark:bg-stone-800 border border-indigo-200 dark:border-stone-700 px-1.5 py-0.5 rounded">
               {formatRelativeTime(req.createdAt)}
             </span>
             <span className="text-stone-400 dark:text-stone-500">{formatClockTime(req.createdAt)}</span>
@@ -1357,12 +1358,12 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
         </div>
 
         {req.notes && (
-          <p className="text-[10px] sm:text-xs text-stone-600 dark:text-stone-300 bg-white/80 dark:bg-stone-900/80 rounded-lg p-1.5 border border-indigo-100 dark:border-indigo-900/40">
+          <p className="text-[10px] sm:text-xs text-stone-600 dark:text-stone-300 bg-stone-50 dark:bg-stone-800 rounded-lg p-1.5 border border-indigo-100 dark:border-stone-700">
             Note: {req.notes}
           </p>
         )}
 
-        <div className="flex items-center justify-end pt-1 gap-1.5 border-t border-indigo-100 dark:border-indigo-900/40">
+        <div className="flex items-center justify-end pt-1 gap-1.5 border-t border-indigo-100 dark:border-stone-800">
           <button
             onClick={() => handleDeclineTableRequest(req)}
             className="rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 px-2.5 py-1 text-[10px] sm:text-xs font-bold hover:bg-stone-100 dark:hover:bg-stone-750 transition cursor-pointer"
@@ -1385,22 +1386,23 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
     return (
       <div
         key={`res-${res.id}`}
-        className="rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/40 dark:bg-amber-950/30 p-2.5 sm:p-3.5 shadow-2xs space-y-2"
+        id={`res-notif-${res.id}`}
+        className="rounded-xl border border-amber-200 dark:border-amber-900/50 bg-white dark:bg-stone-900 p-2.5 sm:p-3.5 shadow-2xs space-y-2"
       >
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 dark:bg-amber-950/70 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
+            <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 dark:bg-amber-950/80 text-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800/70 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
               <Calendar className="h-3 w-3 text-amber-800 dark:text-amber-400" />
               <span>Advance Reservation</span>
             </span>
-            <span className="rounded-md bg-amber-200/80 dark:bg-amber-900/60 text-amber-950 dark:text-amber-200 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-mono font-bold">
+            <span className="rounded-md bg-amber-100 dark:bg-stone-800 text-amber-950 dark:text-amber-300 border border-amber-200 dark:border-stone-700 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-mono font-bold">
               #{res.reservationCode}
             </span>
           </div>
 
           <div className="flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] text-stone-500 dark:text-stone-400 shrink-0 ml-auto">
             <Clock className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-            <span className="font-bold text-amber-900 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 px-1.5 py-0.5 rounded">
+            <span className="font-bold text-amber-900 dark:text-amber-300 bg-amber-50 dark:bg-stone-800 border border-amber-200 dark:border-stone-700 px-1.5 py-0.5 rounded">
               {formatRelativeTime(res.createdAt)}
             </span>
             <span className="text-stone-400 dark:text-stone-500">{formatClockTime(res.createdAt)}</span>
@@ -1416,7 +1418,7 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
           </span>
         </div>
 
-        <div className="text-[10px] sm:text-xs text-stone-600 dark:text-stone-300 bg-white/80 dark:bg-stone-900/80 rounded-lg p-1.5 border border-amber-100 dark:border-amber-900/40">
+        <div className="text-[10px] sm:text-xs text-stone-600 dark:text-stone-300 bg-stone-50 dark:bg-stone-800 rounded-lg p-1.5 border border-amber-100 dark:border-stone-700">
           Date & Time:{' '}
           <strong className="text-stone-900 dark:text-stone-100">
             {new Date(res.reservationAt).toLocaleString([], {
@@ -1429,7 +1431,7 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
           {res.notes && <p className="mt-0.5 italic text-stone-600 dark:text-stone-400">Note: "{res.notes}"</p>}
         </div>
 
-        <div className="flex items-center justify-end pt-1 gap-1.5 border-t border-amber-100 dark:border-amber-900/40">
+        <div className="flex items-center justify-end pt-1 gap-1.5 border-t border-amber-100 dark:border-stone-800">
           <button
             onClick={() => handleDeclineReservation(res)}
             className="rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 px-2.5 py-1 text-[10px] sm:text-xs font-bold hover:bg-stone-100 dark:hover:bg-stone-750 transition cursor-pointer"
@@ -1454,11 +1456,12 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
     return (
       <div
         key={`no-stock-${item.id}`}
-        className="rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/30 p-2.5 sm:p-3 shadow-2xs hover:border-rose-300 transition space-y-2"
+        id={`no-stock-notif-${item.id}`}
+        className="rounded-xl border border-rose-200 dark:border-rose-900/50 bg-white dark:bg-stone-900 p-2.5 sm:p-3 shadow-2xs hover:border-rose-300 dark:hover:border-rose-800 transition space-y-2"
       >
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="inline-flex items-center gap-1 rounded-md bg-rose-100 dark:bg-rose-950/70 text-rose-950 dark:text-rose-200 border border-rose-300 dark:border-rose-800 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
+            <span className="inline-flex items-center gap-1 rounded-md bg-rose-100 dark:bg-rose-950/80 text-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
               <Ban className="h-3 w-3 text-rose-600 dark:text-rose-400" />
               <span>Out of Stock</span>
             </span>
@@ -1469,7 +1472,7 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
 
           <div className="flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] text-stone-500 dark:text-stone-400 shrink-0 ml-auto">
             <Clock className="h-3 w-3 text-rose-600 dark:text-rose-400" />
-            <span className="font-bold text-rose-900 dark:text-rose-200 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/60 px-1.5 py-0.5 rounded">
+            <span className="font-bold text-rose-900 dark:text-rose-300 bg-rose-50 dark:bg-stone-800 border border-rose-200 dark:border-stone-700 px-1.5 py-0.5 rounded">
               {formatRelativeTime(alertTime)}
             </span>
           </div>
@@ -1526,22 +1529,23 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
     return (
       <div
         key={`low-stock-${item.id}`}
-        className="rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/40 dark:bg-amber-950/30 p-2.5 sm:p-3 shadow-2xs hover:border-amber-300 transition space-y-2"
+        id={`low-stock-notif-${item.id}`}
+        className="rounded-xl border border-amber-200/80 dark:border-amber-900/50 bg-white dark:bg-stone-900 p-2.5 sm:p-3 shadow-2xs hover:border-amber-300 dark:hover:border-amber-700/60 transition space-y-2"
       >
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 dark:bg-amber-950/70 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
+            <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 dark:bg-amber-950/80 text-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800/70 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
               <AlertTriangle className="h-3 w-3 text-amber-700 dark:text-amber-400" />
               <span>Low Stock Alert</span>
             </span>
-            <span className="rounded-full bg-amber-200 dark:bg-amber-800 border border-amber-400 dark:border-amber-600 px-2 py-0.5 text-[8px] sm:text-[9px] font-black text-amber-950 dark:text-amber-100">
+            <span className="rounded-full bg-amber-200 dark:bg-stone-800 border border-amber-400 dark:border-stone-700 px-2 py-0.5 text-[8px] sm:text-[9px] font-black text-amber-950 dark:text-amber-300">
               {item.quantity} LEFT
             </span>
           </div>
 
           <div className="flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] text-stone-500 dark:text-stone-400 shrink-0 ml-auto">
             <Clock className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-            <span className="font-bold text-amber-900 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 px-1.5 py-0.5 rounded">
+            <span className="font-bold text-amber-900 dark:text-amber-300 bg-amber-50 dark:bg-stone-800 border border-amber-200 dark:border-stone-700 px-1.5 py-0.5 rounded">
               {formatRelativeTime(alertTime)}
             </span>
           </div>
@@ -1603,18 +1607,18 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
       <div
         key={`refill-item-${refill.id}`}
         id={`refill-notif-${refill.id}`}
-        className="rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/30 dark:bg-amber-950/30 p-2.5 sm:p-3 shadow-2xs hover:border-amber-300 transition space-y-2"
+        className="rounded-xl border border-amber-200/80 dark:border-amber-900/50 bg-white dark:bg-stone-900 p-2.5 sm:p-3 shadow-2xs hover:border-amber-300 dark:hover:border-amber-700/60 transition space-y-2"
       >
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
+            <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-800/70 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase">
               <PackagePlus className="h-3 w-3 text-amber-700 dark:text-amber-400" />
               <span>Refill</span>
             </span>
             <h4 className="font-extrabold text-stone-900 dark:text-stone-100 text-xs sm:text-sm truncate">
               {refill.itemName}
             </h4>
-            <span className="rounded-full bg-amber-200/80 dark:bg-amber-900/60 px-1.5 py-0.2 text-[9px] sm:text-[10px] font-black text-amber-950 dark:text-amber-200 shrink-0">
+            <span className="rounded-full bg-amber-200/80 dark:bg-stone-800 border border-amber-300/80 dark:border-stone-700 px-1.5 py-0.2 text-[9px] sm:text-[10px] font-black text-amber-950 dark:text-amber-300 shrink-0">
               +{refill.suggestedQuantity}
             </span>
           </div>
@@ -1631,16 +1635,16 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
         </div>
 
         {hasCustomNotes && (
-          <p className="rounded bg-white/80 dark:bg-stone-900/80 border border-amber-200/70 dark:border-amber-800/60 px-2 py-1 text-[10px] sm:text-[11px] text-amber-950 dark:text-amber-200 italic">
+          <p className="rounded bg-stone-50 dark:bg-stone-800 border border-amber-200/70 dark:border-stone-700 px-2 py-1 text-[10px] sm:text-[11px] text-amber-950 dark:text-amber-200 italic">
             "{refill.notes}"
           </p>
         )}
 
         {/* Action Buttons for Admin */}
-        <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-amber-200/60 dark:border-amber-800/60">
+        <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-amber-200/60 dark:border-stone-800">
           <button
             onClick={() => handleDeclineRefill(refill)}
-            className="rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 px-2.5 py-1 text-[10px] sm:text-xs font-semibold hover:bg-stone-50 dark:hover:bg-stone-750 hover:text-rose-600 transition cursor-pointer"
+            className="rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 px-2.5 py-1 text-[10px] sm:text-xs font-semibold hover:bg-stone-50 dark:hover:bg-stone-700 hover:text-rose-600 transition cursor-pointer"
           >
             Decline
           </button>
@@ -1649,7 +1653,7 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
               setSelectedRefillForReview(refill);
               setIsReviewRefillModalOpen(true);
             }}
-            className="rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-stone-800 text-amber-900 dark:text-amber-200 px-2.5 py-1 text-[10px] sm:text-xs font-semibold hover:bg-amber-50 dark:hover:bg-amber-950/40 transition cursor-pointer"
+            className="rounded-lg border border-amber-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-amber-900 dark:text-amber-300 px-2.5 py-1 text-[10px] sm:text-xs font-semibold hover:bg-amber-50 dark:hover:bg-stone-700 transition cursor-pointer"
           >
             Adjust
           </button>
@@ -2028,21 +2032,21 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
                       return (
                         <div
                           key={`refill-group-${group.staffKey}`}
-                          className="rounded-2xl border border-amber-200 bg-amber-50/20 p-3 sm:p-4 space-y-3 shadow-2xs"
+                          className="rounded-2xl border border-amber-200 dark:border-stone-800 bg-amber-50/20 dark:bg-stone-900 p-3 sm:p-4 space-y-3 shadow-2xs"
                         >
-                          <div className="flex items-center justify-between gap-2 flex-wrap border-b border-amber-200/60 pb-2">
+                          <div className="flex items-center justify-between gap-2 flex-wrap border-b border-amber-200/60 dark:border-stone-800 pb-2">
                             <div className="flex items-center gap-2">
                               <div className="h-7 w-7 rounded-xl bg-stone-900 text-amber-400 flex items-center justify-center font-bold text-xs">
                                 {group.requestedBy.name.charAt(0).toUpperCase()}
                               </div>
                               <div>
-                                <h4 className="font-extrabold text-stone-900 text-xs sm:text-sm flex items-center gap-1.5">
+                                <h4 className="font-extrabold text-stone-900 dark:text-stone-100 text-xs sm:text-sm flex items-center gap-1.5">
                                   <span>{group.requestedBy.name}</span>
-                                  <span className="text-[9px] uppercase font-bold text-stone-500 bg-stone-100 px-1.5 py-0.2 rounded border border-stone-200">
+                                  <span className="text-[9px] uppercase font-bold text-stone-600 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 px-1.5 py-0.2 rounded border border-stone-200 dark:border-stone-700">
                                     {group.requestedBy.role}
                                   </span>
                                 </h4>
-                                <p className="text-[10px] text-stone-500">
+                                <p className="text-[10px] text-stone-500 dark:text-stone-400">
                                   {pendingGroupItems.length} refill item(s) requested • Latest {formatRelativeTime(group.latestDate)}
                                 </p>
                               </div>
@@ -2072,10 +2076,10 @@ export const StaffNotificationCenterModal: React.FC<StaffNotificationCenterModal
           </div>
 
           {/* Clean Footer Bar */}
-          <div className="border-t border-stone-200 bg-stone-50 px-3.5 sm:px-6 py-2 sm:py-2.5 flex items-center justify-end">
+          <div className="border-t border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 px-3.5 sm:px-6 py-2 sm:py-2.5 flex items-center justify-end">
             <button
               onClick={onClose}
-              className="rounded-xl bg-stone-900 text-white px-3.5 sm:px-4 py-1.5 text-[11px] sm:text-xs font-bold hover:bg-stone-800 transition cursor-pointer"
+              className="rounded-xl bg-stone-900 dark:bg-stone-800 text-white px-3.5 sm:px-4 py-1.5 text-[11px] sm:text-xs font-bold hover:bg-stone-800 dark:hover:bg-stone-700 transition cursor-pointer"
             >
               Done
             </button>

@@ -279,9 +279,13 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
 
   // Category map for item subtitles
   const categoryMap = useMemo(() => {
-    const map = new Map<number, string>();
+    const map = new Map<number | string, string>();
     const list = categoriesProp && categoriesProp.length > 0 ? categoriesProp : AppStore.getCategories();
-    list.forEach((cat) => map.set(cat.id, cat.name));
+    list.forEach((cat) => {
+      map.set(cat.id, cat.name);
+      map.set(Number(cat.id), cat.name);
+      map.set(String(cat.id), cat.name);
+    });
     return map;
   }, [categoriesProp]);
 
@@ -413,11 +417,10 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
         <MonsteraPlantCorner className="absolute -bottom-6 -left-6 w-36 h-36 sm:w-48 sm:h-48 z-1 rotate-12" />
 
         <div className="relative z-10 grid gap-4 sm:gap-6 px-4 py-5 sm:px-8 sm:py-9 lg:grid-cols-[1.1fr_.9fr] lg:items-center lg:gap-8">
-          <div>
-            <div className="flex items-center gap-3.5 sm:gap-4.5">
+          <div className="md:grid md:grid-cols-[1.1fr_0.9fr] md:gap-x-6 lg:gap-x-8 md:items-start lg:block">
+            <div className="flex items-center gap-3.5 sm:gap-4.5 md:col-start-1 md:row-start-1">
               {/* Coffee at Yellow Hauz Logo - Enlarged Size */}
               <div className="relative h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24 overflow-hidden rounded-2xl sm:rounded-3xl bg-amber-400 border-2 sm:border-3 border-amber-300/50 shadow-2xl ring-4 ring-amber-500/20 shrink-0 flex items-center justify-center">
-                <Coffee className="h-8 w-8 sm:h-10 sm:w-10 text-stone-950 absolute" />
                 <img
                   src="/images/yellowhauz_logo_outline_black.png"
                   alt="Coffee at Yellow Hauz Logo"
@@ -436,15 +439,15 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
                 </h1>
               </div>
             </div>
-            <p className="mt-2.5 sm:mt-3.5 max-w-lg text-xs sm:text-base leading-snug sm:leading-relaxed text-stone-200 font-medium">
+            <p className="mt-2.5 sm:mt-3.5 max-w-lg text-xs sm:text-base leading-snug sm:leading-relaxed text-stone-200 font-medium md:col-start-1 md:row-start-2 md:mt-2.5 lg:mt-3.5">
               A cozy sanctuary wrapped in warm red brick and lush greenery. Enjoy freshly pulled artisan lattes, slow-crisped pork adobo flakes, and homemade cheesecakes in our airconditioned hall or garden terrace.
             </p>
 
-            <div className="mt-4 sm:mt-6 flex flex-row items-center gap-2.5 sm:gap-3.5">
+            <div className="mt-4 sm:mt-6 md:mt-0 flex flex-row items-center gap-2.5 sm:gap-3.5 md:col-start-2 md:row-start-1 md:self-center lg:col-start-auto lg:row-start-auto lg:mt-6">
               <button
                 id="hero-order-online-btn"
                 onClick={onNavigateMenu}
-                className="inline-flex h-10 sm:h-12 items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 sm:px-6 text-xs sm:text-sm font-black text-stone-950 shadow-lg shadow-amber-500/25 hover:bg-amber-400 transition transform active:scale-95 whitespace-nowrap cursor-pointer"
+                className="inline-flex h-10 sm:h-12 items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 sm:px-5 lg:px-6 text-xs sm:text-sm font-black text-stone-950 shadow-lg shadow-amber-500/25 hover:bg-amber-400 transition transform active:scale-95 whitespace-nowrap cursor-pointer shrink-0"
               >
                 <ShoppingCart className="h-4 w-4 shrink-0 text-stone-950" />
                 <span>View Menu</span>
@@ -452,15 +455,15 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
               <button
                 id="hero-book-table-btn"
                 onClick={onNavigateReservation}
-                className="inline-flex h-10 sm:h-12 items-center justify-center gap-2 rounded-xl bg-stone-900/80 border border-emerald-400/40 backdrop-blur-xs px-4 sm:px-5 text-xs sm:text-sm font-bold text-emerald-300 hover:bg-stone-800 transition cursor-pointer"
+                className="inline-flex h-10 sm:h-12 items-center justify-center gap-2 rounded-xl bg-stone-900/80 border border-emerald-400/40 backdrop-blur-xs px-4 sm:px-5 text-xs sm:text-sm font-bold text-emerald-300 hover:bg-stone-800 transition cursor-pointer whitespace-nowrap shrink-0"
               >
                 <Calendar className="h-4 w-4 shrink-0 text-emerald-400" />
                 <span>Reservation</span>
               </button>
             </div>
 
-            <div className="mt-3.5 sm:mt-6 flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-6 text-[11px] sm:text-xs text-stone-300 font-semibold">
-              <div className="flex items-center gap-1.5">
+            <div className="mt-3.5 sm:mt-6 md:mt-2 flex flex-wrap sm:flex-nowrap md:flex-col md:items-start md:gap-2 lg:flex-row lg:items-center lg:gap-6 text-[11px] sm:text-xs text-stone-300 font-semibold md:col-start-2 md:row-start-2 md:self-start lg:col-start-auto lg:row-start-auto lg:mt-6">
+              <div className="flex items-center gap-1.5 bg-stone-900/40 md:bg-stone-900/50 lg:bg-transparent px-2.5 py-1 md:px-3 md:py-1.5 lg:p-0 rounded-lg border border-white/5 md:border-white/10 lg:border-transparent">
                 <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-400 shrink-0" />
                 <span>Open 7:00 AM - 10:00 PM Daily</span>
               </div>
@@ -468,7 +471,7 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
                 href={settings.google_maps_url || "https://www.google.com/maps/place/Coffee+at+Yellow+Hauz/@7.0757824,125.6066351,17z/data=!3m1!4b1!4m6!3m5!1s0x32f96d74e17f56db:0xc0436864b68e2b5!8m2!3d7.0757824!4d125.6066351!16s%2Fg%2F12qgm_g5g!18m1!1e1?entry=ttu&g_ep=EgoyMDI2MDkyNy4xIKXMDSoASAFQAw%3D%3D"}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-stone-300 hover:text-amber-400 transition"
+                className="flex items-center gap-1.5 text-stone-300 hover:text-amber-400 transition bg-stone-900/40 md:bg-stone-900/50 lg:bg-transparent px-2.5 py-1 md:px-3 md:py-1.5 lg:p-0 rounded-lg border border-white/5 md:border-white/10 lg:border-transparent"
                 title="View on Google Maps"
               >
                 <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-400 shrink-0" />
@@ -1079,7 +1082,7 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
                   className="group relative bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 pt-[124px] sm:pt-[134px] lg:pt-[144px] pb-4 sm:pb-4.5 px-4 sm:px-5 flex flex-col border border-stone-100 cursor-pointer text-center w-full max-w-[310px] sm:max-w-none"
                 >
                   {/* Floating Circular Dish / Plate Overflowing Top of Card */}
-                  <div className="absolute -top-[88px] sm:-top-[96px] lg:-top-[106px] left-1/2 -translate-x-1/2 w-[190px] h-[190px] sm:w-[210px] sm:h-[210px] md:w-[225px] md:h-[225px] lg:w-[240px] lg:h-[240px] rounded-full p-1.5 sm:p-2 bg-white shadow-xl shadow-stone-900/25 border border-stone-200/80 flex items-center justify-center transition-transform duration-300 group-hover:scale-105 group-hover:shadow-2xl">
+                  <div className="absolute -top-[88px] sm:-top-[96px] lg:-top-[106px] left-1/2 -translate-x-1/2 w-[190px] h-[190px] sm:w-[210px] sm:h-[210px] md:w-[225px] md:h-[225px] lg:w-[240px] lg:h-[240px] rounded-full p-1.5 sm:p-2 bg-white shadow-xl shadow-stone-900/25 border border-stone-200/80 flex items-center justify-center transition-transform duration-300 group-hover:scale-105 group-hover:shadow-2xl overflow-hidden">
                     <ItemThumbnail
                       imageUrl={item.imageUrl}
                       itemName={item.name}
@@ -1087,7 +1090,8 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
                       categoryName={categoryMap.get(item.categoryId)}
                       isDrink={item.categoryId >= 9 && item.categoryId <= 17}
                       variant="circular"
-                      className="w-full h-full"
+                      className="w-full h-full rounded-full overflow-hidden"
+                      imageClassName="rounded-full"
                     />
                   </div>
 
@@ -1154,14 +1158,14 @@ export const CustomerHome: React.FC<CustomerHomeProps> = ({
               <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
 
-            <div className="flex items-center gap-2 px-1">
+            <div className="flex items-center gap-1.5 sm:gap-2 px-1 max-w-[260px] sm:max-w-md overflow-x-auto py-1 scrollbar-none">
               {bestSellers.map((_, dotIdx) => (
                 <button
                   key={dotIdx}
                   type="button"
                   onClick={() => scrollBestSellerTo(dotIdx)}
                   aria-label={`Go to item ${dotIdx + 1}`}
-                  className={`rounded-full transition-all duration-300 cursor-pointer ${
+                  className={`rounded-full shrink-0 transition-all duration-300 cursor-pointer ${
                     dotIdx === activeBestSellerIndex
                       ? 'w-3 h-3 bg-amber-400 ring-2 ring-amber-400/40 scale-110'
                       : 'w-2 h-2 sm:w-2.5 sm:h-2.5 bg-white/40 hover:bg-white/70'

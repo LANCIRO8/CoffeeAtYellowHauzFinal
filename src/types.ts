@@ -33,6 +33,7 @@ export interface MenuItem {
   description: string;
   price: number;
   imageUrl?: string;
+  imageRemoved?: boolean;
   temperature: TemperatureType;
   isBestSeller: boolean;
   isAvailable: boolean;
@@ -77,6 +78,14 @@ export interface Table {
   isCombinedCompanion?: boolean;
   primaryTableId?: number;
   combinedGroupName?: string;
+}
+
+export interface FloorArea {
+  id: string; // unique key/slug, e.g. '1st aircon area'
+  name: string; // display name, e.g. '1st Aircon'
+  description?: string;
+  icon?: string;
+  isAircon?: boolean;
 }
 
 export interface CustomerAccount {
@@ -150,6 +159,7 @@ export interface OrderItem {
   isServed?: boolean;
   servedAt?: string;
   servedBy?: string;
+  servedUnits?: number;
 }
 
 export interface AdvanceBookingDetails {

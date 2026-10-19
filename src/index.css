@@ -66,6 +66,9 @@
 
   --color-yellowhauz: #EDE8D0;
 
+  --color-stone-750: #29241e;
+  --color-stone-850: #1a1713;
+
   --font-baskerville: "Libre Baskerville", "Baskervville", Baskerville, "Baskerville Old Face", "Hoefler Text", Garamond, "Times New Roman", serif;
   --font-serif: "Libre Baskerville", "Baskervville", Baskerville, "Baskerville Old Face", "Hoefler Text", Garamond, "Times New Roman", serif;
   --font-sans: "Libre Baskerville", "Baskervville", Baskerville, "Baskerville Old Face", "Hoefler Text", Garamond, "Times New Roman", serif;
@@ -176,9 +179,67 @@ html.dark body {
 /* Card & Surface Overrides for Dark Mode */
 .dark .bg-white,
 .dark .bg-white\/95,
-.dark .bg-white\/90 {
+.dark .bg-white\/90,
+.dark .bg-white\/85,
+.dark .bg-white\/80,
+.dark .bg-white\/75,
+.dark .bg-white\/70 {
   background-color: #201c17 !important;
   color: #f7f3ee !important;
+}
+
+.dark #chart-card-fast-moving div[class*="bg-white"],
+.dark #chart-card-slow-moving div[class*="bg-white"],
+.dark #chart-card-cancellation-reasons div[class*="bg-white"] {
+  background-color: #1a1713 !important;
+  color: #f7f3ee !important;
+}
+
+/* Staff Notification Center Modal in Dark Mode */
+.dark #staff-notification-center-modal,
+.dark div#staff-notification-center-modal {
+  background-color: #161310 !important;
+  border-color: #383127 !important;
+  color: #ede8d0 !important;
+}
+
+.dark #staff-notification-center-modal .bg-amber-50\/40,
+.dark #staff-notification-center-modal .bg-amber-50\/50,
+.dark #staff-notification-center-modal .bg-amber-50\/20,
+.dark #staff-notification-center-modal .bg-rose-50\/40,
+.dark #staff-notification-center-modal .bg-indigo-50\/40,
+.dark #staff-notification-center-modal [id^="refill-notif-"],
+.dark #staff-notification-center-modal div[id*="refill-notif"],
+.dark #staff-notification-center-modal [id^="low-stock-notif-"],
+.dark #staff-notification-center-modal [id^="no-stock-notif-"],
+.dark #staff-notification-center-modal [id^="res-notif-"],
+.dark #staff-notification-center-modal [id^="table-req-notif-"] {
+  background-color: #201c17 !important;
+  border-color: #383127 !important;
+  color: #ede8d0 !important;
+}
+
+.dark #staff-notification-center-modal [id^="refill-notif-"]:hover,
+.dark #staff-notification-center-modal div[id*="refill-notif"]:hover,
+.dark #staff-notification-center-modal [id^="low-stock-notif-"]:hover {
+  border-color: #5c4426 !important;
+}
+
+.dark #staff-notification-center-modal span.rounded-full[class*="bg-amber-200"],
+.dark #staff-notification-center-modal [id^="refill-notif-"] span.rounded-full,
+.dark #staff-notification-center-modal div[id*="refill-notif"] span.rounded-full,
+.dark #staff-notification-center-modal [id^="low-stock-notif-"] span.rounded-full {
+  background-color: #2e261e !important;
+  border-color: #4f3f2a !important;
+  color: #fde68a !important;
+}
+
+.dark #staff-notification-center-modal [id^="refill-notif-"] span.rounded-md:first-child,
+.dark #staff-notification-center-modal div[id*="refill-notif"] span.rounded-md:first-child,
+.dark #staff-notification-center-modal [id^="low-stock-notif-"] span.rounded-md:first-child {
+  background-color: rgba(69, 26, 3, 0.45) !important;
+  border-color: #5c4426 !important;
+  color: #fde68a !important;
 }
 
 .dark .bg-stone-50,
@@ -232,11 +293,11 @@ html.dark body {
    on dark surfaces.
    ========================================================================== */
 .dark {
-  /* In dark mode, ensure text tokens resolve to bright, legible amber/cream */
-  --color-amber-950: #fef3c7;
-  --color-amber-900: #fde68a;
-  --color-amber-800: #fde68a;
-  --color-amber-700: #fcd34d;
+  /* In dark mode, ensure deep dark warm amber-roast accents for surfaces and borders */
+  --color-amber-950: #261f14;
+  --color-amber-900: #3a2e1d;
+  --color-amber-800: #544129;
+  --color-amber-700: #785c37;
 }
 
 /* Backgrounds: Amber 500 converted to deep dark amber in Dark Mode */
